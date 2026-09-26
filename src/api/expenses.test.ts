@@ -49,6 +49,15 @@ describe('addExpense', () => {
     expect(body.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/)
   })
 
+  it('keeps a client_id the caller already named, and passes the source through', async () => {
+    mockedApiFetch.mockResolvedValue({ ok: true, json: async () => ({}) })
+    await addExpense({ item: 'Auto', amount_inr: '240', category: 'Travel', source: 'text', client_id: 'capture:p1:r1' })
+
+    const body = JSON.parse(mockedApiFetch.mock.calls[0][1].body)
+    expect(body.client_id).toBe('capture:p1:r1')
+    expect(body.source).toBe('text')
+  })
+
   it('throws an HttpError carrying the status on a failed response', async () => {
     mockedApiFetch.mockResolvedValue({ ok: false, status: 500 })
     await expect(addExpense({ item: 'Coffee', amount_inr: '150', category: 'Food' })).rejects.toMatchObject({

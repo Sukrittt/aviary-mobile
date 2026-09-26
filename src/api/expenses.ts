@@ -61,8 +61,14 @@ export type NewExpenseRow = {
   date?: string
   notes?: string
   payment_method?: string
-  /** Identifies the manual-entry activation step without persisting UI metadata on the expense. */
-  source?: 'manual' | 'scan'
+  /** Where it came from: 'manual' (the default, server-side), 'scan', or 'text', a row confirmed from the money brain. */
+  source?: 'manual' | 'scan' | 'text'
+  /**
+   * Set only when the caller already has a stable name for this create, like
+   * a money-brain row (`capture:<proposalId>:<rowId>`), so logging the same
+   * proposal again can never insert a second row. Minted fresh otherwise.
+   */
+  client_id?: string
 }
 
 /** The exact body a POST /api/expenses create sends, `client_id` included. */
@@ -80,7 +86,7 @@ export type ExpensePayload = NewExpenseRow & { client_id: string; date: string; 
 export function mintExpensePayload(row: NewExpenseRow): ExpensePayload {
   const now = nowLocal()
   const date = row.date || now.date
-  return { ...row, date, timestamp: `${date}T${now.timestamp.slice(11)}`, client_id: Crypto.randomUUID() }
+  return { ...row, date, timestamp: `${date}T${now.timestamp.slice(11)}`, client_id: row.client_id ?? Crypto.randomUUID() }
 }
 
 /**

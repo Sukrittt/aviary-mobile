@@ -137,11 +137,35 @@ Server side:
 
 The user types: "auto 240, skipped lunch, sneakers 5k, turf 1200 split 6".
 
-- The Jev router gets a new `isCapture` route. Capture skips the FACTS and decision path (see the
-  "AI Brain for Real Usecases" task) and makes a cheap structured-output call.
-- Parsing handles Indian amounts (5k, 1.2L, "dedh sau" = 150, "dhai sau" = 250), splits, relative
-  dates and "skipped X" (log nothing).
-- Prompt context: the user's envelope names, recent item-to-category history, today's date.
+- **Jev routes it.** The chat router gets an `isCapture` question in the Jev call it already makes
+  for every message, so detecting a log costs no extra call. Capture is checked before the
+  off-topic refusal (a log isn't "asking about money") and skips the FACTS and decision path (see
+  the "AI Brain for Real Usecases" task).
+- **Gemini reads it.** A cheap structured-output call pulls out item, amount, date and split
+  count. It handles Indian amounts (5k, 1.2L, "dedh sau" = 150, "dhai sau" = 250), splits,
+  relative dates and "skipped X" (log nothing). It doesn't pick envelopes.
+- **Jev picks the envelope for each row.** First the user's own history (the category map), then
+  Jev's existing `pickCategory` from the user's envelope list. Jev's probability is what marks a
+  row as uncertain on the review card, instead of the model grading itself.
+- **`unusualAmount` flags odd amounts** on the card (over 5x the envelope's usual), which catches
+  voice or typing slips like "fifteen" vs "fifty". No AI needed.
+
+### Where Jev fits
+
+Gemini reads and writes. Jev chooses between options we already know. Plain code handles anything
+arithmetic or rules can do.
+
+| Feature | Jev? | Why |
+|---|---|---|
+| Is this message a log? | Yes | One more question in the router call that already runs |
+| Envelope for each row | Yes | `pickCategory`, after the user's own history |
+| Pulling items and amounts out of text | No | Jev can't extract, Gemini does |
+| Weekly balance check split | No | Arithmetic on history |
+| Today card | No | The point is no AI call |
+| Learned routine | Yes | Sort patterns into fixed, routine or one-off, like recurring suggestions |
+| Payee rules | No | Fixed rules |
+| Screenshot rows | Yes | Envelope per row, and borderline duplicates after a same-amount, same-date filter |
+| Moving money (later tool) | Partly | Gemini pulls out the amount, Jev picks the envelopes |
 
 ### 3. Weekly balance check and logged meter (phase 2)
 
@@ -231,24 +255,33 @@ accuracy number before we build anything else on it.
 
 ### Server (`Sukrittt/aviary`)
 
-1. **Jev `isCapture` route.** "Is the user reporting spends to log?" Tune the cutoff on the eval
-   set, like `isDecision`. Questions and chatter must not route to capture.
+1. **Jev `isCapture` question** in the router's existing call. Checked before the off-topic
+   refusal. A message that is both a log and a decision question ("bought sneakers for 5k, was
+   that too much?") goes down the normal chat path. Start the cutoff at 0.5 and tune it on the
+   eval set, like `isDecision`.
 2. **Extraction call.** Flash-lite with a JSON response schema:
-   `{ items: [{ item, amount_inr, category, date, divisor, confidence }], skipped: [], unparsed: [] }`.
-   `category` must be one of the user's envelope names or empty.
-3. **Server-side validation.** Amount above zero and below a sanity cap, date not in the future and
-   within the last 31 days, unknown categories blanked, malformed items dropped.
-4. **`proposal` SSE frame**, then a short text line, then `[DONE]`. Only for clients that send a
-   capture-capable header. Older clients get a plain-text list and a nudge to log by hand.
-5. **Proposal state in the chat session.** Store each proposal with `status: pending`. Add an
-   endpoint to mark it `submitted` (with expense ids) or `dismissed`. Reopening a session shows
-   submitted proposals read-only, so nothing can be logged twice.
-6. **`source` on expenses.** Optional, whitelisted, defaults to `manual`. Capture sends `text`.
-7. **Allowance.** Capture calls don't count against the chat allowance. Give them their own
-   generous cap.
-8. **Eval.** Add about 20 capture scenarios to `Web/lib/ai/brainEval.test.ts`: Hinglish amounts,
-   splits, "skipped", relative dates, unknown categories, several items in one sentence, and
-   non-capture messages that must not trigger it.
+   `{ items: [{ item, amount_inr, date, divisor }], skipped: [], unparsed: [] }`. No envelope.
+3. **Server-side validation.** Amount above zero and at most ₹1 crore, split count 1 to 50, date
+   not in the future (clamped to today) and within the last 31 days (older items go to `unparsed`),
+   at most 20 items.
+4. **Envelope per row.** The user's category map first, then Jev `pickCategory` in parallel. Each
+   row carries `category` (empty when unsure) and `categoryConfidence`.
+5. **`proposal` SSE frame**, then a short text line, then `[DONE]`. Only for clients that send
+   `X-Aviary-Capture: 1`. Older clients and the web app get a plain line pointing to the + button,
+   with no extraction call. The demo account gets "sign in to log".
+6. **Proposal state in the chat session.** Stored on the model message, encrypted like the message
+   text (`messages.proposal` joins `ENCRYPTED_FIELDS`), with a plaintext `proposalStatus`
+   (`pending | submitted | dismissed`). `PATCH /api/ai/chat/sessions/:id/proposals/:proposalId`
+   moves it out of `pending` once, and the session GET returns it so history renders read-only.
+7. **`source` on expenses.** `POST /api/expenses` accepts an optional whitelisted `source`
+   (`manual | text`), default `manual`. `createExpense` already stores it.
+8. **Allowance.** Capture calls are logged as feature `capture` and excluded from the monthly
+   dollar allowance. They're still bounded by the chat rate limits. When a user is over the
+   allowance, capture-capable clients are routed first: a log goes through, anything else still
+   gets the allowance 429.
+9. **Eval.** Capture scenarios in `lib/ai/brainEval.test.ts`: Hinglish amounts, splits, "skipped",
+   relative dates, several items in one sentence, and non-capture messages that must not trigger
+   it.
 
 ### Mobile (this repo)
 
@@ -256,15 +289,19 @@ accuracy number before we build anything else on it.
    callback. `ChatMessage` gets an optional `proposal`.
 2. **`CaptureReview` card** in `src/components/brain/`: rows, inline edit, envelope picker, delete,
    split display, low-confidence highlight, "Log 3 spends" with `CheckIcon`, and Dismiss.
-3. **Submit:** each row goes through `mintExpensePayload` and the existing add-expense path, so it
-   queues offline. `NewExpenseRow` gets an optional `source`. After submit, mark the proposal
-   submitted (best effort). On partial failure, show which rows failed and keep them editable.
-4. **History:** submitted proposals render as a read-only summary ("Logged 3 · ₹5,590").
-5. **Entry point:** a "Log several at once" link on the log-expense screen that opens the Brain
-   with a hint: "What did you spend? Try: auto 240, lunch 150".
-6. **Fallback:** when AI fails or a cap is hit, show "Couldn't read that one. Add it by hand?" and
+3. **Submit:** each row goes through the existing add-expense path, so it queues offline.
+   `client_id` is `capture:<proposalId>:<rowId>`, so a double tap, retry or reopened chat can
+   never create a second row. `NewExpenseRow` gets an optional `source`. After submit, mark the
+   proposal submitted (best effort). On partial failure, show which rows failed and keep them
+   editable.
+4. **Flag odd amounts** with `unusualAmount` on each row.
+5. **History:** submitted proposals render as a read-only summary ("Logged 3 · ₹5,590").
+6. **Entry point:** a "Log several at once" link on the log-expense screen opens the Brain in a
+   focused capture mode: a hint instead of the brief, and no allowance screen, since logging never
+   counts against the allowance.
+7. **Fallback:** when AI fails or a cap is hit, show "Couldn't read that one. Add it by hand?" and
    open the manual log sheet. Never show raw error text.
-7. **Analytics (PostHog):** proposal shown (item count), submitted (items, rows edited, rows
+8. **Analytics (PostHog):** proposal shown (item count), submitted (items, rows edited, rows
    deleted), dismissed, time from proposal to submit.
 
 ### Tests
@@ -289,7 +326,8 @@ target.
 
 - `expenses`: add `source` (`manual | text | voice | screenshot | today_chip | balance_gap |
   recurring`) and nullable `payee`.
-- Chat messages: optional `proposal` with `status` (`pending | submitted | dismissed`).
+- Chat messages: optional `proposal` (encrypted JSON), plus plaintext `proposalId` and
+  `proposalStatus` (`pending | submitted | dismissed`) so status can change without decrypting.
 - Later phases: `balance_checks`, `routine_items`, `payee_rules`.
 
 ## Testing

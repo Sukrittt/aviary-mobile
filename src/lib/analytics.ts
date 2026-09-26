@@ -93,6 +93,11 @@ export type AppEvent =
   | 'restore_succeeded'
   // Notifications
   | 'push_permission_result'
+  // Logging spends by typing them into the money brain: a review card was
+  // shown, logged, or dismissed. Row counts and edit counts only.
+  | 'capture_proposed'
+  | 'capture_logged'
+  | 'capture_dismissed'
   | 'push_registration_failed'
   | 'notification_opened'
   // Habit nudges ("Football time? Log it"). Counts only, never item names.
