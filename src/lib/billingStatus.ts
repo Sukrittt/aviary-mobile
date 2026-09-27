@@ -5,6 +5,15 @@ import type { BillingStatus } from '@/src/api/billing'
 
 export const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.sukrit04.envelope'
 
+/**
+ * Whether the plan was bought on the website rather than through Google Play.
+ * A web plan can't be managed in Play, so every "fix it in Google Play" line
+ * has to say something else for it.
+ */
+export function isWebPlan(status: Pick<BillingStatus, 'store'> | undefined): boolean {
+  return status?.store === 'web'
+}
+
 /** Reminder thresholds, in days remaining. Matches payment-subscriptions-plan.md. */
 export const REMINDER_DAYS = [7, 3, 1]
 
@@ -58,7 +67,7 @@ export function planSummary(status: BillingStatus): string {
     case 'trial':
       return `Free trial · ${trialRemainingLabel(status.trialDaysRemaining)}`
     case 'paid':
-      if (status.renewalState === 'grace') return 'Payment issue · fix in Google Play'
+      if (status.renewalState === 'grace') return isWebPlan(status) ? 'Payment issue · retrying' : 'Payment issue · fix in Google Play'
       return status.autoRenew ? `Renews ${formatDate(status.paidExpiresAt)}` : `Ends ${formatDate(status.paidExpiresAt)}`
     case 'expired':
       return status.trialEndsAt && !status.productId ? 'Trial ended' : 'Subscription ended'
@@ -73,6 +82,11 @@ export function planSummary(status: BillingStatus): string {
  * useful, "status: on_hold" isn't.
  */
 export function lockedCopy(status: BillingStatus | undefined): { title: string; body: string } {
+  // A web plan lapsed on the website, so the way back is picking a plan, not Google Play.
+  if (isWebPlan(status)) {
+    if (status?.renewalState === 'on_hold') return { title: "A payment didn't go through", body: 'Your web plan stopped renewing. Pick a plan to get back in.' }
+    if (status?.renewalState === 'paused') return { title: 'Your subscription is paused', body: 'Your web plan is paused. Pick a plan to carry on.' }
+  }
   switch (status?.renewalState) {
     case 'on_hold':
       return { title: "A payment didn't go through", body: 'Update your payment method in Google Play to get back in.' }

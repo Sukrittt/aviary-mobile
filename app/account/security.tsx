@@ -18,6 +18,7 @@ import { Image,Pressable,RefreshControl,ScrollView,StyleSheet,Text,TextInput,Vie
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRefresh } from '@/src/hooks/useRefresh'
 import { useBillingStatus } from '@/src/hooks/useBillingStatus'
+import { isWebPlan } from '@/src/lib/billingStatus'
 
 function sessionLabel(userAgent: string | null, authMethod: string): string {
   if (userAgent) return userAgent
@@ -45,7 +46,9 @@ export default function SecurityScreen() {
   const [confirmingDelete, setConfirmingDelete] = useState(false)
   const { data: billing } = useBillingStatus()
   // Deleting the account cannot cancel a Google Play subscription — only the Play Store can.
+  // A web one is cancelled by the delete itself (the server does it), so it only needs a heads-up.
   const renewingSubscription = billing?.mode === 'paid' && billing.autoRenew
+  const renewingOnWeb = renewingSubscription && isWebPlan(billing)
   const [deleteEmailDraft, setDeleteEmailDraft] = useState('')
   const [signingOutAll, setSigningOutAll] = useState(false)
   const [revokingId, setRevokingId] = useState<string | null>(null)
@@ -368,7 +371,11 @@ export default function SecurityScreen() {
           Removes envelopes, transactions and recaps. You have 7 days to sign back in and restore before it&apos;s gone for good. Type{' '}
           <Text style={{ fontFamily: fontFamily.bodyBold, color: tokens.text }}>{user?.email}</Text> to confirm.
         </Text>
-        {renewingSubscription ? (
+        {renewingOnWeb ? (
+          <Text style={[styles.dangerBody, { color: tokens.coral, fontFamily: fontFamily.bodyBold, marginTop: 12 }]}>
+            Your subscription is still active. Deleting your account cancels it, so you won&apos;t be charged again.
+          </Text>
+        ) : renewingSubscription ? (
           <Text style={[styles.dangerBody, { color: tokens.coral, fontFamily: fontFamily.bodyBold, marginTop: 12 }]}>
             Your subscription is still active. Deleting your account doesn&apos;t cancel it. Cancel in the Google Play Store first, or you&apos;ll keep being billed.
           </Text>

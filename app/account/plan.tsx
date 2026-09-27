@@ -16,9 +16,12 @@ import { clearAccess, sessionId } from '@/src/api/accessMode'
 import { revokeSession } from '@/src/api/account'
 import { useBillingStatus, seedBillingStatus } from '@/src/hooks/useBillingStatus'
 import { getPackages, managementUrl, purchase, purchasesAvailable, restore } from '@/src/lib/purchases'
-import { accessAllowed, formatDate, lockedCopy, planSummary } from '@/src/lib/billingStatus'
+import { accessAllowed, formatDate, isWebPlan, lockedCopy, planSummary } from '@/src/lib/billingStatus'
+import { BASE_URL } from '@/src/api/client'
 
 const PLAY_SUBSCRIPTIONS_URL = 'https://play.google.com/store/account/subscriptions?package=com.sukrit04.envelope'
+/** Where a plan bought on the website is managed and cancelled: the web account page's subscription section. */
+const WEB_ACCOUNT_URL = `${BASE_URL}/account#subscription`
 
 /**
  * Plan & billing — and, while access is off, the whole app.
@@ -49,6 +52,8 @@ export default function PlanScreen() {
   const paid = status?.mode === 'paid'
   const packagesQuery = useQuery({ queryKey: ['billing-packages'], queryFn: getPackages, enabled: showPlans || (paid && purchasesAvailable()) })
   const manageable = !!status?.productId && status.renewalState !== 'revoked' && status.renewalState !== 'expired'
+  // Bought on the website: Play knows nothing about it, so managing and cancelling happen there.
+  const web = isWebPlan(status)
 
   async function buy(pkg: PurchasesPackage) {
     setBusy(pkg.identifier)
@@ -80,6 +85,10 @@ export default function PlanScreen() {
   }
 
   async function openManage() {
+    if (web) {
+      await Linking.openURL(WEB_ACCOUNT_URL)
+      return
+    }
     await Linking.openURL((await managementUrl()) ?? PLAY_SUBSCRIPTIONS_URL)
   }
 
@@ -165,7 +174,7 @@ export default function PlanScreen() {
               {manageable ? (
                 <>
                   <View style={[styles.divider, { backgroundColor: tokens.border }]} />
-                  <Row icon={ExternalLink} label="Manage in Google Play" onPress={() => void openManage()} tokens={tokens} />
+                  <Row icon={ExternalLink} label={web ? 'Manage on the web' : 'Manage in Google Play'} onPress={() => void openManage()} tokens={tokens} />
                 </>
               ) : null}
             </View>
@@ -182,7 +191,9 @@ export default function PlanScreen() {
 
             {manageable ? (
               <Text style={[styles.footnote, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>
-                Deleting your Aviary account doesn&apos;t cancel a Google Play subscription. Cancel it in Google Play first.
+                {web
+                  ? "You subscribed on the website, so that's where you change or cancel your plan. Deleting your Aviary account cancels it for you."
+                  : "Deleting your Aviary account doesn't cancel a Google Play subscription. Cancel it in Google Play first."}
               </Text>
             ) : null}
           </>

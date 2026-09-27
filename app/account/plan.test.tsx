@@ -73,6 +73,25 @@ it('shows a paying account its plan, renewal and what it includes', () => {
   expect(queryByText('Manage or delete account')).toBeNull()
 })
 
+it('points a web subscriber at the website instead of Google Play, with no Play price', () => {
+  mockStatus = { ...base, mode: 'paid', productId: 'plan_year', basePlanId: 'yearly', paidExpiresAt: '2099-10-18T12:00:00Z', autoRenew: true, renewalState: 'active', store: 'web' }
+  const { getByText, queryByText } = renderWithProviders(<PlanScreen />)
+
+  expect(getByText('Yearly')).toBeTruthy()
+  expect(getByText('Manage on the web')).toBeTruthy()
+  expect(queryByText('Manage in Google Play')).toBeNull()
+  expect(getByText(/Deleting your Aviary account cancels it for you/)).toBeTruthy()
+  expect(queryByText(/Cancel it in Google Play first/)).toBeNull()
+})
+
+it('tells a web subscriber with a failed renewal that it is being retried, not to go to Play', () => {
+  mockStatus = { ...base, mode: 'paid', productId: 'plan_month', paidExpiresAt: '2099-10-18T12:00:00Z', autoRenew: true, renewalState: 'grace', store: 'web' }
+  const { getByText, queryByText } = renderWithProviders(<PlanScreen />)
+
+  expect(getByText(/We're retrying it/)).toBeTruthy()
+  expect(queryByText(/Update it in Google Play/)).toBeNull()
+})
+
 it('goes Home when unlocked with nothing to go back to, as right after a purchase', () => {
   mockCanGoBack = false
   mockStatus = { ...base, mode: 'paid', productId: 'monthly', paidExpiresAt: '2099-10-18T12:00:00Z', autoRenew: true, renewalState: 'active' }

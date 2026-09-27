@@ -19,6 +19,12 @@ export interface BillingStatus {
   paidExpiresAt: string | null
   autoRenew: boolean
   renewalState: 'active' | 'cancelled' | 'grace' | 'on_hold' | 'paused' | 'expired' | 'revoked' | 'pending' | null
+  /**
+   * Where the purchase lives, so where it's managed: `'play'` (bought in this
+   * app) or `'web'` (bought on the website through Razorpay, and managed
+   * there). Absent from older servers, which only sold through Play.
+   */
+  store?: 'play' | 'web' | null
   retentionDeadline: string | null
   /** Whether the server is currently offering checkout at all. */
   purchaseEnabled: boolean
