@@ -44,6 +44,10 @@ export type AppEvent =
   | 'capture_proposed'
   | 'capture_logged'
   | 'capture_dismissed'
+  // The weekly balance check: what a check found (kind, and whether the
+  // prefilled balance was kept as is), and how a gap was explained. No amounts.
+  | 'balance_checked'
+  | 'balance_resolved'
   | 'onboarding_completed'
   | 'feedback_sent'
   | 'push_registration_failed'

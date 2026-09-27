@@ -1,18 +1,16 @@
 import { act, fireEvent } from '@testing-library/react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import type { CaptureProposal } from '@/src/api/ai'
+import { GAP_ORIGIN } from '@/src/features/capture/captureRows'
 import { CaptureReview } from './CaptureReview'
 
 const mockAdd = jest.fn()
-const mockUpdateStatus = jest.fn(async () => {})
+const mockSettled = jest.fn()
 const mockTrack = jest.fn()
 
 jest.mock('@/src/hooks/useExpenses', () => ({
   useAddExpense: () => ({ mutateAsync: mockAdd }),
   useRecentExpenses: () => ({ data: [] }),
-}))
-jest.mock('@/src/api/ai', () => ({
-  updateProposalStatus: (...args: unknown[]) => mockUpdateStatus(...(args as [])),
 }))
 jest.mock('@/src/lib/analytics', () => ({ track: (...args: unknown[]) => mockTrack(...args) }))
 jest.mock('@/src/lib/date', () => ({ ...jest.requireActual('@/src/lib/date'), todayLocal: () => '2026-09-26' }))
@@ -58,7 +56,7 @@ async function flush() {
 }
 
 it('shows each row with its envelope, split and date', () => {
-  const utils = renderWithProviders(<CaptureReview proposal={proposal} sessionId="s1" />)
+  const utils = renderWithProviders(<CaptureReview proposal={proposal} onSettled={mockSettled} />)
 
   expect(utils.getByDisplayValue('Auto')).toBeTruthy()
   expect(utils.getByLabelText('Envelope: Travel. Change it')).toBeTruthy()
@@ -69,7 +67,7 @@ it('shows each row with its envelope, split and date', () => {
 })
 
 it('will not log until every row has an envelope', async () => {
-  const utils = renderWithProviders(<CaptureReview proposal={proposal} sessionId="s1" />)
+  const utils = renderWithProviders(<CaptureReview proposal={proposal} onSettled={mockSettled} />)
 
   fireEvent.press(utils.getByLabelText('Log 3 spends'))
   await flush()
@@ -81,7 +79,7 @@ it('will not log until every row has an envelope', async () => {
 })
 
 it('logs the kept rows with fixed client ids, the split share and source text', async () => {
-  const utils = renderWithProviders(<CaptureReview proposal={proposal} sessionId="s1" />)
+  const utils = renderWithProviders(<CaptureReview proposal={proposal} onSettled={mockSettled} />)
 
   fireEvent.press(utils.getByLabelText('Remove Sneakers'))
   fireEvent.changeText(utils.getByLabelText('Amount for Auto'), '260')
@@ -98,12 +96,12 @@ it('logs the kept rows with fixed client ids, the split share and source text', 
     client_id: 'capture:p1:r1',
   })
   expect(mockAdd.mock.calls[1][0]).toMatchObject({ amount_inr: '200', notes: 'Split 6 ways · ₹1,200 total', client_id: 'capture:p1:r2' })
-  expect(mockUpdateStatus).toHaveBeenCalledWith('s1', 'p1', 'submitted', ['e1', 'e2'])
+  expect(mockSettled).toHaveBeenCalledWith('submitted', ['e1', 'e2'])
   expect(mockTrack).toHaveBeenCalledWith('capture_logged', expect.objectContaining({ rows: 2, edited: 1, removed: 1 }))
 })
 
 it('plays the success check, then settles into a summary', async () => {
-  const utils = renderWithProviders(<CaptureReview proposal={proposal} sessionId="s1" />)
+  const utils = renderWithProviders(<CaptureReview proposal={proposal} onSettled={mockSettled} />)
 
   fireEvent.press(utils.getByLabelText('Remove Sneakers'))
   fireEvent.press(utils.getByLabelText('Log 2 spends'))
@@ -118,7 +116,7 @@ it('plays the success check, then settles into a summary', async () => {
 
 it('keeps only the failed rows editable after a partial failure, and retries just those', async () => {
   mockAdd.mockResolvedValueOnce({ id: 'e1', pending: false }).mockRejectedValueOnce(new Error('400'))
-  const utils = renderWithProviders(<CaptureReview proposal={proposal} sessionId="s1" />)
+  const utils = renderWithProviders(<CaptureReview proposal={proposal} onSettled={mockSettled} />)
 
   fireEvent.press(utils.getByLabelText('Remove Sneakers'))
   fireEvent.press(utils.getByLabelText('Log 2 spends'))
@@ -127,14 +125,14 @@ it('keeps only the failed rows editable after a partial failure, and retries jus
   expect(utils.getByText("Couldn't log 1 spend. Check your connection and try again.")).toBeTruthy()
   expect(utils.queryByDisplayValue('Auto')).toBeNull()
   expect(utils.getByDisplayValue('Turf')).toBeTruthy()
-  expect(mockUpdateStatus).not.toHaveBeenCalled()
+  expect(mockSettled).not.toHaveBeenCalled()
 
   mockAdd.mockResolvedValueOnce({ id: 'e2', pending: false })
   fireEvent.press(utils.getByLabelText('Log 1 spend'))
   await flush()
 
   expect(mockAdd).toHaveBeenLastCalledWith(expect.objectContaining({ client_id: 'capture:p1:r2' }))
-  expect(mockUpdateStatus).toHaveBeenCalledWith('s1', 'p1', 'submitted', ['e1', 'e2'])
+  expect(mockSettled).toHaveBeenCalledWith('submitted', ['e1', 'e2'])
   await act(async () => {
     jest.advanceTimersByTime(1100)
   })
@@ -143,7 +141,7 @@ it('keeps only the failed rows editable after a partial failure, and retries jus
 
 it('counts a row queued offline as logged', async () => {
   mockAdd.mockResolvedValue({ pending: true })
-  const utils = renderWithProviders(<CaptureReview proposal={proposal} sessionId="s1" />)
+  const utils = renderWithProviders(<CaptureReview proposal={proposal} onSettled={mockSettled} />)
 
   fireEvent.press(utils.getByLabelText('Remove Sneakers'))
   fireEvent.press(utils.getByLabelText('Log 2 spends'))
@@ -153,32 +151,60 @@ it('counts a row queued offline as logged', async () => {
   })
 
   expect(utils.getByText('Logged 2 spends · ₹440')).toBeTruthy()
-  expect(mockUpdateStatus).toHaveBeenCalledWith('s1', 'p1', 'submitted', [])
+  expect(mockSettled).toHaveBeenCalledWith('submitted', [])
 })
 
 it('dismisses without logging anything', () => {
-  const utils = renderWithProviders(<CaptureReview proposal={proposal} sessionId="s1" />)
+  const utils = renderWithProviders(<CaptureReview proposal={proposal} onSettled={mockSettled} />)
 
   fireEvent.press(utils.getByText('Not now'))
 
   expect(utils.getByText('Not logged')).toBeTruthy()
   expect(mockAdd).not.toHaveBeenCalled()
-  expect(mockUpdateStatus).toHaveBeenCalledWith('s1', 'p1', 'dismissed')
-  expect(mockTrack).toHaveBeenCalledWith('capture_dismissed', { rows: 3 })
+  expect(mockSettled).toHaveBeenCalledWith('dismissed', [])
+  expect(mockTrack).toHaveBeenCalledWith('capture_dismissed', { source: 'text', rows: 3 })
 })
 
 it('shows a proposal from chat history as read only', () => {
   const utils = renderWithProviders(
-    <CaptureReview proposal={{ ...proposal, status: 'submitted', expenseIds: ['e1', 'e2'] }} sessionId="s1" />,
+    <CaptureReview proposal={{ ...proposal, status: 'submitted', expenseIds: ['e1', 'e2'] }} onSettled={mockSettled} />,
   )
 
   expect(utils.getByText('Logged 2 spends')).toBeTruthy()
   expect(utils.queryByTestId('capture-review')).toBeNull()
 })
 
-it('records nothing server-side for the demo, which has no session', async () => {
-  const utils = renderWithProviders(<CaptureReview proposal={proposal} sessionId={null} />)
-
+it('works without anyone listening for the outcome', () => {
+  const utils = renderWithProviders(<CaptureReview proposal={proposal} />)
   fireEvent.press(utils.getByText('Not now'))
-  expect(mockUpdateStatus).not.toHaveBeenCalled()
+  expect(utils.getByText('Not logged')).toBeTruthy()
+})
+
+it('logs a balance check estimate as balance_gap, as a card spend where it was one', async () => {
+  const estimate: CaptureProposal = {
+    id: 'c1',
+    items: [
+      { id: 'g1', item: 'Unlogged spends', amount: 2000, splitWays: 1, date: '2026-09-26', category: 'Travel', categoryConfidence: null, paymentMethod: 'bank' },
+      { id: 'g2', item: 'Unlogged card spends', amount: 1800, splitWays: 1, date: '2026-09-26', category: 'Sports', categoryConfidence: null, paymentMethod: 'credit_card' },
+    ],
+    skipped: [],
+    unparsed: [],
+  }
+  const utils = renderWithProviders(<CaptureReview proposal={estimate} origin={GAP_ORIGIN} onSettled={mockSettled} />)
+
+  fireEvent.press(utils.getByLabelText('Log 2 spends'))
+  await flush()
+
+  expect(mockAdd.mock.calls[0][0]).toEqual({
+    item: 'Unlogged spends',
+    amount_inr: '2000',
+    category: 'Travel',
+    date: '2026-09-26',
+    notes: 'Estimated from a balance check',
+    payment_method: 'bank',
+    source: 'balance_gap',
+    client_id: 'gap:c1:g1',
+  })
+  expect(mockAdd.mock.calls[1][0]).toMatchObject({ payment_method: 'credit_card', client_id: 'gap:c1:g2' })
+  expect(mockTrack).toHaveBeenCalledWith('capture_logged', expect.objectContaining({ source: 'balance_gap' }))
 })

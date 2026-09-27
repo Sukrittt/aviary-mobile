@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 import { TriangleAlert, X } from 'lucide-react-native'
-import { updateProposalStatus, type CaptureProposal, type ProposalStatus } from '@/src/api/ai'
+import type { CaptureProposal, ProposalStatus } from '@/src/api/ai'
 import { CategoryPickerSheet } from '@/src/components/shared/CategoryPickerSheet'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { Icon } from '@/src/components/shared/Icon'
@@ -15,7 +15,9 @@ import {
   rowToExpense,
   rowTotal,
   toRows,
+  CAPTURE_ORIGIN,
   type CaptureRow,
+  type RowOrigin,
 } from '@/src/features/capture/captureRows'
 import { useAddExpense, useRecentExpenses } from '@/src/hooks/useExpenses'
 import { track } from '@/src/lib/analytics'
@@ -31,8 +33,15 @@ const SUCCESS_MS = 1100
 
 interface Props {
   proposal: CaptureProposal
-  /** The chat the proposal belongs to, for recording what became of it. Null for the stateless demo. */
-  sessionId: string | null
+  /**
+   * Called once the user logged or dismissed the card, with the ids of the
+   * expenses it became. The money brain records it on the chat so a reopened
+   * chat shows it read-only; best effort, since client_ids already stop a
+   * second log.
+   */
+  onSettled?: (status: Exclude<ProposalStatus, 'pending'>, expenseIds: string[]) => void
+  /** Money-brain rows by default; a balance check's estimates log as `balance_gap`. */
+  origin?: RowOrigin
 }
 
 function secondsSince(startedAt: number): number {
@@ -45,12 +54,13 @@ function spendsLabel(n: number): string {
 
 /**
  * The review card under a money-brain reply to "auto 240, lunch 150, turf
- * 1200 split 6". Nothing is logged until the user taps Log: rows can be
- * renamed, re-priced, moved to another envelope or removed first. Each row is
- * logged through the normal add-expense path (offline queue included) with a
- * client_id fixed by the proposal, so logging a card twice can't double it.
+ * 1200 split 6", and under a balance check's estimates. Nothing is logged
+ * until the user taps Log: rows can be renamed, re-priced, moved to another
+ * envelope or removed first. Each row is logged through the normal
+ * add-expense path (offline queue included) with a client_id fixed by the
+ * proposal, so logging a card twice can't double it.
  */
-export function CaptureReview({ proposal, sessionId }: Props) {
+export function CaptureReview({ proposal, onSettled, origin = CAPTURE_ORIGIN }: Props) {
   const { tokens, space, radius, type } = useTheme()
   const { formatMoney, currencyPrefix } = useCurrency()
   const expensesQ = useRecentExpenses()
@@ -102,7 +112,7 @@ export function CaptureReview({ proposal, sessionId }: Props) {
     // One at a time, in the order they were said, so their timestamps keep that order in Activity.
     for (const row of toLog) {
       try {
-        const result = await addExpense.mutateAsync(rowToExpense(proposal.id, row, formatMoney))
+        const result = await addExpense.mutateAsync(rowToExpense(proposal.id, row, formatMoney, origin))
         if (result.id) expenseIds.current.push(result.id)
         done.add(row.id)
       } catch {
@@ -122,19 +132,20 @@ export function CaptureReview({ proposal, sessionId }: Props) {
     setSummary({ count: loggedAll.length, total: loggedAll.reduce((sum, r) => sum + rowShare(r), 0) })
     setPhase('success')
     track('capture_logged', {
+      source: origin.source,
       rows: loggedAll.length,
       edited: editedCount(rows, proposal),
       removed: proposal.items.length - loggedAll.length,
       seconds: secondsSince(shownAt.current),
     })
-    if (sessionId) updateProposalStatus(sessionId, proposal.id, 'submitted', expenseIds.current).catch(() => {})
+    onSettled?.('submitted', expenseIds.current)
   }
 
   function dismiss() {
     if (busy) return
     setStatus('dismissed')
-    track('capture_dismissed', { rows: proposal.items.length })
-    if (sessionId) updateProposalStatus(sessionId, proposal.id, 'dismissed').catch(() => {})
+    track('capture_dismissed', { source: origin.source, rows: proposal.items.length })
+    onSettled?.('dismissed', [])
   }
 
   if (status !== 'pending') {

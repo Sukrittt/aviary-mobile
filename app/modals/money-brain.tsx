@@ -34,7 +34,7 @@ import { ChatMarkdown } from '@/src/components/brain/ChatMarkdown'
 import { BrainThinking } from '@/src/components/brain/BrainThinking'
 import { BirdLandingMark } from '@/src/components/splash/BirdLandingMark'
 import { PopIn } from '@/src/components/shared/PopIn'
-import { streamChat, getChatSession, CAPTURE_FAILED_MESSAGE, type ChatMessage } from '@/src/api/ai'
+import { streamChat, getChatSession, updateProposalStatus, CAPTURE_FAILED_MESSAGE, type ChatMessage } from '@/src/api/ai'
 import { CaptureReview } from '@/src/components/brain/CaptureReview'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { track } from '@/src/lib/analytics'
@@ -443,7 +443,16 @@ export default function MoneyBrainModal() {
                     )}
                   </View>
                 )}
-                {m.proposal && <CaptureReview key={m.proposal.id} proposal={m.proposal} sessionId={sessionId} />}
+                {m.proposal && (
+                  <CaptureReview
+                    key={m.proposal.id}
+                    proposal={m.proposal}
+                    onSettled={(status, expenseIds) => {
+                      const proposalId = m.proposal?.id
+                      if (sessionId && proposalId) updateProposalStatus(sessionId, proposalId, status, expenseIds).catch(() => {})
+                    }}
+                  />
+                )}
                 {m.captureFailed && (
                   <Pressable
                     onPress={() => router.push('/modals/log-expense')}

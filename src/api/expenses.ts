@@ -61,8 +61,12 @@ export type NewExpenseRow = {
   date?: string
   notes?: string
   payment_method?: string
-  /** Where it came from: 'manual' (the default, server-side) or 'text', a row confirmed from the money brain. */
-  source?: 'manual' | 'text'
+  /**
+   * Where it came from: 'manual' (the default, server-side), 'text' (a row
+   * confirmed from the money brain) or 'balance_gap' (an estimate confirmed
+   * after a weekly balance check).
+   */
+  source?: 'manual' | 'text' | 'balance_gap'
   /**
    * Set only when the caller already has a stable name for this create, like
    * a money-brain row (`capture:<proposalId>:<rowId>`), so logging the same
