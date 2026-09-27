@@ -39,6 +39,15 @@ export type AppEvent =
   | 'money_moved'
   | 'envelope_created'
   | 'money_brain_query'
+  // Logging spends by typing them into the money brain: a review card was
+  // shown, logged, or dismissed. Row counts and edit counts only.
+  | 'capture_proposed'
+  | 'capture_logged'
+  | 'capture_dismissed'
+  // The weekly balance check: what a check found (kind, and whether the
+  // prefilled balance was kept as is), and how a gap was explained. No amounts.
+  | 'balance_checked'
+  | 'balance_resolved'
   | 'onboarding_completed'
   | 'feedback_sent'
   | 'push_registration_failed'

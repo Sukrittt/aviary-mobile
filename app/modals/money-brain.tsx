@@ -34,7 +34,9 @@ import { ChatMarkdown } from '@/src/components/brain/ChatMarkdown'
 import { BrainThinking } from '@/src/components/brain/BrainThinking'
 import { BirdLandingMark } from '@/src/components/splash/BirdLandingMark'
 import { PopIn } from '@/src/components/shared/PopIn'
-import { streamChat, getChatSession, type ChatMessage } from '@/src/api/ai'
+import { streamChat, getChatSession, updateProposalStatus, CAPTURE_FAILED_MESSAGE, type ChatMessage } from '@/src/api/ai'
+import { CaptureReview } from '@/src/components/brain/CaptureReview'
+import { useLocalSearchParams, useRouter } from 'expo-router'
 import { track } from '@/src/lib/analytics'
 import { OfflineScreen } from '@/src/components/shared/OfflineScreen'
 import { useOnline } from '@/src/lib/netStatus'
@@ -49,8 +51,17 @@ const BLOCK_STAGGER_MS = 90
 const ITEM_STAGGER_MS = 45
 const ITEM_STAGGER_CAP_INDEX = 6
 
+/** A chat turn as this screen holds it: `captureFailed` marks a reply that offers manual entry instead. */
+type BrainMessage = ChatMessage & { captureFailed?: boolean }
+
 export default function MoneyBrainModal() {
   const { formatCurrency } = useCurrency()
+  const router = useRouter()
+  // Opened from log-expense's "Log several at once": a focused composer for
+  // typing spends, without the brief. It also skips the allowance screen,
+  // since logging spends never counts against the allowance.
+  const params = useLocalSearchParams<{ capture?: string }>()
+  const captureMode = params.capture === '1'
 
   const { tokens } = useTheme()
   const insets = useSafeAreaInsets()
@@ -92,7 +103,7 @@ export default function MoneyBrainModal() {
   const brief = briefQ.data
 
   const [view, setView] = useState<'chat' | 'history'>('chat')
-  const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [messages, setMessages] = useState<BrainMessage[]>([])
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
@@ -162,14 +173,28 @@ export default function MoneyBrainModal() {
         })
       },
       controller.signal,
+      (proposal) => {
+        track('capture_proposed', { rows: proposal.items.length })
+        setMessages((prev) => {
+          const copy = [...prev]
+          copy[copy.length - 1] = { ...copy[copy.length - 1], proposal }
+          return copy
+        })
+      },
     )
       .then((resolvedSessionId) => setSessionId(resolvedSessionId))
       .catch((err) => {
+        const captureFailed = err instanceof Error && err.message === CAPTURE_FAILED_MESSAGE
         setMessages((prev) => {
           const copy = [...prev]
           copy[copy.length - 1] = {
             role: 'model',
-            text: isAiAllowanceError(err) ? "You've used this month's AI allowance." : 'Something went wrong. Try again.',
+            text: captureFailed
+              ? "Couldn't read that one. Add it by hand?"
+              : isAiAllowanceError(err)
+                ? "You've used this month's AI allowance."
+                : 'Something went wrong. Try again.',
+            captureFailed,
           }
           return copy
         })
@@ -200,11 +225,11 @@ export default function MoneyBrainModal() {
   }
 
   const lastMessage = messages[messages.length - 1]
-  const awaitingFirstDelta = sending && lastMessage?.role === 'model' && lastMessage.text === ''
+  const awaitingFirstDelta = sending && lastMessage?.role === 'model' && lastMessage.text === '' && !lastMessage.proposal
 
   if (!online) return <OfflineScreen />
   if (statusQ.data?.aiDisabled) return <AiUnavailableScreen />
-  if (isAiAllowanceError(briefQ.error)) return <AiAllowanceScreen />
+  if (!captureMode && isAiAllowanceError(briefQ.error)) return <AiAllowanceScreen />
 
   if (view === 'history') {
     return (
@@ -299,7 +324,18 @@ export default function MoneyBrainModal() {
         keyboardShouldPersistTaps="handled"
         onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
       >
-        {!(messages.length === 0 && briefQ.isLoading) && (
+        {captureMode && messages.length === 0 && (
+          <PopIn play delay={MOUNT_START_DELAY_MS} style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
+            <Text style={[styles.cardValue, { marginTop: 0, color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
+              Log a few spends
+            </Text>
+            <Text style={[styles.narrative, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
+              Type what you spent, like: auto 240, lunch 150, turf 1200 split 6. You&apos;ll see the list before anything&apos;s logged.
+            </Text>
+          </PopIn>
+        )}
+
+        {!captureMode && !(messages.length === 0 && briefQ.isLoading) && (
         <PopIn play={playReveal} delay={MOUNT_START_DELAY_MS} style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
           <Text style={[styles.cardLabel, { color: tokens.text2 }]}>THIS MONTH SO FAR</Text>
           <Text style={[styles.cardValue, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
@@ -330,7 +366,7 @@ export default function MoneyBrainModal() {
         </PopIn>
         )}
 
-        {brief && (
+        {!captureMode && brief && (
           <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
             {brief.cards.map((c, i) => (
               <PopIn
@@ -352,7 +388,7 @@ export default function MoneyBrainModal() {
           </View>
         )}
 
-        {brief && brief.questions.length > 0 && (
+        {!captureMode && brief && brief.questions.length > 0 && (
           <View style={{ gap: 8 }}>
             <Text style={[styles.sectionLabel, { color: tokens.text3 }]}>ASK ANYTHING</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
@@ -377,7 +413,7 @@ export default function MoneyBrainModal() {
           </View>
         )}
 
-        {messages.length === 0 && briefQ.isLoading && (
+        {!captureMode && messages.length === 0 && briefQ.isLoading && (
           <View style={{ flexGrow: 1, alignItems: 'center', justifyContent: 'center' }}>
             <LoadingCaption />
           </View>
@@ -386,23 +422,44 @@ export default function MoneyBrainModal() {
         {messages.length > 0 && (
           <View style={{ gap: 10 }}>
             {messages.map((m, i) => {
-              if (!m.text) return null // empty placeholder while streaming hasn't started — BrainThinking covers it below
+              if (!m.text && !m.proposal) return null // empty placeholder while streaming hasn't started — BrainThinking covers it below
               return (
-              <View
-                key={i}
-                style={[
-                  styles.bubble,
-                  m.role === 'user'
-                    ? { alignSelf: 'flex-end', backgroundColor: tokens.accentSoft }
-                    : { alignSelf: 'flex-start', backgroundColor: tokens.card, borderColor: tokens.border, borderWidth: 1 },
-                ]}
-              >
-                {m.role === 'model' ? (
-                  <ChatMarkdown text={m.text} />
-                ) : (
-                  <Text style={{ color: tokens.text, fontSize: 14, fontFamily: fontFamily.bodyMedium }}>
-                    {m.text}
-                  </Text>
+              <View key={i} style={{ gap: 8 }}>
+                {m.text !== '' && (
+                  <View
+                    style={[
+                      styles.bubble,
+                      m.role === 'user'
+                        ? { alignSelf: 'flex-end', backgroundColor: tokens.accentSoft }
+                        : { alignSelf: 'flex-start', backgroundColor: tokens.card, borderColor: tokens.border, borderWidth: 1 },
+                    ]}
+                  >
+                    {m.role === 'model' ? (
+                      <ChatMarkdown text={m.text} />
+                    ) : (
+                      <Text style={{ color: tokens.text, fontSize: 14, fontFamily: fontFamily.bodyMedium }}>
+                        {m.text}
+                      </Text>
+                    )}
+                  </View>
+                )}
+                {m.proposal && (
+                  <CaptureReview
+                    key={m.proposal.id}
+                    proposal={m.proposal}
+                    onSettled={(status, expenseIds) => {
+                      const proposalId = m.proposal?.id
+                      if (sessionId && proposalId) updateProposalStatus(sessionId, proposalId, status, expenseIds).catch(() => {})
+                    }}
+                  />
+                )}
+                {m.captureFailed && (
+                  <Pressable
+                    onPress={() => router.push('/modals/log-expense')}
+                    style={[styles.chip, { alignSelf: 'flex-start', backgroundColor: tokens.pillBg, borderColor: tokens.border }]}
+                  >
+                    <Text style={[styles.chipText, { color: tokens.accent, fontFamily: fontFamily.bodySemiBold }]}>Add it by hand</Text>
+                  </Pressable>
                 )}
               </View>
               )
@@ -416,7 +473,8 @@ export default function MoneyBrainModal() {
         <TextInput
           value={input}
           onChangeText={setInput}
-          placeholder="Ask about your money…"
+          placeholder={captureMode ? 'What did you spend?' : 'Ask about your money…'}
+          autoFocus={captureMode}
           placeholderTextColor={tokens.text3}
           style={[styles.input, { backgroundColor: tokens.inputBg, borderColor: tokens.border, color: tokens.text, fontFamily: fontFamily.bodyMedium }]}
           onSubmitEditing={() => send(input, 'typed')}

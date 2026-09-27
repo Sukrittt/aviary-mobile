@@ -75,6 +75,16 @@ describe('add mode', () => {
 })
 
 /** A promise whose resolution this test controls, to hold an async call open on demand. */
+/** Whether the pressable around a label is disabled (the label's nearest ancestor with an accessibilityState). */
+function saveDisabled(label: { parent: unknown }): boolean {
+  let node = label as { parent: unknown; props?: { accessibilityState?: { disabled?: boolean } } } | null
+  while (node) {
+    if (node.props?.accessibilityState) return !!node.props.accessibilityState.disabled
+    node = node.parent as typeof node
+  }
+  return false
+}
+
 function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {
   let resolve!: (value: T) => void
   const promise = new Promise<T>((res) => {
@@ -126,7 +136,7 @@ describe('edit mode', () => {
     ;(getHoldings as jest.Mock).mockReturnValue(holdingsGate.promise)
     ;(updateHolding as jest.Mock).mockResolvedValue(undefined)
 
-    const { getByRole, findByPlaceholderText, findByText, getByText } = renderWithProviders(<AddHoldingModal />)
+    const { getByRole, getByPlaceholderText, queryByPlaceholderText, findByText, getByText } = renderWithProviders(<AddHoldingModal />)
     await findByText('Bonds')
 
     // React Query's notifyManager batches observer notifications via a real
@@ -138,8 +148,16 @@ describe('edit mode', () => {
       await new Promise((resolve) => setTimeout(resolve, 0))
     })
 
-    fireEvent(getByRole('switch'), 'valueChange', true)
-    fireEvent.changeText(await findByPlaceholderText('0'), '3600')
+    // Even a real tick isn't always enough on a loaded CI runner: the backfill
+    // can still land after the toggle and switch it back off. Save only enables
+    // once the backfill has run (it needs the loaded base and version) *and*
+    // the toggle survived, and the backfill runs once, so retrying until then
+    // leaves the form stable. Checked with the query deferred to after the toggle.
+    await waitFor(() => {
+      if (!queryByPlaceholderText('0')) fireEvent(getByRole('switch'), 'valueChange', true)
+      fireEvent.changeText(getByPlaceholderText('0'), '3600')
+      expect(saveDisabled(getByText('Save changes'))).toBe(false)
+    })
     fireEvent.press(getByText('Save changes'))
 
     await waitFor(() =>

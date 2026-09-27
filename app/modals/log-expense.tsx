@@ -37,7 +37,7 @@ import { useTheme } from "@/src/theme/ThemeProvider";
 import { fontFamily } from "@/src/theme/fonts";
 import { NAV_HEIGHT } from "@/src/theme/scale";
 import { useLocalSearchParams,useRouter } from "expo-router";
-import { ChevronDown, PencilLine, Tag, TriangleAlert, WalletMinimal } from "lucide-react-native";
+import { ChevronDown, MessageSquareText, PencilLine, Tag, TriangleAlert, WalletMinimal } from "lucide-react-native";
 import { useCallback,useEffect,useMemo,useRef,useState } from "react";
 import {
 Animated,
@@ -463,6 +463,31 @@ export default function LogExpenseScreen() {
             </Text>
             <ChevronDown size={16} color={onAccentDim} />
           </Pressable>
+
+          {!isEdit && (
+            // Several spends at once go through the money brain: type them,
+            // review the list it reads out, log them together.
+            <Pressable
+              onPress={() => router.push({ pathname: "/modals/money-brain", params: { capture: "1" } })}
+              style={[styles.moreToggle, { gap: space.xs }]}
+              hitSlop={8}
+              accessibilityLabel="Log several spends at once"
+            >
+              <MessageSquareText size={14} color={onAccentDim} />
+              <Text
+                style={[
+                  styles.moreLabel,
+                  {
+                    color: onAccentDim,
+                    fontFamily: fontFamily.bodySemiBold,
+                    fontSize: type.caption,
+                  },
+                ]}
+              >
+                Log several at once
+              </Text>
+            </Pressable>
+          )}
         </View>
       </ScrollView>
 

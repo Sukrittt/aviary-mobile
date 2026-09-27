@@ -32,9 +32,10 @@ jest.mock('@/src/api/categoryMap', () => ({
 
 const mockReplace = jest.fn()
 const mockBack = jest.fn()
+const mockPush = jest.fn()
 let mockParams: Record<string, string> = {}
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ replace: mockReplace, back: mockBack, push: jest.fn(), navigate: jest.fn() }),
+  useRouter: () => ({ replace: mockReplace, back: mockBack, push: mockPush, navigate: jest.fn() }),
   useLocalSearchParams: () => mockParams,
 }))
 
@@ -155,6 +156,17 @@ it('navigates to the success screen only after the save animation, not immediate
     jest.advanceTimersByTime(100)
   })
   expect(mockReplace).toHaveBeenCalled()
+})
+
+it('opens the money brain for logging several spends at once', () => {
+  const utils = setup()
+  fireEvent.press(utils.getByLabelText('Log several spends at once'))
+  expect(mockPush).toHaveBeenCalledWith({ pathname: '/modals/money-brain', params: { capture: '1' } })
+})
+
+it('offers logging several at once only for a new expense, not an edit', () => {
+  const utils = setup({ edit: '1', item: 'Milk', amount: '45', category: 'Groceries', date: '2026-09-01', timestamp: '2026-09-01T10:00:00+05:30' })
+  expect(utils.queryByLabelText('Log several spends at once')).toBeNull()
 })
 
 it('names what is still missing when an incomplete submit is blocked', async () => {
