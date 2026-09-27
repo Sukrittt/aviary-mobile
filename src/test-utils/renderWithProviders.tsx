@@ -10,8 +10,25 @@ import { PrivacyProvider } from '@/src/context/PrivacyContext'
  * app/_layout.tsx (GestureHandlerRootView, SafeAreaProvider,
  * RootNavigator), which are not a unit test's concern.
  */
-export function renderWithProviders(ui: ReactElement, options?: RenderOptions) {
-  const queryClient = new QueryClient({
+export function renderWithProviders(ui: ReactElement, options?: RenderOptions & { queryClient?: QueryClient }) {
+  const { queryClient = createTestQueryClient(), ...renderOptions } = options ?? {}
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider>
+        <PrivacyProvider>{ui}</PrivacyProvider>
+      </ThemeProvider>
+    </QueryClientProvider>,
+    renderOptions,
+  )
+}
+
+/**
+ * The client renderWithProviders uses by default. Build one yourself and
+ * `setQueryData` on it to render a screen with its data already cached, so
+ * nothing the test does can race a query resolving underneath it.
+ */
+export function createTestQueryClient(): QueryClient {
+  return new QueryClient({
     // Unit-test clients should not keep Jest alive with React Query's
     // production cache-GC timers after the rendered tree is gone.
     defaultOptions: {
@@ -19,12 +36,4 @@ export function renderWithProviders(ui: ReactElement, options?: RenderOptions) {
       mutations: { gcTime: Infinity },
     },
   })
-  return render(
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <PrivacyProvider>{ui}</PrivacyProvider>
-      </ThemeProvider>
-    </QueryClientProvider>,
-    options,
-  )
 }
