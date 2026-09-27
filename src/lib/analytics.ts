@@ -98,6 +98,10 @@ export type AppEvent =
   | 'capture_proposed'
   | 'capture_logged'
   | 'capture_dismissed'
+  // The weekly balance check: what a check found (kind, and whether the
+  // prefilled balance was kept as is), and how a gap was explained. No amounts.
+  | 'balance_checked'
+  | 'balance_resolved'
   | 'push_registration_failed'
   | 'notification_opened'
   // Habit nudges ("Football time? Log it"). Counts only, never item names.

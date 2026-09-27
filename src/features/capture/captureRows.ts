@@ -15,6 +15,7 @@ export interface CaptureRow {
   splitWays: number
   date: string
   category: string
+  paymentMethod?: 'bank' | 'credit_card'
   removed: boolean
 }
 
@@ -28,6 +29,7 @@ export function toRows(proposal: CaptureProposal): CaptureRow[] {
     splitWays: i.splitWays > 1 ? i.splitWays : 1,
     date: i.date,
     category: i.category,
+    ...(i.paymentMethod ? { paymentMethod: i.paymentMethod } : {}),
     removed: false,
   }))
 }
@@ -67,19 +69,41 @@ export function editedCount(rows: CaptureRow[], proposal: CaptureProposal): numb
   }).length
 }
 
+/** Where a reviewed row came from, which sets its source and names its client_id. */
+export interface RowOrigin {
+  source: 'text' | 'balance_gap'
+  /** `capture` for money-brain rows, `gap` for balance-check estimates. */
+  clientIdPrefix: string
+}
+
+export const CAPTURE_ORIGIN: RowOrigin = { source: 'text', clientIdPrefix: 'capture' }
+export const GAP_ORIGIN: RowOrigin = { source: 'balance_gap', clientIdPrefix: 'gap' }
+
 /**
  * The expense a row becomes. Its client_id is fixed by the proposal and row
  * ids, so logging the same card again (a double tap, a retry, a chat reopened
  * later) is recognized server-side and never inserts a second row.
  */
-export function rowToExpense(proposalId: string, row: CaptureRow, formatTotal: (amount: number) => string): NewExpenseRow {
+export function rowToExpense(
+  proposalId: string,
+  row: CaptureRow,
+  formatTotal: (amount: number) => string,
+  origin: RowOrigin = CAPTURE_ORIGIN,
+): NewExpenseRow {
+  const notes =
+    row.splitWays > 1
+      ? `Split ${row.splitWays} ways · ${formatTotal(rowTotal(row))} total`
+      : origin.source === 'balance_gap'
+        ? 'Estimated from a balance check'
+        : undefined
   return {
     item: row.item.trim(),
     amount_inr: String(rowShare(row)),
     category: row.category,
     date: row.date,
-    ...(row.splitWays > 1 ? { notes: `Split ${row.splitWays} ways · ${formatTotal(rowTotal(row))} total` } : {}),
-    source: 'text',
-    client_id: `capture:${proposalId}:${row.id}`,
+    ...(notes ? { notes } : {}),
+    ...(row.paymentMethod ? { payment_method: row.paymentMethod } : {}),
+    source: origin.source,
+    client_id: `${origin.clientIdPrefix}:${proposalId}:${row.id}`,
   }
 }

@@ -1,5 +1,5 @@
 import type { CaptureProposal } from '@/src/api/ai'
-import { canLog, editedCount, keptRows, rowIncomplete, rowShare, rowToExpense, rowTotal, toRows } from './captureRows'
+import { canLog, editedCount, keptRows, rowIncomplete, rowShare, rowToExpense, rowTotal, toRows, GAP_ORIGIN } from './captureRows'
 
 const proposal: CaptureProposal = {
   id: 'p1',
@@ -73,6 +73,25 @@ describe('captureRows', () => {
       amount_inr: '200',
       notes: 'Split 6 ways · ₹1,200 total',
       client_id: 'capture:p1:r2',
+    })
+  })
+
+  it('marks a balance check estimate as one, keeping how it was paid', () => {
+    const [row] = toRows({
+      ...proposal,
+      id: 'c1',
+      items: [{ id: 'g1', item: 'Unlogged card spends', amount: 1800, splitWays: 1, date: '2026-09-27', category: 'Shopping', categoryConfidence: null, paymentMethod: 'credit_card' }],
+    })
+    expect(row.paymentMethod).toBe('credit_card')
+    expect(rowToExpense('c1', row, formatTotal, GAP_ORIGIN)).toEqual({
+      item: 'Unlogged card spends',
+      amount_inr: '1800',
+      category: 'Shopping',
+      date: '2026-09-27',
+      notes: 'Estimated from a balance check',
+      payment_method: 'credit_card',
+      source: 'balance_gap',
+      client_id: 'gap:c1:g1',
     })
   })
 })

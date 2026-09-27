@@ -1,6 +1,6 @@
 # Effortless logging
 
-Plan · drafted 2026-09-26 · updated 2026-09-26 with market research · status: planning
+Plan · drafted 2026-09-26 · updated 2026-09-27 · status: phases 1 and 2 built, in review
 
 ## Problem
 
@@ -169,18 +169,52 @@ arithmetic or rules can do.
 
 ### 3. Weekly balance check and logged meter (phase 2)
 
-- Once a week, a Home card asks: "What's in your bank right now?"
-- `gap = last balance + income logged − expenses logged − current balance`
-- If the gap is meaningful: "₹3,400 wasn't logged this week. Food, travel, or something else?"
-  The proposed split follows history, the user adjusts it on the same review card, and those
-  expenses get `source: balance_gap`.
-- **Logged meter** on the weekly dashboard: `logged / (logged + gap)` → "92% of this week logged".
-- **No AI call needed.** The split is arithmetic on the user's history.
-- **Known limitations:**
-  - Credit cards don't reduce the bank balance until the bill is paid, so card users also enter
-    their unbilled amount.
-  - Money lent to a friend or moved to savings isn't spending, so offer "Not spending".
-  - Multiple accounts means one number per account, or a total.
+**Rule: one number, and a second question only when the numbers say something's off.** No setup,
+no list of accounts, no card statements.
+
+**One account.** Only the balance of the account the user's UPI is linked to. That's where daily
+spending and the forgotten small spends happen. Salary, savings and FD accounts are left out;
+money moved in from them shows up once as "money in".
+
+**The math.** Each check stores the balance and its time. Between two checks:
+
+- `logged` = expenses paid from the bank (not card, not cash) with a timestamp after the last
+  check, leaving out earlier gap estimates (`source: balance_gap`).
+- `gap = (last balance − this balance) − logged`
+- The app prefills the balance it expects (`last balance − logged`), so a user who logged
+  everything just confirms it after glancing at GPay.
+- **Tolerance:** a gap smaller than one typical purchase (the user's median expense, capped at 1%
+  of the last balance) is "All square". Nothing to answer.
+- **Cumulative:** skipping a week costs nothing. The next check covers everything since the last.
+- The first check only sets the starting point.
+
+**When there's a gap.** "₹3,400 left your account that you haven't logged. What was it?"
+
+- **Spends I didn't log:** split across the user's usual envelopes (their top three by recent bank
+  spending) and shown on the same review card as phase 1. They log with `source: balance_gap`,
+  so insights can tell estimates apart.
+- **Card bill:** that part isn't spending. It's compared with the card spends logged in the last
+  30 days. If the bill is clearly bigger (by more than the tolerance and 15%), the difference is
+  offered as estimated card spends, split by the user's usual card envelopes. Card users answer
+  this once a month, when they've just paid and know the number.
+- **Moved, lent or cash:** not spending. Cash spends are logged by hand or by typing them in.
+- **A mix:** enter the card bill and the moved amount, the rest counts as spends not logged.
+
+**When there's more money than expected:** income or salary, a refund or someone paying back, or
+money moved in. One tap, nothing is logged.
+
+**Logged meter.** Each check records how much of the bank's outflow the user had logged themselves:
+`logged / (logged + spends not logged)`. Home shows "92% logged at your last check".
+
+**Where it lives.** A Home card when a check is due (7+ days since the last one), with Later to
+hide it for a day. A modal for the check itself. No AI call anywhere in phase 2.
+
+**Known limits.**
+
+- Cash spending isn't caught.
+- Heavy card users mostly show up once a month, when the bill is paid.
+- The split is a best guess from habits. A one-off gets spread until the user fixes it.
+- An expense paid before a check but logged after it lands in the next period.
 
 ### 4. Routine profile and Today card (phase 3)
 
@@ -322,13 +356,73 @@ accuracy number before we build anything else on it.
 Voice, screenshots, routine, Today card, payee rules, balance check, the other tools, share
 target.
 
+## Phase 2 spec
+
+**Goal:** once a week the user types one balance, and the app catches what they didn't log. As
+built; the design is in section 3 above.
+
+### Server (`Sukrittt/aviary`)
+
+1. **`balance_checks` collection**, scoped by `user_id` like every other collection. Each check
+   stores `timestamp`, `date`, `status` (`baseline | square | open | resolved`), `kind`
+   (`baseline | square | unlogged | surplus`) and the amounts: `balance`, `expected`, `logged`,
+   `gap`, `tolerance`, and once resolved `forgotten`, `card_bill`, `card_shortfall`, `moved_out`
+   or `money_in`. Amounts are stored as strings and encrypted (`ENCRYPTED_FIELDS`). Index
+   `{ user_id: 1, timestamp: -1 }`.
+2. **The math lives in `lib/balanceCheck.ts`**, all pure functions with tests: `spendBetween`
+   (bank only, estimates left out), `toleranceFor`, `classify`, `splitByHabit`, `cardShortfall`,
+   `loggedPct`, `isDue`, `anchorOf` and `gapProposal`.
+3. **`GET /api/balance-checks`:** `{ due, open, expected, anchor, loggedPct }`. Due means no check
+   yet, 7+ days since the anchor, or an open gap. The demo account is never due.
+4. **`POST /api/balance-checks` `{ balance }`:** the first check is the baseline. Later ones come
+   back `square`, `unlogged` or `surplus` with `expected`, `logged`, `gap`, `tolerance` and
+   `cardSpendRecent`. A new balance replaces an open check, so a typo is fixed by checking again.
+5. **`POST /api/balance-checks/:id/resolve`:** `{ cardBill?, movedOut? }` for a gap, or
+   `{ moneyIn: income | refund | moved_in }` for a surplus. What's left of a gap after the card
+   bill and moved money (if more than the tolerance) comes back as an estimate proposal in the
+   capture shape: ids `g1…`, item "Unlogged spends" or "Unlogged card spends", the check's date,
+   `paymentMethod`. Resolving again returns the same answer.
+6. **`source: balance_gap`** joins the whitelist on `POST /api/expenses`.
+
+### Mobile (this repo)
+
+1. **API and hooks:** `src/api/balanceChecks.ts`, `src/hooks/useBalanceCheck.ts` (query key
+   `['balance-check']`, invalidated by both mutations).
+2. **Home card** (`src/components/balance/BalanceCheckCard.tsx`): a prompt when due, with first
+   check, weekly and "finish your check" copy, Check now and Later. Later hides it for 24 hours
+   (SecureStore, cleared on sign-out). Otherwise a slim meter, "92% logged at your last check",
+   that opens a check early. Nothing before the first measured check.
+3. **Modal** (`app/modals/balance-check.tsx`): the balance on a numpad, prefilled with the
+   expected balance (fetched fresh on open). Baseline, square and a surplus reason end on the
+   shared `CheckIcon` success and close. A gap asks what it was with one-tap answers; card bill,
+   moved and a mix ask for amounts and show what's left live.
+4. **Estimates reuse the capture card.** `CaptureReview` takes an `origin`: balance-check rows log
+   with `source: balance_gap`, the row's `payment_method`, "Estimated from a balance check" in the
+   notes, and `client_id` `gap:<checkId>:<rowId>`. The card reports its outcome through
+   `onSettled` instead of calling the chat API itself, so it works outside the Brain.
+5. **Analytics:** `balance_checked` (`kind`, and `prefill_kept` when there was a prefill) and
+   `balance_resolved` (`reason`). No amounts.
+
+### Known gaps in what's built
+
+- **Prefill anchoring.** A user can confirm the expected balance without opening their bank app,
+  and the check then says square. `prefill_kept` measures how often a prefilled check is submitted
+  unchanged. If square checks with the prefill kept dominate, show the expected balance as a hint
+  instead of prefilling it.
+- **Closing during the review loses the estimates.** The check is resolved before the review card
+  shows, so closing the modal without logging drops the rows. They're still returned by resolving
+  again, but no screen asks for them. Fine for now (skipping costs nothing); revisit if dismissals
+  are high.
+- **Web has no UI yet.** The API is shared, but the web app needs its own card and modal.
+
 ## Data model (Web repo, `Sukrittt/aviary`)
 
 - `expenses`: add `source` (`manual | text | voice | screenshot | today_chip | balance_gap |
   recurring`) and nullable `payee`.
 - Chat messages: optional `proposal` (encrypted JSON), plus plaintext `proposalId` and
   `proposalStatus` (`pending | submitted | dismissed`) so status can change without decrypting.
-- Later phases: `balance_checks`, `routine_items`, `payee_rules`.
+- `balance_checks` (phase 2): see the phase 2 spec.
+- Later phases: `routine_items`, `payee_rules`.
 
 ## Testing
 
@@ -338,8 +432,8 @@ target.
 ## Metrics (PostHog)
 
 - Captures by source, items per capture, **edit rate per row** (parse accuracy), time from open to
-  submit, weekly active loggers, share of weeks with a balance check, median logged %, and
-  retention of weekly visitors.
+  submit, weekly active loggers, share of weeks with a balance check, median logged %, gap
+  reasons, share of prefilled checks submitted unchanged, and retention of weekly visitors.
 - Targets: median capture-to-submit under 30s, row edit rate under 15%, logged % over 85% for users
   who do balance checks.
 
@@ -349,7 +443,8 @@ target.
   below global apps. A lifetime tier would help with subscription fatigue but has to exclude or
   cap AI, since AI costs recur.
 - **Screenshot formats:** collect samples from every major UPI app before phase 4.
-- **Balance check with several accounts and cards:** one total, or per account?
+- **Balance check beyond one account:** settled for phase 2 as one UPI account, with card bills
+  asked about only when they show up as a gap. Revisit only if users with UPI on two banks ask.
 - **Stated vs learned routine:** how fast learned values take over.
 - **Web parity:** the web app needs the review card, balance check and Today card.
 

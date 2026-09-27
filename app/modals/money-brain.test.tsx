@@ -7,6 +7,7 @@ import MoneyBrainModal from './money-brain'
 const mockPush = jest.fn()
 let mockParams: Record<string, string> = {}
 const mockStreamChat = jest.fn()
+const mockUpdateProposalStatus = jest.fn().mockResolvedValue(undefined)
 let mockBrief: Record<string, unknown> = {}
 
 jest.mock('expo-router', () => ({
@@ -28,12 +29,15 @@ jest.mock('@/src/api/ai', () => ({
   ...jest.requireActual('@/src/api/ai'),
   streamChat: (...args: unknown[]) => mockStreamChat(...args),
   getChatSession: jest.fn(),
+  updateProposalStatus: (...args: unknown[]) => mockUpdateProposalStatus(...args),
 }))
 jest.mock('@/src/components/brain/CaptureReview', () => {
-  const { Text } = jest.requireActual('react-native')
+  const { Pressable, Text } = jest.requireActual('react-native')
   return {
-    CaptureReview: ({ proposal, sessionId }: { proposal: CaptureProposal; sessionId: string | null }) => (
-      <Text>{`Review card: ${proposal.items.length} rows in ${sessionId}`}</Text>
+    CaptureReview: ({ proposal, onSettled }: { proposal: CaptureProposal; onSettled: (status: string, ids: string[]) => void }) => (
+      <Pressable accessibilityRole="button" onPress={() => onSettled('submitted', ['e1', 'e2'])}>
+        <Text>{`Review card: ${proposal.items.length} rows`}</Text>
+      </Pressable>
     ),
   }
 })
@@ -86,7 +90,11 @@ it('shows the review card under the reply when the stream sends a proposal', asy
   })
 
   expect(await utils.findByText("Here's what I got. Check it, then log.")).toBeTruthy()
-  await waitFor(() => expect(utils.getByText('Review card: 2 rows in s1')).toBeTruthy())
+  await waitFor(() => expect(utils.getByText('Review card: 2 rows')).toBeTruthy())
+
+  // The card reports its outcome; the chat records it against this session's proposal.
+  fireEvent.press(utils.getByText('Review card: 2 rows'))
+  expect(mockUpdateProposalStatus).toHaveBeenCalledWith('s1', 'p1', 'submitted', ['e1', 'e2'])
 })
 
 it('offers manual entry when the money brain could not read the spends', async () => {

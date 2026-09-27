@@ -32,6 +32,7 @@ import { useCollapsedGroups } from '@/src/hooks/useCollapsedGroups'
 import { useDismissedRolloverBanner } from '@/src/hooks/useDismissedRolloverBanner'
 import { useBillingStatus } from '@/src/hooks/useBillingStatus'
 import { trialReminderBucket, trialRemainingLabel } from '@/src/lib/billingStatus'
+import { BalanceCheckCard } from '@/src/components/balance/BalanceCheckCard'
 import { EnvelopeGroup } from '@/src/components/envelope/EnvelopeGroup'
 import { EnvelopeRow } from '@/src/components/envelope/EnvelopeRow'
 import { Screen } from '@/src/components/ui/Screen'
@@ -325,6 +326,10 @@ export default function HomeScreen() {
         )}
 
         <LearningCard />
+
+        {/* The weekly balance check keeps these totals honest without bank
+            linking: a prompt when one is due, else the logged meter. */}
+        <BalanceCheckCard />
 
         <Reanimated.View layout={LinearTransition.springify().damping(64).stiffness(900)}>
           <Card elevated={false} style={envelopesEmpty && styles.emptyEnvelopesCard}>

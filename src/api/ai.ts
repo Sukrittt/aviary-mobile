@@ -36,6 +36,8 @@ export interface CaptureItem {
   /** '' when the server wasn't sure: the user picks one on the review card. */
   category: string
   categoryConfidence: number | null
+  /** Set on a balance check's estimates: card shortfalls log as card spends. Absent means the default (bank). */
+  paymentMethod?: 'bank' | 'credit_card'
 }
 
 export type ProposalStatus = 'pending' | 'submitted' | 'dismissed'
