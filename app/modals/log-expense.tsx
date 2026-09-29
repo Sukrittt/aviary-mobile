@@ -1,5 +1,7 @@
 import { ExpenseNoticeScreen } from '@/src/features/log-expense/ExpenseNoticeScreen'
 import { ExpenseConflictReview } from '@/src/features/log-expense/ExpenseConflictReview'
+import { AutoCategoryPill } from '@/src/features/log-expense/AutoCategoryPill'
+import { createThinkingGate, type ThinkingGate } from '@/src/lib/thinkingGate'
 import { ExpenseWriteError, expenseChanges, expenseDraft, rebaseExpenseDraft } from '@/src/lib/expenseConflict'
 import type { ExpenseRow } from '@/src/types'
 import { useCurrency } from '@/src/context/CurrencyContext'
@@ -157,11 +159,30 @@ export default function LogExpenseScreen() {
   }>(null);
 
 
+  // True while the pill shows a category we picked, not one the user chose.
+  // Drives the ✨ marker and the landing animation.
+  const [autoPicked, setAutoPicked] = useState(false);
+  // "Picking…" is only shown for the slow AI fallback, and only once it's been
+  // pending long enough to be worth showing (see thinkingGate.ts).
+  const [suggesting, setSuggesting] = useState(false);
+  const gateRef = useRef<ThinkingGate | null>(null);
+  if (!gateRef.current) gateRef.current = createThinkingGate(setSuggesting);
+  useEffect(() => () => gateRef.current?.cancel(), []);
+
   // Debounced auto-suggest while typing the description, only until the user
   // manually picks a category (so we never fight a deliberate choice).
   useEffect(() => {
-    if (categoryTouched || !item.trim() || !categoryMapQ.data) return;
+    const gate = gateRef.current!;
+    if (categoryTouched || !item.trim() || !categoryMapQ.data) {
+      gate.cancel();
+      return;
+    }
     let cancelled = false;
+    const apply = (name: string) => () => {
+      if (cancelled || !name) return;
+      setCategory(name);
+      setAutoPicked(true);
+    };
     const timer = setTimeout(() => {
       const categoryNames = categories.map((c) => c.name);
       const suggested = suggestCategory(
@@ -170,13 +191,14 @@ export default function LogExpenseScreen() {
         categoryNames,
       );
       if (suggested) {
-        setCategory(suggested);
+        gate.finish(apply(suggested));
         return;
       }
       // No local match — fall back to the LLM suggestion endpoint.
+      gate.start();
       suggestCategoryLLM(item, categoryNames).then((llmSuggested) => {
-        if (cancelled || !llmSuggested) return;
-        setCategory(llmSuggested);
+        if (cancelled) return;
+        gate.finish(apply(llmSuggested));
       });
     }, 300);
     return () => {
@@ -184,6 +206,11 @@ export default function LogExpenseScreen() {
       clearTimeout(timer);
     };
   }, [item, categoryMapQ.data, categories, categoryTouched]);
+
+  const rollEmojis = useMemo(
+    () => [...new Set(categories.map((c) => categoryEmoji(c.name, c.group)).filter(Boolean))],
+    [categories],
+  );
 
   const selectedCategory = categories.find((c) => c.name === category);
 
@@ -223,6 +250,7 @@ export default function LogExpenseScreen() {
         onSuccess: () => {
           setCategory(name);
           setCategoryTouched(true);
+          setAutoPicked(false);
           setNewCategoryName("");
         },
         onError: (e) => {
@@ -359,6 +387,7 @@ export default function LogExpenseScreen() {
     setExpectedVersion(conflict.version);
     setItem(draft.item); setAmount(draft.amount); setDate(draft.date); setCategory(draft.category);
     setCategoryTouched(true);
+    setAutoPicked(false);
     setConflict(null); setError('');
   }
 
@@ -513,53 +542,21 @@ export default function LogExpenseScreen() {
             active={missing.includes("category")}
             style={styles.categoryPill}
           >
-          <Pressable
+          <AutoCategoryPill
+            selected={
+              selectedCategory
+                ? {
+                    emoji: categoryEmoji(selectedCategory.name, selectedCategory.group),
+                    name: splitEmoji(selectedCategory.name).text,
+                  }
+                : null
+            }
+            thinking={suggesting}
+            auto={autoPicked}
+            highlighted={flag("category")}
+            rollEmojis={rollEmojis}
             onPress={() => setPickerOpen(true)}
-            style={[
-              styles.categoryPillInner,
-              {
-                backgroundColor: flag("category") ? "#ffffff" : "rgba(255, 255, 255, 0.3)",
-                borderRadius: radius.full,
-              },
-            ]}
-          >
-            {selectedCategory ? (
-              <>
-                {/* Separate Text node, no custom fontFamily: a ZWJ+variation-selector
-                    emoji sharing one custom-font Text run with the label can make
-                    Android silently drop the rest of that run. */}
-                <Text style={{ color: tokens.onAccent, fontSize: type.caption }}>
-                  {categoryEmoji(selectedCategory.name, selectedCategory.group)}
-                </Text>
-                <Text
-                  numberOfLines={1}
-                  style={[
-                    styles.categoryPillText,
-                    {
-                      flexShrink: 1,
-                      marginLeft: space.xs,
-                      color: tokens.onAccent,
-                      fontFamily: fontFamily.bodySemiBold,
-                    },
-                  ]}
-                >
-                  {splitEmoji(selectedCategory.name).text}
-                </Text>
-              </>
-            ) : (
-              <Text
-                style={[
-                  styles.categoryPillText,
-                  {
-                    color: flag("category") ? tokens.accent : tokens.onAccent,
-                    fontFamily: fontFamily.bodySemiBold,
-                  },
-                ]}
-              >
-                Category
-              </Text>
-            )}
-          </Pressable>
+          />
           </Nudge>
         </View>
 
@@ -579,6 +576,7 @@ export default function LogExpenseScreen() {
         onSelect={(c) => {
           setCategory(c);
           setCategoryTouched(true);
+          setAutoPicked(false);
         }}
         title="Choose a category"
         noneLabel="No category"
@@ -747,13 +745,6 @@ const styles = StyleSheet.create({
     borderWidth: 2,
   },
   categoryPill: { position: "absolute", right: 6, maxWidth: 108 },
-  categoryPillInner: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-  },
-  categoryPillText: { fontSize: 12 },
   fieldLabel: { fontSize: 12 },
   error: { fontSize: 12, textAlign: "center" },
   moreToggle: {
