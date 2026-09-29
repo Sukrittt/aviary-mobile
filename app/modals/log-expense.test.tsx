@@ -257,3 +257,25 @@ it('asks before saving an amount far above the category usual, then saves on the
   await act(async () => { (globalThis as any).__submit(); await Promise.resolve(); await Promise.resolve() })
   expect(postExpensePayload).toHaveBeenCalledTimes(1)
 })
+
+it('shows the pill picking while the AI looks up a category, then lands on its answer', async () => {
+  let answer: (v: string) => void = () => {}
+  const utils = setup()
+  ;(suggestCategoryLLM as jest.Mock).mockImplementation(() => new Promise<string>((r) => { answer = r }))
+  const { getByPlaceholderText, findByText, getByText, queryByText, getByTestId } = utils
+  // Wait for the category map to load; the suggest effect waits on it.
+  await act(async () => { await Promise.resolve(); await Promise.resolve() })
+
+  fireEvent.changeText(getByPlaceholderText('What was it for?'), 'weekly shop')
+  await act(async () => { jest.advanceTimersByTime(300 + 150) })
+  expect(getByText('Picking…')).toBeTruthy()
+
+  await act(async () => { answer('Groceries'); await Promise.resolve() })
+  // The gate's minimum hold, then (once React has committed and scheduled
+  // them) the roll's settle steps.
+  await act(async () => { jest.advanceTimersByTime(450) })
+  await act(async () => { jest.advanceTimersByTime(800) })
+  expect(queryByText('Picking…')).toBeNull()
+  expect(await findByText('Groceries')).toBeTruthy()
+  expect(getByTestId('auto-pick-marker')).toBeTruthy()
+})
