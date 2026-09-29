@@ -10,6 +10,8 @@ import { persistSession } from './accessMode'
 // for web builds).
 WebBrowser.maybeCompleteAuthSession()
 
+const SIGN_IN_FAILED = "Google sign-in didn't work. Try again."
+
 export interface SignInState {
   /** Opens Google's consent screen directly (no AuthKit picker page). */
   signIn: () => void
@@ -46,7 +48,8 @@ export function useSignIn(): SignInState {
     if (response.type === 'error') {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing to the OAuth browser flow's async result, an external system
       setPending(false)
-      setError(response.params?.error_description ?? 'Sign-in failed. Try again.')
+      // Never surface WorkOS/Google's raw error_description to the user.
+      setError(SIGN_IN_FAILED)
       return
     }
     if (response.type !== 'success') {
@@ -58,7 +61,7 @@ export function useSignIn(): SignInState {
     const verifier = request?.codeVerifier
     if (!verifier) {
       setPending(false)
-      setError('Sign-in failed. Try again.')
+      setError(SIGN_IN_FAILED)
       return
     }
 
@@ -70,7 +73,7 @@ export function useSignIn(): SignInState {
         setDone(true)
       })
       .catch(() => {
-        if (!cancelled) setError('Could not complete sign-in. Check your connection.')
+        if (!cancelled) setError("Couldn't finish signing you in. Check your connection and try again.")
       })
       .finally(() => {
         if (!cancelled) setPending(false)
@@ -84,7 +87,8 @@ export function useSignIn(): SignInState {
 
   const signIn = useCallback(() => {
     if (!CLIENT_ID) {
-      setError('EXPO_PUBLIC_WORKOS_CLIENT_ID is not set')
+      // Build misconfiguration (EXPO_PUBLIC_WORKOS_CLIENT_ID unset); don't show the env var name.
+      setError("Google sign-in isn't available right now. Try email instead.")
       return
     }
     setError(null)
