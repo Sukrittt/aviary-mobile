@@ -5,7 +5,7 @@
 //   fast answer lands without a one-frame flash of the thinking state.
 // - Once shown, it stays for at least MIN_VISIBLE_MS, for the same reason.
 //
-// Web keeps a byte-identical copy in src/lib/thinkingGate.ts.
+// Web keeps an identical copy in src/lib/thinkingGate.ts (only this comment differs).
 
 export const SHOW_AFTER_MS = 150
 export const MIN_VISIBLE_MS = 450
