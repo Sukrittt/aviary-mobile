@@ -30,6 +30,7 @@ import {
 } from './WrappedCards'
 import { ShareCard } from './ShareCard'
 import type { WrappedData } from '@/src/api/wrapped'
+import { track } from '@/src/lib/analytics'
 
 const CARD_DURATION_MS = 5000
 /** How long a segment cut short by a tap takes to ease up to full. Doubles as the delay
@@ -158,7 +159,17 @@ export function WrappedScreen() {
     return saved > 0 ? saved : undefined
   }, [data, budgets])
 
+  // Which card people stop on is the only thing about Wrapped worth knowing,
+  // so each card counts once per visit. Index 0 is the start screen.
+  const seenCards = useRef(new Set<number>())
+  useEffect(() => {
+    if (!started || index < 1 || seenCards.current.has(index)) return
+    seenCards.current.add(index)
+    track('wrapped_card_viewed', { index })
+  }, [started, index])
+
   const begin = useCallback((startMuted: boolean) => {
+    track('wrapped_opened', { muted: startMuted })
     setMuted(startMuted)
     setStarted(true)
     progress.setValue(0)

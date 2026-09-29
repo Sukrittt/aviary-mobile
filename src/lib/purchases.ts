@@ -15,6 +15,7 @@ import { Platform } from 'react-native'
 import Purchases, { LOG_LEVEL, PURCHASES_ERROR_CODE, type CustomerInfo, type PurchasesError, type PurchasesPackage } from 'react-native-purchases'
 import { accessMode, currentUserId } from '../api/accessMode'
 import { syncBilling, type BillingStatus } from '../api/billing'
+import { track } from './analytics'
 
 /**
  * The *public* SDK key. Safe to ship — it can only read and start purchases
@@ -99,24 +100,38 @@ export type PurchaseOutcome =
  * UI must show; a device-side entitlement check would be the thing to fake.
  */
 export async function purchase(pkg: PurchasesPackage): Promise<PurchaseOutcome> {
+  // The package id ('$rc_monthly', '$rc_annual') is what the paywall funnel
+  // splits on. No price: that's the store's number, already in RevenueCat.
+  const plan = pkg.identifier
+  track('purchase_started', { package: plan })
   try {
     await Purchases.purchasePackage(pkg)
   } catch (err) {
     const error = err as Partial<PurchasesError>
-    if (error.code === PURCHASES_ERROR_CODE.PURCHASE_CANCELLED_ERROR) return { status: 'cancelled' }
+    if (error.code === PURCHASES_ERROR_CODE.PURCHASE_CANCELLED_ERROR) {
+      track('purchase_cancelled', { package: plan })
+      return { status: 'cancelled' }
+    }
     // Slow payment methods (common in India) complete out of band; the
     // webhook grants access when the store settles it. Telling the user it
     // failed here would send them back to buy a second time.
-    if (error.code === PURCHASES_ERROR_CODE.PAYMENT_PENDING_ERROR) return { status: 'pending' }
+    if (error.code === PURCHASES_ERROR_CODE.PAYMENT_PENDING_ERROR) {
+      track('purchase_completed', { package: plan, verified: false, pending: true })
+      return { status: 'pending' }
+    }
+    track('purchase_failed', { package: plan, error_code: String(error.code ?? 'unknown') })
     return { status: 'failed', message: error.message ?? 'Purchase failed' }
   }
 
   try {
-    return { status: 'purchased', access: await syncBilling() }
+    const access = await syncBilling()
+    track('purchase_completed', { package: plan, verified: access.allowed, pending: false })
+    return { status: 'purchased', access }
   } catch {
     // Paid, but we could not confirm it right now. Not a failure — the
     // webhook reaches the server independently of this device, so the
     // caller should re-check status rather than re-charge the user.
+    track('purchase_completed', { package: plan, verified: false, pending: true })
     return { status: 'pending' }
   }
 }
@@ -129,8 +144,11 @@ export async function purchase(pkg: PurchasesPackage): Promise<PurchaseOutcome> 
  * fresh access so the caller can say plainly whether anything was found.
  */
 export async function restore(): Promise<BillingStatus> {
+  track('restore_tapped')
   if (configured) await Purchases.restorePurchases()
-  return syncBilling()
+  const access = await syncBilling()
+  if (access.allowed) track('restore_succeeded', { plan_status: access.mode })
+  return access
 }
 
 /**

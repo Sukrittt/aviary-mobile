@@ -14,6 +14,7 @@ import { fontFamily } from '@/src/theme/fonts'
 import { formatDateTime } from '@/src/lib/format'
 import type { ExpenseRow } from '@/src/types'
 import type { DuplicatePair } from '@/src/api/expenses'
+import { track } from '@/src/lib/analytics'
 
 /**
  * Opened from Activity's "possible duplicates" chip. Steps through the pairs
@@ -82,6 +83,7 @@ export default function DuplicatesModal() {
         item: pair.duplicate.item,
         amountInr: Number(pair.duplicate.amount_inr) || 0,
       })
+      track('duplicates_resolved', { action: 'deleted' })
       setPhase('success')
     } catch {
       setHeld(null)
@@ -96,6 +98,7 @@ export default function DuplicatesModal() {
     const isLast = !pairs.some((p) => p.duplicate.id !== pair.duplicate.id && !answered.has(String(p.duplicate.id)))
     try {
       await dismiss.mutateAsync(String(pair.duplicate.id))
+      track('duplicates_resolved', { action: 'kept_both' })
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {})
       if (isLast) {
         setHeld(pair)

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { View, Text, Pressable, ScrollView, Linking, ActivityIndicator, StyleSheet } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -9,6 +9,7 @@ import { Alert } from '@/src/components/ui/AlertHost'
 import { PlanPicker } from '@/src/components/billing/PlanPicker'
 import { CurrentPlan } from '@/src/components/billing/CurrentPlan'
 import { trackAviaryPro } from '@/src/lib/trackAviaryPro'
+import { track } from '@/src/lib/analytics'
 import { Icon } from '@/src/components/shared/Icon'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
@@ -48,6 +49,14 @@ export default function PlanScreen() {
   const canBuy = showPlans && status?.mode === 'expired'
   const paid = status?.mode === 'paid'
   const packagesQuery = useQuery({ queryKey: ['billing-packages'], queryFn: getPackages, enabled: showPlans || (paid && purchasesAvailable()) })
+  // Once per visit, the first moment plans are actually on screen. `trigger`
+  // separates someone browsing plans mid-trial from someone locked out.
+  const paywallSeen = useRef(false)
+  useEffect(() => {
+    if (!showPlans || paywallSeen.current) return
+    paywallSeen.current = true
+    track('paywall_viewed', { trigger: locked ? 'access_expired' : 'plan_screen', plan_status: status?.mode ?? 'unknown' })
+  }, [showPlans, locked, status?.mode])
   const manageable = !!status?.productId && status.renewalState !== 'revoked' && status.renewalState !== 'expired'
 
   async function buy(pkg: PurchasesPackage) {

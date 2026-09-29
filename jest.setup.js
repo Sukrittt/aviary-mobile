@@ -24,6 +24,8 @@ jest.mock('posthog-react-native', () => ({
     reset: jest.fn(),
     screen: jest.fn(),
     capture: jest.fn(),
+    register: jest.fn(),
+    flush: jest.fn(),
     optIn: jest.fn(),
     optOut: jest.fn(),
     optedOut: false,

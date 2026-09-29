@@ -56,6 +56,9 @@ export async function registerForPushNotificationsAsync(): Promise<void> {
     let { status } = await Notifications.getPermissionsAsync()
     if (status !== 'granted') {
       ;({ status } = await Notifications.requestPermissionsAsync())
+      // Only when the prompt was actually shown, so this is the opt-in rate
+      // rather than one event per launch.
+      track('push_permission_result', { granted: status === 'granted' })
     }
     if (status !== 'granted') {
       track('push_registration_failed', { stage, error: `permission ${status}` })
@@ -96,6 +99,11 @@ export function addPushTokenListener(): NotificationsType.Subscription | undefin
 function routeFromNotificationResponse(response: NotificationsType.NotificationResponse): void {
   const data = response.notification.request.content.data
   const route = data?.route
+  // Which kind of notification brings people back. The route, not the text:
+  // notification bodies carry category names and amounts.
+  track('notification_opened', {
+    target: typeof route === 'string' && route ? route : typeof data?.date === 'string' ? 'activity_date' : 'none',
+  })
   if (typeof route === 'string' && route) {
     if (route === '/wrapped' || route === '/activity' || route === '/investments') router.push(route)
     // Pace nudge: `category` is the hot envelope, which move-money calls `fromCategory` (it's the recipient).
