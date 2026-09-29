@@ -46,7 +46,7 @@ import {
   getExportDownloadUrl,
   type ExportRow,
 } from "@/src/api/account";
-import { isAnalyticsEnabled, setAnalyticsEnabled } from "@/src/lib/analytics";
+import { isAnalyticsEnabled, setAnalyticsEnabled, track } from "@/src/lib/analytics";
 import { listUnsynced, toCsv } from "@/src/lib/pendingExpenses";
 
 function exportStatusMeta(status: ExportRow["status"], tokens: ThemeTokens) {
@@ -169,6 +169,7 @@ export default function DataScreen() {
     setStarting(true);
     try {
       await startExport();
+      track("data_exported");
     } catch (err) {
       if (err instanceof Error && err.message === "quota_exceeded") {
         const limit = exportsData?.limit;

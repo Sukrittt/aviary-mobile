@@ -31,7 +31,7 @@ export async function scanBill(params: {
     signal: AbortSignal.timeout(45_000),
   })
   await // notify=false: the scan screen shows the allowance state itself, a second screen on top would double up.
-  await rejectIfAllowanceExceeded(resp, false)
+  await rejectIfAllowanceExceeded(resp, false, 'scan')
   if (!resp.ok) throw new Error(await apiErrorMessage(resp, 'Failed to scan bill'))
   return resp.json()
 }

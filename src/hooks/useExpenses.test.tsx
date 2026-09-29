@@ -4,7 +4,8 @@ import { renderHook, waitFor } from '@testing-library/react-native'
 import { getExpenses, mintExpensePayload, postExpensePayload, updateExpense } from '@/src/api/expenses'
 import { HttpError } from '@/src/api/client'
 import { enqueue } from '@/src/lib/pendingExpenses'
-import { useExpenses, useAddExpense, useUpdateExpense } from './useExpenses'
+import { track, trackFirst } from '@/src/lib/analytics'
+import { useExpenses, useAddExpense, useUpdateExpense, useDeleteExpense } from './useExpenses'
 
 jest.mock('@/src/api/expenses', () => ({
   getExpenses: jest.fn(),
@@ -27,6 +28,8 @@ jest.mock('@/src/api/client', () => ({
 jest.mock('@/src/lib/pendingExpenses', () => ({
   enqueue: jest.fn(),
 }))
+
+jest.mock('@/src/lib/analytics', () => ({ track: jest.fn(), trackFirst: jest.fn() }))
 
 function wrapper(queryClient: QueryClient) {
   function QueryWrapper({ children }: { children: ReactNode }) {
@@ -115,4 +118,31 @@ it('useUpdateExpense also invalidates the budgets query on success', async () =>
   expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['ai-brief'] })
   expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['budgets'] })
   expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['category-map'] })
+})
+
+describe('expense analytics', () => {
+  const client = () => new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { gcTime: Infinity } } })
+
+  it('logs an expense without its category, item or amount, and stamps first_expense_at', async () => {
+    ;(postExpensePayload as jest.Mock).mockResolvedValue({ id: 'row-1', timestamp: '2026-01-01T10:00:00+05:30' })
+    const { result } = renderHook(() => useAddExpense(), { wrapper: wrapper(client()) })
+    result.current.mutate({ item: 'Therapy', amount_inr: '2500', category: '🧠 Therapy', payment_method: 'bank', notes: ' ' })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(trackFirst).toHaveBeenCalledWith('expense_logged', 'first_expense_at', { payment_method: 'bank', has_notes: false })
+  })
+
+  it('names the edited fields and flags a category change', async () => {
+    ;(updateExpense as jest.Mock).mockResolvedValue({})
+    const { result } = renderHook(() => useUpdateExpense(), { wrapper: wrapper(client()) })
+    result.current.mutate({ timestamp: 't', item: 'Coffee', amountInr: 150, updates: { new_amount_inr: '160', category: 'Food' } })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(track).toHaveBeenCalledWith('expense_edited', { fields: 'category,new_amount_inr', changed_category: true })
+  })
+
+  it('counts a delete', async () => {
+    const { result } = renderHook(() => useDeleteExpense(), { wrapper: wrapper(client()) })
+    result.current.mutate({ timestamp: 't', item: 'Coffee', amountInr: 150 })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(track).toHaveBeenCalledWith('expense_deleted')
+  })
 })

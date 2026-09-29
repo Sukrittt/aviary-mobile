@@ -9,6 +9,7 @@ import { fontFamily } from '@/src/theme/fonts'
 import { Icon } from '@/src/components/shared/Icon'
 import { sendMagicAuthCode } from '@/src/api/magicAuth'
 import { changeEmail } from '@/src/api/account'
+import { track } from '@/src/lib/analytics'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -59,9 +60,14 @@ export default function EmailScreen() {
       return
     }
 
+    track('sign_in_started', { method: 'email' })
     const ok = await sendMagicAuthCode(trimmed)
     setPending(false)
-    if (!ok) return fail('Could not send code. Check the address and try again.')
+    if (!ok) {
+      track('sign_in_failed', { method: 'email', reason: 'code_send_failed' })
+      return fail('Could not send code. Check the address and try again.')
+    }
+    track('sign_in_code_sent')
     router.push({ pathname: '/(auth)/code', params: { email: trimmed } })
   }
 

@@ -5,6 +5,7 @@ import { getBillingStatus, syncBilling, type BillingStatus } from '@/src/api/bil
 import { isAccessBlocked, onAccessChange } from '@/src/lib/accessGate'
 import { accessAllowed } from '@/src/lib/billingStatus'
 import { currentUserId } from '@/src/api/accessMode'
+import { setEventContext } from '@/src/lib/analytics'
 
 export const billingKey = ['billing-status'] as const
 
@@ -25,6 +26,13 @@ export function useBillingStatus(enabled = true) {
   // Guests (the shared demo account) have no billing, and the server answers
   // them with a 401 — which the root layout would read as a dead session.
   const query = useQuery({ queryKey: billingKey, queryFn: getBillingStatus, staleTime: 30_000, enabled: enabled && currentUserId() !== null })
+
+  // Every event carries the plan it happened on, so a chart can split trial
+  // users from paying ones without a join.
+  const mode = query.data?.mode
+  useEffect(() => {
+    if (mode) setEventContext({ plan_status: mode })
+  }, [mode])
 
   // The gate flips from src/api/client.ts the instant any request is refused,
   // which is usually well before this query would have noticed on its own.

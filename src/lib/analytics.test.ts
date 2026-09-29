@@ -1,5 +1,6 @@
 import { accessMode, currentUserId, type AccessMode } from '../api/accessMode'
-import { identifyUser, initAnalytics, isAnalyticsEnabled, posthog, setAnalyticsEnabled, track } from './analytics'
+import { Platform } from 'react-native'
+import { flushAnalytics, identifyUser, initAnalytics, isAnalyticsEnabled, posthog, setAnalyticsEnabled, setEventContext, startTimer, track, trackFirst } from './analytics'
 
 jest.mock('../api/accessMode', () => ({
   accessMode: { subscribe: jest.fn(), subscribeLogout: jest.fn() },
@@ -114,5 +115,46 @@ describe('track', () => {
       category: 'Groceries',
       payment_method: 'bank',
     })
+  })
+})
+
+describe('trackFirst', () => {
+  it('stamps the person property through $set_once on the same event', () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-09-29T08:00:00.000Z'))
+    trackFirst('expense_logged', 'first_expense_at', { payment_method: 'bank' })
+    expect(posthog.capture).toHaveBeenCalledWith('expense_logged', {
+      payment_method: 'bank',
+      $set_once: { first_expense_at: '2026-09-29T08:00:00.000Z' },
+    })
+    jest.useRealTimers()
+  })
+})
+
+describe('event context', () => {
+  it('registers the platform on init, so web and mobile split in one project', () => {
+    expect(posthog.register).toHaveBeenCalledWith({ platform: Platform.OS })
+  })
+
+  it('registers context properties for every later event', () => {
+    setEventContext({ plan_status: 'trial' })
+    expect(posthog.register).toHaveBeenCalledWith({ plan_status: 'trial' })
+  })
+})
+
+describe('startTimer', () => {
+  it('reads whole seconds since it started', () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-09-29T08:00:00.000Z'))
+    const elapsed = startTimer()
+    jest.setSystemTime(new Date('2026-09-29T08:00:41.600Z'))
+    expect(elapsed()).toBe(42)
+    jest.useRealTimers()
+  })
+})
+
+describe('flushAnalytics', () => {
+  it('sends the queue and swallows a failure', async () => {
+    ;(posthog.flush as jest.Mock).mockRejectedValueOnce(new Error('offline'))
+    await expect(flushAnalytics()).resolves.toBeUndefined()
+    expect(posthog.flush).toHaveBeenCalled()
   })
 })

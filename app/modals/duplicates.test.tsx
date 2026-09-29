@@ -1,4 +1,4 @@
-import { fireEvent, waitFor } from '@testing-library/react-native'
+import { act, fireEvent, waitFor } from '@testing-library/react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { deleteExpense, dismissDuplicate, getDuplicates } from '@/src/api/expenses'
 import DuplicatesModal from './duplicates'
@@ -24,6 +24,10 @@ const PAIR = { duplicate: row('two', 'Swiggy dinner', '20:10:00'), original: row
 beforeEach(() => jest.clearAllMocks())
 
 it('shows the pair side by side, deletes the newer one with a saving state and a tick, then closes', async () => {
+  // Fake timers: the tick holds the screen for a fixed 1100ms before closing.
+  // On real timers this test raced the clock and timed out under CI load;
+  // here the test decides when that beat has passed. waitFor advances them.
+  jest.useFakeTimers()
   ;(getDuplicates as jest.Mock).mockResolvedValue([PAIR])
   let finish: () => void = () => {}
   ;(deleteExpense as jest.Mock).mockImplementationOnce(() => new Promise<void>((resolve) => { finish = resolve }))
@@ -39,11 +43,20 @@ it('shows the pair side by side, deletes the newer one with a saving state and a
   finish()
   // The tick replaces the label, and the pair stays on screen through it even
   // though the refetch has already dropped it.
-  await waitFor(() => expect(screen.queryByText('Deleting…')).toBeNull(), { timeout: 2000 })
+  await waitFor(() => expect(screen.queryByText('Deleting…')).toBeNull())
   expect(screen.getByText('Swiggy dinner')).toBeTruthy()
   expect(mockBack).not.toHaveBeenCalled()
-  await waitFor(() => expect(mockBack).toHaveBeenCalledTimes(1), { timeout: 3000 })
+  await act(async () => {
+    jest.advanceTimersByTime(1000)
+  })
+  expect(mockBack).not.toHaveBeenCalled()
+  await act(async () => {
+    jest.advanceTimersByTime(100)
+  })
+  expect(mockBack).toHaveBeenCalledTimes(1)
 })
+
+afterEach(() => jest.useRealTimers())
 
 it('keeps both by clearing the flag', async () => {
   ;(getDuplicates as jest.Mock).mockResolvedValue([PAIR])

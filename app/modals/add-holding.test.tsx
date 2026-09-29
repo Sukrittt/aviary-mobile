@@ -1,5 +1,5 @@
 import { act, fireEvent, waitFor } from '@testing-library/react-native'
-import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
+import { createTestQueryClient, renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { addHolding, getHoldings, updateHolding } from '@/src/api/holdings'
 import { HoldingWriteError } from '@/src/lib/holdingConflict'
 import AddHoldingModal from './add-holding'
@@ -115,28 +115,24 @@ describe('edit mode', () => {
     expect(queryByPlaceholderText('e.g. Stocks')).toBeNull()
   })
 
+  /**
+   * Render in edit mode with the holding already in the query cache. These
+   * tests are about what gets submitted, not about the backfill arriving late,
+   * so nothing should be able to land after the test's own toggle and revert
+   * it. (Gating getHoldings and flushing one tick raced under CI load: React
+   * Query's notification could arrive after the toggle.)
+   */
+  function renderEditing(holding: typeof existingHolding & Record<string, unknown>) {
+    const queryClient = createTestQueryClient()
+    queryClient.setQueryData(['holdings'], [holding])
+    return renderWithProviders(<AddHoldingModal />, { queryClient })
+  }
+
   it('submits only is_recurring/recurring_amount, never the base value, when turning recurring on', async () => {
     mockParams = { name: 'Bonds' }
-    // `{origName}` (the header's "Bonds" label) renders immediately from the
-    // route param, before getHoldings() resolves — so a plain findByText('Bonds')
-    // doesn't prove the backfill effect has already run. Gate getHoldings()
-    // explicitly and flush it before interacting, or the backfill can land
-    // *after* this test's own toggle and silently revert it.
-    const holdingsGate = deferred<(typeof existingHolding)[]>()
-    ;(getHoldings as jest.Mock).mockReturnValue(holdingsGate.promise)
     ;(updateHolding as jest.Mock).mockResolvedValue(undefined)
 
-    const { getByRole, findByPlaceholderText, findByText, getByText } = renderWithProviders(<AddHoldingModal />)
-    await findByText('Bonds')
-
-    // React Query's notifyManager batches observer notifications via a real
-    // setTimeout(0), not a microtask — awaiting only Promise.resolve() here
-    // returns before that timeout fires, so the backfill effect still hasn't
-    // run. A real (macrotask) tick is required to let it land.
-    await act(async () => {
-      holdingsGate.resolve([existingHolding])
-      await new Promise((resolve) => setTimeout(resolve, 0))
-    })
+    const { getByRole, findByPlaceholderText, getByText } = renderEditing(existingHolding)
 
     fireEvent(getByRole('switch'), 'valueChange', true)
     fireEvent.changeText(await findByPlaceholderText('0'), '3600')
@@ -153,19 +149,15 @@ describe('edit mode', () => {
 
   it('submits is_recurring: false with no amount when turning an existing SIP off', async () => {
     mockParams = { name: 'Mutual Fund SIP' }
-    const holdingsGate = deferred<(typeof existingHolding & { is_recurring: string; recurring_amount: string })[]>()
-    ;(getHoldings as jest.Mock).mockReturnValue(holdingsGate.promise)
     ;(updateHolding as jest.Mock).mockResolvedValue(undefined)
 
-    const { getByRole, findByText, getByText } = renderWithProviders(<AddHoldingModal />)
-    await findByText('Mutual Fund SIP')
-
-    await act(async () => {
-      holdingsGate.resolve([
-        { ...existingHolding, name: 'Mutual Fund SIP', is_recurring: 'true', recurring_amount: '2000' },
-      ])
-      await new Promise((resolve) => setTimeout(resolve, 0))
+    const { getByRole, getByText } = renderEditing({
+      ...existingHolding,
+      name: 'Mutual Fund SIP',
+      is_recurring: 'true',
+      recurring_amount: '2000',
     })
+    expect(getByRole('switch').props.value).toBe(true)
 
     fireEvent(getByRole('switch'), 'valueChange', false)
     fireEvent.press(getByText('Save changes'))

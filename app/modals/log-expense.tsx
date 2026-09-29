@@ -52,6 +52,7 @@ TextInput,
 View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { track } from "@/src/lib/analytics";
 
 function str(v: string | string[] | undefined): string {
   return typeof v === "string" ? v : "";
@@ -162,6 +163,9 @@ export default function LogExpenseScreen() {
   // True while the pill shows a category we picked, not one the user chose.
   // Drives the ✨ marker and the landing animation.
   const [autoPicked, setAutoPicked] = useState(false);
+  // Where the last auto-pick came from, for the acceptance-rate event on save:
+  // the local keyword map or the AI fallback. Null if nothing was ever picked.
+  const suggestedBy = useRef<null | "keyword" | "ai">(null);
   // "Picking…" is only shown for the slow AI fallback, and only once it's been
   // pending long enough to be worth showing (see thinkingGate.ts).
   const [suggesting, setSuggesting] = useState(false);
@@ -178,8 +182,9 @@ export default function LogExpenseScreen() {
       return;
     }
     let cancelled = false;
-    const apply = (name: string) => () => {
+    const apply = (name: string, by: "keyword" | "ai") => () => {
       if (cancelled || !name) return;
+      suggestedBy.current = by;
       setCategory(name);
       setAutoPicked(true);
     };
@@ -191,14 +196,14 @@ export default function LogExpenseScreen() {
         categoryNames,
       );
       if (suggested) {
-        gate.finish(apply(suggested));
+        gate.finish(apply(suggested, "keyword"));
         return;
       }
       // No local match — fall back to the LLM suggestion endpoint.
       gate.start();
       suggestCategoryLLM(item, categoryNames).then((llmSuggested) => {
         if (cancelled) return;
-        gate.finish(apply(llmSuggested));
+        gate.finish(apply(llmSuggested, "ai"));
       });
     }, 300);
     return () => {
@@ -305,6 +310,8 @@ export default function LogExpenseScreen() {
         },
       );
     } else {
+      // Kept (still auto-picked at save) or overridden (the user changed it).
+      if (suggestedBy.current) track("ai_category_suggested", { accepted: autoPicked, source: suggestedBy.current });
       addMutate(
         {
           item: item.trim(),
@@ -366,7 +373,7 @@ export default function LogExpenseScreen() {
         },
       );
     }
-  }, [canSubmit, unusual, unusualWarnedFor, base, amount, expectedVersion, isEdit, origId, origTimestamp, origItem, origAmountInr, item, parsedAmount, date, category, notes, paymentMethod, router, addMutate, updateMutate]);
+  }, [canSubmit, unusual, unusualWarnedFor, base, amount, expectedVersion, isEdit, origId, origTimestamp, origItem, origAmountInr, item, parsedAmount, date, category, notes, paymentMethod, router, addMutate, updateMutate, autoPicked]);
 
   // Publish only when the action or its visible state changes.
   useEffect(() => {

@@ -10,7 +10,7 @@ import { PrivacyProvider } from '@/src/context/PrivacyContext'
 import { MaintenanceBanner } from '@/src/components/shared/MaintenanceBanner'
 import { LogExpenseNavigation } from '@/src/features/log-expense/LogExpenseNavigation'
 import { LOG_EXPENSE_PATH,LogExpenseSubmitProvider } from '@/src/features/log-expense/SubmitContext'
-import { identifyUser,initAnalytics,track,trackScreen } from '@/src/lib/analytics'
+import { identifyUser,initAnalytics,trackScreen } from '@/src/lib/analytics'
 import { clearCategoryCache,readCategoryCache } from '@/src/lib/categoryCache'
 import { clearGroupCache,readGroupCache } from '@/src/lib/groupCache'
 import { initPurchases } from '@/src/lib/purchases'
@@ -167,9 +167,6 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
       onOnboarded(() => {
         setJustOnboarded(true)
         setOnboarded(true)
-        // signalOnboarded() fires once, on the setup wizard's finish CTA, so
-        // this counts completions rather than per-step progress.
-        track('onboarding_completed')
       }),
     []
   )
