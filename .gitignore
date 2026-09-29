@@ -62,3 +62,4 @@ build.log
 /plans/
 /docs/*-plan.md
 /docs/play-store.md
+scripts/widget-previews/.out/
