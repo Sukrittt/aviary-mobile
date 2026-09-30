@@ -29,7 +29,7 @@ describe('expenseNotice', () => {
       expect(result).toEqual({
         title: 'This transaction was updated',
         message:
-          'A newer version was saved elsewhere, so we haven’t deleted it. Go back to review the transaction before trying again.',
+          'A newer version was saved elsewhere, so we haven’t saved your changes. Go back to review the transaction before trying again.',
         backLabel: 'Back to my draft',
       })
     })
@@ -71,7 +71,7 @@ describe('expenseNotice', () => {
     it('returns connection fallback with draft backLabel when status is undefined and action is edit', () => {
       const result = expenseNotice(undefined, 'edit')
       expect(result).toEqual({
-        title: 'We couldn’t confirm the deletion',
+        title: 'We couldn’t save your changes',
         message:
           'Check your connection, then go back and refresh your transactions before trying again.',
         backLabel: 'Back to my draft',
@@ -92,6 +92,7 @@ describe('expenseNotice', () => {
       expect(expenseNotice(500, 'edit').backLabel).toBe('Back to my draft')
       expect(expenseNotice(500, 'delete').backLabel).toBe('Back to transactions')
       expect(expenseNotice(500, 'delete').title).toBe('We couldn’t confirm the deletion')
+      expect(expenseNotice(500, 'edit').title).toBe('We couldn’t save your changes')
     })
   })
 })
