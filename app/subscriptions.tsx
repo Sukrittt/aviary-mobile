@@ -54,6 +54,7 @@ export default function SubscriptionsScreen() {
           style={[styles.findButton, { backgroundColor: tokens.card, borderColor: tokens.border }]}
           accessibilityRole="button"
           accessibilityLabel="Find subscriptions"
+          accessibilityHint="Scan past expenses for services you already pay for"
         >
           <Icon icon={Search} size={17} color={tokens.accent} />
           <View style={{ flex: 1 }}>

@@ -75,3 +75,10 @@ it('goes back when the back button is pressed', () => {
   fireEvent.press(getByRole('button', { name: 'Go back' }))
   expect(mockBack).toHaveBeenCalledTimes(1)
 })
+
+it('keeps the find card subtitle for screen readers as a hint', () => {
+  mockUseSubscriptions.mockReturnValue({ data: [], isLoading: false })
+  const { getByRole } = renderWithProviders(<SubscriptionsScreen />)
+  expect(getByRole('button', { name: 'Find subscriptions' }).props.accessibilityHint)
+    .toBe('Scan past expenses for services you already pay for')
+})
