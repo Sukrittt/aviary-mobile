@@ -40,7 +40,20 @@ export interface WidgetData {
   chips: WidgetChip[];
   today: WidgetToday[];
   weeklyTrend: WeeklyTrend | null;
+  /** Share of this month's budget still unspent, 0..1. Null when nothing is
+   *  budgeted, so there's no pace to measure against. */
+  leftPct: number | null;
+  /** Share of the month still to go, today included, 0..1. */
+  monthPct: number;
+  /** What's left spread over today and the rest of the month, formatted.
+   *  Empty in a snapshot written before this field existed. */
+  perDay: string;
+  /** Total left is below zero. */
+  overspent: boolean;
 }
+
+/** The bird's mood on the widget, and the ring's color. */
+export type WidgetMood = "ok" | "tight" | "over" | "stale";
 
 const ROW_COUNT = 5;
 const CHIP_COUNT = 3;
@@ -122,6 +135,48 @@ export function headerRightLabel(
   return staleDays === 1
     ? "Updated 1 day ago"
     : `Updated ${staleDays} days ago`;
+}
+
+/** How far the budget left may trail the month left before the bird worries:
+ *  10 points, so a normal lumpy week (rent on the 1st, a big shop) doesn't
+ *  flip it the moment spending runs a little ahead of the calendar. */
+const TIGHT_MARGIN = 0.1;
+
+/** Stale beats everything: a frozen snapshot saying "on track" is exactly
+ *  the lie headerRightLabel's staleness label exists to prevent. */
+export function widgetMood(
+  data: Pick<WidgetData, "leftPct" | "monthPct" | "overspent" | "updatedAt">,
+  now: number = Date.now(),
+): WidgetMood {
+  if (now - data.updatedAt >= DAY_MS) return "stale";
+  if (data.overspent) return "over";
+  if (data.leftPct !== null && data.leftPct < data.monthPct - TIGHT_MARGIN) {
+    return "tight";
+  }
+  return "ok";
+}
+
+/** headerRightLabel plus the per-day allowance, for the widgets with room for
+ *  it. Only while fresh and in budget: a stale snapshot's allowance is
+ *  yesterday's, and "₹0/day" when overspent says nothing the red number
+ *  doesn't. */
+export function withPerDay(
+  data: Pick<WidgetData, "daysLeft" | "updatedAt" | "perDay" | "overspent">,
+  now: number = Date.now(),
+): string {
+  const label = headerRightLabel(data.daysLeft, data.updatedAt, now);
+  if (now - data.updatedAt >= DAY_MS || data.overspent || !data.perDay) {
+    return label;
+  }
+  return `${label} · ${data.perDay}/day`;
+}
+
+/** RemoteViews has no autosize, and a truncated balance ("₹1,23,4…") is
+ *  worse than a smaller one, so the hero steps down by string length. */
+export function heroFontSize(text: string, base: number): number {
+  if (text.length <= 7) return base;
+  if (text.length <= 9) return Math.round(base * 0.84);
+  return Math.round(base * 0.72);
 }
 
 export interface WidgetLayout {
@@ -206,9 +261,18 @@ export function toWidgetData(
   todayDate: string,
   currencyCode = 'INR',
 ): WidgetData {
-  const totalLeft = state.envelopes
-    .filter((e) => !e.isCreditCardPayment)
-    .reduce((sum, e) => sum + e.available, 0);
+  const spendable = state.envelopes.filter((e) => !e.isCreditCardPayment);
+  const totalLeft = spendable.reduce((sum, e) => sum + e.available, 0);
+  // What was there to spend this month: assigned plus rollover, i.e.
+  // available + spent. Negative rollover can't shrink the base below zero.
+  const budgeted = spendable.reduce(
+    (sum, e) => sum + Math.max(0, e.available + e.spent),
+    0,
+  );
+  const [y, m] = todayDate.split("-").map(Number);
+  const daysInMonth = new Date(y, m, 0).getDate();
+  // daysLeft counts the days after today, so today is one more to spend in.
+  const daysToGo = daysLeft + 1;
   return {
     currencyCode,
     totalLeft: formatMoney(Math.round(totalLeft), currencyCode),
@@ -218,5 +282,13 @@ export function toWidgetData(
     chips: selectChips(state),
     today: selectToday(expenses, todayDate, currencyCode),
     weeklyTrend: weeklyTrend(expenses, todayDate),
+    leftPct:
+      budgeted > 0 ? Math.max(0, Math.min(1, totalLeft / budgeted)) : null,
+    monthPct: Math.min(1, daysToGo / daysInMonth),
+    perDay: formatMoney(
+      Math.round(Math.max(0, totalLeft) / daysToGo),
+      currencyCode,
+    ),
+    overspent: Math.round(totalLeft) < 0,
   };
 }

@@ -72,9 +72,14 @@ export function WidgetSync() {
     });
     void requestWidgetUpdate({
       widgetName: "EnvelopeBar",
-      renderWidget: () =>
+      renderWidget: (info: WidgetInfo) =>
         variants(preference, (tokens, scheme) => (
-          <EnvelopeBarWidget {...data} tokens={tokens} scheme={scheme} />
+          <EnvelopeBarWidget
+            {...data}
+            tokens={tokens}
+            scheme={scheme}
+            height={info.height}
+          />
         )),
     });
     void requestWidgetUpdate({

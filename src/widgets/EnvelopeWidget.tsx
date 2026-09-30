@@ -7,7 +7,8 @@ import { FlexWidget, TextWidget, SvgWidget } from "react-native-android-widget";
 import { fillColor } from "@/src/components/envelope/ProgressBar";
 import type { ThemeTokens } from "@/src/theme/tokens";
 import { fontFamily } from "@/src/theme/fonts";
-import { headerRightLabel, layoutFor, type WidgetData } from "./data";
+import { heroFontSize, layoutFor, widgetMood, withPerDay, type WidgetData } from "./data";
+import { birdRingSvg } from "./bird";
 import { WidgetSurface, color } from "./surface";
 import { plusSvg } from "./icons";
 
@@ -31,6 +32,8 @@ export function EnvelopeWidget({
   const chips = data.chips.slice(0, layout.buttons);
   const prefix = data.totalLeft.match(/^[^0-9]+/)?.[0] ?? '';
   const amount = data.totalLeft.slice(prefix.length);
+  const mood = widgetMood(data);
+  const heroColor = data.overspent ? tokens.coral : tokens.text;
 
   return (
     <WidgetSurface
@@ -42,36 +45,48 @@ export function EnvelopeWidget({
         style={{
           width: "match_parent",
           flexDirection: "row",
-          alignItems: "flex-end",
+          alignItems: "center",
         }}
       >
-        <TextWidget
-          text={prefix}
-          style={{
-            fontSize: 20,
-            fontFamily: fontFamily.displayBold,
-            color: color(tokens.text),
-            marginBottom: 3,
-          }}
+        <SvgWidget
+          svg={birdRingSvg({ mood, leftPct: data.leftPct, tokens, scheme })}
+          style={{ width: 56, height: 56, marginRight: 12 }}
         />
-        <TextWidget
-          text={amount}
-          style={{
-            fontSize: 34,
-            fontFamily: fontFamily.displayBold,
-            color: color(tokens.text),
-          }}
-        />
+        <FlexWidget style={{ flex: 1, flexDirection: "column" }}>
+          <FlexWidget style={{ flexDirection: "row", alignItems: "flex-end" }}>
+            <TextWidget
+              text={prefix}
+              style={{
+                fontSize: 20,
+                fontFamily: fontFamily.displayBold,
+                color: color(heroColor),
+                marginBottom: 3,
+              }}
+            />
+            <TextWidget
+              text={amount}
+              truncate="END"
+              maxLines={1}
+              style={{
+                fontSize: heroFontSize(amount, 34),
+                fontFamily: fontFamily.displayBold,
+                color: color(heroColor),
+              }}
+            />
+          </FlexWidget>
+          <TextWidget
+            text={withPerDay(data)}
+            truncate="END"
+            maxLines={1}
+            style={{
+              fontSize: 11,
+              fontFamily: fontFamily.bodyMedium,
+              color: color(tokens.text2),
+              marginTop: 2,
+            }}
+          />
+        </FlexWidget>
       </FlexWidget>
-      <TextWidget
-        text={headerRightLabel(data.daysLeft, data.updatedAt)}
-        style={{
-          fontSize: 11,
-          fontFamily: fontFamily.bodyMedium,
-          color: color(tokens.text2),
-          marginTop: 2,
-        }}
-      />
 
       <FlexWidget
         style={{

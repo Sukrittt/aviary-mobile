@@ -1,5 +1,6 @@
-// The 2x2 "mini" widget — fixed size, no resize. Same snapshot as the others,
-// stripped to just the number and one button.
+// The 2x2 "mini" widget: fixed size, no resize. Ring gauge with the bird in
+// it top-left, a round + in the corner, and the number across the bottom
+// where it gets the full width.
 //
 // A 2x2 cell is not square: the launcher hands out roughly 131dp by 184dp, so
 // a match_parent card comes out stretched next to a square one (slice's, say).
@@ -8,9 +9,10 @@
 import { FlexWidget, TextWidget, SvgWidget } from "react-native-android-widget";
 import type { ThemeTokens } from "@/src/theme/tokens";
 import { fontFamily } from "@/src/theme/fonts";
-import { headerRightLabel, type WidgetData } from "./data";
+import { headerRightLabel, heroFontSize, widgetMood, type WidgetData } from "./data";
 import { WidgetSurface, color } from "./surface";
-import { plusSvg, trendingSvg } from "./icons";
+import { plusSvg } from "./icons";
+import { birdRingSvg } from "./bird";
 
 const LOG_URI = "envelope://modals/log-expense";
 
@@ -25,115 +27,72 @@ export function EnvelopeMiniWidget({
   /** Cell width in dp, from WidgetInfo. Doubles as the card's height. */
   width: number;
 }) {
-  const flat = !data.weeklyTrend || data.weeklyTrend.dir === "flat";
-  const trendColor = flat
-    ? null
-    : data.weeklyTrend!.dir === "down"
-      ? tokens.mint
-      : tokens.coral;
-  const trendDir =
-    !data.weeklyTrend || data.weeklyTrend.dir === "flat"
-      ? "up"
-      : data.weeklyTrend!.dir;
+  const mood = widgetMood(data);
+  // Scales with the cell so the ring stays the hero at the 110dp floor and
+  // doesn't swallow the card at the roomy end.
+  const ring = Math.max(44, Math.min(60, Math.round(width * 0.4)));
   return (
     <WidgetSurface
       tokens={tokens}
       scheme={scheme}
       height={width}
-      style={{ paddingHorizontal: 12, paddingVertical: 10 }}
+      style={{ paddingHorizontal: 12, paddingTop: 12, paddingBottom: 12 }}
     >
       <FlexWidget
         style={{
           width: "match_parent",
-          flex: 1,
-          flexDirection: "column",
-          justifyContent: "center",
-        }}
-      >
-        <TextWidget
-          text={data.totalLeft}
-          truncate="END"
-          maxLines={1}
-          style={{
-            width: "match_parent",
-            fontSize: 24,
-            fontFamily: fontFamily.displayBold,
-            color: color(tokens.text),
-          }}
-        />
-        <FlexWidget
-          style={{
-            width: "match_parent",
-            flexDirection: "row",
-            alignItems: "center",
-          }}
-        >
-          <FlexWidget style={{ flex: 1 }}>
-            <TextWidget
-              text={headerRightLabel(data.daysLeft, data.updatedAt)}
-              truncate="END"
-              maxLines={1}
-              style={{
-                fontSize: 11,
-                fontFamily: fontFamily.bodyMedium,
-                color: color(tokens.text2),
-              }}
-            />
-          </FlexWidget>
-          {!flat && trendColor && (
-            <FlexWidget
-              style={{
-                flexDirection: "row",
-                alignItems: "center",
-                marginLeft: 6,
-              }}
-            >
-              <SvgWidget
-                svg={trendingSvg(trendDir, trendColor)}
-                style={{ width: 10, height: 10, marginRight: 3 }}
-              />
-              <TextWidget
-                text={`${data.weeklyTrend!.pct}%`}
-                truncate="END"
-                maxLines={1}
-                style={{
-                  fontSize: 10,
-                  fontFamily: fontFamily.bodySemiBold,
-                  color: color(trendColor),
-                }}
-              />
-            </FlexWidget>
-          )}
-        </FlexWidget>
-      </FlexWidget>
-      <FlexWidget
-        clickAction="OPEN_URI"
-        clickActionData={{ uri: LOG_URI }}
-        accessibilityLabel="Log an expense"
-        style={{
-          width: "match_parent",
-          height: 36,
-          marginTop: 8,
           flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "center",
-          borderRadius: 100,
-          backgroundColor: color(tokens.accent),
+          justifyContent: "space-between",
+          alignItems: "flex-start",
         }}
       >
         <SvgWidget
-          svg={plusSvg(tokens.onAccent)}
-          style={{ width: 15, height: 15, marginRight: 6 }}
+          svg={birdRingSvg({ mood, leftPct: data.leftPct, tokens, scheme })}
+          style={{ width: ring, height: ring }}
         />
-        <TextWidget
-          text="Log"
+        <FlexWidget
+          clickAction="OPEN_URI"
+          clickActionData={{ uri: LOG_URI }}
+          accessibilityLabel="Log an expense"
           style={{
-            fontSize: 13,
-            fontFamily: fontFamily.bodySemiBold,
-            color: color(tokens.onAccent),
+            width: 40,
+            height: 40,
+            alignItems: "center",
+            justifyContent: "center",
+            borderRadius: 100,
+            backgroundColor: color(tokens.accent),
           }}
-        />
+        >
+          <SvgWidget
+            svg={plusSvg(tokens.onAccent)}
+            style={{ width: 18, height: 18 }}
+          />
+        </FlexWidget>
       </FlexWidget>
+      <FlexWidget style={{ flex: 1 }} />
+      <TextWidget
+        text={data.totalLeft}
+        truncate="END"
+        maxLines={1}
+        style={{
+          width: "match_parent",
+          fontSize: heroFontSize(data.totalLeft, 24),
+          fontFamily: fontFamily.displayBold,
+          color: color(data.overspent ? tokens.coral : tokens.text),
+        }}
+      />
+      <TextWidget
+        text={headerRightLabel(data.daysLeft, data.updatedAt)}
+        truncate="END"
+        maxLines={1}
+        style={{
+          width: "match_parent",
+          fontSize: 11,
+          fontFamily: fontFamily.bodyMedium,
+          color: color(tokens.text2),
+          marginTop: 2,
+        }}
+      />
     </WidgetSurface>
   );
 }
