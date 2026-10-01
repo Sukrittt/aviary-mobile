@@ -23,7 +23,7 @@ import { BottomSheet } from "@/src/components/shared/Modal";
 import { Button } from "@/src/components/ui/Button";
 import { AmountText } from "@/src/components/ui/AmountText";
 import { DonutChart } from "./DonutChart";
-import { SnoozingBird } from "@/src/components/shared/SnoozingBird";
+import { EmptyState } from "@/src/components/shared/EmptyState";
 import { useReveal } from "./useReveal";
 import { clampPct } from "@/src/lib/monthly";
 import type { BreakdownRow, MonthComparison } from "@/src/lib/monthly";
@@ -613,34 +613,12 @@ export function CategoryBreakdown({
       {displayRows.length === 0 && loading ? (
         <View style={styles.emptyState} />
       ) : displayRows.length === 0 ? (
-        <View testID="breakdown-empty" style={styles.emptyState}>
-          <SnoozingBird
-            size={112}
-            color={tokens.text}
-            accent={tokens.accent}
-            eyeColor={tokens.cardSolid}
-          />
-          <Text
-            style={{
-              color: tokens.text,
-              fontFamily: fontFamily.displaySemiBold,
-              fontSize: type.body,
-              marginTop: space.sm,
-            }}
-          >
-            Nothing spent yet
-          </Text>
-          <Text
-            style={{
-              color: tokens.text2,
-              fontFamily: fontFamily.bodyMedium,
-              fontSize: type.caption,
-              marginTop: 2,
-            }}
-          >
-            {"Log an expense and it'll land here."}
-          </Text>
-        </View>
+        <EmptyState
+          testID="breakdown-empty"
+          title="Nothing spent yet"
+          description="Log an expense and it'll land here."
+          action={{ label: "Log an expense", onPress: () => router.push("/modals/log-expense") }}
+        />
       ) : (
         <View
           testID="breakdown-reveal-content"

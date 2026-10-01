@@ -42,7 +42,7 @@ export function MaintenanceBanner() {
     if (!visible) progress.value = withTiming(0, { duration: 220 })
     else progress.value = reduceMotion ? withTiming(1, { duration: 160 }) : withSpring(1, DROP_SPRING)
   }, [visible, reduceMotion, progress])
-  const animStyle = useAnimatedStyle(() => dropInStyle(progress.value))
+  const animStyle = useAnimatedStyle(() => dropInStyle(progress.value, 1, 0, reduceMotion))
 
   if (!text) return null
 

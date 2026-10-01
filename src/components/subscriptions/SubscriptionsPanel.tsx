@@ -23,6 +23,7 @@ import {
 import { usePressSpring } from "@/src/components/ui/Button";
 import { Icon } from "@/src/components/shared/Icon";
 import { LoadingCaption } from "@/src/components/shared/LoadingCaption";
+import { EmptyState } from "@/src/components/shared/EmptyState";
 import type { ThemeTokens } from "@/src/theme/tokens";
 import { CHART_COLOR_CYCLE } from "@/src/theme/chartColors";
 import type { SubscriptionRow } from "@/src/types";
@@ -417,25 +418,13 @@ export function SubscriptionsPanel({ subscriptions, loading }: Props) {
 
   if (subscriptions.length === 0) {
     return (
-      <View
-        style={{
-          marginTop: space.md,
-          gap: space.md,
-          height: 250,
-          alignItems: "center",
-          justifyContent: "center",
-        }}
-      >
-        <Text
-          style={{
-            color: tokens.text3,
-            fontSize: t.caption,
-            fontFamily: fontFamily.bodyMedium,
-          }}
-        >
-          No subscriptions tracked yet.
-        </Text>
-      </View>
+      <EmptyState
+        subject="subscriptions"
+        title="Keep tabs on your repeats"
+        description="No subscriptions tracked yet."
+        action={{ label: "Add a subscription", onPress: () => openModal() }}
+        style={{ marginTop: space.md }}
+      />
     );
   }
 

@@ -44,6 +44,9 @@ export interface ThemeTokens {
   warn: string
   warnInk: string
   warnSoft: string
+  toastBg: string
+  toastText: string
+  toastEdge: string
 }
 
 export const darkTokens: ThemeTokens = {
@@ -82,6 +85,9 @@ export const darkTokens: ThemeTokens = {
   warn: '#facc15',
   warnInk: '#fde047',
   warnSoft: 'rgba(250, 204, 21, 0.22)',
+  toastBg: '#291c16',
+  toastText: '#ffeadb',
+  toastEdge: '#50372a',
 }
 
 export const lightTokens: ThemeTokens = {
@@ -120,4 +126,7 @@ export const lightTokens: ThemeTokens = {
   warn: '#eab308',
   warnInk: '#a16207',
   warnSoft: 'rgba(234, 179, 8, 0.18)',
+  toastBg: '#fff4e6',
+  toastText: '#482510',
+  toastEdge: '#eed7bd',
 }

@@ -43,6 +43,7 @@ import { DeletingRow } from "@/src/components/activity/DeletingRow";
 import { LoadingCaption } from "@/src/components/shared/LoadingCaption";
 import { OfflineScreen } from "@/src/components/shared/OfflineScreen";
 import { ErrorScreen } from "@/src/components/shared/ErrorScreen";
+import { EmptyState } from "@/src/components/shared/EmptyState";
 import type { ExpenseRow } from "@/src/types";
 import { toLocalDateString } from "@/src/lib/date";
 import { useOnline } from "@/src/lib/netStatus";
@@ -413,8 +414,7 @@ export default function ActivityScreen() {
           />
         }
       >
-        {/* No "Log expense" button here: the nav's centre action is always on
-            screen and is the single entry point for the app's primary verb. */}
+        {/* The nav keeps entry handy; the empty state offers it in context. */}
         <View style={styles.searchRow}>
           <TextInput
             value={search}
@@ -495,17 +495,15 @@ export default function ActivityScreen() {
         ) : null}
 
         {totalCount === 0 ? (
-          <View style={styles.emptyState}>
-            <Text
-              style={{
-                color: tokens.text2,
-                fontFamily: fontFamily.bodyMedium,
-                textAlign: "center",
-              }}
-            >
-              No transactions for this filter.
-            </Text>
-          </View>
+          <EmptyState
+            style={styles.emptyState}
+            mood={hasActiveFilters || search.trim() ? "searching" : "snoozing"}
+            title={hasActiveFilters || search.trim() ? "Nothing turned up" : "Your story starts here"}
+            description={hasActiveFilters || search.trim() ? "No transactions for this filter." : "Log your first expense. We'll keep the little details here."}
+            action={hasActiveFilters || search.trim()
+              ? { label: "Clear filters", onPress: () => { clearAllFilters(); setSearch(""); } }
+              : { label: "Log an expense", onPress: () => router.push("/modals/log-expense") }}
+          />
         ) : (
           <View>
             {filtered.map((txn) => {

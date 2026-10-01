@@ -463,7 +463,7 @@ export default function LogExpenseScreen() {
 
       <Toast
         trigger={unusualNudge}
-        // Short enough for the one-line pill: the amount and category are already on screen.
+        // The amount and category are already on screen.
         message={unusual ? `Way above your usual ${formatMoney(Math.round(unusual.typical))}. Tap again to save.` : ""}
         icon={TriangleAlert}
         style={{ top: insets.top + space.xxxl + space.xl }}
@@ -557,9 +557,9 @@ export default function LogExpenseScreen() {
               styles.itemInput,
               styles.itemInputWithPill,
               {
-                backgroundColor: fieldBg,
-                borderRadius: radius.md,
-                borderColor: flag("item") ? "#ffffff" : "transparent",
+                backgroundColor: flag("item") ? "rgba(88, 26, 8, 0.22)" : fieldBg,
+                borderRadius: radius.lg,
+                borderColor: flag("item") ? "rgba(255, 224, 194, 0.3)" : "transparent",
                 color: "#ffffff",
                 fontFamily: fontFamily.bodySemiBold,
                 fontSize: type.bodyLg,
@@ -766,14 +766,13 @@ const styles = StyleSheet.create({
   amountWrap: { flex: 1, alignItems: "center", justifyContent: "center" },
   itemRow: { justifyContent: "center" },
   itemInput: { paddingHorizontal: 14, paddingVertical: 14 },
-  // Border is always 2px (transparent until highlighted) so it doesn't shift
-  // layout when it appears; padding is trimmed by the same 2px to compensate.
+  // A fine warm edge and recessed fill mark missing copy without a white box.
   itemInputWithPill: {
-    paddingHorizontal: 12,
-    paddingVertical: 12,
+    paddingHorizontal: 13,
+    paddingVertical: 13,
     // Pill's right inset (6) + its max width + a little air.
     paddingRight: PILL_MAX_WIDTH + 12,
-    borderWidth: 2,
+    borderWidth: 1,
   },
   categoryPill: { position: "absolute", right: 6, maxWidth: PILL_MAX_WIDTH },
   fieldLabel: { fontSize: 12 },

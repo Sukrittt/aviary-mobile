@@ -103,6 +103,8 @@ describe('CategoryBreakdown filtering', () => {
     expect(screen.getByTestId('breakdown-empty')).toBeTruthy()
     expect(screen.getByText('Nothing spent yet')).toBeTruthy()
     expect(screen.queryByTestId('breakdown-reveal-content')).toBeNull()
+    fireEvent.press(screen.getByRole('button', { name: 'Log an expense' }))
+    expect(mockPush).toHaveBeenCalledWith('/modals/log-expense')
   })
 
   it('hides the snoozing bird while data is still loading', () => {

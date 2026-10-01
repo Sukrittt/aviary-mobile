@@ -84,6 +84,12 @@ describe('empty state', () => {
     const { getByText } = renderWithProviders(<SubscriptionsPanel subscriptions={[]} />)
     expect(getByText('No subscriptions tracked yet.')).toBeTruthy()
   })
+
+  it('opens subscription entry from the empty state', () => {
+    const { getByRole } = renderWithProviders(<SubscriptionsPanel subscriptions={[]} />)
+    fireEvent.press(getByRole('button', { name: 'Add a subscription' }))
+    expect(mockPush).toHaveBeenCalledWith('/modals/subscription')
+  })
 })
 
 describe('row navigation', () => {

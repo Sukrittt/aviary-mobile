@@ -54,7 +54,12 @@ export function SnoozingBird({
   const zSmall = useSharedValue(reduceMotion ? 0.6 : 0)
 
   useEffect(() => {
-    if (reduceMotion) return
+    if (reduceMotion) {
+      nod.value = 0
+      zBig.value = 0.4
+      zSmall.value = 0.6
+      return
+    }
     nod.value = withRepeat(withTiming(1, NOD), -1, true)
     zBig.value = withRepeat(withTiming(1, Z_DRIFT), -1)
     zSmall.value = withDelay(Z_DRIFT.duration / 2, withRepeat(withTiming(1, Z_DRIFT), -1))

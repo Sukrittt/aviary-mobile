@@ -18,6 +18,7 @@ import { useHoldingEvents } from '@/src/hooks/useHoldingEvents'
 import { AllocationBar, type AllocationSegment } from '@/src/components/charts/AllocationBar'
 import { CHART_COLOR_CYCLE } from '@/src/theme/chartColors'
 import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
+import { EmptyState } from '@/src/components/shared/EmptyState'
 import { PopIn } from '@/src/components/shared/PopIn'
 import { DeletingRow } from '@/src/components/activity/DeletingRow'
 import { AmountText } from '@/src/components/ui/AmountText'
@@ -220,9 +221,12 @@ export default function InvestmentsScreen() {
 
           {holdings.length === 0 ? (
             <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
-              <Text style={[styles.emptyText, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
-                No holdings yet. Add one to get started.
-              </Text>
+              <EmptyState
+                subject="holdings"
+                title="Room to grow"
+                description="No holdings yet. Add one to get started."
+                action={{ label: 'Add a holding', onPress: () => router.push('/modals/add-holding') }}
+              />
             </View>
           ) : (
             <View style={{ gap: 10 }}>
@@ -380,7 +384,6 @@ const styles = StyleSheet.create({
   nwLabel: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5 },
   nwAmount: { fontSize: 34 },
   card: { borderWidth: 1, borderRadius: 16, padding: 16 },
-  emptyText: { fontSize: 13, textAlign: 'center' },
   sectionTitle: { fontSize: 16, marginTop: 4 },
   holdingRow: {
     borderWidth: 1,

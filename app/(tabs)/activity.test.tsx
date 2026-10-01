@@ -139,6 +139,25 @@ it('hides the count and total footer when there are no transactions', () => {
   expect(queryByText(/^Total:/)).toBeNull()
 })
 
+it('clears search and date filters from the empty-state action', () => {
+  mockUseExpensesPage.mockReturnValue({
+    data: pageResult({ rows: [], total: 0, totalAmount: 0 }),
+    isLoading: false,
+    error: null,
+  })
+  const screen = renderWithProviders(<ActivityScreen />)
+  fireEvent.changeText(screen.getByPlaceholderText('Search transactions'), 'coffee')
+  fireEvent.press(screen.getByRole('button', { name: 'Clear filters' }))
+  expect(screen.getByPlaceholderText('Search transactions').props.value).toBe('')
+  expect(screen.getByText('Your story starts here')).toBeTruthy()
+  const query = mockUseExpensesPage.mock.calls.at(-1)![0] as ExpensesPageParams
+  expect(query.q).toBeUndefined()
+  expect(query.from).toBeUndefined()
+  expect(query.to).toBeUndefined()
+  fireEvent.press(screen.getByRole('button', { name: 'Log an expense' }))
+  expect(mockPush).toHaveBeenCalledWith('/modals/log-expense')
+})
+
 it('pages through the Activity list via server-side pagination', () => {
   mockUseExpensesPage.mockImplementation((params: ExpensesPageParams) => {
     if (params.limit === 1) return { data: pageResult({}), isLoading: false, error: null }
