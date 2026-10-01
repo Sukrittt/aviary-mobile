@@ -219,7 +219,7 @@ export default function HomeScreen() {
             onPress={() => birdMarkRef.current?.replay()}
             style={styles.appIconButton}
           >
-            <BirdLandingMark ref={birdMarkRef} size={56} color={scheme === 'light' ? '#000000' : tokens.text} autoplay={false} />
+            <BirdLandingMark ref={birdMarkRef} size={56} color={scheme === 'light' ? '#000000' : tokens.text} autoplay={false} perched />
           </Pressable>
         }
         actions={

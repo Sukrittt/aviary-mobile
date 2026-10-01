@@ -20,7 +20,7 @@ import { currentMonthKey, INCOME_CATEGORY } from '@/src/lib/envelope'
 import { getBudgets, updateBudget } from '@/src/api/budgets'
 import { addGroup } from '@/src/api/groups'
 import { addCategory } from '@/src/api/categories'
-import { updateUser } from '@/src/api/account'
+import { getUser, updateUser } from '@/src/api/account'
 import { completeOnboarding } from '@/src/api/billing'
 import { signalOnboarded } from '@/src/api/onboardingSignal'
 import { DEFAULT_ALERT_PCTS } from '@/src/lib/alerts'
@@ -325,12 +325,30 @@ function CurrencyWizard({ currencyCode, onCurrencyChange }: { currencyCode: stri
     if (pending) return
     setPending(true)
     setError('')
+    const incomeValue = Math.round(Number(income)) || 0
+    const categories = selectedGroups.flatMap((g) =>
+      (cats[g.id] ?? []).filter((c) => c.on && c.name.trim()).map((c) => ({ name: label(c), group: label(g) })),
+    )
+    const categoryCount = categories.length
+
+    // A response can fail after the server has already committed onboarding.
+    // Keep the success transition in one place so a verified recovery is
+    // indistinguishable from the ordinary happy path to the user.
+    const finishSetup = (recoveredAfterError = false) => {
+      trackStepCompleted()
+      track('onboarding_completed', {
+        total_seconds: wizardTimer.current(),
+        groups_count: selectedGroups.length,
+        categories_count: categoryCount,
+        currency: currencyCode,
+        ...(recoveredAfterError ? { recovered_after_error: true } : {}),
+      })
+      setResult({ income: incomeValue, groupCount: selectedGroups.length, categoryCount, assigned: assignedTotal() })
+      setStep(5)
+    }
+
     try {
       const month = currentMonthKey()
-      const incomeValue = Math.round(Number(income)) || 0
-      const categories = selectedGroups.flatMap((g) =>
-        (cats[g.id] ?? []).filter((c) => c.on && c.name.trim()).map((c) => ({ name: label(c), group: label(g) })),
-      )
       const budgetVersions = new Map(
         (await getBudgets()).map((row) => [`${row.month}\u0000${row.category}`, row.version]),
       )
@@ -357,8 +375,6 @@ function CurrencyWizard({ currencyCode, onCurrencyChange }: { currencyCode: stri
           ),
         ),
       ])
-      const categoryCount = categories.length
-
       // Last, so a failed write above leaves the user un-onboarded and retrying.
       // Two calls rather than one: the currency is an ordinary profile field,
       // but completing onboarding starts the 45-day trial, so its instant is
@@ -376,18 +392,26 @@ function CurrencyWizard({ currencyCode, onCurrencyChange }: { currencyCode: stri
       // Counted here, once the server has everything, rather than on the
       // celebration screen's CTA: someone who closes the app on that screen is
       // still onboarded, and the funnel should say so.
-      trackStepCompleted()
-      track('onboarding_completed', {
-        total_seconds: wizardTimer.current(),
-        groups_count: selectedGroups.length,
-        categories_count: categoryCount,
-        currency: currencyCode,
-      })
-      setResult({ income: incomeValue, groupCount: selectedGroups.length, categoryCount, assigned: assignedTotal() })
-      setStep(5)
+      finishSetup()
     } catch {
+      // The final response may be lost after the server commits the profile and
+      // trial. Confirm before telling the user the save failed: this is exactly
+      // the state seen in the IQD tester report. If confirmation is unavailable,
+      // retries remain safe because every setup write and completion is idempotent.
+      try {
+        const user = await getUser()
+        if (user.onboardedAt) {
+          qc.setQueryData(['user'], user)
+          void qc.invalidateQueries()
+          finishSetup(true)
+          return
+        }
+      } catch {
+        // Keep the original failure as the outcome; the message below explains
+        // that the app could not confirm whether the server saved the setup.
+      }
       track('onboarding_failed', { reason: 'save_failed' })
-      setError('Something went wrong. Try again.')
+      setError("Couldn't confirm your setup. Check your connection and try again. If it already saved, reopening the app will continue to your budget.")
     } finally {
       setPending(false)
     }
