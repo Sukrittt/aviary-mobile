@@ -23,6 +23,7 @@ import { BottomSheet } from "@/src/components/shared/Modal";
 import { Button } from "@/src/components/ui/Button";
 import { AmountText } from "@/src/components/ui/AmountText";
 import { DonutChart } from "./DonutChart";
+import { SnoozingBird } from "@/src/components/shared/SnoozingBird";
 import { useReveal } from "./useReveal";
 import { clampPct } from "@/src/lib/monthly";
 import type { BreakdownRow, MonthComparison } from "@/src/lib/monthly";
@@ -605,362 +606,393 @@ export function CategoryBreakdown({
         </View>
       </View>
 
-      <View
-        testID="breakdown-reveal-content"
-        style={[styles.revealContent, !revealReady && styles.preReveal]}
-      >
-        <View style={styles.donutWrap}>
-          <DonutChart
-            key={revealKey}
-            segments={segments}
-            selectedKey={donutSelectedKey}
-            onSelect={onSelectKey}
-            revealKey={revealKey}
+      {displayRows.length === 0 ? (
+        <View testID="breakdown-empty" style={styles.emptyState}>
+          <SnoozingBird
+            size={112}
+            color={tokens.text}
+            accent={tokens.accent}
+            eyeColor={tokens.cardSolid}
+          />
+          <Text
+            style={{
+              color: tokens.text,
+              fontFamily: fontFamily.displaySemiBold,
+              fontSize: type.body,
+              marginTop: space.sm,
+            }}
           >
-            {/* Held back until the reveal fires, so the label never sits alone in
-              an undrawn ring. Keyed so each swap is a genuine remount, and
-              driven by PopIn rather than an `entering` prop: this deep inside a
-              ScrollView `entering` may never fire, which left the swap with no
-              transition at all. AmountText's own `id` carries the odometer's
-              previous value across these remounts. */}
-            {play && (
-              <PopIn
-                key={`${revealKey}:${selectedKey ?? "__none__"}`}
-                play
-                delay={0}
-                style={styles.centerBlock}
-              >
-                {selectedRow ? (
-                  <>
-                    {selectedRow.emoji ? (
-                      <Text style={{ fontSize: 22 }}>{selectedRow.emoji}</Text>
-                    ) : null}
-                    <AmountText
-                      value={selectedRow.spent}
-                      size={type.body}
-                      weight="bodySemiBold"
-                      animate
-                      id="insights-donut-center"
-                    />
-                    <Text
-                      style={{
-                        color: tokens.text2,
-                        fontSize: type.caption,
-                        fontFamily: fontFamily.bodyMedium,
-                      }}
-                    >
-                      {selectedRow.pct.toFixed(0)}%
-                    </Text>
-                  </>
-                ) : hasCustomFilter ? (
-                  <>
-                    <Text
-                      style={{
-                        color: tokens.text2,
-                        fontSize: 11,
-                        fontFamily: fontFamily.bodyMedium,
-                      }}
-                    >
-                      Filtered total
-                    </Text>
-                    <AmountText
-                      value={displayTotal}
-                      size={type.body}
-                      weight="bodySemiBold"
-                      animate
-                      id="insights-donut-center"
-                    />
-                  </>
-                ) : centerDelta ? (
-                  <>
-                    <View
-                      style={{
-                        flexDirection: "row",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: 4,
-                      }}
-                    >
-                      <View
+            Nothing spent yet
+          </Text>
+          <Text
+            style={{
+              color: tokens.text2,
+              fontFamily: fontFamily.bodyMedium,
+              fontSize: type.caption,
+              marginTop: 2,
+            }}
+          >
+            {"Log an expense and it'll land here."}
+          </Text>
+        </View>
+      ) : (
+        <View
+          testID="breakdown-reveal-content"
+          style={[styles.revealContent, !revealReady && styles.preReveal]}
+        >
+          <View style={styles.donutWrap}>
+            <DonutChart
+              key={revealKey}
+              segments={segments}
+              selectedKey={donutSelectedKey}
+              onSelect={onSelectKey}
+              revealKey={revealKey}
+            >
+              {/* Held back until the reveal fires, so the label never sits alone in
+                an undrawn ring. Keyed so each swap is a genuine remount, and
+                driven by PopIn rather than an `entering` prop: this deep inside a
+                ScrollView `entering` may never fire, which left the swap with no
+                transition at all. AmountText's own `id` carries the odometer's
+                previous value across these remounts. */}
+              {play && (
+                <PopIn
+                  key={`${revealKey}:${selectedKey ?? "__none__"}`}
+                  play
+                  delay={0}
+                  style={styles.centerBlock}
+                >
+                  {selectedRow ? (
+                    <>
+                      {selectedRow.emoji ? (
+                        <Text style={{ fontSize: 22 }}>{selectedRow.emoji}</Text>
+                      ) : null}
+                      <AmountText
+                        value={selectedRow.spent}
+                        size={type.body}
+                        weight="bodySemiBold"
+                        animate
+                        id="insights-donut-center"
+                      />
+                      <Text
                         style={{
-                          transform: [
-                            {
-                              rotate:
-                                centerDelta.deltaPct! > 0 ? "-90deg" : "90deg",
-                            },
-                          ],
+                          color: tokens.text2,
+                          fontSize: type.caption,
+                          fontFamily: fontFamily.bodyMedium,
                         }}
                       >
-                        <Play
-                          size={12}
-                          color={
-                            centerDelta.deltaPct! > 0
-                              ? tokens.coral
-                              : tokens.mint
-                          }
-                          fill={
-                            centerDelta.deltaPct! > 0
-                              ? tokens.coral
-                              : tokens.mint
-                          }
-                        />
+                        {selectedRow.pct.toFixed(0)}%
+                      </Text>
+                    </>
+                  ) : hasCustomFilter ? (
+                    <>
+                      <Text
+                        style={{
+                          color: tokens.text2,
+                          fontSize: 11,
+                          fontFamily: fontFamily.bodyMedium,
+                        }}
+                      >
+                        Filtered total
+                      </Text>
+                      <AmountText
+                        value={displayTotal}
+                        size={type.body}
+                        weight="bodySemiBold"
+                        animate
+                        id="insights-donut-center"
+                      />
+                    </>
+                  ) : centerDelta ? (
+                    <>
+                      <View
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: 4,
+                        }}
+                      >
+                        <View
+                          style={{
+                            transform: [
+                              {
+                                rotate:
+                                  centerDelta.deltaPct! > 0 ? "-90deg" : "90deg",
+                              },
+                            ],
+                          }}
+                        >
+                          <Play
+                            size={12}
+                            color={
+                              centerDelta.deltaPct! > 0
+                                ? tokens.coral
+                                : tokens.mint
+                            }
+                            fill={
+                              centerDelta.deltaPct! > 0
+                                ? tokens.coral
+                                : tokens.mint
+                            }
+                          />
+                        </View>
+                        <Text
+                          style={{
+                            color:
+                              centerDelta.deltaPct! > 0
+                                ? tokens.coral
+                                : tokens.mint,
+                            fontSize: type.body,
+                            fontFamily: fontFamily.bodySemiBold,
+                          }}
+                        >
+                          {Math.abs(centerDelta.deltaPct!).toFixed(0)}%
+                        </Text>
                       </View>
                       <Text
                         style={{
-                          color:
-                            centerDelta.deltaPct! > 0
-                              ? tokens.coral
-                              : tokens.mint,
+                          color: tokens.text2,
+                          fontSize: 10,
+                          lineHeight: 13,
+                          fontFamily: fontFamily.bodyMedium,
+                          textAlign: "center",
+                        }}
+                      >
+                        {formatCurrency(
+                          Math.abs(centerDelta.spent - centerDelta.baseline!),
+                          hideAmounts,
+                        )}{" "}
+                        {centerDelta.deltaPct! > 0 ? "more" : "less"} than usual
+                      </Text>
+                    </>
+                  ) : displayRows[0] ? (
+                    <>
+                      {displayRows[0].emoji ? (
+                        <Text style={{ fontSize: 22 }}>
+                          {displayRows[0].emoji}
+                        </Text>
+                      ) : null}
+                      <Text
+                        style={{
+                          color: tokens.text,
                           fontSize: type.body,
                           fontFamily: fontFamily.bodySemiBold,
                         }}
                       >
-                        {Math.abs(centerDelta.deltaPct!).toFixed(0)}%
+                        {displayRows[0].label}
                       </Text>
-                    </View>
-                    <Text
-                      style={{
-                        color: tokens.text2,
-                        fontSize: 10,
-                        lineHeight: 13,
-                        fontFamily: fontFamily.bodyMedium,
-                        textAlign: "center",
-                      }}
-                    >
-                      {formatCurrency(
-                        Math.abs(centerDelta.spent - centerDelta.baseline!),
-                        hideAmounts,
-                      )}{" "}
-                      {centerDelta.deltaPct! > 0 ? "more" : "less"} than usual
-                    </Text>
-                  </>
-                ) : displayRows[0] ? (
-                  <>
-                    {displayRows[0].emoji ? (
-                      <Text style={{ fontSize: 22 }}>
-                        {displayRows[0].emoji}
-                      </Text>
-                    ) : null}
-                    <Text
-                      style={{
-                        color: tokens.text,
-                        fontSize: type.body,
-                        fontFamily: fontFamily.bodySemiBold,
-                      }}
-                    >
-                      {displayRows[0].label}
-                    </Text>
-                    <Text
-                      style={{
-                        color: tokens.text2,
-                        fontSize: type.caption,
-                        fontFamily: fontFamily.bodyMedium,
-                      }}
-                    >
-                      {displayRows[0].pct.toFixed(0)}%
-                    </Text>
-                  </>
-                ) : (
-                  <>
-                    <Text
-                      style={{
-                        color: tokens.text2,
-                        fontSize: type.caption,
-                        fontFamily: fontFamily.bodyMedium,
-                      }}
-                    >
-                      Total
-                    </Text>
-                    <Text
-                      style={{
-                        color: tokens.text,
-                        fontSize: type.body,
-                        fontFamily: fontFamily.bodySemiBold,
-                      }}
-                    >
-                      {formatCurrency(displayTotal, hideAmounts)}
-                    </Text>
-                  </>
-                )}
-              </PopIn>
-            )}
-          </DonutChart>
-        </View>
-
-        <View style={{ marginTop: space.md, gap: space.sm }}>
-          {visibleRows.map((row, i) => {
-            const color = colorByKey.get(row.key) ?? tokens.text3;
-            const isSelected = selectedKey === row.key;
-            const hasBudget = !row.assignedIsCarried && row.assigned > 0;
-            const rowDelay =
-              ROW_START_DELAY + Math.min(i, ROW_STAGGER_CAP) * ROW_STAGGER_MS;
-            return (
-              // The revealKey prefix is what makes the row remount on a replay:
-              // PopIn and BudgetBar both read `play`/`delay` on their own mount
-              // only, so a fresh instance is how they run again.
-              <Reanimated.View
-                key={row.key}
-                layout={LIST_TRANSITION}
-                exiting={FadeOut.duration(160)}
-              >
-                <PopIn
-                  key={`${revealKey}:${row.key}`}
-                  play={play}
-                  delay={rowDelay}
-                >
-                  <Pressable
-                    onPress={() => onSelectKey(isSelected ? null : row.key)}
-                    style={[
-                      isSelected && { opacity: 1 },
-                      !isSelected && selectedKey != null && { opacity: 0.5 },
-                    ]}
-                  >
-                    <View style={styles.legendTop}>
-                      {/* Dot stays even when there's an emoji: it's the only thing
-                    tying this row to its wedge in the donut above. */}
-                      <View
-                        style={[styles.legendDot, { backgroundColor: color }]}
-                      />
-                      {row.emoji ? (
-                        <Text style={{ fontSize: 13 }}>{row.emoji}</Text>
-                      ) : null}
                       <Text
-                        style={[
-                          styles.legendLabel,
-                          {
-                            color: tokens.text,
-                            fontFamily: fontFamily.bodyMedium,
-                            fontSize: type.caption,
-                          },
-                        ]}
-                        numberOfLines={1}
+                        style={{
+                          color: tokens.text2,
+                          fontSize: type.caption,
+                          fontFamily: fontFamily.bodyMedium,
+                        }}
                       >
-                        {row.label}
+                        {displayRows[0].pct.toFixed(0)}%
+                      </Text>
+                    </>
+                  ) : (
+                    <>
+                      <Text
+                        style={{
+                          color: tokens.text2,
+                          fontSize: type.caption,
+                          fontFamily: fontFamily.bodyMedium,
+                        }}
+                      >
+                        Total
                       </Text>
                       <Text
                         style={{
                           color: tokens.text,
-                          fontSize: type.caption,
+                          fontSize: type.body,
                           fontFamily: fontFamily.bodySemiBold,
                         }}
                       >
-                        {formatCurrency(row.spent, hideAmounts)}
+                        {formatCurrency(displayTotal, hideAmounts)}
                       </Text>
-                      {row.deltaPct != null && (
-                        <View
-                          style={{
-                            flexDirection: "row",
-                            alignItems: "center",
-                            justifyContent: "flex-end",
-                            minWidth: 32,
-                            gap: 2,
-                          }}
-                        >
-                          <View
-                            style={{
-                              transform: [
-                                {
-                                  rotate: row.deltaPct > 0 ? "-90deg" : "90deg",
-                                },
-                              ],
-                            }}
-                          >
-                            <Play
-                              size={8}
-                              color={
-                                row.deltaPct > 0 ? tokens.coral : tokens.mint
-                              }
-                              fill={
-                                row.deltaPct > 0 ? tokens.coral : tokens.mint
-                              }
-                            />
-                          </View>
-                          <Text
-                            style={{
-                              color:
-                                row.deltaPct > 0 ? tokens.coral : tokens.mint,
-                              fontSize: 10,
-                              fontFamily: fontFamily.bodySemiBold,
-                            }}
-                          >
-                            {Math.abs(row.deltaPct).toFixed(0)}%
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                    <View style={{ marginTop: space.xs }}>
-                      {hasBudget ? (
-                        <BudgetBar
-                          spent={row.spent}
-                          assigned={row.assigned}
-                          color={color}
-                          tokens={tokens}
-                          play={play}
-                          delay={rowDelay + BAR_OFFSET_MS}
-                        />
-                      ) : (
-                        <View
-                          style={[
-                            styles.barTrack,
-                            { backgroundColor: tokens.borderStrong },
-                          ]}
-                        />
-                      )}
-                    </View>
-                    <Text
-                      style={{
-                        color: tokens.text3,
-                        fontSize: 11,
-                        fontFamily: fontFamily.bodyMedium,
-                        marginTop: 6,
-                      }}
+                    </>
+                  )}
+                </PopIn>
+              )}
+            </DonutChart>
+          </View>
+
+          <View style={{ marginTop: space.md, gap: space.sm }}>
+            {visibleRows.map((row, i) => {
+              const color = colorByKey.get(row.key) ?? tokens.text3;
+              const isSelected = selectedKey === row.key;
+              const hasBudget = !row.assignedIsCarried && row.assigned > 0;
+              const rowDelay =
+                ROW_START_DELAY + Math.min(i, ROW_STAGGER_CAP) * ROW_STAGGER_MS;
+              return (
+                // The revealKey prefix is what makes the row remount on a replay:
+                // PopIn and BudgetBar both read `play`/`delay` on their own mount
+                // only, so a fresh instance is how they run again.
+                <Reanimated.View
+                  key={row.key}
+                  layout={LIST_TRANSITION}
+                  exiting={FadeOut.duration(160)}
+                >
+                  <PopIn
+                    key={`${revealKey}:${row.key}`}
+                    play={play}
+                    delay={rowDelay}
+                  >
+                    <Pressable
+                      onPress={() => onSelectKey(isSelected ? null : row.key)}
+                      style={[
+                        isSelected && { opacity: 1 },
+                        !isSelected && selectedKey != null && { opacity: 0.5 },
+                      ]}
                     >
-                      {hasBudget
-                        ? `${formatCurrency(row.spent, hideAmounts)} of ${formatCurrency(row.assigned, hideAmounts)}`
-                        : "No budget set"}
-                    </Text>
-                    {isSelected && mode === "category" && (
-                      <Pressable
-                        hitSlop={8}
-                        onPress={() =>
-                          router.push({
-                            pathname: "/(tabs)/activity",
-                            params: { category: row.key },
-                          })
-                        }
-                      >
+                      <View style={styles.legendTop}>
+                        {/* Dot stays even when there's an emoji: it's the only thing
+                      tying this row to its wedge in the donut above. */}
+                        <View
+                          style={[styles.legendDot, { backgroundColor: color }]}
+                        />
+                        {row.emoji ? (
+                          <Text style={{ fontSize: 13 }}>{row.emoji}</Text>
+                        ) : null}
+                        <Text
+                          style={[
+                            styles.legendLabel,
+                            {
+                              color: tokens.text,
+                              fontFamily: fontFamily.bodyMedium,
+                              fontSize: type.caption,
+                            },
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {row.label}
+                        </Text>
                         <Text
                           style={{
-                            color: tokens.accent,
-                            fontSize: 11,
+                            color: tokens.text,
+                            fontSize: type.caption,
                             fontFamily: fontFamily.bodySemiBold,
-                            marginTop: 4,
                           }}
                         >
-                          View transactions ›
+                          {formatCurrency(row.spent, hideAmounts)}
                         </Text>
-                      </Pressable>
-                    )}
-                  </Pressable>
-                </PopIn>
-              </Reanimated.View>
-            );
-          })}
-          {!expanded && collapsedCount > 0 && (
-            <Pressable onPress={() => setExpanded(true)}>
-              <Text
-                style={{
-                  color: tokens.accent,
-                  fontSize: type.caption,
-                  fontFamily: fontFamily.bodySemiBold,
-                }}
-              >
-                Other ({collapsedCount})
-              </Text>
-            </Pressable>
-          )}
+                        {row.deltaPct != null && (
+                          <View
+                            style={{
+                              flexDirection: "row",
+                              alignItems: "center",
+                              justifyContent: "flex-end",
+                              minWidth: 32,
+                              gap: 2,
+                            }}
+                          >
+                            <View
+                              style={{
+                                transform: [
+                                  {
+                                    rotate: row.deltaPct > 0 ? "-90deg" : "90deg",
+                                  },
+                                ],
+                              }}
+                            >
+                              <Play
+                                size={8}
+                                color={
+                                  row.deltaPct > 0 ? tokens.coral : tokens.mint
+                                }
+                                fill={
+                                  row.deltaPct > 0 ? tokens.coral : tokens.mint
+                                }
+                              />
+                            </View>
+                            <Text
+                              style={{
+                                color:
+                                  row.deltaPct > 0 ? tokens.coral : tokens.mint,
+                                fontSize: 10,
+                                fontFamily: fontFamily.bodySemiBold,
+                              }}
+                            >
+                              {Math.abs(row.deltaPct).toFixed(0)}%
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                      <View style={{ marginTop: space.xs }}>
+                        {hasBudget ? (
+                          <BudgetBar
+                            spent={row.spent}
+                            assigned={row.assigned}
+                            color={color}
+                            tokens={tokens}
+                            play={play}
+                            delay={rowDelay + BAR_OFFSET_MS}
+                          />
+                        ) : (
+                          <View
+                            style={[
+                              styles.barTrack,
+                              { backgroundColor: tokens.borderStrong },
+                            ]}
+                          />
+                        )}
+                      </View>
+                      <Text
+                        style={{
+                          color: tokens.text3,
+                          fontSize: 11,
+                          fontFamily: fontFamily.bodyMedium,
+                          marginTop: 6,
+                        }}
+                      >
+                        {hasBudget
+                          ? `${formatCurrency(row.spent, hideAmounts)} of ${formatCurrency(row.assigned, hideAmounts)}`
+                          : "No budget set"}
+                      </Text>
+                      {isSelected && mode === "category" && (
+                        <Pressable
+                          hitSlop={8}
+                          onPress={() =>
+                            router.push({
+                              pathname: "/(tabs)/activity",
+                              params: { category: row.key },
+                            })
+                          }
+                        >
+                          <Text
+                            style={{
+                              color: tokens.accent,
+                              fontSize: 11,
+                              fontFamily: fontFamily.bodySemiBold,
+                              marginTop: 4,
+                            }}
+                          >
+                            View transactions ›
+                          </Text>
+                        </Pressable>
+                      )}
+                    </Pressable>
+                  </PopIn>
+                </Reanimated.View>
+              );
+            })}
+            {!expanded && collapsedCount > 0 && (
+              <Pressable onPress={() => setExpanded(true)}>
+                <Text
+                  style={{
+                    color: tokens.accent,
+                    fontSize: type.caption,
+                    fontFamily: fontFamily.bodySemiBold,
+                  }}
+                >
+                  Other ({collapsedCount})
+                </Text>
+              </Pressable>
+            )}
+          </View>
         </View>
-      </View>
+      )}
 
       <View
         style={[
@@ -1219,6 +1251,7 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
   },
   donutWrap: { alignItems: "center", marginTop: 16 },
+  emptyState: { alignItems: "center", paddingVertical: 44 },
   revealContent: { opacity: 1 },
   preReveal: { opacity: 0 },
   // Capped to the donut's inner hole (200 size, 28 thickness) so long
