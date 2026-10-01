@@ -78,7 +78,13 @@
           "backgroundColor": "#F04E23"
         }
       ],
-      "expo-notifications",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#F04E23"
+        }
+      ],
       [
         "expo-audio",
         {
