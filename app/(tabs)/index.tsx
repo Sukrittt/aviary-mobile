@@ -4,7 +4,8 @@ import { View, Text, Pressable, RefreshControl, StyleSheet, Linking, Platform } 
 import { useQuery } from '@tanstack/react-query'
 import { useRouter, useIsFocused } from 'expo-router'
 import { ChevronRight, ChevronsDownUp, LineChart } from 'lucide-react-native'
-import Reanimated, { LinearTransition } from 'react-native-reanimated'
+import Reanimated, { FadeInDown, FadeOut, LinearTransition } from 'react-native-reanimated'
+import * as Haptics from 'expo-haptics'
 import { AnimatedTabContent } from '@/src/components/nav/AnimatedTabContent'
 import { Icon } from '@/src/components/shared/Icon'
 import { BottomSheet } from '@/src/components/shared/Modal'
@@ -79,6 +80,7 @@ export default function HomeScreen() {
   const trialBucket = trialReminderBucket(billing)
   const [trialDismissed, setTrialDismissed] = useDismissedRolloverBanner(`trial-${trialBucket}`)
   const showTrialBanner = trialBucket !== null && trialDismissed === false
+  const [getStartedSkipped, setGetStartedSkipped] = useDismissedRolloverBanner('get-started')
   // OTA updates cover JS changes, so this only fires when the admin raises the
   // minimum after a native build older installs can't get over the air. Not
   // dismissable: below the minimum they stop receiving fixes.
@@ -163,7 +165,8 @@ export default function HomeScreen() {
   }
 
   const showRolloverBanner = rolloverDismissed === false && prevMonthLeftover > 0
-  const showGetStarted = !!user?.getStartedAt && !(user.manualTransactionCompletedAt && user.guidedTourCompletedAt)
+  const showGetStarted =
+    getStartedSkipped === false && !!user?.getStartedAt && !(user.manualTransactionCompletedAt && user.guidedTourCompletedAt)
 
   function handleEditAmount(category: string) {
     router.push({ pathname: '/modals/edit-assigned-amount', params: { category } })
@@ -298,12 +301,20 @@ export default function HomeScreen() {
         )}
 
         {showGetStarted && (
-          <Reanimated.View layout={LinearTransition.springify().damping(44).stiffness(400)}>
+          <Reanimated.View
+            entering={FadeInDown.duration(420).springify().damping(22).stiffness(200)}
+            exiting={FadeOut.duration(200)}
+            layout={LinearTransition.springify().damping(44).stiffness(400)}
+          >
             <GetStartedCard
               manualTransactionDone={!!user.manualTransactionCompletedAt}
               guidedTourDone={!!user.guidedTourCompletedAt}
               onAddTransaction={() => router.push('/modals/log-expense')}
               onTakeTour={() => router.push('/account/guided-tour')}
+              onSkip={() => {
+                Haptics.selectionAsync().catch(() => {})
+                setGetStartedSkipped(true)
+              }}
             />
           </Reanimated.View>
         )}

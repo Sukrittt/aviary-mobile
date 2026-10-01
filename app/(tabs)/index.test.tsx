@@ -1,5 +1,6 @@
 import { Animated, Linking, Platform } from 'react-native'
-import { act, fireEvent } from '@testing-library/react-native'
+import { act, fireEvent, waitFor } from '@testing-library/react-native'
+import * as SecureStore from 'expo-secure-store'
 import { Path } from 'react-native-svg'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { currentMonthKey } from '@/src/lib/envelope'
@@ -8,6 +9,12 @@ import appJson from '@/app.json'
 import HomeScreen from './index'
 
 const MONTH = currentMonthKey()
+
+jest.mock('expo-secure-store', () => ({
+  getItemAsync: jest.fn(() => Promise.resolve(null)),
+  setItemAsync: jest.fn(() => Promise.resolve()),
+  deleteItemAsync: jest.fn(() => Promise.resolve()),
+}))
 
 let mockBudgets: { month: string; category: string; assigned: string; rolled_over: string }[] = []
 let mockBudgetsError: Error | null = null
@@ -114,15 +121,35 @@ describe('HomeScreen · Ready to Assign', () => {
     })
   })
 
-  it('shows DB-backed getting-started progress and opens each unfinished step', () => {
-    const { getByText } = renderHome()
+  it('shows DB-backed getting-started progress and opens each unfinished step', async () => {
+    const { getByText, findByText } = renderHome()
 
-    expect(getByText('1/3')).toBeTruthy()
+    expect(await findByText('1/3')).toBeTruthy()
     expect(getByText('Set up your budget')).toBeTruthy()
     fireEvent.press(getByText('Add a manual transaction'))
     expect(mockPush).toHaveBeenLastCalledWith('/modals/log-expense')
     fireEvent.press(getByText('Take a guided tour'))
     expect(mockPush).toHaveBeenLastCalledWith('/account/guided-tour')
+  })
+
+  it('hides Get Started when skipped, and remembers it on this device', async () => {
+    const { findByText, queryByText, getByLabelText } = renderHome()
+    await findByText('Get started')
+
+    fireEvent.press(getByLabelText('Skip getting started'))
+
+    await waitFor(() => expect(queryByText('Get started')).toBeNull())
+    expect(SecureStore.setItemAsync).toHaveBeenCalledWith('mc-rollover-dismissed-get-started', '1')
+  })
+
+  it('stays hidden when skipped earlier on this device', async () => {
+    ;(SecureStore.getItemAsync as jest.Mock).mockImplementation((key: string) =>
+      Promise.resolve(key === 'mc-rollover-dismissed-get-started' ? '1' : null),
+    )
+    const { queryByText, findByText } = renderHome()
+    await findByText('Envelopes')
+    expect(queryByText('Get started')).toBeNull()
+    ;(SecureStore.getItemAsync as jest.Mock).mockImplementation(() => Promise.resolve(null))
   })
 
   it('removes Get Started once both remaining milestones are complete', () => {
