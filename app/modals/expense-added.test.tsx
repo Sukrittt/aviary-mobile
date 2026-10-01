@@ -1,5 +1,6 @@
 import { fireEvent, waitFor } from '@testing-library/react-native'
 import { StyleSheet } from 'react-native'
+import * as Haptics from 'expo-haptics'
 import { notifyManager } from '@tanstack/react-query'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { getRecentExpenses, deleteExpense } from '@/src/api/expenses'
@@ -37,6 +38,13 @@ jest.mock('@/src/api/groups', () => ({
   updateGroup: jest.fn(),
   deleteGroup: jest.fn(),
   moveGroup: jest.fn(),
+}))
+jest.mock('expo-haptics', () => ({
+  notificationAsync: jest.fn(() => Promise.resolve()),
+  selectionAsync: jest.fn(() => Promise.resolve()),
+  impactAsync: jest.fn(() => Promise.resolve()),
+  NotificationFeedbackType: { Success: 'success' },
+  ImpactFeedbackStyle: { Soft: 'soft', Light: 'light', Medium: 'medium' },
 }))
 jest.mock('expo-audio', () => ({ useAudioPlayer: () => ({ play: jest.fn(), pause: jest.fn() }) }))
 
@@ -106,6 +114,13 @@ it('reads back the amount, item and time of what was just logged', async () => {
   expect(getByText('Milk')).toBeTruthy()
   expect(getByText(`15 ${MONTH_LABEL} '${YEAR2}, 1:24 am`)).toBeTruthy()
   await waitFor(() => expect(getGroups).toHaveBeenCalled())
+})
+
+it('taps a soft haptic as each section is revealed', async () => {
+  // Past-month expense: no budget card, so just headline, item and footer.
+  setup({ date: `${prevMonthKey(MONTH)}-15` })
+  await waitFor(() => expect(Haptics.impactAsync).toHaveBeenCalledTimes(3))
+  expect(jest.mocked(Haptics.impactAsync).mock.calls.every(([s]) => s === 'soft')).toBe(true)
 })
 
 // Category already shows in the budget card below (pill + dot), so the

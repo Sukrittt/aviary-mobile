@@ -54,6 +54,20 @@ const STAGGER = {
  *  network fetch landing in time. */
 const TICK = 200;
 
+/** A soft tap timed to a section's `entering` delay, so each reveal lands
+ *  with a feel as well as a fade. Rendered inside the section it marks, so it
+ *  mounts (and fires) only when that section actually does. */
+function RevealHaptic({ delay }: { delay: number }) {
+  useEffect(() => {
+    const t = setTimeout(
+      () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft).catch(() => {}),
+      delay,
+    );
+    return () => clearTimeout(t);
+  }, [delay]);
+  return null;
+}
+
 function str(v: string | string[] | undefined): string {
   return typeof v === "string" ? v : "";
 }
@@ -353,6 +367,7 @@ export default function ExpenseAddedScreen() {
             entering={FadeInDown.delay(STAGGER.headline).duration(420)}
             style={{ marginTop: space.xl }}
           >
+            <RevealHaptic delay={STAGGER.headline} />
             <View
               style={[styles.headlineRow, { gap: space.sm, marginTop: -50 }]}
             >
@@ -382,6 +397,7 @@ export default function ExpenseAddedScreen() {
               entering={FadeInDown.delay(STAGGER.detail).duration(420)}
               style={{ flexDirection: "row", alignItems: "center", marginTop: space.sm }}
             >
+              <RevealHaptic delay={STAGGER.detail} />
               {subtitleIsCategory && (
                 // Separate Text node, no custom fontFamily: a ZWJ+variation-selector
                 // emoji sharing one custom-font Text run with the label can make
@@ -421,6 +437,7 @@ export default function ExpenseAddedScreen() {
               },
             ]}
           >
+            <RevealHaptic delay={STAGGER.card} />
             Logged offline. It&apos;ll sync when you&apos;re back online.
           </Reanimated.Text>
         )}
@@ -437,6 +454,7 @@ export default function ExpenseAddedScreen() {
               },
             ]}
           >
+            <RevealHaptic delay={STAGGER.card} />
             <AnimatedUsedPercentage
               from={prevPct}
               to={spentPct}
@@ -481,6 +499,7 @@ export default function ExpenseAddedScreen() {
                 },
               ]}
             >
+              <RevealHaptic delay={STAGGER.cardFooter} />
               <Text
                 style={[
                   styles.line,
@@ -517,6 +536,7 @@ export default function ExpenseAddedScreen() {
           { paddingBottom: insets.bottom + space.xl, gap: space.md },
         ]}
       >
+        <RevealHaptic delay={STAGGER.footer} />
         {undoError !== "" && (
           <Text
             style={[

@@ -1,9 +1,15 @@
 import { act, fireEvent } from '@testing-library/react-native'
 import { Animated, StyleSheet } from 'react-native'
+import * as Haptics from 'expo-haptics'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { DeltaBar, DELTA_DELAY, DELTA_DURATION, DELTA_EASING, DELTA_HOLD } from './DeltaBar'
 
 jest.useFakeTimers()
+jest.mock('expo-haptics', () => ({
+  selectionAsync: jest.fn(() => Promise.resolve()),
+  impactAsync: jest.fn(() => Promise.resolve()),
+  ImpactFeedbackStyle: { Light: 'light', Medium: 'medium' },
+}))
 
 function renderBar(props: { from: number; to: number; amount: number }) {
   const utils = renderWithProviders(<DeltaBar {...props} />)
@@ -18,6 +24,18 @@ function settle() {
 }
 
 describe('DeltaBar', () => {
+  it('ticks haptics as each segment fills, then thuds when the delta lands', () => {
+    jest.mocked(Haptics.selectionAsync).mockClear()
+    jest.mocked(Haptics.impactAsync).mockClear()
+    renderBar({ from: 50, to: 80, amount: 10 })
+    settle()
+    // One tick per 1% of track crossed: 50% base, 30% delta.
+    expect(Haptics.selectionAsync).toHaveBeenCalledTimes(50)
+    const impacts = jest.mocked(Haptics.impactAsync).mock.calls.map(([style]) => style)
+    expect(impacts.filter((s) => s === 'light')).toHaveLength(30)
+    expect(impacts.at(-1)).toBe('medium')
+  })
+
   it('scales fixed-width segments instead of animating layout width', () => {
     const { getByTestId } = renderBar({ from: 50, to: 80, amount: 10 })
     const base = StyleSheet.flatten(getByTestId('delta-bar-base').props.style)

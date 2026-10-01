@@ -1,6 +1,7 @@
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { useEffect, useRef, useState } from 'react'
 import { View, Text, Animated, Easing, StyleSheet, type LayoutChangeEvent } from 'react-native'
+import * as Haptics from 'expo-haptics'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { fillColor, fillColorStops } from './ProgressBar'
@@ -18,6 +19,26 @@ export const DELTA_DURATION = 1000
 // Slow acceleration makes each stage legible; a flat exit lets the fill settle
 // at the marker instead of hitting it at peak speed like a pure ease-in.
 export const DELTA_EASING = Easing.bezier(0.65, 0, 0.75, 1)
+// One haptic tick per this much track the fill crosses, so the bar feels like
+// a ratchet: a long bar clicks more than a short one, and the ease-in curve
+// makes the clicks speed up just like the fill does.
+const HAPTIC_STEP_PCT = 1
+
+/** When (ms from `delay`) a fill eased by DELTA_EASING across `spanPct` of
+ *  the track crosses each HAPTIC_STEP_PCT. Scheduled as timers rather than an
+ *  Animated listener: the segments run on the native driver, whose values
+ *  only reach JS asynchronously (and not at all under Jest). */
+function hapticTickTimes(spanPct: number, delay: number, duration: number) {
+  const times: number[] = []
+  const frames = Math.round(duration / 16)
+  for (let f = 1, step = 1; f <= frames; f++) {
+    while (step * HAPTIC_STEP_PCT <= DELTA_EASING(f / frames) * spanPct) {
+      times.push(delay + (f / frames) * duration)
+      step++
+    }
+  }
+  return times
+}
 
 /**
  * The budget-card bar on the post-log success screen: the base fill grows to
@@ -52,6 +73,20 @@ export function DeltaBar({ from, to, amount }: { from: number; to: number; amoun
     delta.setValue(0)
     tag.setValue(0)
     fillProgress.setValue(fromPct)
+    // Base fill clicks with the lightest selection tick; the delta (the charge
+    // just made) clicks a notch heavier and lands with a thud on the marker.
+    const timers = [
+      ...hapticTickTimes(fromPct, BASE_DELAY, BASE_DURATION).map((t) =>
+        setTimeout(() => Haptics.selectionAsync().catch(() => {}), t),
+      ),
+      ...hapticTickTimes(deltaPct, DELTA_DELAY, DELTA_DURATION).map((t) =>
+        setTimeout(() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}), t),
+      ),
+      setTimeout(
+        () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {}),
+        DELTA_DELAY + DELTA_DURATION,
+      ),
+    ]
     Animated.timing(base, {
       toValue: 1,
       duration: BASE_DURATION,
@@ -87,6 +122,7 @@ export function DeltaBar({ from, to, amount }: { from: number; to: number; amoun
       easing: Easing.bezier(0.2, 0.9, 0.25, 1),
       useNativeDriver: false,
     }).start()
+    return () => timers.forEach(clearTimeout)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trackWidth, fromPct, toPct])
 
