@@ -14,19 +14,21 @@
 // or merchant strings, no route params.
 import { Platform } from 'react-native'
 import PostHog from 'posthog-react-native'
+import * as Updates from 'expo-updates'
 import { accessMode, currentUserId } from '../api/accessMode'
 import { isOnline } from './netStatus'
 
-// Same fail-loud guard as src/api/client.ts: a silently-defaulted key would
-// look like working analytics while sending every event nowhere.
-if (__DEV__ && !process.env.EXPO_PUBLIC_POSTHOG_KEY) {
-  throw new Error('EXPO_PUBLIC_POSTHOG_KEY is not set. Set it in Mobile/.env for local development.')
-}
+// Only store builds on the production channel report. Dev (__DEV__, channel
+// null) and preview builds (channel 'preview') would otherwise mix test taps
+// into real funnels. `disabled` drops every call inside the client, and unlike
+// optOut() it can't be flipped back on by the in-app analytics toggle.
+export const analyticsDisabled = __DEV__ || Updates.channel !== 'production'
 
-// An empty key disables the client (it logs and drops events) rather than
-// throwing, so a release build missing the key degrades instead of crashing.
+// An empty key also disables the client (it logs and drops events) rather
+// than throwing, so a release build missing the key degrades instead of crashing.
 export const posthog = new PostHog(process.env.EXPO_PUBLIC_POSTHOG_KEY ?? '', {
   host: process.env.EXPO_PUBLIC_POSTHOG_HOST ?? 'https://us.i.posthog.com',
+  disabled: analyticsDisabled,
 })
 
 /**

@@ -158,3 +158,27 @@ describe('flushAnalytics', () => {
     expect(posthog.flush).toHaveBeenCalled()
   })
 })
+
+describe('environment gate', () => {
+  // Loads a fresh copy of the module with a given build mode and EAS channel.
+  function loadWith(dev: boolean, channel: string | null): boolean {
+    const g = globalThis as unknown as { __DEV__: boolean }
+    const prevDev = g.__DEV__
+    g.__DEV__ = dev
+    let disabled = true
+    jest.isolateModules(() => {
+      jest.doMock('expo-updates', () => ({ channel }))
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      disabled = (require('./analytics') as typeof import('./analytics')).analyticsDisabled
+    })
+    g.__DEV__ = prevDev
+    return disabled
+  }
+
+  it('sends only from a release build on the production channel', () => {
+    expect(loadWith(false, 'production')).toBe(false)
+    expect(loadWith(false, 'preview')).toBe(true)
+    expect(loadWith(false, null)).toBe(true)
+    expect(loadWith(true, 'production')).toBe(true)
+  })
+})
