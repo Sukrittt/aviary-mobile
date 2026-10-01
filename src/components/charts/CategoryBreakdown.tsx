@@ -43,6 +43,9 @@ interface Props {
   comparison: MonthComparison | null;
   leftover: number;
   monthLabel: string;
+  /** Queries still in flight: hold the empty state back so the snoozing
+   *  bird doesn't flash before the real rows land. */
+  loading?: boolean;
 }
 
 const VISIBLE_ROWS = 6;
@@ -142,6 +145,7 @@ export function CategoryBreakdown({
   comparison,
   leftover,
   monthLabel,
+  loading = false,
 }: Props) {
   const { currencySymbol, formatCurrency } = useCurrency()
 
@@ -606,7 +610,9 @@ export function CategoryBreakdown({
         </View>
       </View>
 
-      {displayRows.length === 0 ? (
+      {displayRows.length === 0 && loading ? (
+        <View style={styles.emptyState} />
+      ) : displayRows.length === 0 ? (
         <View testID="breakdown-empty" style={styles.emptyState}>
           <SnoozingBird
             size={112}

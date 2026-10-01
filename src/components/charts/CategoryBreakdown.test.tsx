@@ -105,6 +105,28 @@ describe('CategoryBreakdown filtering', () => {
     expect(screen.queryByTestId('breakdown-reveal-content')).toBeNull()
   })
 
+  it('hides the snoozing bird while data is still loading', () => {
+    const screen = renderWithProviders(
+      <CategoryBreakdown
+        rows={[]}
+        categoryRows={[]}
+        groupRows={[]}
+        categoryGroupMap={new Map()}
+        mode="category"
+        onModeChange={jest.fn()}
+        selectedKey={null}
+        onSelectKey={jest.fn()}
+        comparison={null}
+        leftover={0}
+        monthLabel="October 2026"
+        loading
+      />,
+    )
+
+    expect(screen.queryByTestId('breakdown-empty')).toBeNull()
+    expect(screen.queryByText('Nothing spent yet')).toBeNull()
+  })
+
   it('renders an icon-only filter action beside the card title when all items are active', () => {
     const screen = renderBreakdown()
 

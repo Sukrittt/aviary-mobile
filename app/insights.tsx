@@ -246,10 +246,19 @@ export default function InsightsScreen() {
   const { refreshing, onRefresh } = useRefresh();
 
   const online = useOnline();
-  const budgets = useBudgets().data ?? EMPTY;
-  const expenses = useExpenses().data ?? EMPTY;
-  const categories = useCategories().data ?? EMPTY;
-  const groups = useGroups().data ?? EMPTY;
+  const budgetsQuery = useBudgets();
+  const expensesQuery = useExpenses();
+  const categoriesQuery = useCategories();
+  const groupsQuery = useGroups();
+  const budgets = budgetsQuery.data ?? EMPTY;
+  const expenses = expensesQuery.data ?? EMPTY;
+  const categories = categoriesQuery.data ?? EMPTY;
+  const groups = groupsQuery.data ?? EMPTY;
+  const dataLoading =
+    budgetsQuery.isLoading ||
+    expensesQuery.isLoading ||
+    categoriesQuery.isLoading ||
+    groupsQuery.isLoading;
   const { data: subscriptions = [], isLoading: subscriptionsLoading } =
     useSubscriptions();
 
@@ -679,6 +688,7 @@ export default function InsightsScreen() {
           comparison={comparison}
           leftover={insightMonthLeftover}
           monthLabel={monthLabel(insightMonth)}
+          loading={dataLoading}
         />
       </Card>
 
