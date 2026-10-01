@@ -3,9 +3,13 @@ import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import SetupScreen from './setup'
 import { track } from '@/src/lib/analytics'
 import { completeOnboarding } from '@/src/api/billing'
+import { getUser } from '@/src/api/account'
 
 jest.mock('@/src/lib/analytics', () => ({ track: jest.fn(), startTimer: () => () => 7 }))
-jest.mock('@/src/api/account', () => ({ updateUser: jest.fn(async (patch) => patch) }))
+jest.mock('@/src/api/account', () => ({
+  getUser: jest.fn(async () => ({ email: 'tester@example.com', emailVerified: true, onboardedAt: null })),
+  updateUser: jest.fn(async (patch) => patch),
+}))
 jest.mock('@/src/api/billing', () => ({
   completeOnboarding: jest.fn(async () => ({ onboardedAt: '2026-09-18T12:00:00.000Z', access: {} })),
 }))
@@ -65,10 +69,36 @@ it('reports every step of the wizard, the back tap, and the finish', async () =>
 it('reports a failed save, and never counts it as a finished step', async () => {
   ;(completeOnboarding as jest.Mock).mockRejectedValueOnce(new Error('503'))
   const { getByText, unmount } = walkToFinish()
-  await waitFor(() => expect(getByText('Something went wrong. Try again.')).toBeTruthy())
+  await waitFor(() => expect(getByText("Couldn't confirm your setup. Check your connection and try again. If it already saved, reopening the app will continue to your budget.")).toBeTruthy())
 
   expect(eventsNamed('onboarding_failed')).toEqual([{ reason: 'save_failed' }])
   expect(eventsNamed('onboarding_completed')).toHaveLength(0)
   expect(eventsNamed('onboarding_step_completed').map((p) => p.step_name)).not.toContain('assign')
+  unmount()
+})
+
+it('continues to success when the final response failed after onboarding was committed', async () => {
+  ;(completeOnboarding as jest.Mock).mockRejectedValueOnce(new Error('503'))
+  ;(getUser as jest.Mock).mockResolvedValueOnce({
+    email: 'tester@example.com',
+    emailVerified: true,
+    onboardedAt: '2026-09-23T20:37:26.618Z',
+  })
+
+  const { getByText, queryByText, unmount } = walkToFinish()
+  await waitFor(() => expect(getByText('Show me how it works')).toBeTruthy())
+
+  expect(queryByText("Couldn't confirm your setup. Check your connection and try again. If it already saved, reopening the app will continue to your budget.")).toBeNull()
+  expect(eventsNamed('onboarding_failed')).toHaveLength(0)
+  expect(eventsNamed('onboarding_completed')).toEqual([
+    {
+      total_seconds: 7,
+      groups_count: 2,
+      categories_count: 4,
+      currency: 'INR',
+      recovered_after_error: true,
+    },
+  ])
+  expect(eventsNamed('onboarding_step_completed').map((p) => p.step_name)).toContain('assign')
   unmount()
 })
