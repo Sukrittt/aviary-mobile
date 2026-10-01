@@ -17,6 +17,10 @@ export interface UserProfile {
   name?: string | null
   avatarUrl?: string | null
   onboardedAt?: string | null
+  /** Server-owned activation milestones for the Home "Get started" card. */
+  getStartedAt?: string | null
+  manualTransactionCompletedAt?: string | null
+  guidedTourCompletedAt?: string | null
   notifyCadence?: 'off' | 'weekly' | 'daily'
   notifyThresholds?: boolean
   notifyBills?: boolean
@@ -55,6 +59,17 @@ export async function updateUser(patch: Partial<UserProfile>): Promise<UserProfi
   const user: UserProfile = await resp.json()
   await writeCurrencyPreference(user.currencyCode, userId)
   return user
+}
+
+/** Marks the guided tour complete using the server clock and returns the fresh profile. */
+export async function completeGuidedTour(): Promise<UserProfile> {
+  const resp = await apiFetch('/api/user', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ guidedTourCompleted: true }),
+  })
+  if (!resp.ok) throw new Error(`Failed to complete guided tour: ${resp.status}`)
+  return resp.json()
 }
 
 /**

@@ -256,12 +256,12 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
   // Safe as an imperative call now — the Stack is mounted from the first render,
   // and the destination's guard is computed in this same render.
   // The sign-in pushes also leave (auth)/email under /setup, so finishing setup
-  // doesn't empty the stack onto the tour. It surfaces the auth screen instead,
-  // and this effect has to send a just-onboarded user on to the tour.
+  // doesn't empty the stack onto the trial notice. It surfaces the auth screen
+  // instead, and this effect has to finish the onboarding handoff explicitly.
   useEffect(() => {
     if (resolving || !hasSession) return
     if (segments[0] !== '(auth)' || authScreenMode === 'change-email') return
-    router.replace((!onboarded ? '/setup' : justOnboarded ? '/account/guided-tour?fresh=1' : LOG_EXPENSE_PATH) as Href)
+    router.replace((!onboarded ? '/setup' : justOnboarded ? '/account/trial-notice' : LOG_EXPENSE_PATH) as Href)
   }, [resolving, hasSession, onboarded, justOnboarded, segments, authScreenMode, router])
 
   // The Activity deep link only exists once the signed-in screens do, so a
@@ -315,9 +315,8 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
         </Stack.Protected>
 
         <Stack.Protected guard={signedIn && accessOk}>
-          {/* Fresh setup lands directly in the existing tour. Both screens stay
-              available afterwards; normal session restores still open logging. */}
-          {justOnboarded && <Stack.Screen name="account/guided-tour" options={{ presentation: 'card', animation: 'slide_from_right' }} />}
+          {/* Fresh setup lands on the trial notice, then Home. The tour now lives
+              in Home's Get Started card so it happens on the user's schedule. */}
           {justOnboarded && <Stack.Screen name="account/trial-notice" options={{ presentation: 'card', animation: 'slide_from_right' }} />}
           {/* First for returning users: logging an expense is the app's primary verb, so
               it's where the app opens. Declared first, it's the route the stack
@@ -334,7 +333,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
           <Stack.Screen name="account/recurring" options={{ presentation: 'card', animation: 'slide_from_right' }} />
           <Stack.Screen name="account/recurring-suggestions" options={{ presentation: 'card', animation: 'slide_from_right' }} />
           <Stack.Screen name="account/bill-scans" options={{ presentation: 'card', animation: 'slide_from_right' }} />
-          {!justOnboarded && <Stack.Screen name="account/guided-tour" options={{ presentation: 'card', animation: 'slide_from_right' }} />}
+          <Stack.Screen name="account/guided-tour" options={{ presentation: 'card', animation: 'slide_from_right' }} />
           <Stack.Screen name="insights" options={{ presentation: 'card', animation: 'slide_from_right' }} />
           <Stack.Screen name="subscriptions" options={{ presentation: 'card', animation: 'slide_from_right' }} />
           <Stack.Screen name="wrapped" options={{ presentation: 'fullScreenModal', headerShown: false }} />

@@ -39,9 +39,9 @@ it('selects currency before income, preserves it on back, and saves it with onbo
   // The trial's start instant is the server's, so the app no longer sends an
   // onboardedAt at all — it asks the server to complete onboarding.
   await waitFor(() => expect(completeOnboarding).toHaveBeenCalled())
-  await waitFor(() => expect(getByText('Show me how it works')).toBeTruthy())
+  await waitFor(() => expect(getByText('Continue')).toBeTruthy())
   expect(onFinished).not.toHaveBeenCalled()
-  fireEvent.press(getByText('Show me how it works'))
+  fireEvent.press(getByText('Continue'))
   expect(onFinished).toHaveBeenCalledTimes(1)
   unsubscribe()
   unmount()

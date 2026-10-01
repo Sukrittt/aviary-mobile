@@ -1,13 +1,14 @@
 import type { ReactNode } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { renderHook, waitFor } from '@testing-library/react-native'
-import { getUser, updateUser, restoreAccount, type UserProfile } from '@/src/api/account'
-import { useUser, useUpdateUser, useRestoreAccount, userKey } from './useUser'
+import { completeGuidedTour, getUser, updateUser, restoreAccount, type UserProfile } from '@/src/api/account'
+import { useCompleteGuidedTour, useUser, useUpdateUser, useRestoreAccount, userKey } from './useUser'
 
 jest.mock('@/src/api/account', () => ({
   getUser: jest.fn(),
   updateUser: jest.fn(),
   restoreAccount: jest.fn(),
+  completeGuidedTour: jest.fn(),
   getSessions: jest.fn(),
   getIdentityProviders: jest.fn(),
 }))
@@ -38,6 +39,18 @@ it('useUpdateUser writes the server response into the cache on success, without 
   await waitFor(() => expect(result.current.isSuccess).toBe(true))
   expect(queryClient.getQueryData(userKey)).toEqual({ email: 'a@b.com', emailVerified: true, name: 'Sukrit' })
   expect(invalidateSpy).not.toHaveBeenCalled()
+})
+
+it('useCompleteGuidedTour writes the server-owned completion timestamp into the profile cache', async () => {
+  const profile = { email: 'a@b.com', emailVerified: true, guidedTourCompletedAt: '2026-10-01T00:00:00.000Z' }
+  ;(completeGuidedTour as jest.Mock).mockResolvedValue(profile)
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { gcTime: Infinity } } })
+  const { result } = renderHook(() => useCompleteGuidedTour(), { wrapper: wrapper(queryClient) })
+
+  result.current.mutate()
+
+  await waitFor(() => expect(result.current.isSuccess).toBe(true))
+  expect(queryClient.getQueryData(userKey)).toEqual(profile)
 })
 
 it('applies the patch optimistically before the API call resolves', async () => {

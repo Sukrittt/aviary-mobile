@@ -43,7 +43,7 @@ function walkToFinish() {
 
 it('reports every step of the wizard, the back tap, and the finish', async () => {
   const { getByText, unmount } = walkToFinish()
-  await waitFor(() => expect(getByText('Show me how it works')).toBeTruthy())
+  await waitFor(() => expect(getByText('Continue')).toBeTruthy())
 
   expect(eventsNamed('onboarding_started')).toHaveLength(1)
   expect(eventsNamed('onboarding_step_viewed').map((p) => p.step_name)).toEqual([
@@ -86,7 +86,7 @@ it('continues to success when the final response failed after onboarding was com
   })
 
   const { getByText, queryByText, unmount } = walkToFinish()
-  await waitFor(() => expect(getByText('Show me how it works')).toBeTruthy())
+  await waitFor(() => expect(getByText('Continue')).toBeTruthy())
 
   expect(queryByText("Couldn't confirm your setup. Check your connection and try again. If it already saved, reopening the app will continue to your budget.")).toBeNull()
   expect(eventsNamed('onboarding_failed')).toHaveLength(0)

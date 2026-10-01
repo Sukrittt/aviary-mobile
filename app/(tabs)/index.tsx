@@ -44,6 +44,8 @@ import { BirdLandingMark, type BirdLandingMarkHandle } from '@/src/components/sp
 import { getSystemStatus } from '@/src/api/systemStatus'
 import { isVersionNewer } from '@/src/lib/version'
 import appJson from '@/app.json'
+import { useUser } from '@/src/hooks/useUser'
+import { GetStartedCard } from '@/src/components/home/GetStartedCard'
 
 /**
  * The month's state, and only that: what is left to assign, where it went, and
@@ -64,6 +66,7 @@ export default function HomeScreen() {
   const lastSpent = useLastSpent().data
   const categoriesQ = useCategories()
   const groupsQ = useGroups()
+  const user = useUser().data
 
   const { hideAmounts } = usePrivacy()
   const month = currentMonthKey()
@@ -160,6 +163,7 @@ export default function HomeScreen() {
   }
 
   const showRolloverBanner = rolloverDismissed === false && prevMonthLeftover > 0
+  const showGetStarted = !!user?.getStartedAt && !(user.manualTransactionCompletedAt && user.guidedTourCompletedAt)
 
   function handleEditAmount(category: string) {
     router.push({ pathname: '/modals/edit-assigned-amount', params: { category } })
@@ -291,6 +295,17 @@ export default function HomeScreen() {
               <Text style={{ color: tokens.accentInk, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>Okay</Text>
             </Pressable>
           </Card>
+        )}
+
+        {showGetStarted && (
+          <Reanimated.View layout={LinearTransition.springify().damping(44).stiffness(400)}>
+            <GetStartedCard
+              manualTransactionDone={!!user.manualTransactionCompletedAt}
+              guidedTourDone={!!user.guidedTourCompletedAt}
+              onAddTransaction={() => router.push('/modals/log-expense')}
+              onTakeTour={() => router.push('/account/guided-tour')}
+            />
+          </Reanimated.View>
         )}
 
         <Reanimated.View layout={LinearTransition.springify().damping(64).stiffness(900)}>

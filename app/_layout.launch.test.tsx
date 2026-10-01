@@ -54,7 +54,7 @@ function OnboardingLayout() {
         <Stack.Screen name="setup" />
       </Stack.Protected>
       <Stack.Protected guard={onboarded}>
-        <Stack.Screen name="account/guided-tour" />
+        <Stack.Screen name="account/trial-notice" />
         <Stack.Screen name="modals/log-expense" />
         <Stack.Screen name="index" />
       </Stack.Protected>
@@ -62,22 +62,22 @@ function OnboardingLayout() {
   )
 }
 
-it('replaces setup with the tour, then exits to Home without returning to setup', async () => {
-  function Tour() {
+it('replaces setup with the trial notice, then exits to Home without returning to setup', async () => {
+  function TrialNotice() {
     const router = useRouter()
-    return <Button title="Close tour" onPress={() => router.replace('/')} />
+    return <Button title="Got it" onPress={() => router.replace('/')} />
   }
   renderRouter({
     _layout: OnboardingLayout,
-    setup: () => <Button title="Show me how it works" onPress={signalOnboarded} />,
-    'account/guided-tour': Tour,
+    setup: () => <Button title="Continue" onPress={signalOnboarded} />,
+    'account/trial-notice': TrialNotice,
     'modals/log-expense': () => <Text>log expense</Text>,
     index: () => <Text>home</Text>,
   }, { initialUrl: '/setup' })
-  fireEvent.press(screen.getByText('Show me how it works'))
-  await waitFor(() => expect(screen.getByText('Close tour')).toBeTruthy())
+  fireEvent.press(screen.getByText('Continue'))
+  await waitFor(() => expect(screen.getByText('Got it')).toBeTruthy())
   expect(testRouter.canGoBack()).toBe(false)
-  fireEvent.press(screen.getByText('Close tour'))
+  fireEvent.press(screen.getByText('Got it'))
   await waitFor(() => expect(screen.getByText('home')).toBeTruthy())
   expect(testRouter.canGoBack()).toBe(false)
 })

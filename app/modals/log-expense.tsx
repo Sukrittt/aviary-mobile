@@ -330,6 +330,7 @@ export default function LogExpenseScreen() {
           date,
           notes: notes.trim(),
           payment_method: paymentMethod,
+          source: 'manual',
         },
         {
           // replace, not push: this screen is spent, and Done on the success

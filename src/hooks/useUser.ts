@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { getUser, getIdentityProviders, getSessions, getPrivacyProof, updateUser, restoreAccount, type UserProfile } from '@/src/api/account'
+import { completeGuidedTour, getUser, getIdentityProviders, getSessions, getPrivacyProof, updateUser, restoreAccount, type UserProfile } from '@/src/api/account'
 
 export const userKey = ['user'] as const
 const sessionsKey = ['user', 'sessions'] as const
@@ -33,6 +33,15 @@ export function useUpdateUser() {
       console.warn('[useUpdateUser] update failed:', err)
       if (context?.previous) qc.setQueryData(userKey, context.previous)
     },
+  })
+}
+
+export function useCompleteGuidedTour() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: completeGuidedTour,
+    onSuccess: (profile) => qc.setQueryData<UserProfile>(userKey, profile),
+    onError: (err) => console.warn('[useCompleteGuidedTour] update failed:', err),
   })
 }
 

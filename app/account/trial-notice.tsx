@@ -11,10 +11,10 @@ import { useBillingStatus } from '@/src/hooks/useBillingStatus'
 import { billingVisible, formatDate } from '@/src/lib/billingStatus'
 
 /**
- * Shown once, right after the guided tour finishes onboarding. Payments
+ * Shown once, right after budget setup finishes onboarding. Payments
  * aren't live yet, so this sets expectations instead of staying silent
- * about it. See Mobile/app/account/guided-tour.tsx for where this is
- * reached from, and Mobile/app/(tabs)/more.tsx for the same note surfaced
+ * about it. See Mobile/app/_layout.tsx for the onboarding handoff, and
+ * Mobile/app/(tabs)/more.tsx for the same note surfaced
  * later under Plan & billing — that row pushes here with ?from=more, which is
  * what decides whether "Got it" goes back or hands off to the app.
  */

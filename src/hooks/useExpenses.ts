@@ -19,6 +19,7 @@ import { HttpError } from '@/src/api/client'
 import { enqueue } from '@/src/lib/pendingExpenses'
 import { budgetsKey } from '@/src/hooks/useBudgets'
 import { track, trackFirst } from '@/src/lib/analytics'
+import { userKey } from '@/src/hooks/useUser'
 
 const key = ['expenses'] as const
 // Money Brain's brief is computed from expenses too, but keyed separately —
@@ -126,6 +127,9 @@ export function useAddExpense() {
       // stale balance for up to its 30s staleTime.
       qc.invalidateQueries({ queryKey: budgetsKey })
       qc.invalidateQueries({ queryKey: categoryMapKey })
+      // A manual create also completes a server-backed Get Started step.
+      // Refetch the profile so Home updates as soon as the success flow returns.
+      qc.invalidateQueries({ queryKey: userKey })
     },
   })
 }

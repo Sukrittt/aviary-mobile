@@ -61,6 +61,8 @@ export type NewExpenseRow = {
   date?: string
   notes?: string
   payment_method?: string
+  /** Identifies the manual-entry activation step without persisting UI metadata on the expense. */
+  source?: 'manual' | 'scan'
 }
 
 /** The exact body a POST /api/expenses create sends, `client_id` included. */

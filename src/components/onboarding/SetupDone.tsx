@@ -119,7 +119,7 @@ export function SetupDone({
       <View style={{ flex: 1 }} />
 
       <Pressable onPress={onFinish} style={[styles.cta, { backgroundColor: tokens.accent }]}>
-        <Text style={[styles.ctaText, { color: tokens.onAccent, fontFamily: fontFamily.displaySemiBold }]}>Show me how it works</Text>
+        <Text style={[styles.ctaText, { color: tokens.onAccent, fontFamily: fontFamily.displaySemiBold }]}>Continue</Text>
       </Pressable>
     </View>
   )

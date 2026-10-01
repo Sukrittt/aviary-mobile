@@ -2,6 +2,7 @@ import { apiFetch } from './client'
 import {
   getUser,
   updateUser,
+  completeGuidedTour,
   syncTimezone,
   changeEmail,
   startExport,
@@ -65,6 +66,16 @@ describe('getUser / updateUser', () => {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: 'Sukrit' }),
+    })
+  })
+
+  it('completeGuidedTour sends a boolean intent so the server owns the timestamp', async () => {
+    mockedApiFetch.mockResolvedValue({ ok: true, json: async () => ({ guidedTourCompletedAt: '2026-10-01T00:00:00.000Z' }) })
+    await completeGuidedTour()
+    expect(mockedApiFetch).toHaveBeenCalledWith('/api/user', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ guidedTourCompleted: true }),
     })
   })
 })

@@ -11,6 +11,7 @@ const MONTH = currentMonthKey()
 
 let mockBudgets: { month: string; category: string; assigned: string; rolled_over: string }[] = []
 let mockBudgetsError: Error | null = null
+let mockUser: { onboardedAt?: string; getStartedAt?: string; manualTransactionCompletedAt?: string; guidedTourCompletedAt?: string } = {}
 const mockRefetch = jest.fn()
 
 jest.mock('@/src/hooks/useBudgets', () => ({
@@ -25,6 +26,9 @@ jest.mock('@/src/hooks/useCategories', () => ({
 }))
 jest.mock('@/src/hooks/useGroups', () => ({
   useGroups: () => ({ data: ['Everyday'], isLoading: false, error: null, refetch: jest.fn() }),
+}))
+jest.mock('@/src/hooks/useUser', () => ({
+  useUser: () => ({ data: mockUser, isLoading: false, error: null }),
 }))
 jest.mock('@/src/api/systemStatus', () => ({ getSystemStatus: jest.fn(() => new Promise(() => {})) }))
 const mockPush = jest.fn()
@@ -41,6 +45,7 @@ describe('HomeScreen · Ready to Assign', () => {
   beforeEach(() => {
     mockPush.mockClear()
     mockBudgetsError = null
+    mockUser = { onboardedAt: '2026-10-01T00:00:00.000Z', getStartedAt: '2026-10-01T00:00:00.000Z' }
     mockRefetch.mockClear()
     mockBudgets = [
       { month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' },
@@ -107,6 +112,28 @@ describe('HomeScreen · Ready to Assign', () => {
       pathname: '/modals/edit-assigned-amount',
       params: { category: 'Food' },
     })
+  })
+
+  it('shows DB-backed getting-started progress and opens each unfinished step', () => {
+    const { getByText } = renderHome()
+
+    expect(getByText('1/3')).toBeTruthy()
+    expect(getByText('Set up your budget')).toBeTruthy()
+    fireEvent.press(getByText('Add a manual transaction'))
+    expect(mockPush).toHaveBeenLastCalledWith('/modals/log-expense')
+    fireEvent.press(getByText('Take a guided tour'))
+    expect(mockPush).toHaveBeenLastCalledWith('/account/guided-tour')
+  })
+
+  it('removes Get Started once both remaining milestones are complete', () => {
+    mockUser = {
+      onboardedAt: '2026-10-01T00:00:00.000Z',
+      getStartedAt: '2026-10-01T00:00:00.000Z',
+      manualTransactionCompletedAt: '2026-10-01T01:00:00.000Z',
+      guidedTourCompletedAt: '2026-10-01T02:00:00.000Z',
+    }
+    const { queryByText } = renderHome()
+    expect(queryByText('Get started')).toBeNull()
   })
 
   it('shows a retryable error screen instead of raw error text when a query fails', () => {
