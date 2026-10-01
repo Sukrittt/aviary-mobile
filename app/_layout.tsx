@@ -19,6 +19,7 @@ addNotificationResponseListener,addPushTokenListener,checkColdStartNotification,
 registerForPushNotificationsAsync,unregisterDevicePushToken
 } from '@/src/lib/notifications'
 import { startAutoFlush } from '@/src/sync/flush'
+import { cancelHabitNudges } from '@/src/lib/habitNudges'
 import { useAppFonts } from '@/src/theme/fonts'
 import { ThemeProvider,useTheme } from '@/src/theme/ThemeProvider'
 import { clearSnapshot } from '@/src/widgets/snapshot'
@@ -123,7 +124,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
       // for the same reasoning applied to the hide-amounts preference).
       // Offline expense queues stay: they're keyed by user id, so only that
       // account can sync them when it signs back in.
-      await Promise.allSettled([clearSnapshot(), clearCategoryCache(), clearGroupCache(), unregisterDevicePushToken(token)])
+      await Promise.allSettled([clearSnapshot(), clearCategoryCache(), clearGroupCache(), unregisterDevicePushToken(token), cancelHabitNudges()])
     })
     return () => {
       unsubscribe()

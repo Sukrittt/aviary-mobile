@@ -28,6 +28,22 @@ beforeEach(() => {
   )
 })
 
+it('defaults to light on a dark-mode device when no preference is saved', async () => {
+  ;(SecureStore.getItemAsync as jest.Mock).mockResolvedValue(null)
+  render(<ThemeProvider><SchemeProbe /></ThemeProvider>)
+  expect(screen.getByText('light')).toBeTruthy()
+  await act(async () => { await Promise.resolve() })
+  expect(screen.getByText('light')).toBeTruthy()
+  expect(SecureStore.setItemAsync).not.toHaveBeenCalled()
+})
+
+it.each(['dark', 'system'])('preserves the saved %s preference', async (preference) => {
+  ;(SecureStore.getItemAsync as jest.Mock).mockResolvedValue(preference)
+  render(<ThemeProvider><SchemeProbe /></ThemeProvider>)
+  await waitFor(() => expect(screen.getByText('dark')).toBeTruthy())
+  expect(SecureStore.setItemAsync).not.toHaveBeenCalled()
+})
+
 it('keeps the stored theme preference across a logout', async () => {
   render(
     <ThemeProvider>

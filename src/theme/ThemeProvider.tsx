@@ -3,7 +3,7 @@ import { useColorScheme } from 'react-native'
 import * as SecureStore from 'expo-secure-store'
 import { darkTokens, lightTokens, type ThemeTokens } from './tokens'
 import { space, radius, type as type_, motion, elevation } from './scale'
-import { THEME_PREF_KEY, type ThemePreference } from './pref'
+import { DEFAULT_THEME_PREFERENCE, THEME_PREF_KEY, type ThemePreference } from './pref'
 
 interface ThemeContextValue {
   scheme: 'light' | 'dark'
@@ -21,10 +21,9 @@ const ThemeContext = createContext<ThemeContextValue | null>(null)
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const rawScheme = useColorScheme()
-  // Dark is default: `useColorScheme()` returns null before the native
-  // module reports in, and null should land on dark, not light.
-  const systemScheme: 'light' | 'dark' = rawScheme === 'light' ? 'light' : 'dark'
-  const [preference, setPreferenceState] = useState<ThemePreference>('system')
+  // System is opt-in; an unresolved device scheme uses the light default.
+  const systemScheme: 'light' | 'dark' = rawScheme === 'dark' ? 'dark' : 'light'
+  const [preference, setPreferenceState] = useState<ThemePreference>(DEFAULT_THEME_PREFERENCE)
 
   // Deliberately survives logout: the theme belongs to this device, not to the
   // account. Clearing it threw a user who had picked Light on a dark-mode phone

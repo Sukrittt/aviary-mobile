@@ -70,3 +70,6 @@ test-results/
 /docs/*-plan.md
 /docs/play-store.md
 scripts/widget-previews/.out/
+
+# Playwright MCP screenshots and console logs
+.playwright-mcp/
