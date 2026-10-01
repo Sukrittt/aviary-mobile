@@ -345,9 +345,8 @@ export default function InsightsScreen() {
   const { revealKey: trendRevealKey, revealReady: trendRevealReady } =
     useReveal(month, trendData.length > 0);
 
-  // With under 3 real data points a bar chart shows less than a sentence
-  // would (two labelled bars against a ₹6k axis). Compare the selected month
-  // against its predecessor directly instead of asking the chart to carry it.
+  // With exactly 2 months of spend the header badge compares the selected
+  // month against its predecessor; the chart still renders like Saved does.
   const trendSummary = useMemo(() => {
     if (trendData.length >= 3) return null;
     if (trendData.length <= 1) return { kind: "first" as const };
@@ -650,40 +649,8 @@ export default function InsightsScreen() {
                 </Text>
               )}
             </>
-          ) : trendSummary ? (
-            trendSummary.kind === "first" ? (
-              <Text
-                style={{
-                  color: tokens.text2,
-                  fontSize: type.body,
-                  fontFamily: fontFamily.bodyMedium,
-                }}
-              >
-                First month tracked.
-              </Text>
-            ) : (
-              <Text
-                style={{
-                  color: tokens.text2,
-                  fontSize: type.body,
-                  fontFamily: fontFamily.bodyMedium,
-                }}
-              >
-                <Text
-                  style={{
-                    color: tokens.text,
-                    fontFamily: fontFamily.bodySemiBold,
-                  }}
-                >
-                  {formatCurrency(trendSummary.curr, hideAmounts)}
-                </Text>{" "}
-                in {monthLabel(insightMonth)} vs{" "}
-                {formatCurrency(trendSummary.prev, hideAmounts)} in{" "}
-                {monthLabel(trendSummary.prevKey)}
-              </Text>
-            )
           ) : (
-            <View style={!trendRevealReady && styles.preReveal}>
+            <View style={trendData.length > 0 && !trendRevealReady && styles.preReveal}>
               <TrendChart
                 key={trendRevealKey}
                 data={trendData}
