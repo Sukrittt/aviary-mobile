@@ -96,7 +96,6 @@ export type AppEvent =
   // Account
   | 'data_exported'
   | 'account_deleted'
-  | 'feedback_sent'
 
 export type EventProperties = Record<string, string | number | boolean>
 
@@ -158,21 +157,9 @@ export function setEventContext(properties: EventProperties): void {
   }
 }
 
-// Last screen the app navigated to, mirrored off every trackScreen() call
-// below. Used to auto-attach "which screen was this filed from" to the
-// in-app feedback form (src/api/feedback.ts) without adding separate nav
-// state just for that.
-let lastScreen = '/'
-
-/** The most recent pathname passed to trackScreen(). */
-export function getLastScreen(): string {
-  return lastScreen
-}
-
 /** Manual screen-view capture (see initAnalytics's comment on why this isn't
  * autocaptured). Same offline guard as track(). */
 export function trackScreen(pathname: string): void {
-  lastScreen = pathname
   if (!isOnline()) return
   try {
     posthog.screen(pathname)

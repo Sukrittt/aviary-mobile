@@ -1,16 +1,14 @@
 import { useState } from 'react'
 import { View, Text, Pressable, ScrollView, Linking, StyleSheet } from 'react-native'
 import { useRouter } from 'expo-router'
-import { ArrowLeft, BookOpen, Bug, Compass, MessageCircle, Star, ChevronRight, ChevronUp } from 'lucide-react-native'
+import { ArrowLeft, BookOpen, Compass, MessageCircle, Star, ChevronRight, ChevronUp } from 'lucide-react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { Alert } from '@/src/components/ui/AlertHost'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { Icon } from '@/src/components/shared/Icon'
-import { currentUserId } from '@/src/api/accessMode'
-import type { FeedbackType } from '@/src/api/feedback'
 
 const REPO = 'Sukrittt/aviary-mobile'
+const FEEDBACK_BOARD_URL = 'https://aviary.userjot.com'
 
 const ENVELOPES_EXPLAINER = [
   'New money lands in Ready to Assign, unclaimed.',
@@ -25,18 +23,6 @@ export default function HelpScreen() {
   const insets = useSafeAreaInsets()
   const router = useRouter()
   const [explainerOpen, setExplainerOpen] = useState(false)
-
-  // Filing a report against the shared demo account is meaningless and
-  // trivially spammable — same line every other mutation in the app draws.
-  // The server (Web/app/api/feedback) enforces this for real; this is just
-  // so a guest doesn't hit a confusing failed-submission round trip.
-  function openFeedback(type: FeedbackType) {
-    if (!currentUserId()) {
-      Alert.alert('Sign in to send feedback', 'Create a free account to report bugs or share ideas.')
-      return
-    }
-    router.push({ pathname: '/account/feedback', params: { type } })
-  }
 
   return (
     <View style={[styles.container, { backgroundColor: tokens.bg, paddingTop: insets.top }]}>
@@ -74,18 +60,10 @@ export default function HelpScreen() {
             <Icon icon={ChevronRight} size={16} color={tokens.text3} />
           </Pressable>
           <View style={[styles.divider, { backgroundColor: tokens.border }]} />
-          <Pressable onPress={() => openFeedback('bug')} style={styles.row}>
-            <Icon icon={Bug} size={16} />
-            <Text style={[styles.rowLabel, { flex: 1, marginLeft: 12, color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>
-              Report a bug
-            </Text>
-            <Icon icon={ChevronRight} size={16} color={tokens.text3} />
-          </Pressable>
-          <View style={[styles.divider, { backgroundColor: tokens.border }]} />
-          <Pressable onPress={() => openFeedback('idea')} style={styles.row}>
+          <Pressable onPress={() => Linking.openURL(FEEDBACK_BOARD_URL)} style={styles.row}>
             <Icon icon={MessageCircle} size={16} />
             <Text style={[styles.rowLabel, { flex: 1, marginLeft: 12, color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>
-              Send feedback
+              Feedback board
             </Text>
             <Icon icon={ChevronRight} size={16} color={tokens.text3} />
           </Pressable>
