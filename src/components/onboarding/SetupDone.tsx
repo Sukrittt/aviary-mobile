@@ -10,7 +10,8 @@ import Animated, {
   withTiming,
   Easing,
 } from 'react-native-reanimated'
-import { Check } from 'lucide-react-native'
+import * as Haptics from 'expo-haptics'
+import { Check, FolderOpen, Tags, WalletCards, type LucideIcon } from 'lucide-react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import type { ThemeTokens } from '@/src/theme/tokens'
 import { fontFamily } from '@/src/theme/fonts'
@@ -59,25 +60,22 @@ export function SetupDone({
   income,
   groupCount,
   categoryCount,
-  assigned,
   onFinish,
 }: {
   income: number
   groupCount: number
   categoryCount: number
-  assigned: number
   onFinish: () => void
 }) {
-  const { currencySymbol, formatMoney } = useCurrency()
+  const { formatMoney } = useCurrency()
 
   const { tokens } = useTheme()
   const confetti = useMemo(() => Array.from({ length: 18 }, (_, i) => i), [])
 
-  const summary = [
-    { icon: currencySymbol, label: 'Monthly income', value: formatMoney(income) },
-    { icon: '📁', label: 'Groups', value: String(groupCount) },
-    { icon: '✉️', label: 'Categories', value: String(categoryCount) },
-    { icon: '✓', label: 'Assigned', value: formatMoney(assigned) },
+  const summary: { icon: LucideIcon; label: string; value: string }[] = [
+    { icon: WalletCards, label: 'Monthly income', value: formatMoney(income) },
+    { icon: FolderOpen, label: 'Groups', value: String(groupCount) },
+    { icon: Tags, label: 'Categories', value: String(categoryCount) },
   ]
 
   return (
@@ -105,20 +103,29 @@ export function SetupDone({
       </Animated.Text>
 
       <Animated.View entering={FadeIn.delay(200).duration(350)} style={styles.summaryList}>
-        {summary.map((s) => (
-          <View key={s.label} style={[styles.summaryRow, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
-            <View style={[styles.summaryIcon, { backgroundColor: tokens.accentSoft }]}>
-              <Text style={{ color: tokens.accentInk, fontSize: 14 }}>{s.icon}</Text>
+        {summary.map((s) => {
+          const SummaryIcon = s.icon
+          return (
+            <View key={s.label} style={[styles.summaryRow, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
+              <View style={[styles.summaryIcon, { backgroundColor: tokens.accentSoft }]}>
+                <SummaryIcon size={16} color={tokens.accentInk} strokeWidth={2.2} />
+              </View>
+              <Text style={[styles.summaryLabel, { color: tokens.text2 }, { fontFamily: fontFamily.bodyMedium }]}>{s.label}</Text>
+              <Text style={[styles.summaryValue, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>{s.value}</Text>
             </View>
-            <Text style={[styles.summaryLabel, { color: tokens.text2 }, { fontFamily: fontFamily.bodyMedium }]}>{s.label}</Text>
-            <Text style={[styles.summaryValue, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>{s.value}</Text>
-          </View>
-        ))}
+          )
+        })}
       </Animated.View>
 
       <View style={{ flex: 1 }} />
 
-      <Pressable onPress={onFinish} style={[styles.cta, { backgroundColor: tokens.accent }]}>
+      <Pressable
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+          onFinish()
+        }}
+        style={[styles.cta, { backgroundColor: tokens.accent }]}
+      >
         <Text style={[styles.ctaText, { color: tokens.onAccent, fontFamily: fontFamily.displaySemiBold }]}>Continue</Text>
       </Pressable>
     </View>

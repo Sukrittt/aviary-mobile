@@ -1,6 +1,19 @@
-import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native'
+import { useEffect, useRef } from 'react'
+import { Text, TextInput, Pressable, StyleSheet } from 'react-native'
+import { Check } from 'lucide-react-native'
+import Reanimated, {
+  Easing,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated'
+import * as Haptics from 'expo-haptics'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
+
+const AnimatedPressable = Reanimated.createAnimatedComponent(Pressable)
 
 // SetupWizard.dc.html:301-304 — the group/category row: emoji cycle button,
 // name input, on/off toggle. Shared by the groups and categories steps.
@@ -21,12 +34,43 @@ export function PickRow({
   onChangeName: (name: string) => void
   onToggle: () => void
 }) {
-  const { tokens } = useTheme()
+  const { tokens, motion } = useTheme()
+  const reduceMotion = useReducedMotion()
+  const mounted = useRef(false)
+  const rowScale = useSharedValue(1)
+  const toggleScale = useSharedValue(1)
+  const checkProgress = useSharedValue(on ? 1 : 0)
+  const tapSpring = { duration: motion.fast, dampingRatio: 1 } as const
+
+  useEffect(() => {
+    if (!mounted.current) {
+      mounted.current = true
+      return
+    }
+
+    checkProgress.value = withTiming(on ? 1 : 0, {
+      duration: motion.fast,
+      easing: Easing.bezier(0.23, 1, 0.32, 1),
+    })
+  }, [checkProgress, motion.fast, on])
+
+  const rowStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: reduceMotion ? 1 : rowScale.value }],
+  }))
+  const toggleStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: reduceMotion ? 1 : toggleScale.value }],
+  }))
+  const checkStyle = useAnimatedStyle(() => ({
+    opacity: checkProgress.value,
+    transform: [{ scaleX: reduceMotion ? 1 : checkProgress.value }],
+  }))
+
   return (
-    <View
+    <Reanimated.View
       style={[
         styles.row,
         { backgroundColor: on ? tokens.card : 'transparent', borderColor: on ? tokens.accent : tokens.border },
+        rowStyle,
       ]}
     >
       <Pressable
@@ -42,16 +86,39 @@ export function PickRow({
         placeholderTextColor={tokens.text3}
         style={[styles.nameInput, { color: on ? tokens.text : tokens.text3, fontFamily: fontFamily.bodyBold }]}
       />
-      <Pressable
-        onPress={onToggle}
+      <AnimatedPressable
+        accessibilityLabel={`${on ? 'Deselect' : 'Select'} ${name || placeholder}`}
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked: on }}
+        onPress={() => {
+          Haptics.selectionAsync().catch(() => {})
+          onToggle()
+        }}
+        onPressIn={() => {
+          if (reduceMotion) return
+          rowScale.value = withSpring(0.985, tapSpring)
+          toggleScale.value = withSpring(0.9, tapSpring)
+        }}
+        onPressOut={() => {
+          if (reduceMotion) {
+            rowScale.value = 1
+            toggleScale.value = 1
+            return
+          }
+          rowScale.value = withSpring(1, tapSpring)
+          toggleScale.value = withSpring(1, tapSpring)
+        }}
         style={[
           styles.check,
           { borderColor: on ? tokens.accent : tokens.borderStrong, backgroundColor: on ? tokens.accent : 'transparent' },
+          toggleStyle,
         ]}
       >
-        {on && <Text style={[styles.checkLabel, { color: tokens.onAccent }]}>✓</Text>}
-      </Pressable>
-    </View>
+        <Reanimated.View testID="pick-row-check-icon" accessible={false} style={[styles.checkIcon, checkStyle]}>
+          <Check size={16} color={tokens.onAccent} strokeWidth={3} />
+        </Reanimated.View>
+      </AnimatedPressable>
+    </Reanimated.View>
   )
 }
 
@@ -61,5 +128,5 @@ const styles = StyleSheet.create({
   emojiLabel: { fontSize: 17 },
   nameInput: { flex: 1, fontSize: 14, paddingVertical: 6, paddingHorizontal: 2 },
   check: { width: 26, height: 26, borderRadius: 13, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
-  checkLabel: { fontSize: 13, lineHeight: 15 },
+  checkIcon: { width: 16, height: 16, transformOrigin: 'left' },
 })

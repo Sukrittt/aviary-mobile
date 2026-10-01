@@ -4,8 +4,9 @@ import { useEffect, useRef, useState } from 'react'
 import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useQueryClient } from '@tanstack/react-query'
+import * as Haptics from 'expo-haptics'
 import { ArrowLeft, Plus } from 'lucide-react-native'
-import Animated, { useSharedValue, useAnimatedStyle, withSequence, withTiming } from 'react-native-reanimated'
+import Animated, { useSharedValue, useAnimatedStyle, useReducedMotion, withSequence, withSpring, withTiming } from 'react-native-reanimated'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import type { ThemeTokens } from '@/src/theme/tokens'
 import { fontFamily } from '@/src/theme/fonts'
@@ -32,6 +33,7 @@ import { startTimer, track } from '@/src/lib/analytics'
 // worth syncing mid-flow.
 const EMOJI_CYCLE = ['🏠', '🎬', '🌱', '🛒', '💡', '🚌', '🍜', '📺', '🛍', '🛟', '📈', '🎓', '🐶', '💊', '✈️', '🎁']
 const QUICK_PICKS = ['30000', '50000', '75000', '100000']
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable)
 
 interface Item {
   id: string
@@ -148,7 +150,7 @@ function CurrencyWizard({ currencyCode, onCurrencyChange }: { currencyCode: stri
   const [buf, setBuf] = useState('')
   const [pending, setPending] = useState(false)
   const [error, setError] = useState('')
-  const [result, setResult] = useState<{ income: number; groupCount: number; categoryCount: number; assigned: number } | null>(null)
+  const [result, setResult] = useState<{ income: number; groupCount: number; categoryCount: number } | null>(null)
 
   // Timing for the onboarding funnel: how long the whole wizard takes, and how
   // long each step holds someone. Refs, since no render depends on them.
@@ -203,6 +205,11 @@ function CurrencyWizard({ currencyCode, onCurrencyChange }: { currencyCode: stri
       out[it.key] = v
     })
     return out
+  }
+
+  const applyDistribution = (weighted: boolean) => {
+    Haptics.selectionAsync().catch(() => {})
+    setAmounts(distribute(weighted))
   }
 
   const canAdvance = step === 0 ? true :
@@ -287,6 +294,7 @@ function CurrencyWizard({ currencyCode, onCurrencyChange }: { currencyCode: stri
   }
 
   const openRow = (key: string) => {
+    Haptics.selectionAsync().catch(() => {})
     setActiveKey(key)
     setBuf('')
   }
@@ -343,7 +351,7 @@ function CurrencyWizard({ currencyCode, onCurrencyChange }: { currencyCode: stri
         currency: currencyCode,
         ...(recoveredAfterError ? { recovered_after_error: true } : {}),
       })
-      setResult({ income: incomeValue, groupCount: selectedGroups.length, categoryCount, assigned: assignedTotal() })
+      setResult({ income: incomeValue, groupCount: selectedGroups.length, categoryCount })
       setStep(5)
     }
 
@@ -434,6 +442,11 @@ function CurrencyWizard({ currencyCode, onCurrencyChange }: { currencyCode: stri
     setStep((s) => s + 1)
   }
 
+  const pressPrimaryCta = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+    next()
+  }
+
   if (step === 5 && result) {
     return (
       <View style={[styles.container, { backgroundColor: tokens.bg, paddingTop: insets.top + 60, paddingBottom: insets.bottom + 20 }]}>
@@ -441,7 +454,6 @@ function CurrencyWizard({ currencyCode, onCurrencyChange }: { currencyCode: stri
           income={result.income}
           groupCount={result.groupCount}
           categoryCount={result.categoryCount}
-          assigned={result.assigned}
           onFinish={signalOnboarded}
         />
       </View>
@@ -490,7 +502,6 @@ function CurrencyWizard({ currencyCode, onCurrencyChange }: { currencyCode: stri
             <StepDot key={n} active={n <= step} activeColor={tokens.accent} inactiveColor={tokens.borderStrong} onPress={() => {}} />
           ))}
         </View>
-        <Text style={[styles.stepCounter, { color: tokens.text3 }]}>{step + 1} / 5</Text>
       </View>
 
       <Text style={[styles.title, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>{title}</Text>
@@ -574,7 +585,7 @@ function CurrencyWizard({ currencyCode, onCurrencyChange }: { currencyCode: stri
           })}
           {selectedCatCount > 0 && (
             <Text style={[styles.microHint, { color: tokens.text3 }]}>
-              🔔 Alerts at {DEFAULT_ALERT_PCTS.join(' · ')}% by default. Tap any category in Envelopes later to change its alerts.
+              Default alerts: {DEFAULT_ALERT_PCTS.map((pct) => `${pct}%`).join(' · ')}
             </Text>
           )}
         </ScrollView>
@@ -589,18 +600,8 @@ function CurrencyWizard({ currencyCode, onCurrencyChange }: { currencyCode: stri
             </Text>
           </View>
           <View style={styles.splitRow}>
-            <Pressable
-              onPress={() => setAmounts(distribute(true))}
-              style={[styles.splitButton, { borderColor: tokens.borderStrong, backgroundColor: tokens.inputBg }]}
-            >
-              <Text style={[styles.splitButtonLabel, { color: tokens.text2 }]}>Suggested split</Text>
-            </Pressable>
-            <Pressable
-              onPress={() => setAmounts(distribute(false))}
-              style={[styles.splitButton, { borderColor: tokens.borderStrong, backgroundColor: tokens.inputBg }]}
-            >
-              <Text style={[styles.splitButtonLabel, { color: tokens.text2 }]}>Split evenly</Text>
-            </Pressable>
+            <SplitButton label="Suggested split" onPress={() => applyDistribution(true)} />
+            <SplitButton label="Split evenly" onPress={() => applyDistribution(false)} />
           </View>
           <ScrollView contentContainerStyle={[styles.sectionList, { paddingTop: 22 }]} showsVerticalScrollIndicator={false}>
             {selectedGroups.map((g) => {
@@ -650,7 +651,7 @@ function CurrencyWizard({ currencyCode, onCurrencyChange }: { currencyCode: stri
       {error !== '' && <Text style={[styles.errorText, { color: tokens.coral }]}>{error}</Text>}
 
       <Pressable
-        onPress={next}
+        onPress={pressPrimaryCta}
         disabled={!canAdvance || pending}
         style={[styles.cta, { backgroundColor: canAdvance ? tokens.accent : tokens.inputBg, opacity: pending ? 0.7 : 1 }]}
       >
@@ -704,6 +705,7 @@ function QuickPickChip({ label, on, onPress }: { label: string; on: boolean; onP
   const scale = useSharedValue(1)
 
   const onPressWithBounce = () => {
+    Haptics.selectionAsync().catch(() => {})
     onPress()
     scale.value = withSequence(withTiming(1.11, { duration: 143 }), withTiming(1.04, { duration: 197 }))
   }
@@ -730,12 +732,40 @@ function QuickPickChip({ label, on, onPress }: { label: string; on: boolean; onP
   )
 }
 
+function SplitButton({ label, onPress }: { label: string; onPress: () => void }) {
+  const { tokens, motion } = useTheme()
+  const reduceMotion = useReducedMotion()
+  const scale = useSharedValue(1)
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: reduceMotion ? 1 : scale.value }],
+  }))
+
+  return (
+    <AnimatedPressable
+      accessibilityRole="button"
+      onPress={onPress}
+      onPressIn={() => {
+        if (!reduceMotion) scale.value = withSpring(0.97, motion.springTight)
+      }}
+      onPressOut={() => {
+        scale.value = reduceMotion ? 1 : withSpring(1, motion.springTight)
+      }}
+      style={[
+        styles.splitButton,
+        { borderColor: tokens.borderStrong, backgroundColor: tokens.inputBg },
+        animatedStyle,
+      ]}
+    >
+      <Text style={[styles.splitButtonLabel, { color: tokens.text2 }]}>{label}</Text>
+    </AnimatedPressable>
+  )
+}
+
 const styles = StyleSheet.create({
   container: { flex: 1, paddingHorizontal: 22 },
-  topRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   backButton: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  dots: { flexDirection: 'row', gap: 6, flex: 1 },
-  stepCounter: { fontSize: 10 },
+  dots: { flexDirection: 'row', gap: 6 },
   title: { fontSize: 27, fontWeight: '600', lineHeight: 31, marginTop: 16, letterSpacing: -0.2 },
   blurb: { fontSize: 14, lineHeight: 21, marginTop: 7, maxWidth: 310 },
   stepBody: { flex: 1, marginTop: 4 },
@@ -745,7 +775,7 @@ const styles = StyleSheet.create({
   quickPickLabel: { fontSize: 12, fontWeight: '700' },
   rowList: { gap: 8, paddingTop: 12 },
   addRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 14, paddingHorizontal: 16, borderRadius: 18, borderWidth: 1, borderStyle: 'dashed' },
-  addRowLabel: { fontSize: 13, fontWeight: '700' },
+  addRowLabel: { fontSize: 13, fontFamily: fontFamily.bodyBold },
   microHint: { fontSize: 10, paddingHorizontal: 4, paddingTop: 2 },
   sectionList: { gap: 16, paddingTop: 12 },
   section: { gap: 8 },
