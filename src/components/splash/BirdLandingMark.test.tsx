@@ -37,3 +37,17 @@ it('pins opacity to zero before revealing the reset bird', () => {
   timingSpy.mockRestore()
   setValueSpy.mockRestore()
 })
+
+it('starts the idle nod and blink loops only when perched', () => {
+  const loopSpy = jest.spyOn(Animated, 'loop')
+
+  const resting = render(<BirdLandingMark size={56} color="#000000" autoplay={false} />)
+  expect(loopSpy).not.toHaveBeenCalled()
+  resting.unmount()
+
+  const perched = render(<BirdLandingMark size={56} color="#000000" autoplay={false} perched />)
+  expect(loopSpy).toHaveBeenCalledTimes(2)
+  perched.unmount()
+
+  loopSpy.mockRestore()
+})
