@@ -184,7 +184,7 @@ export function FloatingNav({
   addDisabled?: boolean
   children?: React.ReactNode
 }) {
-  const { tokens, elevation, scheme } = useTheme()
+  const { tokens, elevation } = useTheme()
   const insets = useSafeAreaInsets()
   const { width } = useWindowDimensions()
   const { shake: invalidAddShake, triggerInvalidFeedback } = useInvalidFeedback()
@@ -199,9 +199,10 @@ export function FloatingNav({
   }, [addActive, addInvalid, onAdd, onAddInvalid, triggerInvalidFeedback])
 
   // On log-expense the strip sits over the accent flood in both schemes, so
-  // the idle circles stay white there too instead of dark-mode's near-black cardSolid.
-  const idle = addActive ? '#ffffff' : tokens.cardSolid
-  const idleIcon = addActive && scheme === 'dark' ? '#000000' : tokens.text2
+  // the idle circles go tone-on-tone there: a translucent white tint with a
+  // softer white glyph, flat (no shadow), so they recede behind the add slot.
+  const idle = addActive ? 'rgba(255, 255, 255, 0.2)' : tokens.cardSolid
+  const idleIcon = addActive ? 'rgba(255, 255, 255, 0.7)' : tokens.text3
   const activeFill = tokens.accent
   const activeIcon = tokens.onAccent
 
@@ -346,6 +347,7 @@ export function FloatingNav({
               onPress={() => onSelect(slot.name)}
               scrollX={scrollX}
               index={i}
+              onFlood={addActive}
             />
           ),
         )}
@@ -455,6 +457,7 @@ function NavCircle({
   overrideContent,
   scrollX,
   index,
+  onFlood = false,
   style,
 }: {
   glyph: NavIconComponent
@@ -472,6 +475,8 @@ function NavCircle({
   overrideContent?: React.ReactNode
   scrollX: SharedValue<number>
   index: number
+  /** Sitting on the log-expense accent flood: no distance fade (the tint is already translucent) and no shadow. */
+  onFlood?: boolean
   style?: object
 }) {
   const { motion, elevation } = useTheme()
@@ -487,7 +492,7 @@ function NavCircle({
     const t = slotProximity(scrollX.value, index)
     return {
       backgroundColor: bgFade.value,
-      opacity: 1 - t * 0.35,
+      opacity: onFlood ? 1 : 1 - t * 0.35,
       transform: [{ scale: pressScale.value * (1 - t * (1 - INACTIVE_SCALE)) }],
     }
   })
@@ -533,7 +538,7 @@ function NavCircle({
           style={[
             styles.circle,
             { width: CIRCLE, height: CIRCLE, borderRadius: CIRCLE / 2 },
-            selected ? elevation.floating : elevation.card,
+            selected ? elevation.floating : onFlood ? null : elevation.card,
             style,
             circleStyle,
             dimmed ? styles.disabled : null,

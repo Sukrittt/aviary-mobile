@@ -28,7 +28,8 @@ export function Card({
       borderRadius: radius.lg,
       padding: padded ? space.lg : 0,
     },
-    elevated ? elevation.card : { borderWidth: 1, borderColor: tokens.border },
+    { borderWidth: 1, borderColor: tokens.border },
+    elevated && elevation.card,
     style,
   ]
 

@@ -21,7 +21,6 @@ interface Props {
   onEditAmount: (category: string) => void
   onViewTransactions: (category: string) => void
   expanded: boolean
-  isFirst?: boolean
   onToggle: (group: string) => void
   onSheetOpenChange?: (open: boolean) => void
 }
@@ -35,7 +34,6 @@ export function EnvelopeGroup({
   onEditAmount,
   onViewTransactions,
   expanded,
-  isFirst,
   onToggle,
   onSheetOpenChange,
 }: Props) {
@@ -48,7 +46,7 @@ export function EnvelopeGroup({
   }))
 
   return (
-    <Reanimated.View layout={TRANSITION} style={[styles.wrap, isFirst && styles.wrapFirst, { borderTopColor: tokens.border }]}>
+    <Reanimated.View layout={TRANSITION} style={[styles.wrap, { borderTopColor: tokens.border }]}>
       <Pressable style={styles.header} onPress={() => onToggle(group)}>
         <View style={styles.headerLeft}>
           <Reanimated.View style={chevronStyle}>
@@ -89,8 +87,7 @@ export function EnvelopeGroup({
 }
 
 const styles = StyleSheet.create({
-  wrap: { paddingTop: 8, paddingBottom: 8 },
-  wrapFirst: { borderTopWidth: 1 },
+  wrap: { borderTopWidth: 1, paddingTop: 8, paddingBottom: 8 },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4 },
   headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   name: { fontSize: 13 },

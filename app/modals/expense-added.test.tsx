@@ -152,8 +152,8 @@ it('moves the percentage badge colors through the same old-to-new thresholds', a
 
   const dot = getByTestId('envelope-category-dot')
   const pill = getByTestId('percent-used-pill')
-  expect(StyleSheet.flatten(dot.props.style).backgroundColor).toBe('rgba(0, 132, 53, 1)')
-  expect(StyleSheet.flatten(pill.props.style).backgroundColor).toBe('rgba(0, 132, 53, 0.18)')
+  expect(StyleSheet.flatten(dot.props.style).backgroundColor).toBe('rgba(31, 122, 77, 1)')
+  expect(StyleSheet.flatten(pill.props.style).backgroundColor).toBe('rgba(31, 122, 77, 0.18)')
 
   await waitFor(
     () => {

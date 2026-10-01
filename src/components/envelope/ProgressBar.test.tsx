@@ -55,7 +55,7 @@ describe('ProgressBar', () => {
     // Still at the 50% mark, so still mint — warn only arrives with the width.
     // An interpolated colour resolves to rgba(), so compare against that form.
     expect(StyleSheet.flatten(getByTestId('progress-bar-fill').props.style).backgroundColor).toBe(
-      'rgba(0, 132, 53, 1)',
+      'rgba(31, 122, 77, 1)',
     )
   })
 })

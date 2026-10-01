@@ -277,7 +277,7 @@ export default function HomeScreen() {
               </Text>
             </Pressable>
             <Pressable onPress={() => setTrialDismissed(true)} hitSlop={8}>
-              <Text style={{ color: tokens.accent, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>Okay</Text>
+              <Text style={{ color: tokens.accentInk, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>Okay</Text>
             </Pressable>
           </Card>
         )}
@@ -288,13 +288,13 @@ export default function HomeScreen() {
               {formatCurrency(prevMonthLeftover, hideAmounts)} left over from last month.
             </Text>
             <Pressable onPress={() => setRolloverDismissed(true)} hitSlop={8}>
-              <Text style={{ color: tokens.accent, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>Okay</Text>
+              <Text style={{ color: tokens.accentInk, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>Okay</Text>
             </Pressable>
           </Card>
         )}
 
         <Reanimated.View layout={LinearTransition.springify().damping(64).stiffness(900)}>
-          <Card elevated={false} style={{ backgroundColor: tokens.card }}>
+          <Card elevated={false}>
             <View style={styles.cardHeadRow}>
               <View style={[styles.headerLinks, { gap: space.xs }]}>
                 <Text style={[styles.cardTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: type.bodyLg }]}>
@@ -305,21 +305,20 @@ export default function HomeScreen() {
                   accessibilityLabel={allGroupsCollapsed ? 'Expand all' : 'Collapse all'}
                   onPress={toggleCollapseAll}
                   size={28}
-                  color={tokens.accent}
+                  color={tokens.text3}
                   background="transparent"
                 />
               </View>
               <View style={styles.headerLinks}>
                 <Pressable onPress={() => router.navigate('/(tabs)/envelopes')} hitSlop={8}>
-                  <Text style={{ color: tokens.accent, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>Manage</Text>
+                  <Text style={{ color: tokens.accentInk, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>Manage</Text>
                 </Pressable>
               </View>
             </View>
             <View style={{ marginTop: space.xs }}>
-              {groupedEnvelopes.map(({ group, envelopes }, i) => (
+              {groupedEnvelopes.map(({ group, envelopes }) => (
                 <EnvelopeGroup
                   key={group}
-                  isFirst={i === 0}
                   group={group}
                   envelopes={envelopes}
                   hideAmounts={hideAmounts}

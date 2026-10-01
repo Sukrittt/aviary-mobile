@@ -88,8 +88,8 @@ describe('DeltaBar', () => {
     const base = getByTestId('delta-bar-base-color')
     const delta = getByTestId('delta-bar-delta-color')
 
-    expect(StyleSheet.flatten(base.props.style).backgroundColor).toBe('rgba(0, 132, 53, 1)')
-    expect(StyleSheet.flatten(delta.props.style).backgroundColor).toBe('rgba(0, 132, 53, 1)')
+    expect(StyleSheet.flatten(base.props.style).backgroundColor).toBe('rgba(31, 122, 77, 1)')
+    expect(StyleSheet.flatten(delta.props.style).backgroundColor).toBe('rgba(31, 122, 77, 1)')
 
     settle()
 
