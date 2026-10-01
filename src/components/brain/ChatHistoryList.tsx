@@ -117,7 +117,7 @@ export function ChatHistoryList({
                 style={[styles.emptyButton, { backgroundColor: tokens.accent }]}
               >
                 <Text style={{ color: tokens.onAccent, fontSize: 13, fontFamily: fontFamily.bodySemiBold }}>
-                  Ask Money Brain
+                  Ask Aviary
                 </Text>
               </Pressable>
             </>

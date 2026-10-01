@@ -59,11 +59,11 @@ export const CHAPTERS: Chapter[] = [
   },
   {
     title: 'Understanding your money',
-    blurb: 'Insights, plus a brain you can interrogate.',
+    blurb: 'Insights, plus answers with Ask Aviary.',
     kicker: 'CHAPTER 5 OF 7',
-    lede: 'Insights steps back month by month: normal or not, where it went, a daily heatmap. Money Brain answers in plain language, having actually read your envelopes.',
+    lede: 'Insights steps back month by month: normal or not, where it went, a daily heatmap. Ask Aviary reads your envelopes and answers questions about your spending in plain language.',
     nudge: 'Ask it something nosy.',
-    linkLabel: 'Open Money Brain',
+    linkLabel: 'Open Ask Aviary',
     href: '/modals/money-brain',
   },
   {

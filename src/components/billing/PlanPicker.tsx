@@ -16,7 +16,7 @@ import { yearlySavingsPercent } from '@/src/lib/billingStatus'
 export const BENEFITS = [
   'As many envelopes and expenses as you like',
   'Snap a bill instead of typing it in',
-  'Ask Money Brain where your money went',
+  'Ask Aviary where your money went',
   'Monthly Wrapped and spending insights',
   'Track bills, subscriptions and investments',
   'Widgets on your home screen, plus the web app',

@@ -15,7 +15,7 @@
 
 - **YNAB-style method, priced for India.** Envelope budgeting with Ready to Assign, rollovers, and moving money between envelopes — in INR, without a dollar subscription.
 - **Native mobile app.** Not a PWA; shares one account with the web dashboard.
-- **AI that knows your spending.** Money Brain chat, anomaly alerts, and a year-end Wrapped recap.
+- **AI that knows your spending.** Ask Aviary chat, anomaly alerts, and a year-end Wrapped recap.
 - **Open source.** Every line that touches your financial data is public and auditable.
 
 ## About this repo
@@ -36,7 +36,7 @@ Expo/React Native app for Aviary. Talks to the same deployed API as [`Sukrittt/a
 - **Envelopes** — category groups with monthly budgets, Ready to Assign, move money between envelopes, inline category creation, drag reordering.
 - **Activity** — transaction log with swipe-to-delete.
 - **Investments** — holdings, contributions/withdrawals via modals.
-- **Money Brain** — AI chat about your spending (`src/api/ai.ts` → `/api/ai/chat`).
+- **Ask Aviary** — AI chat about your spending (`src/api/ai.ts` → `/api/ai/chat`).
 - **Wrapped** — year-in-review recap screen (`app/wrapped.tsx`) backed by `/api/wrapped`.
 - **Account** — profile edit, real email change with code verification, linked identities (Google/email), active sessions with remote revoke, delete account with in-app confirm sheet, data export, help.
 

@@ -295,7 +295,7 @@ export default function SecurityScreen() {
             <Text style={[styles.sectionLabel, { color: tokens.text3, fontFamily: fontFamily.bodyBold }]}>YOUR DATA, ENCRYPTED</Text>
             <View style={[styles.card, styles.proofCard, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
               <Text style={[styles.proofCopy, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
-                Before an expense, budget number or Money Brain chat reaches our database, we encrypt it
+                Before an expense, budget number or Ask Aviary chat reaches our database, we encrypt it
                 with AES-256-GCM. A leaked database backup only turns up ciphertext, never your amounts,
                 item names or notes.
               </Text>
@@ -304,7 +304,7 @@ export default function SecurityScreen() {
               </Text>
               <Text style={[styles.proofCopy, { color: tokens.text2, fontFamily: fontFamily.bodyMedium, marginTop: 10 }]}>
                 This isn&apos;t end-to-end encryption, and we won&apos;t call it that. Our server still
-                decrypts your data to run your budget, digests and Money Brain, so it protects you if the
+                decrypts your data to run your budget, digests and Ask Aviary, so it protects you if the
                 database leaks, not if the app server itself is compromised.
               </Text>
               <Pressable

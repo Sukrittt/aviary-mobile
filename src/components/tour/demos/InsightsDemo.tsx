@@ -11,7 +11,7 @@ import { NORMAL_BARS, NORMAL_BAR_MAX } from '@/src/components/tour/content'
 const TYPE_INTERVAL_MS = 16
 const CHARS_PER_TICK = 2
 
-/** Chapter 5: the normal-month comparison, plus a Money Brain answer that types itself out. */
+/** Chapter 5: the normal-month comparison, plus an Ask Aviary answer that types itself out. */
 export function InsightsDemo({ onComplete }: { onComplete: () => void }) {
   const { BRAIN_ASKS } = useTourContent()
 
@@ -80,7 +80,7 @@ export function InsightsDemo({ onComplete }: { onComplete: () => void }) {
         </Text>
       </View>
 
-      <SectionLabel>ASK MONEY BRAIN</SectionLabel>
+      <SectionLabel>ASK AVIARY</SectionLabel>
       <View style={[styles.chips, { gap: space.sm }]}>
         {BRAIN_ASKS.map((item) => {
           const active = asked === item.q

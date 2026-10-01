@@ -50,14 +50,14 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 13, textAlign: 'center', maxWidth: 260 },
 })
 
-/** The month's AI allowance is spent. Used inline by Money brain and as the modal the root layout opens when a chat or bill scan is refused. */
+/** The month's AI allowance is spent. Used inline by Ask Aviary and as the modal the root layout opens when a chat or bill scan is refused. */
 export function AiAllowanceScreen() {
   const resetsOn = nextAllowanceReset().toLocaleDateString(undefined, { day: 'numeric', month: 'long' })
   return (
     <AiUnavailableScreen
       icon={Sparkles}
       title="AI allowance reached"
-      message={`You've used this month's AI allowance. Money brain and bill scanning are back on ${resetsOn}. Everything else works as normal.`}
+      message={`You've used this month's AI allowance. Ask Aviary and bill scanning are back on ${resetsOn}. Everything else works as normal.`}
     />
   )
 }

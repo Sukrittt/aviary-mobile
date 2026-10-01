@@ -212,7 +212,7 @@ export default function MoreScreen() {
               />
               <FeatureCard
                 icon={Brain}
-                label="Money Brain"
+                label="Ask Aviary"
                 blurb="Ask about your spending"
                 iconBg={tokens.accentSoft}
                 iconColor={tokens.accent}

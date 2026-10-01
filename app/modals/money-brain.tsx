@@ -275,7 +275,7 @@ export default function MoneyBrainModal() {
           </View>
           <View style={{ flex: 1 }}>
             <Text style={[styles.title, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
-              Money brain
+              Ask Aviary
             </Text>
             <Text numberOfLines={1} style={[styles.subtitle, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
               {brief ? `Reading ${brief.meta.txnCountThisMonth} transactions` : 'Reading your budget…'}
