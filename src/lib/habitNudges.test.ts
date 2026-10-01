@@ -36,11 +36,12 @@ const mockNotifications = {
     return Promise.resolve(req.identifier ?? 'x')
   }),
   dismissNotificationAsync: jest.fn(() => Promise.resolve()),
+  getPresentedNotificationsAsync: jest.fn(() => Promise.resolve([] as unknown[])),
   registerTaskAsync: jest.fn(() => Promise.resolve()),
 }
 jest.mock('@/src/lib/notifications', () => ({ getNotifications: () => mockNotifications }))
 
-const nudge: NudgeData = { nudgeId: 'n1', habitId: 'fun|football', item: 'Football', category: 'Fun', amountInr: 200, paymentMethod: 'bank' }
+const nudge: NudgeData = { nudgeId: 'n1', uid: 'user-1', habitId: 'fun|football', item: 'Football', category: 'Fun', amountInr: 200, paymentMethod: 'bank' }
 const response = (actionIdentifier: string, data: NudgeData = nudge) =>
   ({ actionIdentifier, notification: { request: { identifier: data.nudgeId, content: { data } } } }) as never
 
@@ -80,6 +81,23 @@ describe('handleHabitResponse', () => {
       params: { item: 'Football', amountInr: '200', category: 'Fun', paymentMethod: 'bank' },
     })
     expect(enqueue).not.toHaveBeenCalled()
+  })
+
+  it('never logs a nudge from another account into this one', async () => {
+    await handleHabitResponse(response('log', { ...nudge, nudgeId: 'n5', uid: 'someone-else' }))
+    await handleHabitResponse(response('expo.modules.notifications.actions.DEFAULT', { ...nudge, nudgeId: 'n6', uid: 'someone-else' }))
+    expect(enqueue).not.toHaveBeenCalled()
+    expect(mockPush).not.toHaveBeenCalled()
+    expect(mockNotifications.dismissNotificationAsync).toHaveBeenCalledWith('n5')
+  })
+
+  it('lets the button work again when saving the expense failed', async () => {
+    const n = { ...nudge, nudgeId: 'n7' }
+    jest.mocked(enqueue).mockRejectedValueOnce(new Error('disk full'))
+    await expect(handleHabitResponse(response('log', n))).rejects.toThrow('disk full')
+    await handleHabitResponse(response('log', n))
+    expect(enqueue).toHaveBeenCalledTimes(2)
+    expect(flush).toHaveBeenCalledTimes(1)
   })
 
   it('just dismisses on "Not this one"', async () => {
@@ -138,6 +156,23 @@ describe('refreshHabitNudges', () => {
     await refreshHabitNudges(footballRows(), now)
     await setHabitNudgesEnabled(false, footballRows())
     expect(mockScheduled).toHaveLength(0)
+  })
+
+  it('keeps the old plan when building the new one fails', async () => {
+    await refreshHabitNudges(footballRows(), now)
+    mockNotifications.setNotificationCategoryAsync.mockRejectedValueOnce(new Error('boom'))
+    await expect(refreshHabitNudges(footballRows(), now)).rejects.toThrow('boom')
+    expect(mockScheduled).toHaveLength(1)
+  })
+
+  it('cancelHabitNudges also clears nudges already showing', async () => {
+    mockNotifications.getPresentedNotificationsAsync.mockResolvedValueOnce([
+      { request: { identifier: 'shown-nudge', content: { data: { nudgeId: 'shown-nudge' } } } },
+      { request: { identifier: 'shown-other', content: { data: {} } } },
+    ])
+    await cancelHabitNudges()
+    expect(mockNotifications.dismissNotificationAsync).toHaveBeenCalledWith('shown-nudge')
+    expect(mockNotifications.dismissNotificationAsync).not.toHaveBeenCalledWith('shown-other')
   })
 
   it('cancelHabitNudges leaves other scheduled notifications alone', async () => {

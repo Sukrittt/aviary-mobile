@@ -13,7 +13,8 @@ export async function fetchNudgeCopy(habit: Pick<Habit, 'item' | 'category' | 'w
     })
     if (!resp.ok) return null
     const data: Partial<NudgeCopy> = await resp.json()
-    return typeof data.title === 'string' && Array.isArray(data.bodies) && data.bodies.length ? { title: data.title, bodies: data.bodies } : null
+    const bodies = Array.isArray(data.bodies) ? data.bodies.filter((b): b is string => typeof b === 'string' && b.trim() !== '') : []
+    return typeof data.title === 'string' && data.title.trim() && bodies.length ? { title: data.title, bodies } : null
   } catch {
     return null
   }

@@ -48,6 +48,8 @@ type Store = {
 /** What a nudge carries: enough to prefill log-expense or log it outright. */
 export type NudgeData = {
   nudgeId: string
+  /** The account that scheduled it. A nudge still in the shade after a sign-out must not log into the next account. */
+  uid: string
   habitId: string
   item: string
   category: string
@@ -79,14 +81,20 @@ function update(uid: string, fn: (s: Store) => Store | Promise<Store>): Promise<
   })
 }
 
-/** Cancels every habit nudge the OS still holds, whoever's account scheduled it. */
+const isNudgeRequest = (r: NotificationsType.NotificationRequest) => typeof r.content.data?.nudgeId === 'string'
+
+async function cancelScheduled(Notifications: typeof NotificationsType): Promise<void> {
+  const all = await Notifications.getAllScheduledNotificationsAsync()
+  await Promise.all(all.filter(isNudgeRequest).map((n) => Notifications.cancelScheduledNotificationAsync(n.identifier)))
+}
+
+/** Sign-out: cancels every habit nudge still to come and clears the ones already showing, whoever's account they were for. */
 export async function cancelHabitNudges(): Promise<void> {
   const Notifications = getNotifications()
   if (!Notifications) return
-  const all = await Notifications.getAllScheduledNotificationsAsync()
-  await Promise.all(
-    all.filter((n) => typeof n.content.data?.nudgeId === 'string').map((n) => Notifications.cancelScheduledNotificationAsync(n.identifier)),
-  )
+  await cancelScheduled(Notifications)
+  const shown = await Notifications.getPresentedNotificationsAsync()
+  await Promise.all(shown.filter((n) => isNudgeRequest(n.request)).map((n) => Notifications.dismissNotificationAsync(n.request.identifier)))
 }
 
 /**
@@ -114,8 +122,10 @@ export function refreshHabitNudges(rows: ExpenseRow[], now = new Date()): Promis
       copyFailedAt,
     })
 
-    await cancelHabitNudges()
-    if (!store.enabled || (await Notifications.getPermissionsAsync()).status !== 'granted') return keep(waiting)
+    if (!store.enabled || (await Notifications.getPermissionsAsync()).status !== 'granted') {
+      await cancelScheduled(Notifications)
+      return keep(waiting)
+    }
 
     const habits = findHabits(rows, toLocalDateString(now))
     const plan = planNudges(habits, state, now, rows)
@@ -135,12 +145,16 @@ export function refreshHabitNudges(rows: ExpenseRow[], now = new Date()): Promis
       ),
     )
 
+    // Only now that everything the new plan needs is in hand: a failure above
+    // leaves the old plan running instead of no plan at all.
+    await cancelScheduled(Notifications)
     const scheduled: ScheduledNudge[] = []
     for (const p of plan) {
       const habit = byId.get(p.habitId)!
       const nudgeId = Crypto.randomUUID()
       const data: NudgeData = {
         nudgeId,
+        uid,
         habitId: habit.id,
         item: habit.item,
         category: habit.category,
@@ -217,23 +231,31 @@ async function claim(uid: string, nudgeId: string): Promise<boolean> {
   return first
 }
 
+function unclaim(uid: string, nudgeId: string): Promise<unknown> {
+  claimed.delete(nudgeId)
+  return update(uid, (s) => ({ ...s, handled: s.handled.filter((id) => id !== nudgeId) }))
+}
+
 /**
  * The "Log ₹200" button. Goes through the offline queue, so a dead network
  * just means it syncs on the next app open. The nudge id doubles as the
  * expense's client_id: a second delivery of the same tap is a server-side
  * replay, not a second row.
  */
-async function quickLog(data: NudgeData, Notifications: typeof NotificationsType): Promise<void> {
-  // Headless on Android: nothing has restored the session yet.
-  if (!currentUserId()) await initAccessMode()
-  const uid = currentUserId()
-  if (!uid || !(await claim(uid, data.nudgeId))) return
+async function quickLog(data: NudgeData, uid: string, Notifications: typeof NotificationsType): Promise<void> {
+  if (!(await claim(uid, data.nudgeId))) return
 
   const payload = {
     ...mintExpensePayload({ item: data.item, amount_inr: String(data.amountInr), category: data.category, payment_method: data.paymentMethod, source: 'manual' }),
     client_id: data.nudgeId,
   }
-  await enqueue(payload, uid)
+  try {
+    await enqueue(payload, uid)
+  } catch (err) {
+    // Nothing saved: let the button work again rather than swallow the spend.
+    await unclaim(uid, data.nudgeId)
+    throw err
+  }
   await flush()
   track('habit_nudge_logged', { via: 'action' })
 
@@ -247,7 +269,7 @@ async function quickLog(data: NudgeData, Notifications: typeof NotificationsType
 
 function isNudge(data: unknown): data is NudgeData {
   const d = data as Partial<NudgeData> | undefined
-  return typeof d?.nudgeId === 'string' && typeof d.item === 'string' && typeof d.amountInr === 'number'
+  return typeof d?.nudgeId === 'string' && typeof d.uid === 'string' && typeof d.item === 'string' && typeof d.amountInr === 'number'
 }
 
 /** Taps and action buttons, from the response listener, a cold start, or the background task. */
@@ -256,17 +278,24 @@ export async function handleHabitResponse(response: NotificationsType.Notificati
   const data = response.notification.request.content.data
   if (!Notifications || !isNudge(data)) return
 
-  if (response.actionIdentifier === 'log') return quickLog(data, Notifications)
-
+  // Headless on Android: nothing has restored the session yet.
+  if (!currentUserId()) await initAccessMode()
   const uid = currentUserId()
+  if (uid !== data.uid) {
+    await Notifications.dismissNotificationAsync(data.nudgeId).catch(() => {})
+    return
+  }
+
+  if (response.actionIdentifier === 'log') return quickLog(data, uid, Notifications)
+
   if (response.actionIdentifier === 'skip') {
-    if (uid) await claim(uid, data.nudgeId)
+    await claim(uid, data.nudgeId)
     track('habit_nudge_skipped')
     await Notifications.dismissNotificationAsync(data.nudgeId).catch(() => {})
     return
   }
 
-  if (uid) await claim(uid, data.nudgeId)
+  await claim(uid, data.nudgeId)
   track('habit_nudge_opened')
   router.push({
     pathname: '/modals/log-expense',
