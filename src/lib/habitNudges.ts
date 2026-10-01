@@ -12,7 +12,8 @@ import { track } from '@/src/lib/analytics'
 import { formatMoney } from '@/src/lib/currencies'
 import { readCurrencyPreference } from '@/src/lib/currencyPreference'
 import { getNotifications } from '@/src/lib/notifications'
-import { findHabits, planNudges, settleNudges, type HabitState, type ScheduledNudge } from '@/src/lib/habits'
+import { findHabits, planNudges, settleNudges, type Habit, type HabitState, type ScheduledNudge } from '@/src/lib/habits'
+import { fetchNudgeCopy, type NudgeCopy } from '@/src/api/habitNudges'
 import { toLocalDateString } from '@/src/lib/date'
 import type { ExpenseRow } from '@/src/types'
 
@@ -28,8 +29,21 @@ const TASK = 'habit-nudge-action'
 const STORE_PREFIX = 'mc-habit-nudges'
 // A nudge gets this long to be acted on before a refresh counts it as ignored.
 const GRACE_MS = 2 * 60 * 60 * 1000
+// AI copy is fetched at most this many habits per refresh, and a failed one waits a day to retry.
+const COPY_FETCHES = 5
+const COPY_RETRY_MS = 24 * 60 * 60 * 1000
+const FALLBACK_BODY = 'Log it while it\'s fresh. We filled in the usual.'
 
-type Store = { enabled: boolean; state: HabitState; scheduled: ScheduledNudge[]; handled: string[] }
+type Store = {
+  enabled: boolean
+  state: HabitState
+  scheduled: ScheduledNudge[]
+  handled: string[]
+  /** AI-written copy per habit id, kept as long as the habit is. */
+  copy: Record<string, NudgeCopy>
+  /** When fetching a habit's copy last failed, so it isn't retried every app open. */
+  copyFailedAt: Record<string, number>
+}
 
 /** What a nudge carries: enough to prefill log-expense or log it outright. */
 export type NudgeData = {
@@ -41,7 +55,7 @@ export type NudgeData = {
   paymentMethod: string
 }
 
-const EMPTY: Store = { enabled: true, state: {}, scheduled: [], handled: [] }
+const EMPTY: Store = { enabled: true, state: {}, scheduled: [], handled: [], copy: {}, copyFailedAt: {} }
 const storeKey = (uid: string) => `${STORE_PREFIX}:${uid}`
 
 async function readStore(uid: string): Promise<Store> {
@@ -91,11 +105,13 @@ export function refreshHabitNudges(rows: ExpenseRow[], now = new Date()): Promis
     const state = settleNudges(store.scheduled, handled, store.state, rows, cutoff)
     // Fired but still inside the grace window: settle these next time.
     const waiting = store.scheduled.filter((n) => Date.parse(n.fireAt) > cutoff.getTime() && Date.parse(n.fireAt) <= now.getTime())
-    const keep = (scheduled: ScheduledNudge[]): Store => ({
+    const keep = (scheduled: ScheduledNudge[], copy = store.copy, copyFailedAt = store.copyFailedAt): Store => ({
       enabled: store.enabled,
       state,
       scheduled,
       handled: store.handled.filter((id) => scheduled.some((n) => n.id === id)),
+      copy,
+      copyFailedAt,
     })
 
     await cancelHabitNudges()
@@ -105,6 +121,7 @@ export function refreshHabitNudges(rows: ExpenseRow[], now = new Date()): Promis
     const plan = planNudges(habits, state, now, rows)
     const byId = new Map(habits.map((h) => [h.id, h]))
     const currency = await readCurrencyPreference()
+    const { copy, copyFailedAt } = await withCopy(habits, store, now)
 
     // One category per habit: action button titles are fixed per category,
     // and "Log ₹200" has to name the amount.
@@ -133,8 +150,7 @@ export function refreshHabitNudges(rows: ExpenseRow[], now = new Date()): Promis
       await Notifications.scheduleNotificationAsync({
         identifier: nudgeId,
         content: {
-          title: `${habit.item} time?`,
-          body: 'Log it while it\'s fresh. We filled in the usual.',
+          ...copyFor(habit, copy[habit.id], p.date),
           data,
           categoryIdentifier: `habit-${habits.indexOf(habit)}`,
         },
@@ -143,8 +159,33 @@ export function refreshHabitNudges(rows: ExpenseRow[], now = new Date()): Promis
       scheduled.push({ id: nudgeId, habitId: habit.id, fireAt: p.fireAt.toISOString(), date: p.date })
     }
     if (scheduled.length) track('habit_nudges_scheduled', { count: scheduled.length, habits: habits.length })
-    return keep([...waiting, ...scheduled])
+    return keep([...waiting, ...scheduled], copy, copyFailedAt)
   }).then(() => undefined)
+}
+
+/** Fetches copy for habits that don't have it yet, and drops copy for habits that are gone. */
+async function withCopy(habits: Habit[], store: Store, now: Date): Promise<Pick<Store, 'copy' | 'copyFailedAt'>> {
+  const copy: Store['copy'] = {}
+  const copyFailedAt: Store['copyFailedAt'] = {}
+  for (const h of habits) {
+    if (store.copy[h.id]) copy[h.id] = store.copy[h.id]
+    else if (store.copyFailedAt[h.id] && now.getTime() - store.copyFailedAt[h.id] < COPY_RETRY_MS) copyFailedAt[h.id] = store.copyFailedAt[h.id]
+  }
+  const missing = habits.filter((h) => !copy[h.id] && !copyFailedAt[h.id]).slice(0, COPY_FETCHES)
+  const fetched = await Promise.all(missing.map((h) => fetchNudgeCopy(h)))
+  missing.forEach((h, i) => {
+    const c = fetched[i]
+    if (c) copy[h.id] = c
+    else copyFailedAt[h.id] = now.getTime()
+  })
+  return { copy, copyFailedAt }
+}
+
+/** Rotates through a habit's body lines day by day; fixed copy until the AI copy arrives. */
+function copyFor(habit: Habit, copy: NudgeCopy | undefined, date: string): { title: string; body: string } {
+  if (!copy) return { title: `${habit.item} time?`, body: FALLBACK_BODY }
+  const day = Math.round(Date.parse(`${date}T00:00:00Z`) / 86_400_000)
+  return { title: copy.title, body: copy.bodies[day % copy.bodies.length] }
 }
 
 export async function habitNudgesEnabled(): Promise<boolean> {

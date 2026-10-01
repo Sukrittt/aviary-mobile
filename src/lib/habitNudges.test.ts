@@ -12,6 +12,8 @@ jest.mock('@/src/lib/currencyPreference', () => ({ readCurrencyPreference: () =>
 jest.mock('@/src/api/accessMode', () => ({ currentUserId: () => 'user-1', initAccessMode: jest.fn() }))
 jest.mock('@/src/lib/pendingExpenses', () => ({ enqueue: jest.fn(() => Promise.resolve()) }))
 jest.mock('@/src/sync/flush', () => ({ flush: jest.fn(() => Promise.resolve()) }))
+const mockFetchCopy = jest.fn()
+jest.mock('@/src/api/habitNudges', () => ({ fetchNudgeCopy: (...args: unknown[]) => mockFetchCopy(...args) }))
 
 const mockStorage = new Map<string, unknown>()
 jest.mock('@/src/lib/encryptedStorage', () => ({
@@ -52,6 +54,7 @@ function footballRows(): ExpenseRow[] {
 
 beforeEach(() => {
   jest.clearAllMocks()
+  mockFetchCopy.mockResolvedValue(null)
   mockStorage.clear()
   mockScheduled.length = 0
 })
@@ -100,6 +103,23 @@ describe('refreshHabitNudges', () => {
     const call = mockNotifications.scheduleNotificationAsync.mock.calls[0][0] as unknown as { content: { title: string }; trigger: { date: Date } }
     expect(call.content.title).toBe('Football time?')
     expect(call.trigger.date).toEqual(new Date(2026, 9, 5, 19, 15))
+  })
+
+  it('uses the AI copy once it arrives, and only asks once', async () => {
+    mockFetchCopy.mockResolvedValue({ title: 'Football night?', bodies: ['Boots on? Log it before kickoff.'] })
+    await refreshHabitNudges(footballRows(), now)
+    await refreshHabitNudges(footballRows(), now)
+    expect(mockFetchCopy).toHaveBeenCalledTimes(1)
+    const last = mockNotifications.scheduleNotificationAsync.mock.calls.at(-1)![0] as unknown as { content: { title: string; body: string } }
+    expect(last.content).toMatchObject({ title: 'Football night?', body: 'Boots on? Log it before kickoff.' })
+  })
+
+  it('waits a day before asking again after a failed fetch', async () => {
+    await refreshHabitNudges(footballRows(), now)
+    await refreshHabitNudges(footballRows(), new Date(now.getTime() + 60 * 60 * 1000))
+    expect(mockFetchCopy).toHaveBeenCalledTimes(1)
+    await refreshHabitNudges(footballRows(), new Date(now.getTime() + 25 * 60 * 60 * 1000))
+    expect(mockFetchCopy).toHaveBeenCalledTimes(2)
   })
 
   it('replaces the old plan instead of stacking a second one', async () => {
