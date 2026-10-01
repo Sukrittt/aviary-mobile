@@ -315,3 +315,23 @@ it('opens the guided tour from the account list', async () => {
 
   expect(mockPush).toHaveBeenCalledWith('/account/guided-tour')
 })
+
+describe('More tab · hidden features', () => {
+  it('drops hidden feature cards and the Bills Scanned row, keeps the rest', async () => {
+    mockUseUser.mockReturnValue({ data: { email: 'a@b.com', emailVerified: true, hiddenFeatures: ['investments', 'billScan'] } })
+    const { queryByText, getByText } = renderWithProviders(<MoreScreen />)
+    await flushCategories()
+    expect(queryByText('Investments')).toBeNull()
+    expect(queryByText('Scan a bill')).toBeNull()
+    expect(queryByText('Bills Scanned')).toBeNull()
+    expect(getByText('Insights')).toBeTruthy()
+    expect(getByText('2 hidden')).toBeTruthy()
+  })
+
+  it('opens the Features screen from Preferences', async () => {
+    const { getByText } = renderWithProviders(<MoreScreen />)
+    await flushCategories()
+    fireEvent.press(getByText('Features'))
+    expect(mockPush).toHaveBeenCalledWith('/account/features')
+  })
+})

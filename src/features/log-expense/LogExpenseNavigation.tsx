@@ -1,6 +1,10 @@
 import { FloatingNav, NAV_HREF, navStateFor } from '@/src/components/nav/FloatingNav'
 import { TabBar } from '@/src/components/nav/TabBar'
 import { usePathname, useRouter } from 'expo-router'
+import { useQuery } from '@tanstack/react-query'
+import { userKey } from '@/src/hooks/useUser'
+import type { UserProfile } from '@/src/api/account'
+import { isHidden } from '@/src/lib/features'
 import { LOG_EXPENSE_PATH, useLogExpenseSubmitState } from './SubmitContext'
 
 /**
@@ -17,6 +21,8 @@ export function LogExpenseNavigation() {
   const submitState = useLogExpenseSubmitState()
   const addInvalid = !submitState.canSubmit
   const addDisabled = submitState.saving || submitState.success
+  // Cache-only read: this nav mounts before sign-in, so it must never fetch the profile itself.
+  const user = useQuery<UserProfile>({ queryKey: userKey, enabled: false }).data
 
   return (
     <TabBar visible={visible} overrideContent={
@@ -30,7 +36,7 @@ export function LogExpenseNavigation() {
         onSelect={(name) => (addActive ? router.replace(NAV_HREF[name]) : router.navigate(NAV_HREF[name]))}
         onAdd={() => (addActive ? submitState.submit() : router.push(LOG_EXPENSE_PATH))}
         onAddInvalid={submitState.onInvalid}
-        onAddLongPress={() => router.push('/modals/scan-bill')}
+        onAddLongPress={isHidden(user, 'billScan') ? undefined : () => router.push('/modals/scan-bill')}
       />
     } />
   )

@@ -34,6 +34,7 @@ import type { UserProfile } from '@/src/api/account'
 import type { WrappedStatus } from '@/src/api/wrapped'
 import appJson from '@/app.json'
 import { isVersionNewer } from '@/src/lib/version'
+import { isHidden } from '@/src/lib/features'
 
 const THEME_OPTIONS = [
   { value: 'light', label: 'Light' },
@@ -201,7 +202,7 @@ export default function MoreScreen() {
               <Text style={[styles.sectionLabel, { color: tokens.text3, fontFamily: fontFamily.bodyBold }]}>FEATURES</Text>
             </View>
             <View style={styles.featureGrid}>
-              <FeatureCard
+              {!isHidden(user, 'wrapped') && <FeatureCard
                 icon={wrappedCard.icon}
                 label="Expense Wrapped"
                 blurb={wrappedCard.blurb}
@@ -209,39 +210,39 @@ export default function MoreScreen() {
                 iconColor={wrappedCard.iconColor}
                 onPress={wrappedCard.available ? () => router.push('/wrapped') : undefined}
                 disabled={!wrappedCard.available}
-              />
-              <FeatureCard
+              />}
+              {!isHidden(user, 'askAviary') && <FeatureCard
                 icon={Brain}
                 label="Ask Aviary"
                 blurb="Ask about your spending"
                 iconBg={tokens.accentSoft}
                 iconColor={tokens.accent}
                 onPress={() => router.push('/modals/money-brain')}
-              />
-              <FeatureCard
+              />}
+              {!isHidden(user, 'investments') && <FeatureCard
                 icon={TrendingUp}
                 label="Investments"
                 blurb="Portfolio at a glance"
                 iconBg={tokens.mintSoft}
                 iconColor={tokens.mint}
                 onPress={() => router.push('/investments')}
-              />
-              <FeatureCard
+              />}
+              {!isHidden(user, 'billScan') && <FeatureCard
                 icon={ScanLine}
                 label="Scan a bill"
                 blurb="Split a cart or receipt"
                 iconBg={tokens.mintSoft}
                 iconColor={tokens.mint}
                 onPress={openScanPicker}
-              />
-              <FeatureCard
+              />}
+              {!isHidden(user, 'recurring') && <FeatureCard
                 icon={Repeat}
                 label="Recurring expenses"
                 blurb="Plan upcoming payments"
                 iconBg={tokens.violetSoft}
                 iconColor={tokens.violet}
                 onPress={() => router.push('/account/recurring')}
-              />
+              />}
               <FeatureCard
                 icon={Archive}
                 label="Archive"
@@ -250,22 +251,22 @@ export default function MoreScreen() {
                 iconColor={tokens.blue}
                 onPress={() => router.push('/account/archive')}
               />
-              <FeatureCard
+              {!isHidden(user, 'subscriptions') && <FeatureCard
                 icon={Receipt}
                 label="Subscriptions"
                 blurb="What renews and when"
                 iconBg={tokens.violetSoft}
                 iconColor={tokens.violet}
                 onPress={() => router.push('/subscriptions')}
-              />
-              <FeatureCard
+              />}
+              {!isHidden(user, 'insights') && <FeatureCard
                 icon={LineChart}
                 label="Insights"
                 blurb="Trends and breakdowns"
                 iconBg={tokens.blueSoft}
                 iconColor={tokens.blue}
                 onPress={() => router.push('/insights')}
-              />
+              />}
             </View>
           </View>
 
@@ -317,6 +318,16 @@ export default function MoreScreen() {
                 </View>
                 <ChevronRight size={16} color={tokens.text3} strokeWidth={2} />
               </Pressable>
+              <View style={[styles.divider, { backgroundColor: tokens.border }]} />
+              <Pressable onPress={() => router.push('/account/features')} style={styles.row}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.rowLabel, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>Features</Text>
+                  <Text style={[styles.rowHint, { color: tokens.text2 }]}>
+                    {user?.hiddenFeatures?.length ? `${user.hiddenFeatures.length} hidden` : 'Hide what you don\'t use'}
+                  </Text>
+                </View>
+                <ChevronRight size={16} color={tokens.text3} strokeWidth={2} />
+              </Pressable>
             </View>
           </View>
 
@@ -327,8 +338,12 @@ export default function MoreScreen() {
               <AccountRow icon={Lock} label="Account & security" onPress={() => router.push('/account/security')} tokens={tokens} />
               <View style={[styles.divider, { backgroundColor: tokens.border }]} />
               <AccountRow icon={Database} label="Your data" onPress={() => router.push('/account/data')} tokens={tokens} />
-              <View style={[styles.divider, { backgroundColor: tokens.border }]} />
-              <AccountRow icon={History} label="Bills Scanned" onPress={() => router.push('/account/bill-scans')} tokens={tokens} />
+              {!isHidden(user, 'billScan') && (
+                <>
+                  <View style={[styles.divider, { backgroundColor: tokens.border }]} />
+                  <AccountRow icon={History} label="Bills Scanned" onPress={() => router.push('/account/bill-scans')} tokens={tokens} />
+                </>
+              )}
               {Platform.OS === 'android' && (
                 <>
                   <View style={[styles.divider, { backgroundColor: tokens.border }]} />

@@ -46,6 +46,7 @@ import { getSystemStatus } from '@/src/api/systemStatus'
 import { isVersionNewer } from '@/src/lib/version'
 import appJson from '@/app.json'
 import { useUser } from '@/src/hooks/useUser'
+import { isHidden } from '@/src/lib/features'
 import { GetStartedCard } from '@/src/components/home/GetStartedCard'
 import { EmptyState } from '@/src/components/shared/EmptyState'
 import { FORCE_EMPTY_STATE_PREVIEW, emptyForPreview } from '@/src/lib/emptyStatePreview'
@@ -233,7 +234,7 @@ export default function HomeScreen() {
           </Pressable>
         }
         actions={
-          <IconButton icon={LineChart} accessibilityLabel="Insights" onPress={() => router.push('/insights')} />
+          isHidden(user, 'insights') ? undefined : <IconButton icon={LineChart} accessibilityLabel="Insights" onPress={() => router.push('/insights')} />
         }
         contentContainerStyle={{ gap: space.lg }}
         refreshControl={
@@ -391,14 +392,14 @@ export default function HomeScreen() {
           </Card>
         </Reanimated.View>
 
-        <Reanimated.View layout={LinearTransition.springify().damping(44).stiffness(400)}>
+        {!isHidden(user, 'insights') && <Reanimated.View layout={LinearTransition.springify().damping(44).stiffness(400)}>
           <Pressable onPress={() => router.push('/insights')} style={[styles.insightsLink, { borderRadius: radius.lg }]}>
             <Text style={{ color: tokens.text2, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>
               Trends, daily spend and subscriptions
             </Text>
             <Icon icon={ChevronRight} size={16} color={tokens.text2} />
           </Pressable>
-        </Reanimated.View>
+        </Reanimated.View>}
       </Screen>
       {/* No room for a pencil on the hero, so tapping it opens this. With RTA
           often at 0, the title is the only place Home shows income. */}

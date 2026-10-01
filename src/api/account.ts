@@ -6,6 +6,7 @@ import { sessionId, currentUserId } from './accessMode'
 // which talks to the API before any session exists).
 import { apiFetch } from './client'
 import { deviceTimezone } from '@/src/lib/date'
+import type { HideableFeature } from '@/src/lib/features'
 
 export interface UserProfile {
   _id?: string
@@ -27,6 +28,8 @@ export interface UserProfile {
   notifyBillLeadDays?: number
   notifyCoach?: boolean
   notifyWrapped?: boolean
+  /** Features hidden from the app, see src/lib/features.ts. Absent = everything shown. */
+  hiddenFeatures?: HideableFeature[]
   /** Set while the account is within its post-delete grace window — null once active or purged. */
   deletionScheduledFor?: string | null
 }

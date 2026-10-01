@@ -330,6 +330,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="investments" options={{ presentation: 'card', animation: 'slide_from_right' }} />
           <Stack.Screen name="account/notifications" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+          <Stack.Screen name="account/features" options={{ presentation: 'card', animation: 'slide_from_right' }} />
           <Stack.Screen name="account/archive" options={{ presentation: 'card', animation: 'slide_from_right' }} />
           <Stack.Screen name="account/recurring" options={{ presentation: 'card', animation: 'slide_from_right' }} />
           <Stack.Screen name="account/recurring-suggestions" options={{ presentation: 'card', animation: 'slide_from_right' }} />
