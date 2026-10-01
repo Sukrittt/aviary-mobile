@@ -5,18 +5,20 @@ import { Icon } from '@/src/components/shared/Icon'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import type { BillingStatus } from '@/src/api/billing'
-import { daysUntilLabel, formatDate, planPeriod } from '@/src/lib/billingStatus'
+import { daysUntilLabel, formatDate, isWebPlan, planPeriod } from '@/src/lib/billingStatus'
 import { BENEFITS } from './PlanPicker'
 
 /**
  * What a paying user has: plan, price, where it's at, and when it next
  * charges. Price comes from the store's own package for the same period,
- * so it's the localized amount Play actually bills.
+ * so it's the localized amount Play actually bills. A plan bought on the
+ * website was charged by Razorpay, not Play, so it shows no Play price.
  */
 export function CurrentPlan({ status, packages }: { status: BillingStatus; packages: PurchasesPackage[] }) {
   const { tokens } = useTheme()
   const period = planPeriod(status)
-  const pkg = packages.find((p) => p.packageType === (period === 'yearly' ? PACKAGE_TYPE.ANNUAL : PACKAGE_TYPE.MONTHLY))
+  const web = isWebPlan(status)
+  const pkg = web ? undefined : packages.find((p) => p.packageType === (period === 'yearly' ? PACKAGE_TYPE.ANNUAL : PACKAGE_TYPE.MONTHLY))
   const cancelled = !status.autoRenew || status.renewalState === 'cancelled'
   const grace = status.renewalState === 'grace'
 
@@ -42,9 +44,13 @@ export function CurrentPlan({ status, packages }: { status: BillingStatus; packa
         </Text>
         <Text style={[styles.sub, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
           {grace
-            ? "Your last payment didn't go through. Update it in Google Play to keep your plan."
+            ? web
+              ? "Your last renewal didn't go through. We're retrying it, and you keep everything meanwhile."
+              : "Your last payment didn't go through. Update it in Google Play to keep your plan."
             : cancelled
-              ? "You've still got everything until then. Resubscribe anytime from Google Play."
+              ? web
+                ? "You've still got everything until then. Pick a plan again anytime."
+                : "You've still got everything until then. Resubscribe anytime from Google Play."
               : 'Thanks for backing Aviary.'}
         </Text>
       </View>

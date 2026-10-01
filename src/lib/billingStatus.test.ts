@@ -1,5 +1,5 @@
 import type { BillingStatus } from '@/src/api/billing'
-import { accessAllowed, billingVisible, lockedCopy, planSummary, trialReminderBucket, yearlySavingsPercent, planPeriod, daysUntilLabel } from './billingStatus'
+import { accessAllowed, billingVisible, isWebPlan, lockedCopy, planSummary, trialReminderBucket, yearlySavingsPercent, planPeriod, daysUntilLabel } from './billingStatus'
 
 const NOW = Date.parse('2026-10-01T00:00:00Z')
 const DAY = 86_400_000
@@ -92,6 +92,24 @@ describe('copy', () => {
     expect(lockedCopy(status({ mode: 'trial' })).title).toBe('Your free trial has ended')
     expect(lockedCopy(status({ mode: 'expired', productId: 'envelope_individual' })).title).toBe('Your subscription has ended')
     expect(lockedCopy(status({ renewalState: 'on_hold' })).title).toBe("A payment didn't go through")
+  })
+})
+
+describe('web plans', () => {
+  it('knows a plan bought on the website, and treats older servers as Play', () => {
+    expect(isWebPlan(status({ store: 'web' }))).toBe(true)
+    expect(isWebPlan(status({ store: 'play' }))).toBe(false)
+    expect(isWebPlan(status({}))).toBe(false)
+    expect(isWebPlan(undefined)).toBe(false)
+  })
+
+  it("never sends a web subscriber to Google Play to fix a payment", () => {
+    expect(planSummary(status({ mode: 'paid', renewalState: 'grace', store: 'web' }))).toBe('Payment issue · retrying')
+    expect(planSummary(status({ mode: 'paid', renewalState: 'grace', store: 'play' }))).toBe('Payment issue · fix in Google Play')
+    for (const renewalState of ['on_hold', 'paused'] as const) {
+      expect(lockedCopy(status({ mode: 'expired', renewalState, store: 'web' })).body).not.toContain('Google Play')
+      expect(lockedCopy(status({ mode: 'expired', renewalState, store: 'play' })).body).toContain('Google Play')
+    }
   })
 })
 
