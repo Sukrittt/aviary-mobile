@@ -173,8 +173,8 @@ export default function LogExpenseScreen() {
   if (!gateRef.current) gateRef.current = createThinkingGate(setSuggesting);
   useEffect(() => () => gateRef.current?.cancel(), []);
 
-  // Debounced auto-suggest while typing the description, only until the user
-  // manually picks a category (so we never fight a deliberate choice).
+  // A manual category choice wins for the current description. For a new
+  // expense, changing that description releases the choice and predicts again.
   useEffect(() => {
     const gate = gateRef.current!;
     if (categoryTouched || !item.trim() || !categoryMapQ.data) {
@@ -221,6 +221,18 @@ export default function LogExpenseScreen() {
       clearTimeout(timer);
     };
   }, [item, categoryMapQ.data, categories, categoryTouched]);
+
+  function handleItemChange(value: string) {
+    if (value === item) return;
+    setItem(value);
+    if (!isEdit) {
+      gateRef.current?.cancel();
+      setCategoryTouched(false);
+      setCategory("");
+      setAutoPicked(false);
+      suggestedBy.current = null;
+    }
+  }
 
   const rollEmojis = useMemo(
     () => [...new Set(categories.map((c) => categoryEmoji(c.name, c.group)).filter(Boolean))],
@@ -538,7 +550,7 @@ export default function LogExpenseScreen() {
           <Nudge trigger={nudge} active={missing.includes("item")}>
           <TextInput
             value={item}
-            onChangeText={setItem}
+            onChangeText={handleItemChange}
             placeholder="What was it for?"
             placeholderTextColor={onAccentDim}
             style={[

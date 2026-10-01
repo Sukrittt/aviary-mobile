@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import * as Haptics from 'expo-haptics'
 import Reanimated, {
   cancelAnimation,
   Easing,
+  runOnJS,
   type SharedValue,
   useAnimatedStyle,
   useReducedMotion,
@@ -130,11 +131,30 @@ export function AutoCategoryPill({ selected, thinking, auto, highlighted, rollEm
   const labelMax = PILL_MAX_WIDTH - 2 * PAD_X - (hasEmoji ? EMOJI_BOX + 2 + space.xs : 0)
   const [contentW, setContentW] = useState(0)
   const width = useSharedValue(0)
+  const widthGeneration = useRef(0)
+  const [widthReadyLabel, setWidthReadyLabel] = useState<string | null>(null)
+  // Ignore completions from a width spring superseded by a newer measurement.
+  const markWidthReady = useCallback((measuredLabel: string, generation: number) => {
+    if (widthGeneration.current === generation) setWidthReadyLabel(measuredLabel)
+  }, [])
+  useEffect(() => () => {
+    widthGeneration.current += 1
+    cancelAnimation(width)
+  }, [width])
   const onMeasure = (measured: number) => {
     // Android rounds text widths down a hair; give it a pixel so it doesn't ellipsize.
     const w = Math.ceil(measured) + 1
+    const generation = ++widthGeneration.current
+    setWidthReadyLabel(null)
     setContentW(w)
-    width.value = width.value === 0 || reduceMotion ? w + 2 * PAD_X : withSpring(w + 2 * PAD_X, WIDTH_SPRING)
+    if (width.value === 0 || reduceMotion) {
+      width.value = w + 2 * PAD_X
+      markWidthReady(label, generation)
+    } else {
+      width.value = withSpring(w + 2 * PAD_X, WIDTH_SPRING, (finished) => {
+        if (finished) runOnJS(markWidthReady)(label, generation)
+      })
+    }
   }
   const widthStyle = useAnimatedStyle(() => (width.value > 0 ? { width: width.value } : {}))
   const labelText = (style: object) => (
@@ -164,7 +184,7 @@ export function AutoCategoryPill({ selected, thinking, auto, highlighted, rollEm
   return (
     <Reanimated.View style={popStyle}>
       <View style={styles.measure} pointerEvents="none" aria-hidden>
-        <View style={styles.row} onLayout={(e) => onMeasure(e.nativeEvent.layout.width)}>
+        <View key={label} style={styles.row} onLayout={(e) => onMeasure(e.nativeEvent.layout.width)}>
           {hasEmoji && <View style={styles.slot} />}
           {labelText({})}
         </View>
@@ -195,7 +215,7 @@ export function AutoCategoryPill({ selected, thinking, auto, highlighted, rollEm
         {labelText(labelStyle)}
         </View>
       </AnimatedPressable>
-      {popTick > 0 && !reduceMotion && <PickBurst key={popTick} />}
+      {popTick > 0 && !!selected && widthReadyLabel === label && !busy && !reduceMotion && <PickBurst key={popTick} />}
     </Reanimated.View>
   )
 }
