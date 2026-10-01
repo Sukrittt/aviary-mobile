@@ -47,6 +47,7 @@ import { ErrorScreen } from '@/src/components/shared/ErrorScreen'
 import { useOnline } from '@/src/lib/netStatus'
 import { dragShift, dragTarget, moveItem } from '@/src/lib/dragReorder'
 import { EmptyState } from '@/src/components/shared/EmptyState'
+import { FORCE_EMPTY_STATE_PREVIEW, emptyForPreview } from '@/src/lib/emptyStatePreview'
 
 function sortedPcts(pcts: number[]): number[] {
   return [...pcts].sort((a, b) => a - b)
@@ -526,8 +527,8 @@ export default function EnvelopesScreen() {
     toastTimer.current = setTimeout(() => setToastMsg(null), 1700)
   }
 
-  const categories = categoriesQ.data ?? EMPTY
-  const groups = groupsQ.data ?? EMPTY
+  const categories = emptyForPreview(categoriesQ.data ?? EMPTY)
+  const groups = emptyForPreview(groupsQ.data ?? EMPTY)
 
   // Group drag-to-reorder. Same local-order and stable-responder approach as
   // DraggableCategoryList (see the comments there). On top of that, every group collapses to
@@ -765,8 +766,8 @@ export default function EnvelopesScreen() {
     setMenuTarget({ kind: 'group', name })
   }
 
-  const isLoading = categoriesQ.isLoading || groupsQ.isLoading
-  const hasError = categoriesQ.error || groupsQ.error
+  const isLoading = !FORCE_EMPTY_STATE_PREVIEW && (categoriesQ.isLoading || groupsQ.isLoading)
+  const hasError = !FORCE_EMPTY_STATE_PREVIEW && (categoriesQ.error || groupsQ.error)
 
   if (!online) return <OfflineScreen />
 

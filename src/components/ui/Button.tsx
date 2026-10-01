@@ -25,11 +25,13 @@ function usePressSpring(scaleTo = 0.96) {
 }
 
 type Variant = 'primary' | 'secondary' | 'ghost'
+type ButtonSize = 'default' | 'small'
 
 export function Button({
   label,
   onPress,
   variant = 'primary',
+  size = 'default',
   icon,
   disabled,
   style,
@@ -37,12 +39,14 @@ export function Button({
   label: string
   onPress: () => void
   variant?: Variant
+  size?: ButtonSize
   icon?: LucideIcon
   disabled?: boolean
   style?: StyleProp<ViewStyle>
 }) {
   const { tokens, radius, space, type } = useTheme()
   const press = usePressSpring()
+  const small = size === 'small'
 
   const bg =
     variant === 'primary' ? tokens.accent : variant === 'secondary' ? tokens.pillBg : 'transparent'
@@ -66,17 +70,18 @@ export function Button({
           backgroundColor: bg,
           borderColor: border,
           borderRadius: radius.full,
-          paddingVertical: space.md + 2,
-          paddingHorizontal: space.xl,
-          gap: space.sm,
+          minHeight: small ? 44 : undefined,
+          paddingVertical: small ? space.sm : space.md + 2,
+          paddingHorizontal: small ? space.lg : space.xl,
+          gap: small ? space.xs : space.sm,
           opacity: disabled ? 0.45 : 1,
         },
         press.style,
         style,
       ]}
     >
-      {icon ? <Icon icon={icon} size={18} color={fg} /> : null}
-      <Text style={{ color: fg, fontFamily: fontFamily.bodyBold, fontSize: type.bodyLg }}>{label}</Text>
+      {icon ? <Icon icon={icon} size={small ? 15 : 18} color={fg} /> : null}
+      <Text style={{ color: fg, fontFamily: fontFamily.bodyBold, fontSize: small ? type.body : type.bodyLg }}>{label}</Text>
     </AnimatedPressable>
   )
 }

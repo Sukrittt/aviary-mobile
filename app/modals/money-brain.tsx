@@ -41,6 +41,7 @@ import { useOnline } from '@/src/lib/netStatus'
 import { useQuery } from '@tanstack/react-query'
 import { getSystemStatus } from '@/src/api/systemStatus'
 import { AiAllowanceScreen, AiUnavailableScreen } from '@/src/components/shared/AiUnavailableScreen'
+import { FORCE_EMPTY_STATE_PREVIEW } from '@/src/lib/emptyStatePreview'
 
 // Reveal cascade for the first paint of loaded brief content — see Heatmap.tsx
 // for the same shared-value-driven pattern and why `entering` isn't used here.
@@ -244,10 +245,10 @@ export default function MoneyBrainModal() {
           </Pressable>
         </View>
         <ChatHistoryList
-          sessions={historyQuery.data?.sessions}
-          loading={historyQuery.isLoading}
+          sessions={FORCE_EMPTY_STATE_PREVIEW ? [] : historyQuery.data?.sessions}
+          loading={!FORCE_EMPTY_STATE_PREVIEW && historyQuery.isLoading}
           page={historyPage}
-          pageCount={historyQuery.data?.pageCount ?? 1}
+          pageCount={FORCE_EMPTY_STATE_PREVIEW ? 1 : historyQuery.data?.pageCount ?? 1}
           query={historyQueryText}
           onQueryChange={setHistoryQueryText}
           onClearQuery={() => {

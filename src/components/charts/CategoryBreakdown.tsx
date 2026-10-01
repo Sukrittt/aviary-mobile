@@ -462,8 +462,10 @@ export function CategoryBreakdown({
     setFilterOpen(false);
   }
 
+  const empty = displayRows.length === 0;
+
   return (
-    <View>
+    <View style={empty && styles.emptyContainer}>
       <View style={styles.breakdownHeader}>
         <Text
           style={{
@@ -610,14 +612,15 @@ export function CategoryBreakdown({
         </View>
       </View>
 
-      {displayRows.length === 0 && loading ? (
-        <View style={styles.emptyState} />
-      ) : displayRows.length === 0 ? (
+      {empty && loading ? (
+        <View style={[styles.emptyState, styles.emptyContent]} />
+      ) : empty ? (
         <EmptyState
           testID="breakdown-empty"
           title="Nothing spent yet"
           description="Log an expense and it'll land here."
           action={{ label: "Log an expense", onPress: () => router.push("/modals/log-expense") }}
+          style={styles.emptyContent}
         />
       ) : (
         <View
@@ -1236,6 +1239,8 @@ const styles = StyleSheet.create({
   },
   donutWrap: { alignItems: "center", marginTop: 16 },
   emptyState: { alignItems: "center", paddingVertical: 44 },
+  emptyContainer: { minHeight: 480 },
+  emptyContent: { flex: 1 },
   revealContent: { opacity: 1 },
   preReveal: { opacity: 0 },
   // Capped to the donut's inner hole (200 size, 28 thickness) so long

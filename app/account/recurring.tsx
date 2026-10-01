@@ -36,6 +36,7 @@ import {
 import { CHART_COLOR_CYCLE } from "@/src/theme/chartColors";
 import type { RecurringExpenseRow } from "@/src/types";
 import { EmptyState } from "@/src/components/shared/EmptyState";
+import { FORCE_EMPTY_STATE_PREVIEW, emptyForPreview } from "@/src/lib/emptyStatePreview";
 
 const LOADING_PHRASES = [
   "Checking what repeats…",
@@ -107,7 +108,8 @@ export default function RecurringExpensesScreen() {
   const { refreshing, onRefresh } = useRefresh();
   const recurringQ = useRecurringExpenses();
 
-  const rows = recurringQ.data ?? [];
+  const rows = emptyForPreview(recurringQ.data ?? []);
+  const loading = !FORCE_EMPTY_STATE_PREVIEW && recurringQ.isLoading;
   const active = rows.filter((r) => r.status === "active");
   const inactive = rows.filter((r) => r.status !== "active");
 
@@ -193,7 +195,7 @@ export default function RecurringExpensesScreen() {
 
       <ScrollView
         contentContainerStyle={
-          recurringQ.isLoading || rows.length === 0
+          loading || rows.length === 0
             ? styles.centered
             : styles.body
         }
@@ -206,7 +208,7 @@ export default function RecurringExpensesScreen() {
           />
         }
       >
-        {recurringQ.isLoading ? (
+        {loading ? (
           <LoadingPhrase
             phrases={LOADING_PHRASES}
             color={tokens.text2}

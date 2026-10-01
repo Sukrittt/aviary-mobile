@@ -28,6 +28,7 @@ import { AmountText } from "@/src/components/ui/AmountText";
 import { CHART_COLOR_CYCLE } from "@/src/theme/chartColors";
 import type { BillScanSummary } from "@/src/api/bills";
 import { EmptyState } from "@/src/components/shared/EmptyState";
+import { FORCE_EMPTY_STATE_PREVIEW, emptyForPreview } from "@/src/lib/emptyStatePreview";
 
 const LOADING_PHRASES = [
   "Pulling up your scans…",
@@ -58,7 +59,8 @@ export default function BillScansScreen() {
   const { refreshing, onRefresh } = useRefresh();
   const scansQ = useBillScans();
 
-  const rows = scansQ.data ?? [];
+  const rows = emptyForPreview(scansQ.data ?? []);
+  const loading = !FORCE_EMPTY_STATE_PREVIEW && scansQ.isLoading;
   const shareTotal = rows.reduce((sum, row) => sum + row.my_share, 0);
   const itemCount = rows.reduce((sum, row) => sum + row.item_count, 0);
   const byCategory = new Map<string, number>();
@@ -110,7 +112,7 @@ export default function BillScansScreen() {
               { color: tokens.text2, fontFamily: fontFamily.bodySemiBold },
             ]}
           >
-            {scansQ.isLoading
+            {loading
               ? "Fetching your bills"
               : rows.length === 0
               ? "Nothing scanned yet"
@@ -122,7 +124,7 @@ export default function BillScansScreen() {
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={
-          scansQ.isLoading || rows.length === 0 ? styles.centered : styles.body
+          loading || rows.length === 0 ? styles.centered : styles.body
         }
         refreshControl={
           <RefreshControl
@@ -133,7 +135,7 @@ export default function BillScansScreen() {
           />
         }
       >
-        {scansQ.isLoading ? (
+        {loading ? (
           <LoadingPhrase
             phrases={LOADING_PHRASES}
             color={tokens.text2}

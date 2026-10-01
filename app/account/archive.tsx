@@ -50,6 +50,7 @@ import {
   type ArchivableCollection,
 } from "@/src/api/account";
 import { EmptyState } from "@/src/components/shared/EmptyState";
+import { FORCE_EMPTY_STATE_PREVIEW, emptyForPreview } from "@/src/lib/emptyStatePreview";
 
 const SECTION_ORDER: ArchivableCollection[] = [
   "expenses",
@@ -142,7 +143,8 @@ export default function ArchiveScreen() {
   const [restoringAll, setRestoringAll] = useState(false);
   const [restoreAllSuccess, setRestoreAllSuccess] = useState(false);
 
-  const items = archiveQuery.data ?? [];
+  const items = emptyForPreview(archiveQuery.data ?? []);
+  const loading = !FORCE_EMPTY_STATE_PREVIEW && archiveQuery.isLoading;
   const sorted = [...items].sort(
     (a, b) => daysUntil(a.purgesAt) - daysUntil(b.purgesAt),
   );
@@ -387,20 +389,20 @@ export default function ArchiveScreen() {
         contentContainerStyle={[
           styles.scrollContent,
           { paddingBottom: insets.bottom + 32 },
-          !archiveQuery.isLoading &&
+          !loading &&
             items.length === 0 && {
               flex: 1,
               justifyContent: "center",
               alignItems: "center",
             },
-          archiveQuery.isLoading && {
+          loading && {
             flex: 1,
             justifyContent: "center",
             alignItems: "center",
           },
         ]}
       >
-        {archiveQuery.isLoading ? (
+        {loading ? (
           <LoadingPhrase
             phrases={LOADING_PHRASES}
             color={tokens.text2}
@@ -413,7 +415,7 @@ export default function ArchiveScreen() {
           />
         ) : null}
 
-        {!archiveQuery.isLoading && next ? (
+        {!loading && next ? (
           <View
             style={[
               styles.nextCard,
@@ -488,7 +490,7 @@ export default function ArchiveScreen() {
           </View>
         ) : null}
 
-        {!archiveQuery.isLoading && items.length === 0 ? (
+        {!loading && items.length === 0 ? (
           <EmptyState
             subject="archive"
             title="All clear in here"
@@ -496,7 +498,7 @@ export default function ArchiveScreen() {
           />
         ) : null}
 
-        {!archiveQuery.isLoading && items.length > 0 && shown.length === 0 ? (
+        {!loading && items.length > 0 && shown.length === 0 ? (
           <EmptyState
             compact
             subject="archive"

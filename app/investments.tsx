@@ -26,6 +26,7 @@ import { useRefresh } from '@/src/hooks/useRefresh'
 import type { HoldingRow, HoldingEventRow } from '@/src/types'
 import type { ThemeTokens } from '@/src/theme/tokens'
 import { EMPTY } from '@/src/lib/constants'
+import { FORCE_EMPTY_STATE_PREVIEW, emptyForPreview } from '@/src/lib/emptyStatePreview'
 
 // Fixed colors for common asset types (mirrors Web's ASSET_COLORS intent);
 // unrecognized types cycle through the remaining palette so every segment
@@ -107,8 +108,8 @@ export default function InvestmentsScreen() {
   // pops a still-visible row. Mirrors app/(tabs)/activity.tsx's pendingDelete.
   const [pendingDelete, setPendingDelete] = useState<string | null>(null)
 
-  const holdings = holdingsQuery.data ?? EMPTY
-  const events = eventsQuery.data ?? EMPTY
+  const holdings = emptyForPreview(holdingsQuery.data ?? EMPTY)
+  const events = emptyForPreview(eventsQuery.data ?? EMPTY)
 
   const netWorth = useMemo(
     () => holdings.reduce((sum, h) => sum + (Number(h.value) || 0), 0),
@@ -128,8 +129,8 @@ export default function InvestmentsScreen() {
 
   const reversedEvents = useMemo(() => events.slice().reverse(), [events])
 
-  const isLoading = holdingsQuery.isLoading || eventsQuery.isLoading
-  const errorMessage =
+  const isLoading = !FORCE_EMPTY_STATE_PREVIEW && (holdingsQuery.isLoading || eventsQuery.isLoading)
+  const errorMessage = FORCE_EMPTY_STATE_PREVIEW ? null :
     (holdingsQuery.error instanceof Error && holdingsQuery.error.message) ||
     (eventsQuery.error instanceof Error && eventsQuery.error.message) ||
     (deleteHolding.error instanceof Error && deleteHolding.error.message) ||

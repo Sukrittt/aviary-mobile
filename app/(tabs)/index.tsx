@@ -47,6 +47,8 @@ import { isVersionNewer } from '@/src/lib/version'
 import appJson from '@/app.json'
 import { useUser } from '@/src/hooks/useUser'
 import { GetStartedCard } from '@/src/components/home/GetStartedCard'
+import { EmptyState } from '@/src/components/shared/EmptyState'
+import { FORCE_EMPTY_STATE_PREVIEW, emptyForPreview } from '@/src/lib/emptyStatePreview'
 
 /**
  * The month's state, and only that: what is left to assign, where it went, and
@@ -95,10 +97,10 @@ export default function HomeScreen() {
   const [incomeSheetOpen, setIncomeSheetOpen] = useState(false)
   const birdMarkRef = useRef<BirdLandingMarkHandle>(null)
 
-  const budgets = budgetsQ.data ?? EMPTY
-  const expenses = expensesQ.data ?? EMPTY
-  const categories = categoriesQ.data ?? EMPTY
-  const groups = groupsQ.data ?? EMPTY
+  const budgets = emptyForPreview(budgetsQ.data ?? EMPTY)
+  const expenses = emptyForPreview(expensesQ.data ?? EMPTY)
+  const categories = emptyForPreview(categoriesQ.data ?? EMPTY)
+  const groups = emptyForPreview(groupsQ.data ?? EMPTY)
 
   const envelopeState = useMemo(
     () => computeEnvelopeState(budgets, expenses, month, categories, groups, lastSpent),
@@ -147,6 +149,7 @@ export default function HomeScreen() {
   }, [envelopeState])
 
   const creditCardEnvelope = envelopeState.envelopes.find((e) => e.isCreditCardPayment)
+  const envelopesEmpty = groupedEnvelopes.length === 0 && !creditCardEnvelope
 
   const allGroupNames = groupedEnvelopes.map((g) => g.group)
   const allGroupsCollapsed = allGroupNames.length > 0 && allGroupNames.every((g) => collapsedGroups.has(g))
@@ -184,8 +187,8 @@ export default function HomeScreen() {
     setOpenSheetCount((c) => c + (open ? 1 : -1))
   }
 
-  const isLoading = budgetsQ.isLoading || expensesQ.isLoading || categoriesQ.isLoading || groupsQ.isLoading
-  const hasError = budgetsQ.error || expensesQ.error || categoriesQ.error || groupsQ.error
+  const isLoading = !FORCE_EMPTY_STATE_PREVIEW && (budgetsQ.isLoading || expensesQ.isLoading || categoriesQ.isLoading || groupsQ.isLoading)
+  const hasError = !FORCE_EMPTY_STATE_PREVIEW && (budgetsQ.error || expensesQ.error || categoriesQ.error || groupsQ.error)
 
   if (isLoading) {
     return (
@@ -320,7 +323,7 @@ export default function HomeScreen() {
         )}
 
         <Reanimated.View layout={LinearTransition.springify().damping(64).stiffness(900)}>
-          <Card elevated={false}>
+          <Card elevated={false} style={envelopesEmpty && styles.emptyEnvelopesCard}>
             <View style={styles.cardHeadRow}>
               <View style={[styles.headerLinks, { gap: space.xs }]}>
                 <Text style={[styles.cardTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: type.bodyLg }]}>
@@ -341,8 +344,16 @@ export default function HomeScreen() {
                 </Pressable>
               </View>
             </View>
-            <View style={{ marginTop: space.xs }}>
-              {groupedEnvelopes.map(({ group, envelopes }) => (
+            <View style={[{ marginTop: space.xs }, envelopesEmpty && styles.emptyEnvelopesBody]}>
+              {envelopesEmpty ? (
+                <EmptyState
+                  compact
+                  subject="envelopes"
+                  title="Your envelopes are waiting"
+                  description="Give every kind of spending a place to land."
+                  action={{ label: 'Add your first envelope', onPress: () => router.navigate('/(tabs)/envelopes') }}
+                />
+              ) : groupedEnvelopes.map(({ group, envelopes }) => (
                 <EnvelopeGroup
                   key={group}
                   group={group}
@@ -429,6 +440,8 @@ const styles = StyleSheet.create({
   cardHeadRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   cardTitle: {},
   headerLinks: { flexDirection: 'row', alignItems: 'center' },
+  emptyEnvelopesCard: { minHeight: 360 },
+  emptyEnvelopesBody: { flex: 1, justifyContent: 'center' },
   insightsLink: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: 14 },
   ccWrap: { borderTopWidth: 1 },
   ccBadgeRow: { flexDirection: 'row' },

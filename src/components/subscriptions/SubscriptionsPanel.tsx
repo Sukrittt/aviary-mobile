@@ -27,6 +27,7 @@ import { EmptyState } from "@/src/components/shared/EmptyState";
 import type { ThemeTokens } from "@/src/theme/tokens";
 import { CHART_COLOR_CYCLE } from "@/src/theme/chartColors";
 import type { SubscriptionRow } from "@/src/types";
+import { FORCE_EMPTY_STATE_PREVIEW, emptyForPreview } from "@/src/lib/emptyStatePreview";
 
 interface Props {
   subscriptions: SubscriptionRow[];
@@ -347,16 +348,19 @@ export function SubscriptionsPanel({ subscriptions, loading }: Props) {
   const router = useRouter();
   const [cancelledExpanded, setCancelledExpanded] = useState(false);
 
+  const rows = emptyForPreview(subscriptions);
+  const previewLoading = !FORCE_EMPTY_STATE_PREVIEW && loading;
+
   const active = useMemo(
     () =>
-      subscriptions
+      rows
         .filter((s) => /^active/i.test(s.status))
         .sort((a, b) => monthlyEq(b) - monthlyEq(a)),
-    [subscriptions],
+    [rows],
   );
   const cancelled = useMemo(
-    () => subscriptions.filter((s) => !/^active/i.test(s.status)),
-    [subscriptions],
+    () => rows.filter((s) => !/^active/i.test(s.status)),
+    [rows],
   );
 
   const totalMonthlyRaw = active.reduce((s, sub) => s + monthlyEq(sub), 0);
@@ -406,7 +410,7 @@ export function SubscriptionsPanel({ subscriptions, loading }: Props) {
     ],
   }));
 
-  if (loading) {
+  if (previewLoading) {
     return (
       <View
         style={{ marginTop: space.md, height: 250, justifyContent: "center" }}
@@ -416,7 +420,7 @@ export function SubscriptionsPanel({ subscriptions, loading }: Props) {
     );
   }
 
-  if (subscriptions.length === 0) {
+  if (rows.length === 0) {
     return (
       <EmptyState
         subject="subscriptions"

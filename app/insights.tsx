@@ -46,6 +46,7 @@ import {
   savingsTrend,
   monthComparison,
 } from "@/src/lib/monthly";
+import { FORCE_EMPTY_STATE_PREVIEW, emptyForPreview } from "@/src/lib/emptyStatePreview";
 
 const TREND_MONTHS = 12;
 const HEATMAP_WEEKS = 12;
@@ -250,17 +251,20 @@ export default function InsightsScreen() {
   const expensesQuery = useExpenses();
   const categoriesQuery = useCategories();
   const groupsQuery = useGroups();
-  const budgets = budgetsQuery.data ?? EMPTY;
-  const expenses = expensesQuery.data ?? EMPTY;
-  const categories = categoriesQuery.data ?? EMPTY;
-  const groups = groupsQuery.data ?? EMPTY;
+  const budgets = emptyForPreview(budgetsQuery.data ?? EMPTY);
+  const expenses = emptyForPreview(expensesQuery.data ?? EMPTY);
+  const categories = emptyForPreview(categoriesQuery.data ?? EMPTY);
+  const groups = emptyForPreview(groupsQuery.data ?? EMPTY);
   const dataLoading =
-    budgetsQuery.isLoading ||
-    expensesQuery.isLoading ||
-    categoriesQuery.isLoading ||
-    groupsQuery.isLoading;
-  const { data: subscriptions = [], isLoading: subscriptionsLoading } =
+    !FORCE_EMPTY_STATE_PREVIEW &&
+    (budgetsQuery.isLoading ||
+      expensesQuery.isLoading ||
+      categoriesQuery.isLoading ||
+      groupsQuery.isLoading);
+  const { data: subscriptionRows = [], isLoading: subscriptionsQueryLoading } =
     useSubscriptions();
+  const subscriptions = emptyForPreview(subscriptionRows);
+  const subscriptionsLoading = !FORCE_EMPTY_STATE_PREVIEW && subscriptionsQueryLoading;
 
   const month = currentMonthKey();
   const todayIso = todayLocal();

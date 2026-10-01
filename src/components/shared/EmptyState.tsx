@@ -13,12 +13,15 @@ import {
 } from 'lucide-react-native'
 import Svg, { Circle, Path, Rect } from 'react-native-svg'
 import Animated, {
+  type AnimatedStyle,
   cancelAnimation,
   Easing,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
   withDelay,
+  withRepeat,
+  withSequence,
   withSpring,
   withTiming,
 } from 'react-native-reanimated'
@@ -64,29 +67,72 @@ const SUBJECT_MOODS: Record<Subject, Mood> = {
   insights: 'searching',
 }
 
-function AwakeBird({ size, color, eyeColor }: { size: number; color: string; eyeColor: string }) {
+const EYE_LID_ORIGIN: [string, string, number] = [
+  `${((BIRD_EYE.cx - 40) / 460) * 100}%`,
+  `${((BIRD_EYE.cy - BIRD_EYE.r - 40) / 460) * 100}%`,
+  0,
+]
+
+function AwakeBird({
+  size,
+  color,
+  eyeColor,
+  lidStyle,
+}: {
+  size: number
+  color: string
+  eyeColor: string
+  lidStyle?: AnimatedStyle<ViewStyle>
+}) {
   return (
-    <Svg width={size} height={size} viewBox="40 40 460 460">
-      <Rect x={224} y={340} width={17} height={46} rx={8.5} fill={color} />
-      <Rect x={259} y={340} width={17} height={46} rx={8.5} fill={color} />
-      <Rect x={128} y={379} width={256} height={26} rx={13} fill={color} />
-      <Path d={BIRD_BODY_PATH} fill={color} />
-      <Circle {...BIRD_EYE} fill={eyeColor} />
-    </Svg>
+    <View style={{ width: size, height: size }}>
+      <Svg width={size} height={size} viewBox="40 40 460 460" style={StyleSheet.absoluteFill}>
+        <Rect x={224} y={340} width={17} height={46} rx={8.5} fill={color} />
+        <Rect x={259} y={340} width={17} height={46} rx={8.5} fill={color} />
+        <Rect x={128} y={379} width={256} height={26} rx={13} fill={color} />
+        <Path d={BIRD_BODY_PATH} fill={color} />
+        <Circle {...BIRD_EYE} fill={eyeColor} />
+      </Svg>
+      {lidStyle ? (
+        <Animated.View style={[StyleSheet.absoluteFill, { transformOrigin: EYE_LID_ORIGIN }, lidStyle]}>
+          <Svg width={size} height={size} viewBox="40 40 460 460">
+            <Circle {...BIRD_EYE} r={BIRD_EYE.r + 1} fill={color} />
+          </Svg>
+        </Animated.View>
+      ) : null}
+    </View>
   )
 }
 
-function SearchingBird({ size, color, eyeColor, accent }: { size: number; color: string; eyeColor: string; accent: string }) {
+function SearchingBird({
+  size,
+  color,
+  eyeColor,
+  accent,
+  lensStyle,
+}: {
+  size: number
+  color: string
+  eyeColor: string
+  accent: string
+  lensStyle: AnimatedStyle<ViewStyle>
+}) {
   return (
-    <Svg width={size} height={size} viewBox="40 40 460 460">
-      <Rect x={224} y={340} width={17} height={46} rx={8.5} fill={color} />
-      <Rect x={259} y={340} width={17} height={46} rx={8.5} fill={color} />
-      <Rect x={128} y={379} width={256} height={26} rx={13} fill={color} />
-      <Path d={BIRD_BODY_PATH} fill={color} />
-      <Circle {...BIRD_EYE} fill={eyeColor} />
-      <Circle cx={306} cy={216} r={42} fill="none" stroke={accent} strokeWidth={14} />
-      <Path d="M 337 247 L 378 288" stroke={accent} strokeWidth={18} strokeLinecap="round" />
-    </Svg>
+    <View style={{ width: size, height: size }}>
+      <Svg width={size} height={size} viewBox="40 40 460 460" style={StyleSheet.absoluteFill}>
+        <Rect x={224} y={340} width={17} height={46} rx={8.5} fill={color} />
+        <Rect x={259} y={340} width={17} height={46} rx={8.5} fill={color} />
+        <Rect x={128} y={379} width={256} height={26} rx={13} fill={color} />
+        <Path d={BIRD_BODY_PATH} fill={color} />
+        <Circle {...BIRD_EYE} fill={eyeColor} />
+      </Svg>
+      <Animated.View style={[StyleSheet.absoluteFill, lensStyle]}>
+        <Svg width={size} height={size} viewBox="40 40 460 460">
+          <Circle cx={306} cy={216} r={42} fill="none" stroke={accent} strokeWidth={14} />
+          <Path d="M 337 247 L 378 288" stroke={accent} strokeWidth={18} strokeLinecap="round" />
+        </Svg>
+      </Animated.View>
+    </View>
   )
 }
 
@@ -113,8 +159,13 @@ export function EmptyState({
 }) {
   const { tokens, type, space, radius, motion } = useTheme()
   const reduceMotion = useReducedMotion()
+  const resolvedMood = mood ?? SUBJECT_MOODS[subject]
   const scene = useSharedValue(0)
   const copy = useSharedValue(0)
+  const birdLoop = useSharedValue(0)
+  const propLoop = useSharedValue(0)
+  const searchLoop = useSharedValue(0)
+  const blink = useSharedValue(0)
 
   useEffect(() => {
     scene.value = reduceMotion
@@ -130,6 +181,62 @@ export function EmptyState({
     }
   }, [scene, copy, reduceMotion, motion])
 
+  useEffect(() => {
+    if (reduceMotion) {
+      birdLoop.value = 0
+      propLoop.value = 0
+      return
+    }
+    const ambient = { duration: 2400, easing: Easing.bezier(0.77, 0, 0.175, 1) }
+    birdLoop.value = withRepeat(withTiming(1, ambient), -1, true)
+    propLoop.value = withDelay(600, withRepeat(withTiming(1, ambient), -1, true))
+    return () => {
+      cancelAnimation(birdLoop)
+      cancelAnimation(propLoop)
+    }
+  }, [birdLoop, propLoop, reduceMotion])
+
+  useEffect(() => {
+    cancelAnimation(searchLoop)
+    if (reduceMotion || resolvedMood !== 'searching') {
+      searchLoop.value = 0
+      return
+    }
+
+    const scanEase = Easing.bezier(0.77, 0, 0.175, 1)
+    searchLoop.value = withRepeat(
+      withSequence(
+        withTiming(-1, { duration: 380, easing: scanEase }),
+        withTiming(1, { duration: 760, easing: scanEase }),
+        withTiming(0, { duration: 380, easing: scanEase }),
+        withDelay(880, withTiming(0, { duration: 0 })),
+      ),
+      -1,
+      false,
+    )
+    return () => cancelAnimation(searchLoop)
+  }, [reduceMotion, resolvedMood, searchLoop])
+
+  useEffect(() => {
+    cancelAnimation(blink)
+    const shouldBlink = resolvedMood === 'clear' && (subject === 'expenses' || subject === 'envelopes')
+    if (reduceMotion || !shouldBlink) {
+      blink.value = 0
+      return
+    }
+
+    blink.value = withRepeat(
+      withSequence(
+        withDelay(3200, withTiming(0, { duration: 0 })),
+        withTiming(1, { duration: 70, easing: Easing.in(Easing.quad) }),
+        withTiming(0, { duration: 110, easing: Easing.out(Easing.quad) }),
+      ),
+      -1,
+      false,
+    )
+    return () => cancelAnimation(blink)
+  }, [blink, reduceMotion, resolvedMood, subject])
+
   const sceneStyle = useAnimatedStyle(() => ({
     opacity: Math.max(0, Math.min(1, scene.value)),
     transform: reduceMotion ? [] : [{ translateY: (1 - scene.value) * 8 }, { scale: 0.96 + scene.value * 0.04 }],
@@ -138,8 +245,38 @@ export function EmptyState({
     opacity: copy.value,
     transform: reduceMotion ? [] : [{ translateY: (1 - copy.value) * 6 }],
   }))
+  const birdMotionStyle = useAnimatedStyle(() => {
+    if (reduceMotion || resolvedMood === 'snoozing' || resolvedMood === 'searching') return {}
+    const direction = subject === 'expenses' || subject === 'chat' ? -1 : 1
+    return {
+      transform: [
+        { translateY: birdLoop.value * -3 },
+        { rotate: `${birdLoop.value * direction * 1.5}deg` },
+      ],
+    }
+  })
+  const searchLensStyle = useAnimatedStyle(() => ({
+    transform: reduceMotion
+      ? []
+      : [
+          { translateX: searchLoop.value * 14 },
+          { translateY: Math.abs(searchLoop.value) * 3 },
+        ],
+  }))
+  const blinkStyle = useAnimatedStyle(() => ({
+    transform: reduceMotion ? [] : [{ scaleY: 0.01 + blink.value * 0.99 }],
+  }))
+  const propMotionStyle = useAnimatedStyle(() => {
+    if (reduceMotion) return {}
+    return {
+      transform: [
+        { translateY: propLoop.value * -3 },
+        { rotate: `${(propLoop.value - 0.5) * 3}deg` },
+        { scale: 1 + propLoop.value * 0.025 },
+      ],
+    }
+  })
   const Prop = SUBJECT_ICONS[subject]
-  const resolvedMood = mood ?? SUBJECT_MOODS[subject]
   const sceneConfig = SUBJECT_SCENES[subject]
   const sceneSize = compact ? 132 : 176
   const subjectAccent = subject === 'holdings'
@@ -170,16 +307,25 @@ export function EmptyState({
           <View style={[styles.orbit, sceneConfig.orbit, { borderColor: tokens.borderStrong }]} />
           <View style={[styles.ground, sceneConfig.ground, { backgroundColor: subjectSoft }]} />
           <View style={[styles.bird, sceneConfig.bird]}>
-            {resolvedMood === 'snoozing' ? (
-              <SnoozingBird size={112} color={tokens.text} accent={subjectAccent} eyeColor={tokens.bg} />
-            ) : resolvedMood === 'searching' ? (
-              <SearchingBird size={112} color={tokens.text} eyeColor={tokens.bg} accent={subjectAccent} />
-            ) : (
-              <AwakeBird size={112} color={tokens.text} eyeColor={tokens.bg} />
-            )}
+            <Animated.View style={birdMotionStyle}>
+              {resolvedMood === 'snoozing' ? (
+                <SnoozingBird size={112} color={tokens.text} accent={subjectAccent} eyeColor={tokens.bg} />
+              ) : resolvedMood === 'searching' ? (
+                <SearchingBird size={112} color={tokens.text} eyeColor={tokens.bg} accent={subjectAccent} lensStyle={searchLensStyle} />
+              ) : (
+                <AwakeBird
+                  size={112}
+                  color={tokens.text}
+                  eyeColor={tokens.bg}
+                  lidStyle={subject === 'expenses' || subject === 'envelopes' ? blinkStyle : undefined}
+                />
+              )}
+            </Animated.View>
           </View>
           <View style={[styles.prop, sceneConfig.prop, { backgroundColor: tokens.cardSolid, borderColor: tokens.border, borderRadius: sceneConfig.propRadius ?? radius.md }]}>
-            <Prop size={23} color={subjectAccent} strokeWidth={1.8} />
+            <Animated.View style={[styles.propGlyph, propMotionStyle]}>
+              <Prop size={23} color={subjectAccent} strokeWidth={1.8} />
+            </Animated.View>
           </View>
           <View style={[styles.dot, sceneConfig.dotOne, { backgroundColor: subjectAccent }]} />
           <View style={[styles.dot, styles.dotSmall, sceneConfig.dotTwo, { backgroundColor: subjectAccent }]} />
@@ -198,6 +344,7 @@ export function EmptyState({
             onPress={action.onPress}
             icon={ArrowUpRight}
             variant="ghost"
+            size="small"
             style={{ backgroundColor: tokens.accentSoft, marginTop: space.sm }}
           />
         ) : null}
@@ -217,6 +364,7 @@ const styles = StyleSheet.create({
   ground: { position: 'absolute', width: 84, height: 8, borderRadius: 50, bottom: 21, left: 40 },
   bird: { position: 'absolute', left: 25, top: 16 },
   prop: { position: 'absolute', right: 10, bottom: 25, width: 46, height: 52, borderWidth: 1, alignItems: 'center', justifyContent: 'center', transform: [{ rotate: '10deg' }] },
+  propGlyph: { alignItems: 'center', justifyContent: 'center' },
   dot: { position: 'absolute', width: 6, height: 6, borderRadius: 3 },
   dotSmall: { width: 4, height: 4, borderRadius: 2 },
   copy: { alignItems: 'center', maxWidth: 300 },

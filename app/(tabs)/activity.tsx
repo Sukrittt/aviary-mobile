@@ -48,6 +48,7 @@ import type { ExpenseRow } from "@/src/types";
 import { toLocalDateString } from "@/src/lib/date";
 import { useOnline } from "@/src/lib/netStatus";
 import { EMPTY } from "@/src/lib/constants";
+import { FORCE_EMPTY_STATE_PREVIEW, emptyForPreview } from "@/src/lib/emptyStatePreview";
 
 type PeriodKey = "all" | "week" | "month" | "custom";
 
@@ -284,10 +285,10 @@ export default function ActivityScreen() {
     to,
     q: search.trim() || undefined,
   });
-  const filtered = expensesQ.data?.rows ?? EMPTY;
-  const totalCount = expensesQ.data?.total ?? 0;
-  const totalPages = expensesQ.data?.pageCount ?? 1;
-  const totalSpend = expensesQ.data?.totalAmount ?? 0;
+  const filtered = emptyForPreview(expensesQ.data?.rows ?? EMPTY);
+  const totalCount = FORCE_EMPTY_STATE_PREVIEW ? 0 : expensesQ.data?.total ?? 0;
+  const totalPages = FORCE_EMPTY_STATE_PREVIEW ? 1 : expensesQ.data?.pageCount ?? 1;
+  const totalSpend = FORCE_EMPTY_STATE_PREVIEW ? 0 : expensesQ.data?.totalAmount ?? 0;
   // ponytail: with search + period "all" + no category, the server can't
   // filter item/notes in Mongo (they're encrypted) and falls back to an
   // unbounded JS scan for that one combo — same as this screen's own
@@ -360,8 +361,8 @@ export default function ActivityScreen() {
     );
   }
 
-  const isLoading = anchorQuery.isLoading || expensesQ.isLoading || categoriesQ.isLoading;
-  const hasError = expensesQ.error || categoriesQ.error;
+  const isLoading = !FORCE_EMPTY_STATE_PREVIEW && (anchorQuery.isLoading || expensesQ.isLoading || categoriesQ.isLoading);
+  const hasError = !FORCE_EMPTY_STATE_PREVIEW && (expensesQ.error || categoriesQ.error);
 
   if (!online) return <OfflineScreen />;
 
