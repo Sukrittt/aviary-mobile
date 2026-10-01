@@ -93,6 +93,12 @@ export type AppEvent =
   | 'push_permission_result'
   | 'push_registration_failed'
   | 'notification_opened'
+  // Habit nudges ("Football time? Log it"). Counts only, never item names.
+  | 'habit_nudges_scheduled'
+  | 'habit_nudge_opened'
+  | 'habit_nudge_logged'
+  | 'habit_nudge_skipped'
+  | 'habit_nudges_toggled'
   // Account
   | 'data_exported'
   | 'account_deleted'

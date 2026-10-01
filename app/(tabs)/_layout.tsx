@@ -3,9 +3,11 @@ import { View } from 'react-native'
 
 import { NavBackdrop } from '@/src/components/nav/FloatingNav'
 import { useTheme } from '@/src/theme/ThemeProvider'
+import { useHabitNudges } from '@/src/hooks/useHabitNudges'
 
 export default function TabsLayout() {
   const { tokens } = useTheme()
+  useHabitNudges()
 
   return (
     <View style={{ flex: 1 }}>

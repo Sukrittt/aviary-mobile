@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { View, Text, Pressable, Switch, ScrollView, RefreshControl, StyleSheet } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -10,6 +11,8 @@ import { Icon } from '@/src/components/shared/Icon'
 import { useUser, useUpdateUser } from '@/src/hooks/useUser'
 import { useRefresh } from '@/src/hooks/useRefresh'
 import type { UserProfile } from '@/src/api/account'
+import { useRecentExpenses } from '@/src/hooks/useExpenses'
+import { habitNudgesEnabled, setHabitNudgesEnabled } from '@/src/lib/habitNudges'
 
 const CADENCE_OPTIONS: { value: NonNullable<UserProfile['notifyCadence']>; label: string }[] = [
   { value: 'off', label: 'Off' },
@@ -36,6 +39,15 @@ export default function NotificationsScreen() {
   const billLeadDays = user?.notifyBillLeadDays ?? 3
   const coach = user?.notifyCoach ?? true
   const wrapped = user?.notifyWrapped ?? true
+
+  // Device-local, unlike the switches above: habit nudges are scheduled on this phone.
+  const recent = useRecentExpenses()
+  const [habits, setHabits] = useState(true)
+  useEffect(() => { habitNudgesEnabled().then(setHabits) }, [])
+  const toggleHabits = (v: boolean) => {
+    setHabits(v)
+    void setHabitNudgesEnabled(v, recent.data ?? [])
+  }
 
   if (!online) return <OfflineScreen />
 
@@ -105,6 +117,27 @@ export default function NotificationsScreen() {
           </View>
           <Text style={[styles.footnote, { color: tokens.text3 }]}>
             Set thresholds per category in Envelopes.
+          </Text>
+        </View>
+
+        <View style={styles.section}>
+          <Text style={[styles.sectionLabel, { color: tokens.text3, fontFamily: fontFamily.bodyBold }]}>HABITS</Text>
+          <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
+            <View style={styles.row}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.rowLabel, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>Log it reminders</Text>
+                <Text style={[styles.rowHint, { color: tokens.text2 }]}>A ping around when you usually spend, with the usual filled in</Text>
+              </View>
+              <Switch
+                value={habits}
+                onValueChange={toggleHabits}
+                trackColor={{ false: tokens.borderStrong, true: tokens.accent }}
+                thumbColor={tokens.onAccent}
+              />
+            </View>
+          </View>
+          <Text style={[styles.footnote, { color: tokens.text3 }]}>
+            Learned from your last 8 weeks. Ignore one a few times and it backs off.
           </Text>
         </View>
 

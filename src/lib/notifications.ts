@@ -13,7 +13,7 @@ import type * as NotificationsType from 'expo-notifications'
 // module is required lazily, only once we know we're not running under Expo Go.
 const PUSH_SUPPORTED = Constants.executionEnvironment !== ExecutionEnvironment.StoreClient
 
-function getNotifications(): typeof NotificationsType | null {
+export function getNotifications(): typeof NotificationsType | null {
   if (!PUSH_SUPPORTED) return null
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   return require('expo-notifications') as typeof NotificationsType
@@ -98,6 +98,13 @@ export function addPushTokenListener(): NotificationsType.Subscription | undefin
  */
 function routeFromNotificationResponse(response: NotificationsType.NotificationResponse): void {
   const data = response.notification.request.content.data
+  // Habit nudges carry their own tap, action-button and analytics handling.
+  // Required lazily: it pulls in the expense queue and sync, which nothing else here needs.
+  if (typeof data?.nudgeId === 'string') {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    void (require('./habitNudges') as typeof import('./habitNudges')).handleHabitResponse(response)
+    return
+  }
   const route = data?.route
   // Which kind of notification brings people back. The route, not the text:
   // notification bodies carry category names and amounts.
