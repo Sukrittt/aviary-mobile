@@ -76,7 +76,6 @@ id = WorkOS id) to get those as server-side events on the same person.
 | `notification_opened` | `target` (route, `activity_date` or `none`) |
 | `data_exported` | |
 | `account_deleted` | flushed before the logout reset |
-| `feedback_sent` | `type` |
 | `store_cta_clicked` (web) | `placement`: hero, platforms, footer_cta |
 
 Screens (mobile, `$screen`, path only) and pages (web, `$pageview`, query string
