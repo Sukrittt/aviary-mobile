@@ -66,7 +66,7 @@ export default function WelcomeScreen() {
                 { backgroundColor: tokens.accent, shadowColor: tokens.accent },
               ]}
             >
-              <BirdLandingMark size={40} color={tokens.onAccent} autoplay={false} />
+              <BirdLandingMark size={40} color={tokens.onAccent} autoplay={false} perched />
             </View>
             <Text
               style={[

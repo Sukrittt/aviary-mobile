@@ -46,7 +46,7 @@ it('useRecurringExpenses resolves the query with the API result', async () => {
   expect(result.current.data).toEqual([{ id: 'r1', item: 'Rent' }])
 })
 
-// Same contract as useSubscriptions: recurring expenses feed Money Brain's
+// Same contract as useSubscriptions: recurring expenses feed Ask Aviary's
 // brief, which is keyed separately, so every mutation must bust both.
 describe('every mutation invalidates both recurring-expenses and ai-brief', () => {
   const cases: [string, jest.Mock, () => { mutate: (args: never) => void }, unknown][] = [

@@ -271,7 +271,7 @@ export default function MoneyBrainModal() {
       <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
         <View style={styles.headerLeft}>
           <View style={[styles.badge, { backgroundColor: tokens.accentSoft }]}>
-            <BirdLandingMark size={26} color={tokens.accent} autoplay={false} />
+            <BirdLandingMark size={26} color={tokens.accent} autoplay={false} perched />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={[styles.title, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>

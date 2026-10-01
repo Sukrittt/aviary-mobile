@@ -4,7 +4,7 @@ import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { parseChatMarkdown, type Run } from '@/src/lib/chatMarkdown'
 
-/** Renders a Money Brain answer: paragraphs, bullet/numbered lists, bold runs. */
+/** Renders an Ask Aviary answer: paragraphs, bullet/numbered lists, bold runs. */
 export function ChatMarkdown({ text }: { text: string }) {
   const { tokens } = useTheme()
   const blocks = useMemo(() => parseChatMarkdown(text), [text])

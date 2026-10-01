@@ -19,7 +19,7 @@ const FEET_ORIGIN: [string, string, number] = ['49%', `${(386 / 512) * 100}%`, 0
 const PECK = { duration: 170, easing: Easing.out(Easing.quad) }
 const LIFT = { duration: 230, easing: Easing.inOut(Easing.quad) }
 
-/** Money Brain's "thinking" mark: the perched bird pecks twice, rests, repeats. */
+/** Ask Aviary's "thinking" mark: the perched bird pecks twice, rests, repeats. */
 export function BrainThinking({ size = 30, color }: { size?: number; color: string }) {
   const reduceMotion = useReducedMotion()
   const peck = useSharedValue(0)
