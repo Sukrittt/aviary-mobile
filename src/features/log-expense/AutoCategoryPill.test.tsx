@@ -79,3 +79,10 @@ it("doesn't say picked for you about a category the user picked by hand", () => 
   fireEvent.press(getByText('Groceries'))
   expect(onPress).toHaveBeenCalled()
 })
+
+it('flicks a burst of lines when a category lands, but not on first render', () => {
+  const { queryByTestId, rerender } = renderPill({ ...base, selected: groceries, thinking: false, auto: false })
+  expect(queryByTestId('pick-burst')).toBeNull()
+  rerender({ selected: { emoji: '🚕', name: 'Travel' } })
+  expect(queryByTestId('pick-burst')).toBeTruthy()
+})

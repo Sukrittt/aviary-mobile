@@ -1,6 +1,6 @@
 import { ExpenseNoticeScreen } from '@/src/features/log-expense/ExpenseNoticeScreen'
 import { ExpenseConflictReview } from '@/src/features/log-expense/ExpenseConflictReview'
-import { AutoCategoryPill } from '@/src/features/log-expense/AutoCategoryPill'
+import { AutoCategoryPill, PILL_MAX_WIDTH } from '@/src/features/log-expense/AutoCategoryPill'
 import { createThinkingGate, type ThinkingGate } from '@/src/lib/thinkingGate'
 import { ExpenseWriteError, expenseChanges, expenseDraft, rebaseExpenseDraft } from '@/src/lib/expenseConflict'
 import type { ExpenseRow } from '@/src/types'
@@ -758,10 +758,11 @@ const styles = StyleSheet.create({
   itemInputWithPill: {
     paddingHorizontal: 12,
     paddingVertical: 12,
-    paddingRight: 108,
+    // Pill's right inset (6) + its max width + a little air.
+    paddingRight: PILL_MAX_WIDTH + 12,
     borderWidth: 2,
   },
-  categoryPill: { position: "absolute", right: 6, maxWidth: 108 },
+  categoryPill: { position: "absolute", right: 6, maxWidth: PILL_MAX_WIDTH },
   fieldLabel: { fontSize: 12 },
   error: { fontSize: 12, textAlign: "center" },
   moreToggle: {

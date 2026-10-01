@@ -41,7 +41,7 @@ const LAND_SPRING = { mass: 0.6, damping: 9, stiffness: 220 }
 // Near-critically damped: a soft glide, no wobble.
 const WIDTH_SPRING = { mass: 1, damping: 20, stiffness: 110 }
 // log-expense pins the pill to the input's right edge with this max width.
-const MAX_WIDTH = 108
+export const PILL_MAX_WIDTH = 140
 const PAD_X = 12
 const AnimatedPressable = Reanimated.createAnimatedComponent(Pressable)
 // Same spring as PopIn's mount pop, for taste parity.
@@ -84,7 +84,7 @@ export function AutoCategoryPill({ selected, thinking, auto, highlighted, rollEm
     setPrevThinking(thinking)
     setPrevSelKey(selKey)
     if (next !== phase) setPhase(next)
-    if (changed && auto && next === 'idle') setPopTick((t) => t + 1)
+    if (changed && next === 'idle') setPopTick((t) => t + 1)
   }
 
   useEffect(() => {
@@ -127,10 +127,12 @@ export function AutoCategoryPill({ selected, thinking, auto, highlighted, rollEm
   // the content measures the target width; the real content is right-aligned
   // and clipped, so it stays still while the left edge glides.
   const hasEmoji = busy || !!selected
-  const labelMax = MAX_WIDTH - 2 * PAD_X - (hasEmoji ? EMOJI_BOX + 2 + space.xs : 0)
+  const labelMax = PILL_MAX_WIDTH - 2 * PAD_X - (hasEmoji ? EMOJI_BOX + 2 + space.xs : 0)
   const [contentW, setContentW] = useState(0)
   const width = useSharedValue(0)
-  const onMeasure = (w: number) => {
+  const onMeasure = (measured: number) => {
+    // Android rounds text widths down a hair; give it a pixel so it doesn't ellipsize.
+    const w = Math.ceil(measured) + 1
     setContentW(w)
     width.value = width.value === 0 || reduceMotion ? w + 2 * PAD_X : withSpring(w + 2 * PAD_X, WIDTH_SPRING)
   }
@@ -193,8 +195,34 @@ export function AutoCategoryPill({ selected, thinking, auto, highlighted, rollEm
         {labelText(labelStyle)}
         </View>
       </AnimatedPressable>
+      {popTick > 0 && !reduceMotion && <PickBurst key={popTick} />}
     </Reanimated.View>
   )
+}
+
+// Fan of short lines that flicks out of the pill's top edge when a category
+// lands, so the pick feels like it clicked into place. Remounted per landing.
+const BURST_ANGLES = [-66, -44, -22, 0, 22, 44, 66]
+
+function PickBurst() {
+  const p = useSharedValue(0)
+  useEffect(() => {
+    p.value = withTiming(1, { duration: 520, easing: Easing.out(Easing.cubic) })
+  }, [p])
+  return (
+    <View testID="pick-burst" pointerEvents="none" style={styles.burst}>
+      {BURST_ANGLES.map((deg) => <BurstLine key={deg} deg={deg} p={p} />)}
+    </View>
+  )
+}
+
+function BurstLine({ deg, p }: { deg: number; p: SharedValue<number> }) {
+  const style = useAnimatedStyle(() => ({
+    // Snaps in, then fades as it flies out and shortens.
+    opacity: p.value < 0.15 ? p.value / 0.15 : 1 - (p.value - 0.15) / 0.85,
+    transform: [{ rotate: `${deg}deg` }, { translateY: -6 - p.value * 9 }, { scaleY: 1 - p.value * 0.6 }],
+  }))
+  return <Reanimated.View style={[styles.burstLine, style]} />
 }
 
 interface ReelProps {
@@ -297,7 +325,9 @@ function ReelItem({ index, count, pos, fontSize, emoji }: ReelItemProps) {
 const styles = StyleSheet.create({
   pill: { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: PAD_X, paddingVertical: 7, overflow: 'hidden' },
   row: { flexDirection: 'row', alignItems: 'center', flexShrink: 0 },
-  // Wide enough that nothing up to MAX_WIDTH is squeezed while measuring.
+  burst: { position: 'absolute', top: 0, left: '50%', width: 0, height: 0 },
+  burstLine: { position: 'absolute', left: -1, top: -4, width: 2, height: 8, borderRadius: 1, backgroundColor: '#ffffff' },
+  // Wide enough that nothing up to PILL_MAX_WIDTH is squeezed while measuring.
   measure: { position: 'absolute', top: 0, left: 0, width: 300, opacity: 0, flexDirection: 'row' },
   label: { fontSize: 12 },
   slot: { width: EMOJI_BOX + 2, height: EMOJI_BOX, overflow: 'hidden' },
