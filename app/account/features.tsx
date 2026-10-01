@@ -1,12 +1,15 @@
-import { View, Text, Pressable, Switch, ScrollView, StyleSheet } from 'react-native'
+import { useState } from 'react'
+import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { ArrowLeft } from 'lucide-react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { Icon } from '@/src/components/shared/Icon'
+import { Toggle } from '@/src/components/ui/Toggle'
+import { Alert } from '@/src/components/ui/AlertHost'
 import { useUser, useUpdateUser } from '@/src/hooks/useUser'
-import { HIDEABLE_FEATURES, isHidden, type HideableFeature } from '@/src/lib/features'
+import { HIDEABLE_FEATURES, type HideableFeature } from '@/src/lib/features'
 
 export default function FeaturesScreen() {
   const { tokens } = useTheme()
@@ -15,9 +18,28 @@ export default function FeaturesScreen() {
   const user = useUser().data
   const updateUser = useUpdateUser()
 
+  // Local copy so a flip shows instantly and rapid flips build on each other,
+  // not on a server response that's still in flight.
+  const [local, setLocal] = useState<HideableFeature[] | null>(null)
+  const hidden = local ?? (user ? (user.hiddenFeatures ?? []) : null)
+
   const setShown = (key: HideableFeature, shown: boolean) => {
-    const hidden = (user?.hiddenFeatures ?? []).filter((k) => k !== key)
-    updateUser.mutate({ hiddenFeatures: shown ? hidden : [...hidden, key] })
+    const rest = (hidden ?? []).filter((k) => k !== key)
+    const next = shown ? rest : [...rest, key]
+    setLocal(next)
+    updateUser.mutate(
+      { hiddenFeatures: next },
+      {
+        onError: () => {
+          // Undo only this flip, so other flips made meanwhile stay put.
+          setLocal((cur) => {
+            const without = (cur ?? next).filter((k) => k !== key)
+            return shown ? [...without, key] : without
+          })
+          Alert.alert("Couldn't save", 'Check your connection and try again.')
+        },
+      },
+    )
   }
 
   return (
@@ -40,13 +62,11 @@ export default function FeaturesScreen() {
                     <Text style={[styles.rowLabel, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>{f.label}</Text>
                     <Text style={[styles.rowHint, { color: tokens.text2 }]}>{f.hint}</Text>
                   </View>
-                  <Switch
+                  <Toggle
                     accessibilityLabel={`Show ${f.label}`}
-                    value={!isHidden(user, f.key)}
-                    disabled={!user}
+                    value={!hidden?.includes(f.key)}
+                    disabled={!hidden}
                     onValueChange={(v) => setShown(f.key, v)}
-                    trackColor={{ false: tokens.borderStrong, true: tokens.accent }}
-                    thumbColor={tokens.onAccent}
                   />
                 </View>
               </View>
