@@ -161,7 +161,7 @@ export default function LogExpenseScreen() {
 
 
   // True while the pill shows a category we picked, not one the user chose.
-  // Drives the ✨ marker and the landing animation.
+  // Drives the "picked for you" a11y label and the landing pop.
   const [autoPicked, setAutoPicked] = useState(false);
   // Where the last auto-pick came from, for the acceptance-rate event on save:
   // the local keyword map or the AI fallback. Null if nothing was ever picked.
@@ -203,7 +203,17 @@ export default function LogExpenseScreen() {
       gate.start();
       suggestCategoryLLM(item, categoryNames).then((llmSuggested) => {
         if (cancelled) return;
-        gate.finish(apply(llmSuggested, "ai"));
+        if (categoryNames.includes(llmSuggested)) {
+          gate.finish(apply(llmSuggested, "ai"));
+          return;
+        }
+        // Nothing found: land on Miscellaneous, like Web. Not an auto-pick, so no ✨.
+        const misc = categoryNames.find((n) => n.toLowerCase().includes("miscellaneous"));
+        gate.finish(() => {
+          if (cancelled || !misc) return;
+          setCategory(misc);
+          setAutoPicked(false);
+        });
       });
     }, 300);
     return () => {

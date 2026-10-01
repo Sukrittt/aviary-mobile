@@ -43,6 +43,7 @@ const Easing = {
   ease: identity,
   quad: identity,
   cubic: identity,
+  back: () => identity,
   bezier: () => identity,
   in: (fn) => fn,
   out: (fn) => fn,

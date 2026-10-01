@@ -1,7 +1,7 @@
 import { useEffect, useState, type ComponentProps } from 'react'
 import { act, fireEvent } from '@testing-library/react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
-import { AutoCategoryPill, PICKING_LABEL } from './AutoCategoryPill'
+import { AutoCategoryPill, PICKING_LABEL, SETTLE_MS } from './AutoCategoryPill'
 
 type Props = ComponentProps<typeof AutoCategoryPill>
 
@@ -10,9 +10,6 @@ afterEach(() => jest.useRealTimers())
 
 const groceries = { emoji: '🛒', name: 'Groceries' }
 const base = { highlighted: false, rollEmojis: ['🍔', '🚕', '🛒'], onPress: () => {} }
-
-// Roll decel steps (190 + 250 + 330ms) plus slack.
-const SETTLE_MS = 800
 
 // rerender() would drop renderWithProviders' ThemeProvider, so props change
 // through state inside the provider tree instead.
@@ -28,13 +25,12 @@ function renderPill(props: Props) {
 }
 
 it('shows the placeholder with no category', () => {
-  const { getByText, queryByTestId } = renderPill({ ...base, selected: null, thinking: false, auto: false })
+  const { getByText } = renderPill({ ...base, selected: null, thinking: false, auto: false })
   expect(getByText('Category')).toBeTruthy()
-  expect(queryByTestId('auto-pick-marker')).toBeNull()
 })
 
-it('says it is picking while thinking, then settles on the auto-picked category with a marker', () => {
-  const { getByText, getByLabelText, queryByText, getByTestId, rerender } =
+it('says it is picking while thinking, then settles on the auto-picked category', () => {
+  const { getByText, getByLabelText, queryByText, rerender } =
     renderPill({ ...base, selected: null, thinking: true, auto: false })
   expect(getByText(PICKING_LABEL)).toBeTruthy()
   expect(getByLabelText('Picking a category')).toBeTruthy()
@@ -46,17 +42,26 @@ it('says it is picking while thinking, then settles on the auto-picked category 
 
   act(() => { jest.advanceTimersByTime(SETTLE_MS) })
   expect(getByText('Groceries')).toBeTruthy()
-  expect(getByTestId('auto-pick-marker')).toBeTruthy()
   expect(getByLabelText('Category: Groceries, picked for you')).toBeTruthy()
 })
 
+it('eases the reel out even when the answer is the category already showing', () => {
+  const { getByText, queryByText, rerender } = renderPill({ ...base, selected: groceries, thinking: false, auto: true })
+  rerender({ thinking: true })
+  expect(getByText(PICKING_LABEL)).toBeTruthy()
+  rerender({ thinking: false })
+  expect(getByText(PICKING_LABEL)).toBeTruthy()
+  act(() => { jest.advanceTimersByTime(SETTLE_MS) })
+  expect(queryByText(PICKING_LABEL)).toBeNull()
+  expect(getByText('Groceries')).toBeTruthy()
+})
+
 it('lands a dictionary hit straight away, without the picking state', () => {
-  const { getByText, getByTestId, queryByText, rerender } =
+  const { getByLabelText, queryByText, rerender } =
     renderPill({ ...base, selected: null, thinking: false, auto: false })
   rerender({ selected: groceries, thinking: false, auto: true })
   expect(queryByText(PICKING_LABEL)).toBeNull()
-  expect(getByText('Groceries')).toBeTruthy()
-  expect(getByTestId('auto-pick-marker')).toBeTruthy()
+  expect(getByLabelText('Category: Groceries, picked for you')).toBeTruthy()
 })
 
 it('goes back to what it showed when the AI finds nothing', () => {
@@ -66,11 +71,11 @@ it('goes back to what it showed when the AI finds nothing', () => {
   expect(getByText('Category')).toBeTruthy()
 })
 
-it('drops the marker for a category the user picked by hand', () => {
+it("doesn't say picked for you about a category the user picked by hand", () => {
   const onPress = jest.fn()
-  const { getByText, queryByTestId } =
+  const { getByText, getByLabelText } =
     renderPill({ ...base, onPress, selected: groceries, thinking: false, auto: false })
-  expect(queryByTestId('auto-pick-marker')).toBeNull()
+  expect(getByLabelText('Category: Groceries')).toBeTruthy()
   fireEvent.press(getByText('Groceries'))
   expect(onPress).toHaveBeenCalled()
 })

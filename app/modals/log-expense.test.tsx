@@ -46,10 +46,10 @@ function Harness() {
   return null
 }
 
-function setup(params: Record<string, string> = {}, expenses: ExpenseRow[] = []) {
+function setup(params: Record<string, string> = {}, expenses: ExpenseRow[] = [], categories = [{ name: 'Groceries', group: 'Food' }]) {
   mockParams = params
   ;(getRecentExpenses as jest.Mock).mockResolvedValue({ rows: expenses, lastSpent: {} })
-  ;(getCategories as jest.Mock).mockResolvedValue([{ name: 'Groceries', group: 'Food' }])
+  ;(getCategories as jest.Mock).mockResolvedValue(categories)
   ;(getGroups as jest.Mock).mockResolvedValue(['Food'])
   ;(getCategoryMap as jest.Mock).mockResolvedValue({ words: {} })
   ;(suggestCategoryLLM as jest.Mock).mockResolvedValue('')
@@ -262,7 +262,7 @@ it('shows the pill picking while the AI looks up a category, then lands on its a
   let answer: (v: string) => void = () => {}
   const utils = setup()
   ;(suggestCategoryLLM as jest.Mock).mockImplementation(() => new Promise<string>((r) => { answer = r }))
-  const { getByPlaceholderText, findByText, getByText, queryByText, getByTestId } = utils
+  const { getByPlaceholderText, findByText, getByText, queryByText, getByLabelText } = utils
   // Wait for the category map to load; the suggest effect waits on it.
   await act(async () => { await Promise.resolve(); await Promise.resolve() })
 
@@ -274,8 +274,27 @@ it('shows the pill picking while the AI looks up a category, then lands on its a
   // The gate's minimum hold, then (once React has committed and scheduled
   // them) the roll's settle steps.
   await act(async () => { jest.advanceTimersByTime(450) })
-  await act(async () => { jest.advanceTimersByTime(800) })
+  await act(async () => { jest.advanceTimersByTime(1000) })
   expect(queryByText('Picking…')).toBeNull()
   expect(await findByText('Groceries')).toBeTruthy()
-  expect(getByTestId('auto-pick-marker')).toBeTruthy()
+  expect(getByLabelText('Category: Groceries, picked for you')).toBeTruthy()
+})
+
+it('lands on Miscellaneous, not marked as picked for you, when the AI finds nothing', async () => {
+  let answer: (v: string) => void = () => {}
+  const utils = setup({}, [], [{ name: 'Groceries', group: 'Food' }, { name: '🎟️ Miscellaneous', group: 'Fun' }])
+  ;(suggestCategoryLLM as jest.Mock).mockImplementation(() => new Promise<string>((r) => { answer = r }))
+  const { getByPlaceholderText, findByText, getByText, queryByText, getByLabelText } = utils
+  await act(async () => { await Promise.resolve(); await Promise.resolve() })
+
+  fireEvent.changeText(getByPlaceholderText('What was it for?'), 'random thing')
+  await act(async () => { jest.advanceTimersByTime(300 + 150) })
+  expect(getByText('Picking…')).toBeTruthy()
+
+  await act(async () => { answer(''); await Promise.resolve() })
+  await act(async () => { jest.advanceTimersByTime(450) })
+  await act(async () => { jest.advanceTimersByTime(1000) })
+  expect(queryByText('Picking…')).toBeNull()
+  expect(await findByText('Miscellaneous')).toBeTruthy()
+  expect(getByLabelText('Category: Miscellaneous')).toBeTruthy()
 })
