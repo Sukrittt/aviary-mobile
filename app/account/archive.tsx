@@ -20,7 +20,6 @@ import * as Haptics from "expo-haptics";
 import {
   ArrowLeft,
   X,
-  Archive,
   Receipt,
   Wallet,
   Tag,
@@ -50,6 +49,7 @@ import {
   type ArchivedItem,
   type ArchivableCollection,
 } from "@/src/api/account";
+import { EmptyState } from "@/src/components/shared/EmptyState";
 
 const SECTION_ORDER: ArchivableCollection[] = [
   "expenses",
@@ -489,48 +489,21 @@ export default function ArchiveScreen() {
         ) : null}
 
         {!archiveQuery.isLoading && items.length === 0 ? (
-          <View style={styles.emptyState}>
-            <View
-              style={[
-                styles.emptyIcon,
-                { backgroundColor: tokens.card, borderColor: tokens.border },
-              ]}
-            >
-              <Icon icon={Archive} size={30} color={tokens.text3} />
-            </View>
-            <Text
-              style={[
-                styles.emptyTitle,
-                { color: tokens.text, fontFamily: fontFamily.displaySemiBold },
-              ]}
-            >
-              Archive is empty
-            </Text>
-            <Text
-              style={[
-                styles.emptyBody,
-                { color: tokens.text2, fontFamily: fontFamily.bodyMedium },
-              ]}
-            >
-              Deleted transactions, budgets and more land here for 7 days, long
-              enough to change your mind.
-            </Text>
-          </View>
+          <EmptyState
+            subject="archive"
+            title="All clear in here"
+            description="Deleted transactions, budgets and more will rest here for seven days, just in case."
+          />
         ) : null}
 
         {!archiveQuery.isLoading && items.length > 0 && shown.length === 0 ? (
-          <Text
-            style={[
-              styles.filterEmpty,
-              { color: tokens.text2, fontFamily: fontFamily.bodyMedium },
-            ]}
-          >
-            Nothing archived under{" "}
-            {filter === "all"
-              ? "All"
-              : CHIP_LABELS[filter as ArchivableCollection]}
-            .
-          </Text>
+          <EmptyState
+            compact
+            subject="archive"
+            mood="searching"
+            title="Nothing turned up"
+            description={`Nothing archived under ${filter === "all" ? "All" : CHIP_LABELS[filter as ArchivableCollection]}.`}
+          />
         ) : null}
 
         {pageItems.map((item, idx) => {
@@ -967,29 +940,6 @@ const styles = StyleSheet.create({
   },
   nextClockNum: { fontSize: 20 },
   nextClockUnit: { fontSize: 9, fontWeight: "800", letterSpacing: 0.6 },
-  emptyState: {
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 14,
-    paddingVertical: 60,
-    paddingHorizontal: 26,
-  },
-  emptyIcon: {
-    width: 74,
-    height: 74,
-    borderRadius: 22,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  emptyTitle: { fontSize: 19 },
-  emptyBody: {
-    fontSize: 13,
-    textAlign: "center",
-    lineHeight: 19,
-    maxWidth: 250,
-  },
-  filterEmpty: { textAlign: "center", fontSize: 13.5, paddingVertical: 30 },
   rowWrap: { gap: 5 },
   bandLabel: {
     fontSize: 10.5,

@@ -14,6 +14,7 @@ import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 
 import { monthAbbrev } from '@/src/lib/envelope'
+import { EmptyState } from '@/src/components/shared/EmptyState'
 
 const AnimatedRect = Reanimated.createAnimatedComponent(Rect)
 const AnimatedLine = Reanimated.createAnimatedComponent(Line)
@@ -177,11 +178,13 @@ export function TrendChart({
 
   if (data.length === 0) {
     return (
-      <View style={[styles.empty, { height }]}>
-        <Text style={{ color: tokens.text3, fontFamily: fontFamily.bodyMedium, fontSize: 12 }}>
-          {emptyNote}
-        </Text>
-      </View>
+      <EmptyState
+        compact
+        subject="insights"
+        title={emptyNote}
+        description="A few logged expenses will turn this quiet card into a trend."
+        style={{ height }}
+      />
     )
   }
 
@@ -319,7 +322,6 @@ export function TrendChart({
 }
 
 const styles = StyleSheet.create({
-  empty: { alignItems: 'center', justifyContent: 'center' },
   axisLabel: { fontSize: 10, paddingHorizontal: 4 },
   columnRow: { flex: 1, flexDirection: 'row' },
   partialNote: { fontSize: 10, paddingHorizontal: 4, paddingTop: 4 },

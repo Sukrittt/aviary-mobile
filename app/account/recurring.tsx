@@ -11,7 +11,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ArrowLeft, ChevronRight, Plus, Repeat, Repeat2 } from "lucide-react-native";
+import { ArrowLeft, ChevronRight, Plus, Repeat2 } from "lucide-react-native";
 import * as Haptics from "expo-haptics";
 import Reanimated from "react-native-reanimated";
 import { OfflineScreen } from "@/src/components/shared/OfflineScreen";
@@ -35,6 +35,7 @@ import {
 } from "@/src/components/charts/AllocationBar";
 import { CHART_COLOR_CYCLE } from "@/src/theme/chartColors";
 import type { RecurringExpenseRow } from "@/src/types";
+import { EmptyState } from "@/src/components/shared/EmptyState";
 
 const LOADING_PHRASES = [
   "Checking what repeats…",
@@ -216,24 +217,13 @@ export default function RecurringExpensesScreen() {
           />
         ) : rows.length === 0 ? (
           <>
-            <Icon icon={Repeat} size={28} color={tokens.text3} />
-            <Text
-              style={[
-                styles.emptyTitle,
-                { color: tokens.text, fontFamily: fontFamily.displaySemiBold },
-              ]}
-            >
-              Set it once, forget it
-            </Text>
-            <Text
-              style={[
-                styles.emptyBody,
-                { color: tokens.text2, fontFamily: fontFamily.bodyMedium },
-              ]}
-            >
-              Rent, the gym, your maid. Add it here and we&apos;ll log it for
-              you on every due date.
-            </Text>
+            <EmptyState
+              subject="recurring"
+              title="Set it once, forget it"
+              description="Rent, the gym, your maid. Add it here and we'll log it for you on every due date."
+              action={{ label: "Add a recurring expense", onPress: () => router.push("/modals/recurring-expense") }}
+              style={{ paddingVertical: 0 }}
+            />
             <FindRecurringEntry style={{ marginTop: 16, width: "100%" }} />
           </>
         ) : (
@@ -568,13 +558,4 @@ const styles = StyleSheet.create({
   // The phrase spans the full width, so it centers with textAlign rather than
   // by the container's alignItems.
   loadingPhrase: { fontSize: 13, lineHeight: 19, textAlign: "center" },
-  emptyTitle: { fontSize: 17, marginTop: 4 },
-  // Capped rather than left to fill the screen: a centered paragraph reads
-  // better over a short measure than edge to edge.
-  emptyBody: {
-    fontSize: 13,
-    lineHeight: 19,
-    textAlign: "center",
-    maxWidth: 250,
-  },
 });

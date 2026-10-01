@@ -7,6 +7,7 @@ import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
 import { Icon } from '@/src/components/shared/Icon'
 import { PopIn } from '@/src/components/shared/PopIn'
 import type { ChatSessionSummary } from '@/src/api/ai'
+import { EmptyState } from '@/src/components/shared/EmptyState'
 
 /** Written by hand (no Intl) per this app's date-formatting convention — see EnvelopeRow.tsx's lastSpentLabel. */
 function timeAgoLabel(iso: string): string {
@@ -103,26 +104,14 @@ export function ChatHistoryList({
           <LoadingCaption />
         </View>
       ) : !sessions || sessions.length === 0 ? (
-        <View style={styles.empty}>
-          <Text style={[styles.emptyTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
-            {query ? `No chats match "${query}"` : 'No past chats yet'}
-          </Text>
-          {query ? (
-            <>
-              <Text style={[styles.emptyText, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
-                Try a shorter phrase, or start a new chat about it.
-              </Text>
-              <Pressable
-                onPress={onStartNewChat}
-                style={[styles.emptyButton, { backgroundColor: tokens.accent }]}
-              >
-                <Text style={{ color: tokens.onAccent, fontSize: 13, fontFamily: fontFamily.bodySemiBold }}>
-                  Ask Aviary
-                </Text>
-              </Pressable>
-            </>
-          ) : null}
-        </View>
+        <EmptyState
+          subject="chat"
+          mood={query ? "searching" : "clear"}
+          title={query ? "Nothing turned up" : "No past chats yet"}
+          description={query ? `No chats match “${query}”. Try a shorter phrase.` : "Ask Aviary about your spending and the conversation will wait for you here."}
+          action={{ label: "Ask Aviary", onPress: onStartNewChat }}
+          style={styles.empty}
+        />
       ) : (
         <ScrollView ref={scrollRef} contentContainerStyle={styles.list}>
           {groups.map((g) => (
@@ -230,10 +219,7 @@ const styles = StyleSheet.create({
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2 },
   meta: { fontSize: 11 },
   dot: { width: 3, height: 3, borderRadius: 1.5 },
-  empty: { paddingTop: 40, alignItems: 'center', gap: 10, paddingHorizontal: 32 },
-  emptyTitle: { fontSize: 16, textAlign: 'center' },
-  emptyText: { fontSize: 12, textAlign: 'center', lineHeight: 17 },
-  emptyButton: { marginTop: 4, height: 42, paddingHorizontal: 18, borderRadius: 100, alignItems: 'center', justifyContent: 'center' },
+  empty: { flex: 1 },
   pager: {
     flexDirection: 'row',
     alignItems: 'center',

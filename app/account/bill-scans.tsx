@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ArrowLeft, ChevronRight, Receipt } from "lucide-react-native";
+import { ArrowLeft, ChevronRight } from "lucide-react-native";
 import Reanimated from "react-native-reanimated";
 import { OfflineScreen } from "@/src/components/shared/OfflineScreen";
 import { useOnline } from "@/src/lib/netStatus";
@@ -27,6 +27,7 @@ import { usePressSpring } from "@/src/components/ui/Button";
 import { AmountText } from "@/src/components/ui/AmountText";
 import { CHART_COLOR_CYCLE } from "@/src/theme/chartColors";
 import type { BillScanSummary } from "@/src/api/bills";
+import { EmptyState } from "@/src/components/shared/EmptyState";
 
 const LOADING_PHRASES = [
   "Pulling up your scans…",
@@ -142,26 +143,13 @@ export default function BillScansScreen() {
             ]}
           />
         ) : rows.length === 0 ? (
-          <>
-            <Icon icon={Receipt} size={28} color={tokens.text3} />
-            <Text
-              style={[
-                styles.emptyTitle,
-                { color: tokens.text, fontFamily: fontFamily.displaySemiBold },
-              ]}
-            >
-              No scans yet
-            </Text>
-            <Text
-              style={[
-                styles.emptyBody,
-                { color: tokens.text2, fontFamily: fontFamily.bodyMedium },
-              ]}
-            >
-              Scan a bill from the You tab and it&apos;ll show up here, photo
-              and all.
-            </Text>
-          </>
+          <EmptyState
+            subject="scans"
+            title="No scans yet"
+            description="Scan a bill and it'll show up here, photo and all."
+            action={{ label: "Scan a bill", onPress: () => router.push("/modals/bill-scan") }}
+            style={{ paddingVertical: 0 }}
+          />
         ) : (
           <>
             <View style={styles.heroBlock}>
@@ -313,11 +301,4 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   loadingPhrase: { fontSize: 13, lineHeight: 19, textAlign: "center" },
-  emptyTitle: { fontSize: 17, marginTop: 4 },
-  emptyBody: {
-    fontSize: 13,
-    lineHeight: 19,
-    textAlign: "center",
-    maxWidth: 250,
-  },
 });

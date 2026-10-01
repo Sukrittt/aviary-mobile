@@ -24,3 +24,15 @@ it('supports informational empty states without an action', () => {
   expect(screen.getByText('Your spending will land here.')).toBeTruthy()
   expect(screen.queryByRole('button')).toBeNull()
 })
+
+it('supports distinct subject scenes and the compact chart treatment', () => {
+  const screen = renderWithProviders(
+    <EmptyState
+      compact
+      subject="insights"
+      title="No trend yet"
+      description="A few expenses will make this chart useful."
+    />,
+  )
+  expect(screen.getByRole('header', { name: 'No trend yet' })).toBeTruthy()
+})

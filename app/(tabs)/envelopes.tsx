@@ -46,6 +46,7 @@ import { OfflineScreen } from '@/src/components/shared/OfflineScreen'
 import { ErrorScreen } from '@/src/components/shared/ErrorScreen'
 import { useOnline } from '@/src/lib/netStatus'
 import { dragShift, dragTarget, moveItem } from '@/src/lib/dragReorder'
+import { EmptyState } from '@/src/components/shared/EmptyState'
 
 function sortedPcts(pcts: number[]): number[] {
   return [...pcts].sort((a, b) => a - b)
@@ -830,7 +831,11 @@ export default function EnvelopesScreen() {
 
         <ScrollView
           style={{ flex: 1 }}
-          contentContainerStyle={[styles.scrollContent, { paddingBottom: navPadding }]}
+          contentContainerStyle={[
+            styles.scrollContent,
+            { paddingBottom: navPadding },
+            groupedCategories.length === 0 && styles.emptyScroll,
+          ]}
           scrollEnabled={dragPhase === 'idle'}
           refreshControl={
             <RefreshControl
@@ -842,8 +847,17 @@ export default function EnvelopesScreen() {
             />
           }
         >
-          <Reanimated.View ref={listRef} collapsable={false} style={styles.groupList}>
-            {groupedCategories.map(({ name, items }) => {
+          {groupedCategories.length === 0 ? (
+            <EmptyState
+              subject="envelopes"
+              title="Your envelopes are waiting"
+              description="Make a group, add a category, and give every rupee a place to land."
+              action={{ label: "Create your first group", onPress: openAddGroup }}
+            />
+          ) : (
+            <>
+              <Reanimated.View ref={listRef} collapsable={false} style={styles.groupList}>
+                {groupedCategories.map(({ name, items }) => {
               const key = name || OTHER_LABEL
               const collapsed = dragPhase === 'dragging' || dragPhase === 'settling' || collapsedGroups.has(key)
               return (
@@ -931,21 +945,23 @@ export default function EnvelopesScreen() {
                   </GroupBody>
                 </DraggableGroupCard>
               )
-            })}
-          </Reanimated.View>
+                })}
+              </Reanimated.View>
 
-          <Reanimated.View onLayout={footerFlip.onLayout} style={footerStyle}>
-            <Pressable
-              onPress={openAddGroup}
-              style={[styles.addGroupBtn, { borderColor: tokens.borderStrong }]}
-            >
-              <Icon icon={Plus} size={14} color={tokens.text2} strokeWidth={2.5} />
-              <Text style={{ color: tokens.text2, fontSize: 13, fontFamily: fontFamily.bodyBold }}>New group</Text>
-            </Pressable>
-            <Text style={{ color: tokens.text3, fontSize: 10, textAlign: 'center', marginTop: 2, fontFamily: fontFamily.bodyMedium }}>
-              Tap a group to collapse · drag a handle to reorder
-            </Text>
-          </Reanimated.View>
+              <Reanimated.View onLayout={footerFlip.onLayout} style={footerStyle}>
+                <Pressable
+                  onPress={openAddGroup}
+                  style={[styles.addGroupBtn, { borderColor: tokens.borderStrong }]}
+                >
+                  <Icon icon={Plus} size={14} color={tokens.text2} strokeWidth={2.5} />
+                  <Text style={{ color: tokens.text2, fontSize: 13, fontFamily: fontFamily.bodyBold }}>New group</Text>
+                </Pressable>
+                <Text style={{ color: tokens.text3, fontSize: 10, textAlign: 'center', marginTop: 2, fontFamily: fontFamily.bodyMedium }}>
+                  Tap a group to collapse · drag a handle to reorder
+                </Text>
+              </Reanimated.View>
+            </>
+          )}
         </ScrollView>
 
       <BottomSheet visible={sheet !== null} onClose={closeSheet}>
@@ -1229,6 +1245,7 @@ const styles = StyleSheet.create({
   metaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, paddingBottom: 12 },
   metaActions: { flexDirection: 'row', gap: 8 },
   scrollContent: { paddingVertical: 4, gap: GROUP_GAP },
+  emptyScroll: { flexGrow: 1, justifyContent: 'center' },
   groupList: { gap: GROUP_GAP },
   card: { borderRadius: 20, borderWidth: CARD_BORDER, overflow: 'hidden' },
   draggingCard: { zIndex: 10 },
