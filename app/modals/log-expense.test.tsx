@@ -7,6 +7,7 @@ import { getCategories } from '@/src/api/categories'
 import { getGroups } from '@/src/api/groups'
 import { getCategoryMap, suggestCategoryLLM } from '@/src/api/categoryMap'
 import LogExpenseScreen from './log-expense'
+import { MIN_SPIN_MS, SETTLE_MS } from '@/src/features/log-expense/AutoCategoryPill'
 import { todayLocal } from '@/src/lib/date'
 import { useLogExpenseSubmitState, LogExpenseSubmitProvider } from '@/src/features/log-expense/SubmitContext'
 
@@ -319,10 +320,12 @@ it('shows the pill picking while the AI looks up a category, then lands on its a
   expect(getByText('Picking…')).toBeTruthy()
 
   await act(async () => { answer('Groceries'); await Promise.resolve() })
-  // The gate's minimum hold, then (once React has committed and scheduled
-  // them) the roll's settle steps.
-  await act(async () => { jest.advanceTimersByTime(450) })
-  await act(async () => { jest.advanceTimersByTime(1000) })
+  // The gate's minimum spin, then (once React has committed and scheduled
+  // them) the roll's settle steps: at least 2s of slot animation in all.
+  await act(async () => { jest.advanceTimersByTime(MIN_SPIN_MS) })
+  await act(async () => { jest.advanceTimersByTime(SETTLE_MS - 1) })
+  expect(getByText('Picking…')).toBeTruthy()
+  await act(async () => { jest.advanceTimersByTime(1) })
   expect(queryByText('Picking…')).toBeNull()
   expect(await findByText('Groceries')).toBeTruthy()
   expect(getByLabelText('Category: Groceries, picked for you')).toBeTruthy()
@@ -340,8 +343,8 @@ it('lands on Miscellaneous, not marked as picked for you, when the AI finds noth
   expect(getByText('Picking…')).toBeTruthy()
 
   await act(async () => { answer(''); await Promise.resolve() })
-  await act(async () => { jest.advanceTimersByTime(450) })
-  await act(async () => { jest.advanceTimersByTime(1000) })
+  await act(async () => { jest.advanceTimersByTime(MIN_SPIN_MS) })
+  await act(async () => { jest.advanceTimersByTime(SETTLE_MS) })
   expect(queryByText('Picking…')).toBeNull()
   expect(await findByText('Miscellaneous')).toBeTruthy()
   expect(getByLabelText('Category: Miscellaneous')).toBeTruthy()

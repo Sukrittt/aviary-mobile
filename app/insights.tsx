@@ -640,6 +640,7 @@ export default function InsightsScreen() {
                 baseline={savedBaseline}
                 selectedKey={insightMonth}
                 hideAmounts={hideAmounts}
+                loading={dataLoading}
                 onSelect={(key) =>
                   missingInView.includes(key)
                     ? router.push({ pathname: "/modals/edit-month-income", params: { month: key } })
@@ -670,6 +671,7 @@ export default function InsightsScreen() {
                 baseline={comparison.baseline ?? undefined}
                 selectedKey={insightMonth}
                 hideAmounts={hideAmounts}
+                loading={dataLoading}
                 onSelect={(key) => setInsightMonth(key)}
                 partialKey={month}
                 partialNote={`${monthAbbrev(month)}, ${Number(todayIso.slice(8, 10))} days in`}

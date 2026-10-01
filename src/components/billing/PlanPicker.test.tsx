@@ -1,7 +1,14 @@
 import { fireEvent } from '@testing-library/react-native'
+import * as Haptics from 'expo-haptics'
 import type { PurchasesPackage } from 'react-native-purchases'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { PlanPicker } from './PlanPicker'
+
+jest.mock('expo-haptics', () => ({
+  selectionAsync: jest.fn(() => Promise.resolve()),
+  impactAsync: jest.fn(() => Promise.resolve()),
+  ImpactFeedbackStyle: { Light: 'light' },
+}))
 
 function pkg(id: string, packageType: string, price: number, priceString: string, pricePerMonthString: string | null): PurchasesPackage {
   return { identifier: id, packageType, product: { price, priceString, pricePerMonthString } } as unknown as PurchasesPackage
@@ -34,4 +41,14 @@ it('shows prices during the trial but will not sell yet', () => {
 
   fireEvent.press(getByText('Available from 20 September 2026'))
   expect(onBuy).not.toHaveBeenCalled()
+})
+
+it('ticks a haptic only when the plan actually changes', () => {
+  jest.mocked(Haptics.selectionAsync).mockClear()
+  const { getByText } = renderWithProviders(<PlanPicker packages={packages} unlockDate={null} busy={false} onBuy={jest.fn()} />)
+
+  fireEvent.press(getByText('Yearly'))
+  expect(Haptics.selectionAsync).not.toHaveBeenCalled()
+  fireEvent.press(getByText('Monthly'))
+  expect(Haptics.selectionAsync).toHaveBeenCalledTimes(1)
 })

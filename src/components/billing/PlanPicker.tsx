@@ -1,12 +1,38 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { View, Text, Pressable, StyleSheet } from 'react-native'
+import * as Haptics from 'expo-haptics'
+import Animated, {
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withSequence,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated'
 import { Check } from 'lucide-react-native'
 import { PACKAGE_TYPE, type PurchasesPackage } from 'react-native-purchases'
-import { Button } from '@/src/components/ui/Button'
+import { Button, usePressSpring } from '@/src/components/ui/Button'
 import { Icon } from '@/src/components/shared/Icon'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { yearlySavingsPercent } from '@/src/lib/billingStatus'
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable)
+// Same spring as AutoCategoryPill's landing pop.
+const POP_SPRING = { mass: 0.7, damping: 12, stiffness: 160 }
+
+/** A subtle overshoot-and-settle whenever `key` changes to a value where `when` holds (not on mount). */
+function usePop(key: unknown, peak: number, when = true) {
+  const reduceMotion = useReducedMotion()
+  const scale = useSharedValue(1)
+  const first = useRef(true)
+  useEffect(() => {
+    if (first.current) { first.current = false; return }
+    if (reduceMotion || !when) return
+    scale.value = withSequence(withTiming(peak, { duration: 120 }), withSpring(1, POP_SPRING))
+  }, [key, peak, when, reduceMotion, scale])
+  return useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }))
+}
 
 /**
  * What a subscription gets you. There's no free tier to compare against, so
@@ -47,6 +73,12 @@ export function PlanPicker({
   const yearly = packages.find((p) => p.packageType === PACKAGE_TYPE.ANNUAL)
   const [selectedId, setSelectedId] = useState<string | undefined>((yearly ?? monthly)?.identifier)
   const selected = packages.find((p) => p.identifier === selectedId) ?? yearly ?? monthly
+  const subscribePop = usePop(selectedId, 1.04)
+  const choose = (id: string) => {
+    if (id === selectedId) return
+    Haptics.selectionAsync().catch(() => {})
+    setSelectedId(id)
+  }
   const savings = monthly && yearly ? yearlySavingsPercent(monthly.product.price, yearly.product.price) : null
 
   if (!selected) return null
@@ -68,7 +100,7 @@ export function PlanPicker({
             price={`${yearly.product.priceString}/year`}
             badge={savings ? `Save ${savings}%` : undefined}
             selected={selected === yearly}
-            onPress={() => setSelectedId(yearly.identifier)}
+            onPress={() => choose(yearly.identifier)}
           />
         ) : null}
         {monthly ? (
@@ -77,7 +109,7 @@ export function PlanPicker({
             detail="Billed monthly"
             price={`${monthly.product.priceString}/month`}
             selected={selected === monthly}
-            onPress={() => setSelectedId(monthly.identifier)}
+            onPress={() => choose(monthly.identifier)}
           />
         ) : null}
       </View>
@@ -94,6 +126,7 @@ export function PlanPicker({
       </View>
 
       <View style={{ gap: 8 }}>
+        <Animated.View style={subscribePop}>
         <Button
           label={
             unlockDate
@@ -105,6 +138,7 @@ export function PlanPicker({
           disabled={!!unlockDate || busy}
           onPress={() => onBuy(selected)}
         />
+        </Animated.View>
         <Text style={[styles.fine, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>
           {unlockDate
             ? "Your free trial runs until then. You won't be charged unless you subscribe."
@@ -131,14 +165,20 @@ function Option({
   onPress: () => void
 }) {
   const { tokens } = useTheme()
+  const press = usePressSpring(0.97)
+  const selectPop = usePop(selected, 1.03, selected)
   return (
-    <Pressable
+    <Animated.View style={selectPop}>
+    <AnimatedPressable
       onPress={onPress}
+      onPressIn={press.onPressIn}
+      onPressOut={press.onPressOut}
       accessibilityRole="radio"
       accessibilityState={{ selected }}
       style={[
         styles.option,
         { borderColor: selected ? tokens.accent : tokens.border, backgroundColor: selected ? tokens.accentSoft : tokens.inputBg },
+        press.style,
       ]}
     >
       <View style={[styles.radio, { borderColor: selected ? tokens.accent : tokens.borderStrong }]}>
@@ -156,7 +196,8 @@ function Option({
         <Text style={[styles.optionDetail, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>{detail}</Text>
       </View>
       <Text style={[styles.optionPrice, { color: tokens.text, fontFamily: fontFamily.bodyExtraBold }]}>{price}</Text>
-    </Pressable>
+    </AnimatedPressable>
+    </Animated.View>
   )
 }
 

@@ -37,6 +37,8 @@ interface Props {
   selectedKey?: string | null
   height?: number
   hideAmounts?: boolean
+  /** Data is still being fetched: hold the chart's space without the empty illustration. */
+  loading?: boolean
   /** Tapping a bar moves the screen's selected month. */
   onSelect?: (key: string) => void
   /** Month key still in progress. Its bar stays at full opacity regardless of
@@ -162,6 +164,7 @@ export function TrendChart({
   selectedKey,
   height = 220,
   hideAmounts = false,
+  loading = false,
   onSelect,
   partialKey,
   partialNote,
@@ -177,8 +180,10 @@ export function TrendChart({
   const signature = data.map((d) => `${d.date}:${d.value}`).join('|')
 
   if (data.length === 0) {
+    if (loading) return <View style={{ height }} />
     return (
       <EmptyState
+        testID="trend-empty"
         compact
         subject="insights"
         title={emptyNote}

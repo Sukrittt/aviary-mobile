@@ -150,16 +150,6 @@
           ]
         }
       ],
-      [
-        "./plugins/withWidgetPreviewThemes",
-        {
-          "widgets": {
-            "Envelope": "./assets/widgets/envelope_preview_night.png",
-            "EnvelopeBar": "./assets/widgets/envelopebar_preview_night.png",
-            "EnvelopeMini": "./assets/widgets/envelopemini_preview_night.png"
-          }
-        }
-      ],
       "expo-localization",
       [
         "expo-build-properties",

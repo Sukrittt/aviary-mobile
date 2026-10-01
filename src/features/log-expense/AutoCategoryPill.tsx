@@ -26,6 +26,8 @@ import { fontFamily } from '@/src/theme/fonts'
 export const PICKING_LABEL = 'Picking…'
 /** How long the reel takes to ease out onto the pick. */
 export const SETTLE_MS = 1000
+/** Minimum time the reel spins before settling, so spin + settle lasts at least 2s. */
+export const MIN_SPIN_MS = 2000 - SETTLE_MS
 // Milliseconds per emoji at full spin.
 const SPIN_STEP_MS = 85
 // Easing.back(s) leaves t=0 at (s + 3)x the average speed. Landing roughly

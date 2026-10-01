@@ -1,6 +1,6 @@
 import { ExpenseNoticeScreen } from '@/src/features/log-expense/ExpenseNoticeScreen'
 import { ExpenseConflictReview } from '@/src/features/log-expense/ExpenseConflictReview'
-import { AutoCategoryPill, PILL_MAX_WIDTH } from '@/src/features/log-expense/AutoCategoryPill'
+import { AutoCategoryPill, MIN_SPIN_MS, PILL_MAX_WIDTH } from '@/src/features/log-expense/AutoCategoryPill'
 import { createThinkingGate, type ThinkingGate } from '@/src/lib/thinkingGate'
 import { ExpenseWriteError, expenseChanges, expenseDraft, rebaseExpenseDraft } from '@/src/lib/expenseConflict'
 import type { ExpenseRow } from '@/src/types'
@@ -170,7 +170,7 @@ export default function LogExpenseScreen() {
   // pending long enough to be worth showing (see thinkingGate.ts).
   const [suggesting, setSuggesting] = useState(false);
   const gateRef = useRef<ThinkingGate | null>(null);
-  if (!gateRef.current) gateRef.current = createThinkingGate(setSuggesting);
+  if (!gateRef.current) gateRef.current = createThinkingGate(setSuggesting, { minVisibleMs: MIN_SPIN_MS });
   useEffect(() => () => gateRef.current?.cancel(), []);
 
   // A manual category choice wins for the current description. For a new

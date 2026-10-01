@@ -1,7 +1,6 @@
 // Step 2 of `npm run widget-previews`: draws the trees trees.preview.tsx
 // dumped as HTML and screenshots them into assets/widgets/, the images the
-// launcher's widget picker shows (wired up in app.json and
-// plugins/withWidgetPreviewThemes.js).
+// launcher's widget picker shows (wired up in app.json).
 //
 // It mirrors react-native-android-widget's own layout closely (the library
 // draws real Android Views into a bitmap, and this is those Views as flexbox),
@@ -130,14 +129,14 @@ const browser = await chromium.launch(process.env.PW_CHROMIUM ? { executablePath
 const ctx = await browser.newContext({ deviceScaleFactor: 3 })
 const tab = await ctx.newPage()
 
-// Picker previews: the on-track state, light in drawable, dark in drawable-night.
+// Picker previews: the on-track state, light only (the app defaults to light).
 const outDir = path.join(root, 'assets', 'widgets')
 fs.mkdirSync(outDir, { recursive: true })
-for (const t of trees.filter((t) => t.mood === 'ok')) {
+for (const t of trees.filter((t) => t.mood === 'ok' && t.scheme === 'light')) {
   await tab.setViewportSize({ width: t.width, height: t.height })
   await tab.setContent(page(t.width, t.height, `<div id="cell">${render(t.tree, 'column')}</div>`))
   await tab.evaluate(() => document.fonts.ready)
-  const file = path.join(outDir, `${t.name}_preview${t.scheme === 'dark' ? '_night' : ''}.png`)
+  const file = path.join(outDir, `${t.name}_preview.png`)
   await tab.locator('#cell').screenshot({ path: file, omitBackground: true })
   console.log('wrote', path.relative(root, file))
 }
