@@ -4,6 +4,7 @@ import { View, Text, Pressable, StyleSheet } from 'react-native'
 import { captureRef } from 'react-native-view-shot'
 import * as Sharing from 'expo-sharing'
 import type { WrappedData } from '@/src/api/wrapped'
+import { track } from '@/src/lib/analytics'
 
 import { fontFamily } from '@/src/theme/fonts'
 import { WrappedCard, WRise } from './WrappedCard'
@@ -42,6 +43,8 @@ export function ShareCard({
       const uri = await captureRef(captureTarget, { format: 'png', quality: 1 })
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(uri, { mimeType: 'image/png' })
+        // The share sheet opened. Whether it was then sent anywhere, Android won't say.
+        track('wrapped_shared')
       }
     } catch {
       // Silently ignore — a failed share/capture isn't worth surfacing an error UI over.

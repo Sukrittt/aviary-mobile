@@ -38,7 +38,12 @@ export async function widgetTaskHandler(props: WidgetTaskHandlerProps) {
         case "EnvelopeBar":
           props.renderWidget(
             variants(preference, (tokens, scheme) => (
-              <EnvelopeBarWidget {...data} tokens={tokens} scheme={scheme} />
+              <EnvelopeBarWidget
+                {...data}
+                tokens={tokens}
+                scheme={scheme}
+                height={height}
+              />
             )),
           );
           break;

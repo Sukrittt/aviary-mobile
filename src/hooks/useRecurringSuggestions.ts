@@ -5,6 +5,7 @@ import {
   scanRecurringSuggestions,
 } from '@/src/api/recurringSuggestions'
 import type { RecurringScan, ScanMonths } from '@/src/types/recurringSuggestions'
+import { track } from '@/src/lib/analytics'
 
 export const recurringSuggestionsKey = ['recurring-suggestions'] as const
 
@@ -35,12 +36,18 @@ export function useDismissRecurringSuggestion() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: dismissRecurringSuggestion,
-    onSuccess: (_, id) => dropSuggestion(qc, id),
+    onSuccess: (_, id) => {
+      track('recurring_suggestion_dismissed')
+      dropSuggestion(qc, id)
+    },
   })
 }
 
 /** Called after a suggestion turns into a real recurring expense (modals/recurring-expense.tsx), so it drops out of the list without another scan. */
 export function useAcceptRecurringSuggestion() {
   const qc = useQueryClient()
-  return (id: string) => dropSuggestion(qc, id)
+  return (id: string) => {
+    track('recurring_suggestion_accepted')
+    dropSuggestion(qc, id)
+  }
 }

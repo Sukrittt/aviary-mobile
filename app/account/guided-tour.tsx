@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { BackHandler, View, Text, Pressable, ScrollView, StyleSheet } from 'react-native'
 import { useFocusEffect, useLocalSearchParams, useRouter, type Href } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -12,6 +12,7 @@ import { PopIn } from '@/src/components/shared/PopIn'
 import { useTourProgress } from '@/src/hooks/useTourProgress'
 import { StepDot } from '@/src/components/onboarding/StepDot'
 import { useTourContent } from '@/src/components/tour/useTourContent'
+import { track } from '@/src/lib/analytics'
 
 import { AssignDemo } from '@/src/components/tour/demos/AssignDemo'
 import { LogDemo } from '@/src/components/tour/demos/LogDemo'
@@ -38,10 +39,15 @@ export default function GuidedTourScreen() {
   // trial notice shows once, right before the app's first real screen.
   // Reopening the tour later from More has no param, so it exits straight back.
   const { fresh } = useLocalSearchParams<{ fresh?: string }>()
-  const exitTour = useCallback(
-    () => router.replace(fresh ? '/account/trial-notice' : '/(tabs)'),
-    [router, fresh],
-  )
+  // Read by exitTour to tell a skip from leaving the finished tour, without
+  // making the back handler below re-register on every chapter change.
+  const progress = useRef({ finished: false, chaptersDone: 0 })
+  const exitTour = useCallback(() => {
+    if (!progress.current.finished) {
+      track('tour_skipped', { fresh: !!fresh, chapters_done: progress.current.chaptersDone })
+    }
+    router.replace(fresh ? '/account/trial-notice' : '/(tabs)')
+  }, [router, fresh])
 
   // After setup this is the root screen, so Android back must also have an
   // explicit destination. Only intercept it while the tour itself is focused.
@@ -58,6 +64,20 @@ export default function GuidedTourScreen() {
   const [chapter, setChapter] = useState(0)
 
   const doneCount = done.size
+  useEffect(() => {
+    progress.current = { finished: view === 'done', chaptersDone: doneCount }
+  }, [view, doneCount])
+
+  useEffect(() => {
+    track('tour_started', { fresh: !!fresh })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per visit
+  }, [])
+
+  useEffect(() => {
+    if (view === 'chapter') track('tour_step_viewed', { chapter })
+    if (view === 'done') track('tour_completed', { fresh: !!fresh })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fresh is fixed for the visit
+  }, [view, chapter])
   const firstOpen = CHAPTERS.findIndex((_, i) => !done.has(i))
   const current = CHAPTERS[chapter]
   const isLast = chapter === CHAPTERS.length - 1

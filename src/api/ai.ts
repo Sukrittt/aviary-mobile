@@ -74,7 +74,7 @@ export async function fetchBrief(): Promise<Brief> {
   const resp = await apiFetch('/api/ai/brief')
   // Not `notify`: the brief loads on its own, so a spent allowance is a quiet
   // note on the card, not a screen the user never asked for.
-  await rejectIfAllowanceExceeded(resp, false)
+  await rejectIfAllowanceExceeded(resp, false, 'brief')
   if (!resp.ok) {
     const detail = await resp.json().catch(() => ({}))
     throw new Error(detail.error ?? `Failed to load brief: ${resp.status}`)
@@ -116,7 +116,7 @@ export async function streamChat(
   // separately route a revoked session into the same sign-in bounce.
   if (generation !== sessionGeneration()) throw new SessionChangedError()
   await handleUnauthorized(resp, token)
-  await rejectIfAllowanceExceeded(resp, true)
+  await rejectIfAllowanceExceeded(resp, true, 'chat')
 
   if (!resp.ok) {
     const detail = await resp.json().catch(() => ({}))

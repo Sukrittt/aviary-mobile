@@ -51,15 +51,15 @@ it('shows the offline screen instead of stale subscriptions', () => {
 
 it('opens the add-subscription modal with no service, so it starts blank', () => {
   mockUseSubscriptions.mockReturnValue({ data: [], isLoading: false })
-  const { getByText } = renderWithProviders(<SubscriptionsScreen />)
-  fireEvent.press(getByText('Add'))
+  const { getByRole } = renderWithProviders(<SubscriptionsScreen />)
+  fireEvent.press(getByRole('button', { name: 'Add subscription' }))
   expect(mockPush).toHaveBeenCalledWith('/modals/subscription')
 })
 
 it('opens the subscription analyzer from the subscriptions screen', () => {
   mockUseSubscriptions.mockReturnValue({ data: [], isLoading: false })
-  const { getByText } = renderWithProviders(<SubscriptionsScreen />)
-  fireEvent.press(getByText('Find subscriptions'))
+  const { getByRole } = renderWithProviders(<SubscriptionsScreen />)
+  fireEvent.press(getByRole('button', { name: 'Find subscriptions' }))
   expect(mockPush).toHaveBeenCalledWith({ pathname: '/account/recurring-suggestions', params: { kind: 'subscription' } })
 })
 
@@ -67,4 +67,18 @@ it('renders the live subscriptions list from the shared panel', () => {
   mockUseSubscriptions.mockReturnValue({ data: [sub({})], isLoading: false })
   const { getByText } = renderWithProviders(<SubscriptionsScreen />)
   expect(getByText('Netflix')).toBeTruthy()
+})
+
+it('goes back when the back button is pressed', () => {
+  mockUseSubscriptions.mockReturnValue({ data: [], isLoading: false })
+  const { getByRole } = renderWithProviders(<SubscriptionsScreen />)
+  fireEvent.press(getByRole('button', { name: 'Go back' }))
+  expect(mockBack).toHaveBeenCalledTimes(1)
+})
+
+it('keeps the find card subtitle for screen readers as a hint', () => {
+  mockUseSubscriptions.mockReturnValue({ data: [], isLoading: false })
+  const { getByRole } = renderWithProviders(<SubscriptionsScreen />)
+  expect(getByRole('button', { name: 'Find subscriptions' }).props.accessibilityHint)
+    .toBe('Scan past expenses for services you already pay for')
 })

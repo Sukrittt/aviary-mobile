@@ -116,13 +116,29 @@ export default function WidgetPreviewScreen() {
                 <PreviewRow label="Aviary Bar · 4x1">
                   <WidgetPreview
                     width={250}
-                    height={40}
+                    height={72}
                     highlightClickableAreas
-                    renderWidget={() => (
+                    renderWidget={({ height }) => (
                       <EnvelopeBarWidget
                         {...data}
                         tokens={tokens}
                         scheme={scheme}
+                        height={height}
+                      />
+                    )}
+                  />
+                </PreviewRow>
+                <PreviewRow label="Aviary Bar · 4x1 floor">
+                  <WidgetPreview
+                    width={250}
+                    height={40}
+                    highlightClickableAreas
+                    renderWidget={({ height }) => (
+                      <EnvelopeBarWidget
+                        {...data}
+                        tokens={tokens}
+                        scheme={scheme}
+                        height={height}
                       />
                     )}
                   />

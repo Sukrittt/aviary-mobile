@@ -107,6 +107,7 @@
             {
               "name": "Envelope",
               "label": "Aviary",
+              "previewImage": "./assets/widgets/envelope_preview.png",
               "minWidth": "250dp",
               "minHeight": "250dp",
               "targetCellWidth": 4,
@@ -119,6 +120,7 @@
             {
               "name": "EnvelopeBar",
               "label": "Aviary (bar)",
+              "previewImage": "./assets/widgets/envelopebar_preview.png",
               "minWidth": "250dp",
               "minHeight": "40dp",
               "targetCellWidth": 4,
@@ -130,6 +132,7 @@
             {
               "name": "EnvelopeMini",
               "label": "Aviary (mini)",
+              "previewImage": "./assets/widgets/envelopemini_preview.png",
               "minWidth": "110dp",
               "minHeight": "110dp",
               "targetCellWidth": 2,
@@ -139,6 +142,16 @@
               "updatePeriodMillis": 1800000
             }
           ]
+        }
+      ],
+      [
+        "./plugins/withWidgetPreviewThemes",
+        {
+          "widgets": {
+            "Envelope": "./assets/widgets/envelope_preview_night.png",
+            "EnvelopeBar": "./assets/widgets/envelopebar_preview_night.png",
+            "EnvelopeMini": "./assets/widgets/envelopemini_preview_night.png"
+          }
         }
       ],
       "expo-localization",

@@ -15,6 +15,7 @@ import { Numpad } from '@/src/components/ui/Numpad'
 import { ResendTimer } from '@/src/components/auth/ResendTimer'
 import { Icon } from '@/src/components/shared/Icon'
 import { userKey } from '@/src/hooks/useUser'
+import { track } from '@/src/lib/analytics'
 
 const CHECK_PATH_LENGTH = 19.8
 const AnimatedPath = Animated.createAnimatedComponent(Path)
@@ -126,9 +127,11 @@ export default function CodeScreen() {
       if (cancelledRef.current) return
       setPending(false)
       if (ok) {
+        if (!isChangeEmail) track('sign_in_completed', { method: 'email' })
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {})
         setDone(true)
       } else {
+        if (!isChangeEmail) track('sign_in_failed', { method: 'email', reason: 'wrong_code' })
         setError('Wrong or expired code.')
         setCode('')
         triggerShake()

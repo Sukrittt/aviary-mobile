@@ -18,6 +18,7 @@ import { Image,Pressable,RefreshControl,ScrollView,StyleSheet,Text,TextInput,Vie
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRefresh } from '@/src/hooks/useRefresh'
 import { useBillingStatus } from '@/src/hooks/useBillingStatus'
+import { flushAnalytics, track } from '@/src/lib/analytics'
 import { isWebPlan } from '@/src/lib/billingStatus'
 
 function sessionLabel(userAgent: string | null, authMethod: string): string {
@@ -131,6 +132,10 @@ export default function SecurityScreen() {
     setDeleting(true)
     try {
       await deleteAccount(deleteEmailDraft.trim())
+      // Flushed before clearAccess, whose logout hook resets PostHog: this is
+      // the last event this person will ever send.
+      track('account_deleted')
+      await flushAnalytics()
       await clearAccess()
       router.replace('/(auth)/welcome')
     } catch {

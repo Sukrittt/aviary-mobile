@@ -6,6 +6,10 @@ import {
   headerRightLabel,
   weeklyTrend,
   layoutFor,
+  widgetMood,
+  heroFontSize,
+  withPerDay,
+  type WidgetData,
 } from "./data";
 import { variants } from "./variants";
 import { lightTokens, darkTokens } from "@/src/theme/tokens";
@@ -393,3 +397,121 @@ it('carries the selected currency into headless widget snapshots', () => {
   expect(aed.rows.find(r => r.name === 'Food')?.available).toBe('AED 800')
   expect(aed.totalLeft).toBe(usd.totalLeft.replace('$', 'AED '))
 })
+
+describe("toWidgetData budget pace", () => {
+  it("reports the share of the month's budget still left", () => {
+    // 4 envelopes at 1000 (Unbudgeted has 0 assigned): 4000 budgeted, 3900 left.
+    const state = stateWithSpends({ "🍔 Food": 100 });
+    const data = toWidgetData(state, [], 11, "2026-08-05");
+    expect(data.leftPct).toBeCloseTo(3900 / 4000);
+  });
+
+  it("clamps leftPct at zero once the month is overspent", () => {
+    const state = stateWithSpends({
+      "🍔 Food": 1000,
+      "🚗 Transport": 1000,
+      "🛒 Groceries": 1000,
+      "🎉 Fun": 1500,
+    });
+    const data = toWidgetData(state, [], 11, "2026-08-05");
+    expect(data.leftPct).toBe(0);
+    expect(data.overspent).toBe(true);
+  });
+
+  it("has no leftPct when nothing is budgeted", () => {
+    const state = computeEnvelopeState([], [], "2026-08", categories, ["Living"]);
+    const data = toWidgetData(state, [], 11, "2026-08-05");
+    expect(data.leftPct).toBeNull();
+    expect(data.overspent).toBe(false);
+  });
+
+  it("counts today in the share of the month still to go", () => {
+    // 5 Aug in a 31-day month with 26 days after today: 27 of 31 days to go.
+    const state = stateWithSpends({});
+    const data = toWidgetData(state, [], 26, "2026-08-05");
+    expect(data.monthPct).toBeCloseTo(27 / 31);
+  });
+
+  it("splits what's left across today and the days after it", () => {
+    // 3900 left over today + 12 more days = 300 a day.
+    const state = stateWithSpends({ "🍔 Food": 100 });
+    const data = toWidgetData(state, [], 12, "2026-08-05");
+    expect(data.perDay).toBe("₹300");
+  });
+
+  it("gives a zero per-day allowance when overspent", () => {
+    const state = stateWithSpends({ "🍔 Food": 5000 });
+    const data = toWidgetData(state, [], 12, "2026-08-05");
+    expect(data.perDay).toBe("₹0");
+  });
+});
+
+describe("widgetMood", () => {
+  const NOW = Date.parse("2026-08-05T12:00:00Z");
+  const base: Pick<WidgetData, "leftPct" | "monthPct" | "overspent" | "updatedAt"> = {
+    leftPct: 0.5,
+    monthPct: 0.4,
+    overspent: false,
+    updatedAt: NOW,
+  };
+
+  it("is ok while the budget left keeps pace with the month left", () => {
+    expect(widgetMood(base, NOW)).toBe("ok");
+  });
+
+  it("stays ok a little behind pace", () => {
+    expect(widgetMood({ ...base, leftPct: 0.32 }, NOW)).toBe("ok");
+  });
+
+  it("is tight once the budget left trails the month left by over 10 points", () => {
+    expect(widgetMood({ ...base, leftPct: 0.25 }, NOW)).toBe("tight");
+  });
+
+  it("is over when the month is overspent", () => {
+    expect(widgetMood({ ...base, leftPct: 0, overspent: true }, NOW)).toBe("over");
+  });
+
+  it("is ok with nothing budgeted", () => {
+    expect(widgetMood({ ...base, leftPct: null }, NOW)).toBe("ok");
+  });
+
+  it("dozes once the snapshot is over a day old, whatever the numbers say", () => {
+    const old = NOW - 2 * 86_400_000;
+    expect(widgetMood({ ...base, overspent: true, updatedAt: old }, NOW)).toBe("stale");
+  });
+});
+
+describe("withPerDay", () => {
+  const NOW = Date.parse("2026-08-05T12:00:00Z");
+  const base = { daysLeft: 12, updatedAt: NOW, perDay: "₹300", overspent: false };
+
+  it("adds the per-day allowance to a fresh days-left label", () => {
+    expect(withPerDay(base, NOW)).toBe("12 days left · ₹300/day");
+  });
+
+  it("drops the allowance once stale, so an old number isn't passed off as today's", () => {
+    expect(withPerDay({ ...base, updatedAt: NOW - 2 * 86_400_000 }, NOW)).toBe("Updated 2 days ago");
+  });
+
+  it("drops the allowance when overspent", () => {
+    expect(withPerDay({ ...base, overspent: true }, NOW)).toBe("12 days left");
+  });
+
+  it("drops the allowance from a snapshot written before it existed", () => {
+    expect(withPerDay({ ...base, perDay: "" }, NOW)).toBe("12 days left");
+  });
+});
+
+describe("heroFontSize", () => {
+  it("keeps the full size for a short amount", () => {
+    expect(heroFontSize("₹7,340", 24)).toBe(24);
+  });
+
+  it("steps down for a lakh-sized amount so it never truncates", () => {
+    expect(heroFontSize("₹1,23,456", 24)).toBeLessThan(24);
+  });
+
+  it("steps down further for a very long amount", () => {
+    expect(heroFontSize("−₹12,34,567", 24)).toBeLessThan(heroFontSize("₹1,23,456", 24));
+  });
+});

@@ -1,12 +1,11 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { AccessibilityInfo, Animated, Easing, StyleSheet, type StyleProp, type ViewStyle } from 'react-native'
 import Svg, { Circle, Path, Rect } from 'react-native-svg'
+import { BIRD_PATH } from './birdPath'
 
 const BIRD_ORIGIN: [string, string, number] = ['50%', `${(386 / 512) * 100}%`, 0]
 const BAR_ORIGIN: [string, string, number] = ['50%', `${(392 / 512) * 100}%`, 0]
-export const BIRD_PATH =
-  'M 352 212 L 404 248 L 352 284 A 110 110 0 0 1 146 288 L 86 164 L 162 178 A 110 110 0 0 1 352 212 Z ' +
-  'M 287 216 A 19 19 0 1 1 325 216 A 19 19 0 1 1 287 216 Z'
+export { BIRD_PATH }
 const MOTES = [
   { cx: 238, cy: 374, r: 9, duration: 620, delay: 980, dx: -58, dy: -46, peak: 0.95 },
   { cx: 276, cy: 374, r: 7, duration: 660, delay: 1000, dx: 52, dy: -58, peak: 0.95 },

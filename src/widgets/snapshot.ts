@@ -43,6 +43,12 @@ export async function readSnapshot(): Promise<WidgetData | null> {
       chips: parsed.chips ?? [],
       today: parsed.today ?? [],
       weeklyTrend: parsed.weeklyTrend ?? null,
+      // Pace fields arrived with the bird-and-ring redesign. Without them the
+      // ring draws empty and the bird stays content until the app reopens.
+      leftPct: parsed.leftPct ?? null,
+      monthPct: parsed.monthPct ?? 0,
+      perDay: parsed.perDay ?? '',
+      overspent: parsed.overspent ?? false,
     }
   } catch {
     return null

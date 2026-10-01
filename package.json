@@ -71,7 +71,8 @@
     "typecheck": "tsc --noEmit",
     "test": "jest",
     "build:android": "eas build --platform android --profile production",
-    "submit:android": "eas submit --platform android --profile production"
+    "submit:android": "eas submit --platform android --profile production",
+    "widget-previews": "jest --testMatch \"<rootDir>/scripts/widget-previews/trees.preview.tsx\" && node scripts/widget-previews/shoot.mjs"
   },
   "license": "AGPL-3.0-only",
   "private": true

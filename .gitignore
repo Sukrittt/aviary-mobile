@@ -57,3 +57,9 @@ yarn-error.*
 # build logs
 build.log
 *.keystore
+
+# Planning docs and business decisions: keep them on disk, out of the public repo.
+/plans/
+/docs/*-plan.md
+/docs/play-store.md
+scripts/widget-previews/.out/

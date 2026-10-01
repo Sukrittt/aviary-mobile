@@ -5,10 +5,13 @@ import * as AuthSession from 'expo-auth-session'
 import * as WebBrowser from 'expo-web-browser'
 import { CLIENT_ID, DISCOVERY, REDIRECT_URI, exchangeCode } from './workos'
 import { persistSession } from './accessMode'
+import { track } from '../lib/analytics'
 
 // Closes the auth browser tab once the redirect lands (no-op on native, needed
 // for web builds).
 WebBrowser.maybeCompleteAuthSession()
+
+const SIGN_IN_FAILED = "Google sign-in didn't work. Try again."
 
 export interface SignInState {
   /** Opens Google's consent screen directly (no AuthKit picker page). */
@@ -44,21 +47,26 @@ export function useSignIn(): SignInState {
     if (!response) return
 
     if (response.type === 'error') {
+      track('sign_in_failed', { method: 'google', reason: 'provider_error' })
       // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing to the OAuth browser flow's async result, an external system
       setPending(false)
-      setError(response.params?.error_description ?? 'Sign-in failed. Try again.')
+      // Never surface WorkOS/Google's raw error_description to the user.
+      setError(SIGN_IN_FAILED)
       return
     }
     if (response.type !== 'success') {
-      // 'cancel' / 'dismiss' — the user backed out; not an error.
+      // 'cancel' / 'dismiss' — the user backed out; not an error, but still a
+      // drop-off the funnel should see.
+      track('sign_in_failed', { method: 'google', reason: 'cancelled' })
       setPending(false)
       return
     }
 
     const verifier = request?.codeVerifier
     if (!verifier) {
+      track('sign_in_failed', { method: 'google', reason: 'missing_verifier' })
       setPending(false)
-      setError('Sign-in failed. Try again.')
+      setError(SIGN_IN_FAILED)
       return
     }
 
@@ -67,10 +75,13 @@ export function useSignIn(): SignInState {
       .then(async (tokens) => {
         if (cancelled) return
         await persistSession(tokens)
+        // After persistSession, so the event lands on the identified person.
+        track('sign_in_completed', { method: 'google' })
         setDone(true)
       })
       .catch(() => {
-        if (!cancelled) setError('Could not complete sign-in. Check your connection.')
+        if (!cancelled) track('sign_in_failed', { method: 'google', reason: 'token_exchange_failed' })
+        if (!cancelled) setError("Couldn't finish signing you in. Check your connection and try again.")
       })
       .finally(() => {
         if (!cancelled) setPending(false)
@@ -84,9 +95,11 @@ export function useSignIn(): SignInState {
 
   const signIn = useCallback(() => {
     if (!CLIENT_ID) {
-      setError('EXPO_PUBLIC_WORKOS_CLIENT_ID is not set')
+      // Build misconfiguration (EXPO_PUBLIC_WORKOS_CLIENT_ID unset); don't show the env var name.
+      setError("Google sign-in isn't available right now. Try email instead.")
       return
     }
+    track('sign_in_started', { method: 'google' })
     setError(null)
     setPending(true)
     void promptAsync()

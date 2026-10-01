@@ -35,7 +35,7 @@ import { BrainThinking } from '@/src/components/brain/BrainThinking'
 import { BirdLandingMark } from '@/src/components/splash/BirdLandingMark'
 import { PopIn } from '@/src/components/shared/PopIn'
 import { streamChat, getChatSession, type ChatMessage } from '@/src/api/ai'
-import { track } from '@/src/lib/analytics'
+import { startTimer, track } from '@/src/lib/analytics'
 import { OfflineScreen } from '@/src/components/shared/OfflineScreen'
 import { useOnline } from '@/src/lib/netStatus'
 import { useQuery } from '@tanstack/react-query'
@@ -65,6 +65,9 @@ export default function MoneyBrainModal() {
   // staleTime 0: the kill switch is checked fresh on open; a failed brief re-checks it below.
   const statusQ = useQuery({ queryKey: ['system-status'], queryFn: getSystemStatus, staleTime: 0, retry: false })
   const refetchStatus = statusQ.refetch
+  useEffect(() => {
+    track('money_brain_opened')
+  }, [])
   useEffect(() => {
     if (briefQ.isError) void refetchStatus()
   }, [briefQ.isError, refetchStatus])
@@ -149,6 +152,9 @@ export default function MoneyBrainModal() {
 
     const controller = new AbortController()
     abortRef.current = controller
+    const elapsed = startTimer()
+    const answered = (ok: boolean, reason?: string) =>
+      track('money_brain_answered', { ok, seconds: elapsed(), ...(reason ? { reason } : {}) })
 
     streamChat(
       sessionId,
@@ -163,8 +169,13 @@ export default function MoneyBrainModal() {
       },
       controller.signal,
     )
-      .then((resolvedSessionId) => setSessionId(resolvedSessionId))
+      .then((resolvedSessionId) => {
+        answered(true)
+        setSessionId(resolvedSessionId)
+      })
       .catch((err) => {
+        // A new chat aborts the old stream on purpose; that's not a failed answer.
+        if (!controller.signal.aborted) answered(false, isAiAllowanceError(err) ? 'ai_allowance' : 'error')
         setMessages((prev) => {
           const copy = [...prev]
           copy[copy.length - 1] = {

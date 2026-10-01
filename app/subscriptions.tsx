@@ -28,6 +28,8 @@ export default function SubscriptionsScreen() {
           onPress={() => router.back()}
           hitSlop={12}
           style={[styles.backButton, { backgroundColor: tokens.card, borderColor: tokens.border }]}
+          accessibilityRole="button"
+          accessibilityLabel="Go back"
         >
           <Icon icon={ArrowLeft} size={20} color={tokens.text} />
         </Pressable>
@@ -35,6 +37,8 @@ export default function SubscriptionsScreen() {
         <Pressable
           onPress={() => router.push('/modals/subscription')}
           style={[styles.addButton, { backgroundColor: tokens.card, borderColor: tokens.border }]}
+          accessibilityRole="button"
+          accessibilityLabel="Add subscription"
         >
           <Icon icon={Plus} size={16} color={tokens.text} />
           <Text style={[styles.addText, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>Add</Text>
@@ -48,6 +52,9 @@ export default function SubscriptionsScreen() {
         <Pressable
           onPress={() => router.push({ pathname: '/account/recurring-suggestions', params: { kind: 'subscription' } })}
           style={[styles.findButton, { backgroundColor: tokens.card, borderColor: tokens.border }]}
+          accessibilityRole="button"
+          accessibilityLabel="Find subscriptions"
+          accessibilityHint="Scan past expenses for services you already pay for"
         >
           <Icon icon={Search} size={17} color={tokens.accent} />
           <View style={{ flex: 1 }}>
