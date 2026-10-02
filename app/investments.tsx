@@ -12,10 +12,12 @@ import { useTheme } from '@/src/theme/ThemeProvider'
 import { usePrivacy } from '@/src/context/PrivacyContext'
 import { fontFamily } from '@/src/theme/fonts'
 import { Icon } from '@/src/components/shared/Icon'
-import { formatDateTime, formatOrdinalDate } from '@/src/lib/format'
+import { formatDateShort, formatDateTime, formatOrdinalDate } from '@/src/lib/format'
 import { useHoldings, useDeleteHolding } from '@/src/hooks/useHoldings'
 import { useHoldingEvents } from '@/src/hooks/useHoldingEvents'
 import { AllocationBar, type AllocationSegment } from '@/src/components/charts/AllocationBar'
+import { LineChart } from '@/src/components/charts/LineChart'
+import { netWorthHistory } from '@/src/lib/netWorthHistory'
 import { CHART_COLOR_CYCLE } from '@/src/theme/chartColors'
 import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
 import { EmptyState } from '@/src/components/shared/EmptyState'
@@ -116,6 +118,12 @@ export default function InvestmentsScreen() {
     [holdings],
   )
 
+  const history = useMemo(
+    () => netWorthHistory(holdings, events).map((p) => ({ x: p.t, y: p.value })),
+    [holdings, events],
+  )
+  const historyDelta = history.length > 1 ? history[history.length - 1].y - history[0].y : null
+
   const segments: AllocationSegment[] = useMemo(() => {
     const byType = new Map<string, number>()
     for (const h of holdings) {
@@ -209,6 +217,20 @@ export default function InvestmentsScreen() {
             </Text>
             <AmountText value={netWorth} size={styles.nwAmount.fontSize} weight="displayBold" animate />
           </View>
+
+          {historyDelta != null && (
+            <View style={styles.trendBlock}>
+              <Text style={[styles.trend, { color: historyDelta < 0 ? tokens.coral : tokens.mint, fontFamily: fontFamily.bodyBold }]}>
+                {historyDelta < 0 ? '-' : '+'}
+                {formatCurrency(Math.abs(historyDelta), hideAmounts)} since {formatDateShort(new Date(history[0].x).toISOString())}
+              </Text>
+              <LineChart
+                data={history}
+                formatX={(x) => formatDateShort(new Date(x).toISOString())}
+                formatY={(y) => formatCurrency(y, hideAmounts)}
+              />
+            </View>
+          )}
 
           {segments.length > 0 && (
             <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
@@ -385,6 +407,8 @@ const styles = StyleSheet.create({
   netWorthBlock: { gap: 4 },
   nwLabel: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5 },
   nwAmount: { fontSize: 34 },
+  trendBlock: { gap: 10, marginTop: -8 },
+  trend: { fontSize: 13 },
   card: { borderWidth: 1, borderRadius: 16, padding: 16 },
   sectionTitle: { fontSize: 16, marginTop: 4 },
   holdingRow: {
