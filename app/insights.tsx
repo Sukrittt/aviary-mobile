@@ -568,7 +568,7 @@ export default function InsightsScreen() {
               }}
             >
               {showSaved && savings.since && savings.since < month
-                ? `${formatCurrency(savings.total, hideAmounts)} saved since ${monthLabel(savings.since)}`
+                ? `${formatCurrency(savings.total, hideAmounts)} saved since ${monthAbbrev(savings.since)} ${savings.since.slice(0, 4)}`
                 : "Last 12 months"}
             </Text>
           </View>
