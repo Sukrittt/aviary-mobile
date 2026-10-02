@@ -10,6 +10,16 @@ export function useUser() {
   return useQuery({ queryKey: userKey, queryFn: getUser, staleTime: 30_000 })
 }
 
+/**
+ * Cache-only read of the profile, for UI that mounts before sign-in and so
+ * must never fetch it. Still passes queryFn: observers share one query, and
+ * whichever rendered last sets its options, so a missing queryFn here broke
+ * every refetch of ['user'] (pull-to-refresh, invalidation) with "No queryFn".
+ */
+export function useCachedUser(): UserProfile | undefined {
+  return useQuery({ queryKey: userKey, queryFn: getUser, enabled: false }).data
+}
+
 export function useUpdateUser() {
   const qc = useQueryClient()
   return useMutation({

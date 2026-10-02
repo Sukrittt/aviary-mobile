@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { renderHook, waitFor } from '@testing-library/react-native'
 import { completeGuidedTour, getUser, updateUser, restoreAccount, type UserProfile } from '@/src/api/account'
-import { useCompleteGuidedTour, useUser, useUpdateUser, useRestoreAccount, userKey } from './useUser'
+import { useCachedUser, useCompleteGuidedTour, useUser, useUpdateUser, useRestoreAccount, userKey } from './useUser'
 
 jest.mock('@/src/api/account', () => ({
   getUser: jest.fn(),
@@ -112,4 +112,24 @@ it('rolls back a failed currency change without changing any amounts', async () 
   expect(queryClient.getQueryData(['expenses'])).toEqual([{ amount_inr: '500' }])
   unmount()
   queryClient.clear()
+})
+
+it('useCachedUser never fetches itself, yet a refetch still works while it shares the query with useUser', async () => {
+  ;(getUser as jest.Mock).mockReset().mockResolvedValue({ email: 'a@b.com', emailVerified: true })
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { gcTime: Infinity } } })
+  const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {})
+
+  const cachedOnly = renderHook(() => useCachedUser(), { wrapper: wrapper(queryClient) })
+  expect(getUser).not.toHaveBeenCalled()
+  expect(cachedOnly.result.current).toBeUndefined()
+
+  // Mounted after useUser, so its options are the last ones the query saw.
+  const { result } = renderHook(() => ({ full: useUser(), cached: useCachedUser() }), { wrapper: wrapper(queryClient) })
+  await waitFor(() => expect(result.current.cached?.email).toBe('a@b.com'))
+
+  await queryClient.refetchQueries({ type: 'active' })
+  expect(getUser).toHaveBeenCalledTimes(2)
+  expect(queryClient.getQueryState(userKey)?.status).toBe('success')
+  expect(consoleError).not.toHaveBeenCalledWith(expect.stringContaining('No queryFn'))
+  consoleError.mockRestore()
 })
