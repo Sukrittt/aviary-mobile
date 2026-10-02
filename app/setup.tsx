@@ -16,6 +16,7 @@ import { PickRow } from '@/src/components/onboarding/PickRow'
 import { SetupDone } from '@/src/components/onboarding/SetupDone'
 import { AmountTicker } from '@/src/components/onboarding/AmountTicker'
 import { BottomSheet } from '@/src/components/shared/Modal'
+import { LoadingPhrase } from '@/src/components/shared/LoadingPhrase'
 
 import { currentMonthKey, INCOME_CATEGORY } from '@/src/lib/envelope'
 import { getBudgets, updateBudget } from '@/src/api/budgets'
@@ -33,6 +34,10 @@ import { startTimer, track } from '@/src/lib/analytics'
 // worth syncing mid-flow.
 const EMOJI_CYCLE = ['🏠', '🎬', '🌱', '🛒', '💡', '🚌', '🍜', '📺', '🛍', '🛟', '📈', '🎓', '🐶', '💊', '✈️', '🎁']
 const QUICK_PICKS = ['30000', '50000', '75000', '100000']
+// Shortest time a Finish-button save step stays on screen.
+const STEP_MIN_MS = 500
+// The last step holds longer so it reads as finishing, not a flash before the success screen.
+const LAST_STEP_MIN_MS = 1000
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable)
 
 interface Item {
@@ -149,6 +154,11 @@ function CurrencyWizard({ currencyCode, onCurrencyChange }: { currencyCode: stri
   const [activeKey, setActiveKey] = useState<string | null>(null)
   const [buf, setBuf] = useState('')
   const [pending, setPending] = useState(false)
+  // Real save progress for the Finish button: the step being written and a
+  // fill that grows as each write lands, so a slow save visibly moves.
+  const [saveStep, setSaveStep] = useState('')
+  const saveFill = useSharedValue(0)
+  const saveFillStyle = useAnimatedStyle(() => ({ width: `${saveFill.value * 100}%` }))
   const [error, setError] = useState('')
   const [result, setResult] = useState<{ income: number; groupCount: number; categoryCount: number } | null>(null)
 
@@ -355,6 +365,25 @@ function CurrencyWizard({ currencyCode, onCurrencyChange }: { currencyCode: stri
       setStep(5)
     }
 
+    const live = liveCats()
+    // Groups, categories, income, each envelope, then currency + completion.
+    const totalWrites = selectedGroups.length + categoryCount + 1 + live.length + 2
+    let doneWrites = 0
+    const tick = () => { saveFill.value = withTiming(++doneWrites / totalWrites, { duration: 350 }) }
+    saveFill.value = 0
+    setSaveStep('Creating your envelopes…')
+    // Each step stays readable for at least STEP_MIN_MS, so a fast write never
+    // flashes its text past the user or cuts straight to the next screen.
+    let stepShownAt = 0
+    const markStep = () => { stepShownAt = Date.now() }
+    markStep()
+    const holdStep = (minMs = STEP_MIN_MS) => new Promise<void>((r) => setTimeout(r, Math.max(0, stepShownAt + minMs - Date.now())))
+    const showStep = async (text: string) => {
+      await holdStep()
+      setSaveStep(text)
+      markStep()
+    }
+
     try {
       const month = currentMonthKey()
       const budgetVersions = new Map(
@@ -368,27 +397,30 @@ function CurrencyWizard({ currencyCode, onCurrencyChange }: { currencyCode: stri
       // rows are independent upserts, so they all go out at once alongside.
       await Promise.all([
         (async () => {
-          for (const g of selectedGroups) await addGroup(label(g)).catch(ignoreConflict)
+          for (const g of selectedGroups) await addGroup(label(g)).catch(ignoreConflict).then(tick)
         })(),
         (async () => {
-          for (const c of categories) await addCategory(c.name, c.group).catch(ignoreConflict)
+          for (const c of categories) await addCategory(c.name, c.group).catch(ignoreConflict).then(tick)
         })(),
-        updateBudget(month, INCOME_CATEGORY, { assigned: String(incomeValue), rolled_over: '0' }, versionFor(INCOME_CATEGORY)),
-        ...liveCats().map((item) =>
+        updateBudget(month, INCOME_CATEGORY, { assigned: String(incomeValue), rolled_over: '0' }, versionFor(INCOME_CATEGORY)).then(tick),
+        ...live.map((item) =>
           updateBudget(
             month,
             `${item.emoji} ${item.name.trim()}`,
             { assigned: String(amounts[item.key] ?? 0), rolled_over: '0' },
             versionFor(`${item.emoji} ${item.name.trim()}`),
-          ),
+          ).then(tick),
         ),
       ])
       // Last, so a failed write above leaves the user un-onboarded and retrying.
       // Two calls rather than one: the currency is an ordinary profile field,
       // but completing onboarding starts the 45-day trial, so its instant is
       // the server's — this device's clock has no say in when the trial ends.
+      await showStep('Starting your budget…')
       await updateUser({ currencyCode })
+      tick()
       await completeOnboarding()
+      tick()
       qc.invalidateQueries({ queryKey: ['user'] })
       // Not awaited: this refetches every cached query, and the celebration
       // screen doesn't need any of them.
@@ -400,6 +432,7 @@ function CurrencyWizard({ currencyCode, onCurrencyChange }: { currencyCode: stri
       // Counted here, once the server has everything, rather than on the
       // celebration screen's CTA: someone who closes the app on that screen is
       // still onboarded, and the funnel should say so.
+      await holdStep(LAST_STEP_MIN_MS)
       finishSetup()
     } catch {
       // The final response may be lost after the server commits the profile and
@@ -411,6 +444,7 @@ function CurrencyWizard({ currencyCode, onCurrencyChange }: { currencyCode: stri
         if (user.onboardedAt) {
           qc.setQueryData(['user'], user)
           void qc.invalidateQueries()
+          await holdStep(LAST_STEP_MIN_MS)
           finishSetup(true)
           return
         }
@@ -653,11 +687,22 @@ function CurrencyWizard({ currencyCode, onCurrencyChange }: { currencyCode: stri
       <Pressable
         onPress={pressPrimaryCta}
         disabled={!canAdvance || pending}
-        style={[styles.cta, { backgroundColor: canAdvance ? tokens.accent : tokens.inputBg, opacity: pending ? 0.7 : 1 }]}
+        style={[styles.cta, { backgroundColor: canAdvance ? tokens.accent : tokens.inputBg }]}
       >
-        <Text style={[styles.ctaText, { color: canAdvance ? tokens.onAccent : tokens.text3, fontFamily: fontFamily.displaySemiBold }]}>
-          {pending ? 'Saving…' : step === 4 ? 'Finish setup' : 'Continue'}
-        </Text>
+        {pending ? (
+          <>
+            <Animated.View pointerEvents="none" style={[styles.ctaFill, saveFillStyle]} />
+            <LoadingPhrase
+              phrases={[saveStep || 'Saving…']}
+              color={tokens.onAccent}
+              style={[styles.ctaText, styles.ctaPhrase, { fontFamily: fontFamily.displaySemiBold }]}
+            />
+          </>
+        ) : (
+          <Text style={[styles.ctaText, { color: canAdvance ? tokens.onAccent : tokens.text3, fontFamily: fontFamily.displaySemiBold }]}>
+            {step === 4 ? 'Finish setup' : 'Continue'}
+          </Text>
+        )}
       </Pressable>
       {error === '' && hint !== '' && <Text style={[styles.ctaHint, { color: tokens.text3 }]}>{hint}</Text>}
 
@@ -786,8 +831,10 @@ const styles = StyleSheet.create({
   addPill: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 7, paddingVertical: 9, paddingHorizontal: 14, borderRadius: 100, borderWidth: 1, borderStyle: 'dashed' },
   addPillLabel: { fontSize: 12, fontWeight: '700' },
   errorText: { fontSize: 13, textAlign: 'center', marginTop: 8 },
-  cta: { marginTop: 12, minHeight: 54, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
+  cta: { marginTop: 12, minHeight: 54, borderRadius: 28, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   ctaText: { fontSize: 15 },
+  ctaFill: { position: 'absolute', left: 0, top: 0, bottom: 0, backgroundColor: 'rgba(255,255,255,0.22)' },
+  ctaPhrase: { textAlign: 'center' },
   ctaHint: { fontSize: 11, textAlign: 'center', marginTop: 8, minHeight: 15 },
 
   remChip: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 10, paddingVertical: 12, paddingHorizontal: 15, borderRadius: 16, borderWidth: 1 },

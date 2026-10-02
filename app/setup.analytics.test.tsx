@@ -43,7 +43,7 @@ function walkToFinish() {
 
 it('reports every step of the wizard, the back tap, and the finish', async () => {
   const { getByText, unmount } = walkToFinish()
-  await waitFor(() => expect(getByText('Continue')).toBeTruthy())
+  await waitFor(() => expect(getByText('Continue')).toBeTruthy(), { timeout: 3000 })
 
   expect(eventsNamed('onboarding_started')).toHaveLength(1)
   expect(eventsNamed('onboarding_step_viewed').map((p) => p.step_name)).toEqual([
@@ -86,7 +86,7 @@ it('continues to success when the final response failed after onboarding was com
   })
 
   const { getByText, queryByText, unmount } = walkToFinish()
-  await waitFor(() => expect(getByText('Continue')).toBeTruthy())
+  await waitFor(() => expect(getByText('Continue')).toBeTruthy(), { timeout: 3000 })
 
   expect(queryByText("Couldn't confirm your setup. Check your connection and try again. If it already saved, reopening the app will continue to your budget.")).toBeNull()
   expect(eventsNamed('onboarding_failed')).toHaveLength(0)
@@ -100,5 +100,18 @@ it('continues to success when the final response failed after onboarding was com
     },
   ])
   expect(eventsNamed('onboarding_step_completed').map((p) => p.step_name)).toContain('assign')
+  unmount()
+})
+
+it('shows the real save step in the Finish button while saving', async () => {
+  let finish!: () => void
+  ;(completeOnboarding as jest.Mock).mockReturnValueOnce(new Promise((resolve) => {
+    finish = () => resolve({ onboardedAt: '2026-09-18T12:00:00.000Z', access: {} })
+  }))
+  const { getByText, findByText, unmount } = walkToFinish()
+  expect(getByText('Creating your envelopes…')).toBeTruthy()
+  expect(await findByText('Starting your budget…', {}, { timeout: 3000 })).toBeTruthy()
+  finish()
+  await waitFor(() => expect(getByText('Continue')).toBeTruthy(), { timeout: 3000 })
   unmount()
 })

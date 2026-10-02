@@ -2,7 +2,10 @@ import { useEffect, useState } from 'react'
 import { View, StyleSheet, type TextStyle, type StyleProp } from 'react-native'
 import Animated, { SlideInDown, SlideOutUp } from 'react-native-reanimated'
 
-/** Cycles through `phrases`, each one sliding up and out as the next slides up from below. */
+/**
+ * Cycles through `phrases`, each one sliding up and out as the next slides up from below.
+ * Keyed by the phrase too, so a caller swapping a single live phrase also animates.
+ */
 export function LoadingPhrase({ phrases, color, style }: { phrases: string[]; color: string; style?: StyleProp<TextStyle> }) {
   const [index, setIndex] = useState(0)
   useEffect(() => {
@@ -11,7 +14,7 @@ export function LoadingPhrase({ phrases, color, style }: { phrases: string[]; co
   }, [phrases])
   return (
     <View style={styles.wrap}>
-      <Animated.Text key={index} entering={SlideInDown.duration(450)} exiting={SlideOutUp.duration(450)} style={[styles.text, { color }, style]}>
+      <Animated.Text key={`${index}-${phrases[index]}`} entering={SlideInDown.duration(450)} exiting={SlideOutUp.duration(450)} style={[styles.text, { color }, style]}>
         {phrases[index]}
       </Animated.Text>
     </View>
