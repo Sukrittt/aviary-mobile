@@ -12,7 +12,7 @@ import { useTheme } from '@/src/theme/ThemeProvider'
 import { usePrivacy } from '@/src/context/PrivacyContext'
 import { fontFamily } from '@/src/theme/fonts'
 import { Icon } from '@/src/components/shared/Icon'
-import { formatDateTime } from '@/src/lib/format'
+import { formatDateTime, formatOrdinalDate } from '@/src/lib/format'
 import { useHoldings, useDeleteHolding } from '@/src/hooks/useHoldings'
 import { useHoldingEvents } from '@/src/hooks/useHoldingEvents'
 import { AllocationBar, type AllocationSegment } from '@/src/components/charts/AllocationBar'
@@ -263,6 +263,7 @@ export default function InvestmentsScreen() {
                         {h.is_recurring === 'true' && (
                           <Text style={[styles.recurringBadge, { color: tokens.accent, fontFamily: fontFamily.bodySemiBold }]}>
                             Monthly {formatCurrency(Number(h.recurring_amount) || 0, hideAmounts)}
+                            {h.next_contribution_date && ` · Next ${formatOrdinalDate(h.next_contribution_date)}`}
                           </Text>
                         )}
                       </View>
