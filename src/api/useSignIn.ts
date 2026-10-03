@@ -13,6 +13,16 @@ WebBrowser.maybeCompleteAuthSession()
 
 const SIGN_IN_FAILED = "Google sign-in didn't work. Try again."
 
+// True while the code-for-token exchange runs after the browser closes. The
+// root layout keeps the bird splash up through it, so the welcome screen
+// doesn't flash back between Google and Home.
+const exchangingSubs = new Set<(on: boolean) => void>()
+export function subscribeExchanging(fn: (on: boolean) => void): () => void {
+  exchangingSubs.add(fn)
+  return () => exchangingSubs.delete(fn)
+}
+const setExchanging = (on: boolean) => exchangingSubs.forEach((fn) => fn(on))
+
 export interface SignInState {
   /** Opens Google's consent screen directly (no AuthKit picker page). */
   signIn: () => void
@@ -71,6 +81,7 @@ export function useSignIn(): SignInState {
     }
 
     let cancelled = false
+    setExchanging(true)
     exchangeCode(response.params.code, verifier)
       .then(async (tokens) => {
         if (cancelled) return
@@ -84,6 +95,7 @@ export function useSignIn(): SignInState {
         if (!cancelled) setError("Couldn't finish signing you in. Check your connection and try again.")
       })
       .finally(() => {
+        setExchanging(false)
         if (!cancelled) setPending(false)
       })
 

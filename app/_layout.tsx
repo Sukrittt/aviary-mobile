@@ -5,6 +5,7 @@ import { accessMode,clearAccess,initAccessMode } from '@/src/api/accessMode'
 import { getUser, syncTimezone } from '@/src/api/account'
 import { onOnboarded } from '@/src/api/onboardingSignal'
 import { BirdLandingSplash } from '@/src/components/splash/BirdLandingSplash'
+import { subscribeExchanging } from '@/src/api/useSignIn'
 import { AlertHost } from '@/src/components/ui/AlertHost'
 import { PrivacyProvider } from '@/src/context/PrivacyContext'
 import { MaintenanceBanner } from '@/src/components/shared/MaintenanceBanner'
@@ -229,6 +230,11 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
   // the splash hands off straight to a painted screen. The timer is only a
   // fallback in case that event never arrives.
   const [splashUp, setSplashUp] = useState(true)
+  // Google sign-in's token exchange. `resolving` is also in the overlay check so
+  // the splash stays continuous when the exchange hands off to the session
+  // resolve, before the effect below re-raises splashUp.
+  const [exchanging, setExchanging] = useState(false)
+  useEffect(() => subscribeExchanging(setExchanging), [])
   useEffect(() => {
     if (resolving) {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- re-raises the overlay whenever the guards fall back to /loading (e.g. sign-in)
@@ -380,7 +386,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
       </Stack>
       <LogExpenseNavigation />
       {splashUp ? null : <MaintenanceBanner />}
-      {splashUp ? <View style={StyleSheet.absoluteFill}><BirdLandingSplash /></View> : null}
+      {splashUp || resolving || exchanging ? <View style={StyleSheet.absoluteFill}><BirdLandingSplash /></View> : null}
       <AlertHost />
       {/* Same gate as the (tabs) Stack.Protected block above: fires the same
           budgets/expenses queries those screens already fetch, so it must only
