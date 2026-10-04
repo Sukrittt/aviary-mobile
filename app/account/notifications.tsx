@@ -125,7 +125,7 @@ export default function NotificationsScreen() {
             <View style={styles.row}>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.rowLabel, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>Log it reminders</Text>
-                <Text style={[styles.rowHint, { color: tokens.text2 }]}>A ping around when you usually spend, with the usual filled in</Text>
+                <Text style={[styles.rowHint, { color: tokens.text2 }]}>Reminders when you usually spend</Text>
               </View>
               <Toggle
                 value={habits}
@@ -181,7 +181,7 @@ export default function NotificationsScreen() {
             <View style={styles.row}>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.rowLabel, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>Smart nudge</Text>
-                <Text style={[styles.rowHint, { color: tokens.text2 }]}>A tip when you&apos;re on track to overspend or a category runs hot</Text>
+                <Text style={[styles.rowHint, { color: tokens.text2 }]}>Tips when spending trends high</Text>
               </View>
               <Toggle
                 value={coach}
