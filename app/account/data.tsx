@@ -5,11 +5,11 @@ import {
   Pressable,
   ScrollView,
   RefreshControl,
-  Switch,
   Linking,
   Share,
   StyleSheet,
 } from "react-native";
+import { Toggle } from "@/src/components/ui/Toggle";
 import { useRouter } from "expo-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -526,11 +526,9 @@ export default function DataScreen() {
                 PostHog. Never your amounts or item names.
               </Text>
             </View>
-            <Switch
+            <Toggle
               value={analyticsOn}
               onValueChange={handleToggleAnalytics}
-              trackColor={{ false: tokens.borderStrong, true: tokens.accent }}
-              thumbColor={tokens.onAccent}
             />
           </View>
         </View>

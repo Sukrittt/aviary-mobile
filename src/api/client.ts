@@ -12,7 +12,8 @@ if (__DEV__ && !process.env.EXPO_PUBLIC_API_URL) {
   throw new Error('EXPO_PUBLIC_API_URL is not set. Set it in Mobile/.env for local development.')
 }
 
-export const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'https://ynab-replacement.vercel.app'
+export const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'https://useaviary.com'
+export const WEB_URL = 'https://useaviary.com'
 
 const REQUEST_TIMEOUT_MS = 15_000
 

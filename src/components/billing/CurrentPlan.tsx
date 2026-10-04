@@ -21,16 +21,18 @@ export function CurrentPlan({ status, packages }: { status: BillingStatus; packa
   const pkg = web ? undefined : packages.find((p) => p.packageType === (period === 'yearly' ? PACKAGE_TYPE.ANNUAL : PACKAGE_TYPE.MONTHLY))
   const cancelled = !status.autoRenew || status.renewalState === 'cancelled'
   const grace = status.renewalState === 'grace'
+  // Subscribed on the web mid-trial: `paidExpiresAt` is the first charge, when the trial ends.
+  const scheduled = status.renewalState === 'scheduled'
 
   const rows: { label: string; value: string; tone?: string }[] = [
     { label: 'Plan', value: `${period === 'yearly' ? 'Yearly' : 'Monthly'}${pkg ? ` · ${pkg.product.priceString}` : ''}` },
     {
       label: 'Status',
-      value: grace ? 'Payment issue' : cancelled ? 'Cancelled' : 'Active',
+      value: grace ? 'Payment issue' : cancelled ? 'Cancelled' : scheduled ? 'Free trial' : 'Active',
       tone: grace ? tokens.coral : cancelled ? tokens.text2 : tokens.mint,
     },
     {
-      label: cancelled ? 'Access until' : 'Next renewal',
+      label: cancelled ? 'Access until' : scheduled ? 'First charge' : 'Next renewal',
       value: `${formatDate(status.paidExpiresAt)} · ${daysUntilLabel(status.paidExpiresAt)}`,
     },
   ]
@@ -51,7 +53,9 @@ export function CurrentPlan({ status, packages }: { status: BillingStatus; packa
               ? web
                 ? "You've still got everything until then. Pick a plan again anytime."
                 : "You've still got everything until then. Resubscribe anytime from Google Play."
-              : 'Thanks for backing Aviary.'}
+              : scheduled
+                ? "Thanks for backing Aviary. Your free trial carries on, and you won't be charged until it ends."
+                : 'Thanks for backing Aviary.'}
         </Text>
       </View>
 

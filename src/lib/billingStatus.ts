@@ -68,6 +68,8 @@ export function planSummary(status: BillingStatus): string {
       return `Free trial · ${trialRemainingLabel(status.trialDaysRemaining)}`
     case 'paid':
       if (status.renewalState === 'grace') return isWebPlan(status) ? 'Payment issue · retrying' : 'Payment issue · fix in Google Play'
+      // Subscribed on the web mid-trial: nothing's charged until the trial ends.
+      if (status.renewalState === 'scheduled') return `Free trial · first charge ${formatDate(status.paidExpiresAt)}`
       return status.autoRenew ? `Renews ${formatDate(status.paidExpiresAt)}` : `Ends ${formatDate(status.paidExpiresAt)}`
     case 'expired':
       return status.trialEndsAt && !status.productId ? 'Trial ended' : 'Subscription ended'

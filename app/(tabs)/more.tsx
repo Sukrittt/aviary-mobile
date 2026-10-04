@@ -1,12 +1,13 @@
 import { CurrencySetting } from '@/src/components/CurrencyPicker'
 import { useState, type ReactNode } from 'react'
-import { View, Text, Image, Pressable, RefreshControl, Switch, Linking, Platform, StyleSheet } from 'react-native'
+import { View, Text, Image, Pressable, RefreshControl, Linking, Platform, StyleSheet } from 'react-native'
+import { Toggle } from '@/src/components/ui/Toggle'
 import { useRouter } from 'expo-router'
 import { useQuery } from '@tanstack/react-query'
 import { requestPinWidget } from 'react-native-android-widget'
 import * as ImagePicker from 'expo-image-picker'
 import * as Haptics from 'expo-haptics'
-import { Gift, Brain, TrendingUp, Lock, Database, Archive, Repeat, CreditCard, MessageCircle, Compass, LayoutGrid, ChevronRight, ScanLine, Camera, Images, FileText, Receipt, LineChart, History, type LucideIcon } from 'lucide-react-native'
+import { Gift, Brain, TrendingUp, Lock, Database, Archive, Repeat, CreditCard, MessageCircle, Compass, LayoutGrid, ChevronRight, ScanLine, Camera, Images, FileText, Receipt, LineChart, History, Globe, type LucideIcon } from 'lucide-react-native'
 import { AnimatedTabContent } from '@/src/components/nav/AnimatedTabContent'
 import { Screen } from '@/src/components/ui/Screen'
 import { Alert } from '@/src/components/ui/AlertHost'
@@ -20,7 +21,7 @@ import { revokeSession } from '@/src/api/account'
 import { usePrivacy } from '@/src/context/PrivacyContext'
 import { monthAbbrev, monthLabel, shiftMonthKey } from '@/src/lib/envelope'
 import { setPendingScanImage } from '@/src/lib/pendingScanImage'
-import { BASE_URL } from '@/src/api/client'
+import { WEB_URL } from '@/src/api/client'
 import { getSystemStatus } from '@/src/api/systemStatus'
 import { useUser } from '@/src/hooks/useUser'
 import { useBillingStatus } from '@/src/hooks/useBillingStatus'
@@ -35,6 +36,7 @@ import type { WrappedStatus } from '@/src/api/wrapped'
 import appJson from '@/app.json'
 import { isVersionNewer } from '@/src/lib/version'
 import { isHidden } from '@/src/lib/features'
+import { FEEDBACK_BOARD_URL } from '@/src/lib/constants'
 
 const THEME_OPTIONS = [
   { value: 'light', label: 'Light' },
@@ -196,6 +198,27 @@ export default function MoreScreen() {
             <ChevronRight size={16} color={tokens.text3} strokeWidth={2} />
           </Pressable>
 
+          {/* Early access feedback */}
+          <Pressable
+            onPress={() => Linking.openURL(FEEDBACK_BOARD_URL)}
+            style={[styles.earlyCard, { backgroundColor: tokens.card, borderColor: tokens.border }]}
+          >
+            <View style={{ flex: 1, gap: 6 }}>
+              <View style={[styles.badge, styles.earlyBadge, { backgroundColor: tokens.mintSoft }]}>
+                <Text style={[styles.badgeText, { color: tokens.mint, fontFamily: fontFamily.bodyBold }]}>Early access</Text>
+              </View>
+              <Text style={[styles.rowLabel, { color: tokens.text, fontFamily: fontFamily.bodyExtraBold }]}>
+                {"Aviary's still early. Help shape it."}
+              </Text>
+              <Text style={[styles.rowHint, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
+                Tell us what to fix or build next. We read every one.
+              </Text>
+            </View>
+            <View style={[styles.featureIcon, { backgroundColor: tokens.mintSoft }]}>
+              <Icon icon={MessageCircle} size={18} color={tokens.mint} />
+            </View>
+          </Pressable>
+
           {/* FEATURES */}
           <View style={styles.section}>
             <View style={styles.sectionHeadRow}>
@@ -301,11 +324,9 @@ export default function MoreScreen() {
                   <Text style={[styles.rowLabel, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>Hide amounts</Text>
                   <Text style={[styles.rowHint, { color: tokens.text2 }]}>Blur balances when the app opens</Text>
                 </View>
-                <Switch
+                <Toggle
                   value={hideAmounts}
                   onValueChange={setHideAmounts}
-                  trackColor={{ false: tokens.borderStrong, true: tokens.accent }}
-                  thumbColor={tokens.onAccent}
                 />
               </View>
               <View style={[styles.divider, { backgroundColor: tokens.border }]} />
@@ -374,12 +395,14 @@ export default function MoreScreen() {
               <View style={[styles.divider, { backgroundColor: tokens.border }]} />
               <AccountRow icon={Compass} label="How this works" onPress={() => router.push('/account/guided-tour')} tokens={tokens} />
               <View style={[styles.divider, { backgroundColor: tokens.border }]} />
-              <AccountRow icon={MessageCircle} label="Help & feedback" onPress={() => router.push('/account/help')} tokens={tokens} />
+              <AccountRow icon={MessageCircle} label="Help & feedback" hint="We read every one" onPress={() => router.push('/account/help')} tokens={tokens} />
+              <View style={[styles.divider, { backgroundColor: tokens.border }]} />
+              <AccountRow icon={Globe} label="Open web app" onPress={() => Linking.openURL(WEB_URL)} tokens={tokens} />
               <View style={[styles.divider, { backgroundColor: tokens.border }]} />
               <AccountRow
                 icon={FileText}
                 label="Terms & privacy"
-                onPress={() => Linking.openURL(`${BASE_URL}/legal/privacy`)}
+                onPress={() => Linking.openURL(`${WEB_URL}/legal/privacy`)}
                 tokens={tokens}
               />
             </View>
@@ -565,18 +588,23 @@ function wrappedCardProps(status: WrappedStatus | undefined, tokens: ReturnType<
 function AccountRow({
   icon,
   label,
+  hint,
   onPress,
   tokens,
 }: {
   icon: LucideIcon
   label: string
+  hint?: string
   onPress: () => void
   tokens: ReturnType<typeof useTheme>['tokens']
 }) {
   return (
     <Pressable onPress={onPress} style={styles.row}>
       <Icon icon={icon} size={16} />
-      <Text style={[styles.rowLabel, { flex: 1, marginLeft: 12, color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>{label}</Text>
+      <View style={{ flex: 1, marginLeft: 12 }}>
+        <Text style={[styles.rowLabel, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>{label}</Text>
+        {hint && <Text style={[styles.rowHint, { color: tokens.text2 }]}>{hint}</Text>}
+      </View>
       <ChevronRight size={16} color={tokens.text3} strokeWidth={2} />
     </Pressable>
   )
@@ -610,6 +638,8 @@ const styles = StyleSheet.create({
   segmentText: { fontSize: 11 },
   badge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 100 },
   badgeText: { fontSize: 11 },
+  earlyCard: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16, borderWidth: 1, borderRadius: 22 },
+  earlyBadge: { alignSelf: 'flex-start', paddingVertical: 3 },
   logoutButton: { alignItems: 'center', paddingVertical: 16 },
   logoutText: { fontSize: 14 },
   version: { fontSize: 11, textAlign: 'center' },

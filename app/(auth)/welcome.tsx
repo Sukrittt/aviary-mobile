@@ -15,7 +15,7 @@ import { useSignIn } from "@/src/api/useSignIn";
 import { AuthBackdrop } from "@/src/components/auth/AuthBackdrop";
 import { UnlockIcon } from "@/src/components/shared/UnlockIcon";
 import { BirdLandingMark } from "@/src/components/splash/BirdLandingMark";
-import { BASE_URL } from "@/src/api/client";
+import { WEB_URL } from "@/src/api/client";
 
 // Screen 1 of the auth flow (mockup: isWelcome). Google sign-in and the
 // "Continue with email" hop to /(auth)/email — no guest link, guest mode is
@@ -179,14 +179,14 @@ export default function WelcomeScreen() {
             By continuing you confirm you&apos;re 18 or older and agree to the{" "}
             <Text
               style={{ color: tokens.accent }}
-              onPress={() => Linking.openURL(`${BASE_URL}/legal/terms`)}
+              onPress={() => Linking.openURL(`${WEB_URL}/legal/terms`)}
             >
               Terms
             </Text>{" "}
             and{" "}
             <Text
               style={{ color: tokens.accent }}
-              onPress={() => Linking.openURL(`${BASE_URL}/legal/privacy`)}
+              onPress={() => Linking.openURL(`${WEB_URL}/legal/privacy`)}
             >
               Privacy Policy
             </Text>

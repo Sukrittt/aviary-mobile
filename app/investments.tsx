@@ -135,7 +135,10 @@ export default function InvestmentsScreen() {
       .map(([type, value], i) => ({ label: type, value, color: colorForType(type, i, tokens) }))
   }, [holdings, tokens])
 
-  const reversedEvents = useMemo(() => events.slice().reverse(), [events])
+  const recentEvents = useMemo(
+    () => events.slice().sort((a, b) => Date.parse(b.timestamp) - Date.parse(a.timestamp)),
+    [events],
+  )
 
   const isLoading = !FORCE_EMPTY_STATE_PREVIEW && (holdingsQuery.isLoading || eventsQuery.isLoading)
   const errorMessage = FORCE_EMPTY_STATE_PREVIEW ? null :
@@ -305,7 +308,7 @@ export default function InvestmentsScreen() {
                 Activity ({events.length})
               </Text>
               <View style={{ gap: 8 }}>
-                {reversedEvents.map((e, i) => (
+                {recentEvents.map((e, i) => (
                   <EventRow key={i} event={e} tokens={tokens} hideAmounts={hideAmounts} />
                 ))}
               </View>

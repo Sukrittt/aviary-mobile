@@ -57,7 +57,7 @@ describe('add mode', () => {
 
     fireEvent.changeText(getByPlaceholderText('e.g. Stocks'), 'Mutual Fund SIP')
     fireEvent.changeText(getAllByPlaceholderText('0')[0], '12000')
-    fireEvent(getByRole('switch'), 'valueChange', true)
+    fireEvent.press(getByRole('switch'))
     fireEvent.changeText(getAllByPlaceholderText('0')[1], '3600')
 
     pressSubmit(getAllByText)
@@ -134,7 +134,7 @@ describe('edit mode', () => {
 
     const { getByRole, findByPlaceholderText, getByText } = renderEditing(existingHolding)
 
-    fireEvent(getByRole('switch'), 'valueChange', true)
+    fireEvent.press(getByRole('switch'))
     fireEvent.changeText(await findByPlaceholderText('0'), '3600')
     fireEvent.press(getByText('Save changes'))
 
@@ -157,9 +157,9 @@ describe('edit mode', () => {
       is_recurring: 'true',
       recurring_amount: '2000',
     })
-    expect(getByRole('switch').props.value).toBe(true)
+    expect(getByRole('switch').props.accessibilityState.checked).toBe(true)
 
-    fireEvent(getByRole('switch'), 'valueChange', false)
+    fireEvent.press(getByRole('switch'))
     fireEvent.press(getByText('Save changes'))
 
     await waitFor(() =>

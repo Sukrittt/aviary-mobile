@@ -19,7 +19,7 @@ This checks published statements against observable pages and source code; it do
 | `/legal/refunds` | 404 page | 404 page | Available |
 | `/legal/contact` | 404 page | 404 page | Available |
 
-Mobile development currently points at staging. Release code falls back to `https://ynab-replacement.vercel.app`; a build-time override can change that. Legal links follow this API URL. See [client.ts](../src/api/client.ts:20) and [welcome.tsx](../app/(auth)/welcome.tsx:182).
+Mobile development currently points at staging. Release code falls back to `https://useaviary.com`; a build-time override can change that. Legal links always point at `https://useaviary.com`. See [client.ts](../src/api/client.ts:20) and [welcome.tsx](../app/(auth)/welcome.tsx:182).
 
 ## Findings
 

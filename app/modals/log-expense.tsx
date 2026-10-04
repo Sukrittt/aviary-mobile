@@ -15,6 +15,8 @@ import { Numpad } from "@/src/components/ui/Numpad";
 import { Nudge } from "@/src/components/ui/Nudge";
 import { Toast } from "@/src/components/ui/Toast";
 import { useAmountEntry } from '@/src/components/ui/useAmountEntry';
+import { clearLogExpenseDraft, getLogExpenseDraft, setLogExpenseDraft } from '@/src/features/log-expense/draft';
+import { evaluateAmount, formatExpression, hasOperator } from '@/src/lib/calcAmount';
 import {
 EMPTY_SUBMIT,
 useLogExpenseSubmitPublisher,
@@ -123,17 +125,23 @@ export default function LogExpenseScreen() {
   const updateMutate = updateExpense.mutate;
   const categories = useMemo(() => categoriesQ.data ?? [], [categoriesQ.data]);
 
+  // A plain visit (no edit row, no prefill) picks up where the last one left
+  // off, and is the only kind that saves one: a prefill must not overwrite it.
+  const [plainVisit] = useState(() => Object.keys(params).length === 0);
+  const [draft] = useState(() => (plainVisit ? getLogExpenseDraft() : null));
   const [newCategoryName, setNewCategoryName] = useState("");
-  const { amount, setAmount, pushDigit, handleBackspace, shake } = useAmountEntry(origAmountInr ? String(origAmountInr) : "", { shakeAtZero: true });
-  const [item, setItem] = useState(origItem);
-  const [category, setCategory] = useState(str(params.category));
+  // `expr` is what was typed, maybe a sum ("5+5"); `amount` is its total.
+  const { amount: expr, setAmount, pushDigit, handleBackspace, shake } = useAmountEntry(draft?.amount ?? (origAmountInr ? String(origAmountInr) : ""), { shakeAtZero: true });
+  const amount = hasOperator(expr) ? String(evaluateAmount(expr)) : expr;
+  const [item, setItem] = useState(draft?.item ?? origItem);
+  const [category, setCategory] = useState(draft?.category ?? str(params.category));
   const [categoryTouched, setCategoryTouched] = useState(
-    str(params.category) !== "",
+    draft?.categoryTouched ?? str(params.category) !== "",
   );
-  const [date, setDate] = useState(str(params.date).slice(0, 10) || todayLocal());
-  const [notes, setNotes] = useState(str(params.notes));
+  const [date, setDate] = useState(draft?.date ?? (str(params.date).slice(0, 10) || todayLocal()));
+  const [notes, setNotes] = useState(draft?.notes ?? str(params.notes));
   const [paymentMethod, setPaymentMethod] = useState<"bank" | "credit_card">(
-    str(params.paymentMethod) === "credit_card" ? "credit_card" : "bank",
+    draft?.paymentMethod ?? (str(params.paymentMethod) === "credit_card" ? "credit_card" : "bank"),
   );
   const [base, setBase] = useState({ item: origItem, amount: String(origAmountInr), date: str(params.date).slice(0, 10), category: str(params.category) });
   const [expectedVersion, setExpectedVersion] = useState(str(params.version) === '' ? undefined : Number(str(params.version)));
@@ -162,7 +170,7 @@ export default function LogExpenseScreen() {
 
   // True while the pill shows a category we picked, not one the user chose.
   // Drives the "picked for you" a11y label and the landing pop.
-  const [autoPicked, setAutoPicked] = useState(false);
+  const [autoPicked, setAutoPicked] = useState(draft?.autoPicked ?? false);
   // Where the last auto-pick came from, for the acceptance-rate event on save:
   // the local keyword map or the AI fallback. Null if nothing was ever picked.
   const suggestedBy = useRef<null | "keyword" | "ai">(null);
@@ -221,6 +229,11 @@ export default function LogExpenseScreen() {
       clearTimeout(timer);
     };
   }, [item, categoryMapQ.data, categories, categoryTouched]);
+
+  useEffect(() => {
+    if (!plainVisit || logSuccess) return;
+    setLogExpenseDraft({ amount: expr, item, category, categoryTouched, autoPicked, date, notes, paymentMethod });
+  }, [plainVisit, logSuccess, expr, item, category, categoryTouched, autoPicked, date, notes, paymentMethod]);
 
   function handleItemChange(value: string) {
     if (value === item) return;
@@ -351,6 +364,7 @@ export default function LogExpenseScreen() {
           // The replace itself is deferred: stash it and flip logSuccess so
           // the nav circle's save animation plays first (see the effect above).
           onSuccess: (res) => {
+            clearLogExpenseDraft();
             pendingAddNavRef.current = {
               pathname: "/modals/expense-added",
               params: {
@@ -503,6 +517,18 @@ export default function LogExpenseScreen() {
           </Animated.View>
           </Nudge>
 
+          {hasOperator(expr) && (
+            <Text
+              style={{
+                color: onAccentDim,
+                fontFamily: fontFamily.bodySemiBold,
+                fontSize: type.caption,
+              }}
+            >
+              {formatExpression(expr)}
+            </Text>
+          )}
+
           <Pressable
             onPress={() => setShowMore(true)}
             style={[styles.moreToggle, { gap: space.xs }]}
@@ -595,7 +621,7 @@ export default function LogExpenseScreen() {
           onDigit={pushDigit}
           onBackspace={handleBackspace}
           onClear={() => setAmount("")}
-          extraKey="."
+          calculator
         />
       </View>
 

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { BackHandler, View, Text, Pressable, ScrollView, StyleSheet } from 'react-native'
 import { useFocusEffect, useRouter, type Href } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import Reanimated, { FadeIn, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated'
+import Reanimated, { FadeIn } from 'react-native-reanimated'
 import { ArrowLeft, X, ChevronRight, ArrowUpRight, Check, Circle } from 'lucide-react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
@@ -14,6 +14,7 @@ import { StepDot } from '@/src/components/onboarding/StepDot'
 import { useTourContent } from '@/src/components/tour/useTourContent'
 import { track } from '@/src/lib/analytics'
 import { useCompleteGuidedTour } from '@/src/hooks/useUser'
+import { BirdLandingMark } from '@/src/components/splash/BirdLandingMark'
 
 import { AssignDemo } from '@/src/components/tour/demos/AssignDemo'
 import { LogDemo } from '@/src/components/tour/demos/LogDemo'
@@ -281,29 +282,14 @@ function Hub({
 
   const { tokens, radius, space, type } = useTheme()
   const insets = useSafeAreaInsets()
-  const bob = useSharedValue(0)
-
-  useEffect(() => {
-    bob.value = withRepeat(withSequence(withTiming(1, { duration: 1700 }), withTiming(0, { duration: 1700 })), -1, false)
-  }, [bob])
-
-  const bobStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: -7 * bob.value }, { rotate: `${-2 + 4 * bob.value}deg` }],
-  }))
 
   return (
     <>
       <ScrollView contentContainerStyle={{ padding: space.lg, paddingBottom: space.xxxl * 2, gap: space.md }}>
         <View style={[styles.hero, { gap: space.md }]}>
-          <Reanimated.View
-            style={[
-              styles.heroBadge,
-              { backgroundColor: tokens.accentSoft, borderColor: tokens.accent, borderRadius: radius.lg },
-              bobStyle,
-            ]}
-          >
-            <Text style={{ fontSize: 30 }}>✉️</Text>
-          </Reanimated.View>
+          <View style={[styles.heroBadge, { backgroundColor: tokens.accentSoft, borderColor: tokens.accent, borderRadius: radius.lg }]}>
+            <BirdLandingMark size={46} color={tokens.accent} autoplay={false} perched />
+          </View>
           <View style={styles.headerText}>
             <Text style={{ color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: type.heading - 2, lineHeight: 30 }}>
               Your money gets a job.

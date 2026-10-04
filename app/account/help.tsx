@@ -6,9 +6,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { Icon } from '@/src/components/shared/Icon'
+import { FEEDBACK_BOARD_URL } from '@/src/lib/constants'
 
 const REPO = 'Sukrittt/aviary-mobile'
-const FEEDBACK_BOARD_URL = 'https://aviary.userjot.com'
 
 const ENVELOPES_EXPLAINER = [
   'New money lands in Ready to Assign, unclaimed.',
@@ -35,6 +35,17 @@ export default function HelpScreen() {
 
       <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 32 }]}>
         <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
+          <Pressable onPress={() => Linking.openURL(FEEDBACK_BOARD_URL)} style={styles.row}>
+            <Icon icon={MessageCircle} size={16} />
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <Text style={[styles.rowLabel, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>Feedback board</Text>
+              <Text style={[styles.rowHint, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
+                {"Aviary's in early access. Tell us what to fix or build next."}
+              </Text>
+            </View>
+            <Icon icon={ChevronRight} size={16} color={tokens.text3} />
+          </Pressable>
+          <View style={[styles.divider, { backgroundColor: tokens.border }]} />
           <Pressable onPress={() => setExplainerOpen((v) => !v)} style={styles.row}>
             <Icon icon={BookOpen} size={16} />
             <Text style={[styles.rowLabel, { flex: 1, marginLeft: 12, color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>
@@ -56,14 +67,6 @@ export default function HelpScreen() {
             <Icon icon={Compass} size={16} />
             <Text style={[styles.rowLabel, { flex: 1, marginLeft: 12, color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>
               Take the guided tour
-            </Text>
-            <Icon icon={ChevronRight} size={16} color={tokens.text3} />
-          </Pressable>
-          <View style={[styles.divider, { backgroundColor: tokens.border }]} />
-          <Pressable onPress={() => Linking.openURL(FEEDBACK_BOARD_URL)} style={styles.row}>
-            <Icon icon={MessageCircle} size={16} />
-            <Text style={[styles.rowLabel, { flex: 1, marginLeft: 12, color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>
-              Feedback board
             </Text>
             <Icon icon={ChevronRight} size={16} color={tokens.text3} />
           </Pressable>
@@ -90,6 +93,7 @@ const styles = StyleSheet.create({
   card: { borderWidth: 1, borderRadius: 20, overflow: 'hidden' },
   row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14 },
   rowLabel: { fontSize: 14 },
+  rowHint: { fontSize: 11, marginTop: 2 },
   divider: { height: StyleSheet.hairlineWidth },
   explainerList: { paddingHorizontal: 16, paddingBottom: 16, gap: 6 },
   explainer: { fontSize: 13, lineHeight: 18 },

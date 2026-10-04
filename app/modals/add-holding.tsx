@@ -1,6 +1,7 @@
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { useEffect, useRef, useState } from 'react'
-import { View, Text, TextInput, Pressable, Switch, ScrollView, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native'
+import { View, Text, TextInput, Pressable, ScrollView, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native'
+import { Toggle } from '@/src/components/ui/Toggle'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { Alert } from '@/src/components/ui/AlertHost'
@@ -293,11 +294,9 @@ export default function AddHoldingModal() {
                   : 'Adds the amount below as a contribution on this day every month'}
               </Text>
             </View>
-            <Switch
+            <Toggle
               value={isRecurring}
               onValueChange={setIsRecurring}
-              trackColor={{ false: tokens.borderStrong, true: tokens.accent }}
-              thumbColor={tokens.onAccent}
             />
           </View>
         </View>

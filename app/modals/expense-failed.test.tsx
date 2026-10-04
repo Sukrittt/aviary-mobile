@@ -3,6 +3,7 @@ import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { mintExpensePayload, postExpensePayload } from '@/src/api/expenses'
 import { HttpError } from '@/src/api/client'
 import ExpenseFailedScreen from './expense-failed'
+import { getLogExpenseDraft, setLogExpenseDraft } from '@/src/features/log-expense/draft'
 
 jest.mock('@/src/api/expenses', () => ({
   getExpenses: jest.fn(),
@@ -90,6 +91,24 @@ it('lands on the success screen when the retry works', async () => {
     amount: '450',
     category: '🛒 Groceries',
   })
+})
+
+it('drops the saved log-expense draft once the retry logs it', async () => {
+  setLogExpenseDraft({ amount: '450', item: 'Milk', category: '🛒 Groceries', categoryTouched: true, autoPicked: false, date: '2026-08-15', notes: '', paymentMethod: 'bank' })
+  ;(postExpensePayload as jest.Mock).mockResolvedValue({ id: 'abc123', timestamp: '2026-08-15T01:24:00' })
+  const { getByText } = setup()
+  fireEvent.press(getByText('Retry'))
+  await waitFor(() => expect(mockReplace).toHaveBeenCalled())
+  expect(getLogExpenseDraft()).toBeNull()
+})
+
+it('keeps an unrelated log-expense draft when the retry logs a different expense', async () => {
+  setLogExpenseDraft({ amount: '40', item: 'Bread', category: '🛒 Groceries', categoryTouched: true, autoPicked: false, date: '2026-08-15', notes: '', paymentMethod: 'bank' })
+  ;(postExpensePayload as jest.Mock).mockResolvedValue({ id: 'abc123', timestamp: '2026-08-15T01:24:00' })
+  const { getByText } = setup()
+  fireEvent.press(getByText('Retry'))
+  await waitFor(() => expect(mockReplace).toHaveBeenCalled())
+  expect(getLogExpenseDraft()?.item).toBe('Bread')
 })
 
 it('stays put when the retry fails too', async () => {

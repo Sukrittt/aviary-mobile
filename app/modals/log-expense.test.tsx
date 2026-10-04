@@ -7,6 +7,7 @@ import { getCategories } from '@/src/api/categories'
 import { getGroups } from '@/src/api/groups'
 import { getCategoryMap, suggestCategoryLLM } from '@/src/api/categoryMap'
 import LogExpenseScreen from './log-expense'
+import { clearLogExpenseDraft, getLogExpenseDraft } from '@/src/features/log-expense/draft'
 import { MIN_SPIN_MS, SETTLE_MS } from '@/src/features/log-expense/AutoCategoryPill'
 import { todayLocal } from '@/src/lib/date'
 import { useLogExpenseSubmitState, LogExpenseSubmitProvider } from '@/src/features/log-expense/SubmitContext'
@@ -63,6 +64,7 @@ function setup(params: Record<string, string> = {}, expenses: ExpenseRow[] = [],
 }
 
 beforeEach(() => {
+  clearLogExpenseDraft()
   jest.clearAllMocks()
   jest.useFakeTimers({ legacyFakeTimers: false })
 })
@@ -348,4 +350,55 @@ it('lands on Miscellaneous, not marked as picked for you, when the AI finds noth
   expect(queryByText('Picking…')).toBeNull()
   expect(await findByText('Miscellaneous')).toBeTruthy()
   expect(getByLabelText('Category: Miscellaneous')).toBeTruthy()
+})
+
+it('adds up an amount on the keypad and saves the total', async () => {
+  ;(postExpensePayload as jest.Mock).mockResolvedValue({ id: 'srv1', timestamp: '2026-09-04T01:24:00' })
+  const utils = setup()
+  const { getByLabelText, getByPlaceholderText, getByText, findByText } = utils
+  fireEvent.changeText(getByPlaceholderText('What was it for?'), 'Milk')
+  fireEvent.press(getByLabelText('Calculator'))
+  for (const k of ['1', '5', '+', '5', '.', '5', '÷', '2']) fireEvent.press(getByLabelText(k))
+  expect(getByText('20.5 ÷ 2')).toBeTruthy()
+  fireEvent.press(getByText('Category'))
+  fireEvent.press(await findByText(/Groceries/))
+
+  await act(async () => {
+    ;(globalThis as any).__submit()
+    await Promise.resolve()
+    await Promise.resolve()
+  })
+  expect(postExpensePayload).toHaveBeenCalledWith(expect.objectContaining({ amount_inr: '10.25' }), 0)
+})
+
+it('keeps a half-filled expense across leaving and coming back, until it is logged', async () => {
+  ;(postExpensePayload as jest.Mock).mockResolvedValue({ id: 'srv1', timestamp: '2026-09-04T01:24:00' })
+  const first = setup()
+  await fillValidForm(first)
+  first.unmount()
+
+  const second = setup()
+  expect(second.getByDisplayValue('Milk')).toBeTruthy()
+  await act(async () => {
+    ;(globalThis as any).__submit()
+    await Promise.resolve()
+    await Promise.resolve()
+  })
+  expect(postExpensePayload).toHaveBeenCalledWith(expect.objectContaining({ item: 'Milk', amount_inr: '450', category: 'Groceries' }), 0)
+  second.unmount()
+
+  expect(setup().queryByDisplayValue('Milk')).toBeNull()
+})
+
+it('leaves a half-filled expense alone while a prefilled entry is open', async () => {
+  const plain = setup()
+  fireEvent.changeText(plain.getByPlaceholderText('What was it for?'), 'Milk')
+  plain.unmount()
+
+  const prefilled = setup({ item: 'Bread', amountInr: '40' })
+  expect(prefilled.getByDisplayValue('Bread')).toBeTruthy()
+  fireEvent.changeText(prefilled.getByPlaceholderText('What was it for?'), 'Bread and eggs')
+  prefilled.unmount()
+
+  expect(getLogExpenseDraft()?.item).toBe('Milk')
 })

@@ -9,3 +9,5 @@
  * always empty, so there's never an element to mistype.
  */
 export const EMPTY: any[] = []
+
+export const FEEDBACK_BOARD_URL = 'https://aviary.userjot.com'
