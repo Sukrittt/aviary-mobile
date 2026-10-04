@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react';
+import { pushAmountKey } from '@/src/lib/calcAmount';
 import { useInvalidFeedback } from './useInvalidFeedback';
 
 /** Shared numpad editing; screens can reset dependent allocation state after an edit. */
@@ -7,13 +8,7 @@ export function useAmountEntry(initial = '', options: { onChange?: () => void; s
   const { shake, triggerInvalidFeedback } = useInvalidFeedback()
   const { onChange, shakeAtZero = false } = options
   const pushDigit = useCallback((digit: string) => {
-    setAmount(prev => {
-      if (digit === '.') return prev.includes('.') ? prev : prev === '' ? '0.' : prev + '.'
-      const dot = prev.indexOf('.')
-      if (dot !== -1 && prev.length - dot - 1 >= 2) return prev
-      const next = (prev + digit).replace(/^0+(?=\d)/, '')
-      return next.length > 9 ? prev : next
-    })
+    setAmount(prev => pushAmountKey(prev, digit))
     onChange?.()
   }, [onChange])
   const handleBackspace = useCallback(() => {
