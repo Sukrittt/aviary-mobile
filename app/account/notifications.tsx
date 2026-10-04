@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { View, Text, Pressable, Switch, ScrollView, RefreshControl, StyleSheet } from 'react-native'
+import { View, Text, Pressable, ScrollView, RefreshControl, StyleSheet } from 'react-native'
+import { Toggle } from '@/src/components/ui/Toggle'
 import { useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { ArrowLeft } from 'lucide-react-native'
@@ -107,11 +108,9 @@ export default function NotificationsScreen() {
                 <Text style={[styles.rowLabel, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>Category limit alerts</Text>
                 <Text style={[styles.rowHint, { color: tokens.text2 }]}>Alerts the instant a threshold is crossed</Text>
               </View>
-              <Switch
+              <Toggle
                 value={thresholds}
                 onValueChange={(v) => updateUser.mutate({ notifyThresholds: v })}
-                trackColor={{ false: tokens.borderStrong, true: tokens.accent }}
-                thumbColor={tokens.onAccent}
               />
             </View>
           </View>
@@ -128,11 +127,9 @@ export default function NotificationsScreen() {
                 <Text style={[styles.rowLabel, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>Log it reminders</Text>
                 <Text style={[styles.rowHint, { color: tokens.text2 }]}>A ping around when you usually spend, with the usual filled in</Text>
               </View>
-              <Switch
+              <Toggle
                 value={habits}
                 onValueChange={toggleHabits}
-                trackColor={{ false: tokens.borderStrong, true: tokens.accent }}
-                thumbColor={tokens.onAccent}
               />
             </View>
           </View>
@@ -149,11 +146,9 @@ export default function NotificationsScreen() {
                 <Text style={[styles.rowLabel, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>Remind before renewal</Text>
                 <Text style={[styles.rowHint, { color: tokens.text2 }]}>Subscriptions due soon</Text>
               </View>
-              <Switch
+              <Toggle
                 value={bills}
                 onValueChange={(v) => updateUser.mutate({ notifyBills: v })}
-                trackColor={{ false: tokens.borderStrong, true: tokens.accent }}
-                thumbColor={tokens.onAccent}
               />
             </View>
             <View style={[styles.divider, { backgroundColor: tokens.border }]} />
@@ -188,11 +183,9 @@ export default function NotificationsScreen() {
                 <Text style={[styles.rowLabel, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>Smart nudge</Text>
                 <Text style={[styles.rowHint, { color: tokens.text2 }]}>A tip when you&apos;re on track to overspend or a category runs hot</Text>
               </View>
-              <Switch
+              <Toggle
                 value={coach}
                 onValueChange={(v) => updateUser.mutate({ notifyCoach: v })}
-                trackColor={{ false: tokens.borderStrong, true: tokens.accent }}
-                thumbColor={tokens.onAccent}
               />
             </View>
           </View>
@@ -206,11 +199,9 @@ export default function NotificationsScreen() {
                 <Text style={[styles.rowLabel, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>New edition unlocked</Text>
                 <Text style={[styles.rowHint, { color: tokens.text2 }]}>A ping when last month&apos;s Wrapped is ready</Text>
               </View>
-              <Switch
+              <Toggle
                 value={wrapped}
                 onValueChange={(v) => updateUser.mutate({ notifyWrapped: v })}
-                trackColor={{ false: tokens.borderStrong, true: tokens.accent }}
-                thumbColor={tokens.onAccent}
               />
             </View>
           </View>

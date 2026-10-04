@@ -1,6 +1,7 @@
 import { CurrencySetting } from '@/src/components/CurrencyPicker'
 import { useState, type ReactNode } from 'react'
-import { View, Text, Image, Pressable, RefreshControl, Switch, Linking, Platform, StyleSheet } from 'react-native'
+import { View, Text, Image, Pressable, RefreshControl, Linking, Platform, StyleSheet } from 'react-native'
+import { Toggle } from '@/src/components/ui/Toggle'
 import { useRouter } from 'expo-router'
 import { useQuery } from '@tanstack/react-query'
 import { requestPinWidget } from 'react-native-android-widget'
@@ -301,11 +302,9 @@ export default function MoreScreen() {
                   <Text style={[styles.rowLabel, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>Hide amounts</Text>
                   <Text style={[styles.rowHint, { color: tokens.text2 }]}>Blur balances when the app opens</Text>
                 </View>
-                <Switch
+                <Toggle
                   value={hideAmounts}
                   onValueChange={setHideAmounts}
-                  trackColor={{ false: tokens.borderStrong, true: tokens.accent }}
-                  thumbColor={tokens.onAccent}
                 />
               </View>
               <View style={[styles.divider, { backgroundColor: tokens.border }]} />
