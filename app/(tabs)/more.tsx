@@ -21,7 +21,7 @@ import { revokeSession } from '@/src/api/account'
 import { usePrivacy } from '@/src/context/PrivacyContext'
 import { monthAbbrev, monthLabel, shiftMonthKey } from '@/src/lib/envelope'
 import { setPendingScanImage } from '@/src/lib/pendingScanImage'
-import { BASE_URL } from '@/src/api/client'
+import { BASE_URL, WEB_URL } from '@/src/api/client'
 import { getSystemStatus } from '@/src/api/systemStatus'
 import { useUser } from '@/src/hooks/useUser'
 import { useBillingStatus } from '@/src/hooks/useBillingStatus'
@@ -380,7 +380,7 @@ export default function MoreScreen() {
               <AccountRow
                 icon={FileText}
                 label="Terms & privacy"
-                onPress={() => Linking.openURL(`${BASE_URL}/legal/privacy`)}
+                onPress={() => Linking.openURL(`${WEB_URL}/legal/privacy`)}
                 tokens={tokens}
               />
             </View>

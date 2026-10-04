@@ -2,7 +2,7 @@
 
 **Open-source envelope budgeting, built for rupees.** Give every rupee a job, log a spend in three taps, and see what's safe to spend at a glance.
 
-[Get it on Google Play](https://play.google.com/store/apps/details?id=com.sukrit04.envelope) · [Web app](https://ynab-replacement.vercel.app) · [Web + API repo](https://github.com/Sukrittt/aviary)
+[Get it on Google Play](https://play.google.com/store/apps/details?id=com.sukrit04.envelope) · [Web app](https://useaviary.com) · [Web + API repo](https://github.com/Sukrittt/aviary)
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/Sukrittt/aviary/main/public/landing/home.jpeg" width="200" alt="Home" />
@@ -75,7 +75,7 @@ npm run web      # expo start --web
 
 ## Environment
 
-- `EXPO_PUBLIC_API_URL` — API base URL. Falls back to `https://ynab-replacement.vercel.app` in a release build; in a dev build (`__DEV__`), leaving it unset throws at startup instead of silently pointing at production data — set it in `.env` (gitignored).
+- `EXPO_PUBLIC_API_URL` — API base URL. Falls back to `https://useaviary.com` in a release build; in a dev build (`__DEV__`), leaving it unset throws at startup instead of silently pointing at production data — set it in `.env` (gitignored).
 - `EXPO_PUBLIC_WORKOS_CLIENT_ID` — WorkOS client id for Google PKCE sign-in.
 - `EXPO_PUBLIC_REVENUECAT_ANDROID_KEY` — RevenueCat *public* SDK key for Google Play checkout. Public by design: it can only read and start purchases for the signed-in customer. The secret key lives server-side in Web and must never appear here. Unset simply disables checkout — the server still decides access, so the app degrades rather than breaking.
 
