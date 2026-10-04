@@ -7,7 +7,7 @@ import { useQuery } from '@tanstack/react-query'
 import { requestPinWidget } from 'react-native-android-widget'
 import * as ImagePicker from 'expo-image-picker'
 import * as Haptics from 'expo-haptics'
-import { Gift, Brain, TrendingUp, Lock, Database, Archive, Repeat, CreditCard, MessageCircle, Compass, LayoutGrid, ChevronRight, ScanLine, Camera, Images, FileText, Receipt, LineChart, History, type LucideIcon } from 'lucide-react-native'
+import { Gift, Brain, TrendingUp, Lock, Database, Archive, Repeat, CreditCard, MessageCircle, Compass, LayoutGrid, ChevronRight, ScanLine, Camera, Images, FileText, Receipt, LineChart, History, Globe, type LucideIcon } from 'lucide-react-native'
 import { AnimatedTabContent } from '@/src/components/nav/AnimatedTabContent'
 import { Screen } from '@/src/components/ui/Screen'
 import { Alert } from '@/src/components/ui/AlertHost'
@@ -374,6 +374,8 @@ export default function MoreScreen() {
               <AccountRow icon={Compass} label="How this works" onPress={() => router.push('/account/guided-tour')} tokens={tokens} />
               <View style={[styles.divider, { backgroundColor: tokens.border }]} />
               <AccountRow icon={MessageCircle} label="Help & feedback" onPress={() => router.push('/account/help')} tokens={tokens} />
+              <View style={[styles.divider, { backgroundColor: tokens.border }]} />
+              <AccountRow icon={Globe} label="Open web app" onPress={() => Linking.openURL(BASE_URL)} tokens={tokens} />
               <View style={[styles.divider, { backgroundColor: tokens.border }]} />
               <AccountRow
                 icon={FileText}
