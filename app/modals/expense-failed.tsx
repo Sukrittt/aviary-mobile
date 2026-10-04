@@ -14,6 +14,7 @@ import { AmountText } from '@/src/components/ui/AmountText'
 import { Button } from '@/src/components/ui/Button'
 import { Icon } from '@/src/components/shared/Icon'
 import { LOG_EXPENSE_PATH } from '@/src/features/log-expense/SubmitContext'
+import { clearLogExpenseDraft } from '@/src/features/log-expense/draft'
 
 /** Larger than the success screen's TICK (200) on purpose: this clip carries a
  *  lot of empty frame around its disc, so it needs the extra box to land at the
@@ -101,7 +102,9 @@ export default function ExpenseFailedScreen() {
         payment_method: paymentMethod,
       },
       {
-        onSuccess: (res) =>
+        onSuccess: (res) => {
+          // The plain-visit draft is this same expense; it's logged now.
+          clearLogExpenseDraft()
           router.replace({
             pathname: '/modals/expense-added',
             params: {
@@ -115,7 +118,8 @@ export default function ExpenseFailedScreen() {
               notes,
               paymentMethod,
             },
-          }),
+          })
+        },
         onError: () => {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {})
         },

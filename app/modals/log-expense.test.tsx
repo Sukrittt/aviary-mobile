@@ -7,7 +7,7 @@ import { getCategories } from '@/src/api/categories'
 import { getGroups } from '@/src/api/groups'
 import { getCategoryMap, suggestCategoryLLM } from '@/src/api/categoryMap'
 import LogExpenseScreen from './log-expense'
-import { clearLogExpenseDraft } from '@/src/features/log-expense/draft'
+import { clearLogExpenseDraft, getLogExpenseDraft } from '@/src/features/log-expense/draft'
 import { MIN_SPIN_MS, SETTLE_MS } from '@/src/features/log-expense/AutoCategoryPill'
 import { todayLocal } from '@/src/lib/date'
 import { useLogExpenseSubmitState, LogExpenseSubmitProvider } from '@/src/features/log-expense/SubmitContext'
@@ -388,4 +388,17 @@ it('keeps a half-filled expense across leaving and coming back, until it is logg
   second.unmount()
 
   expect(setup().queryByDisplayValue('Milk')).toBeNull()
+})
+
+it('leaves a half-filled expense alone while a prefilled entry is open', async () => {
+  const plain = setup()
+  fireEvent.changeText(plain.getByPlaceholderText('What was it for?'), 'Milk')
+  plain.unmount()
+
+  const prefilled = setup({ item: 'Bread', amountInr: '40' })
+  expect(prefilled.getByDisplayValue('Bread')).toBeTruthy()
+  fireEvent.changeText(prefilled.getByPlaceholderText('What was it for?'), 'Bread and eggs')
+  prefilled.unmount()
+
+  expect(getLogExpenseDraft()?.item).toBe('Milk')
 })

@@ -21,7 +21,7 @@ import { revokeSession } from '@/src/api/account'
 import { usePrivacy } from '@/src/context/PrivacyContext'
 import { monthAbbrev, monthLabel, shiftMonthKey } from '@/src/lib/envelope'
 import { setPendingScanImage } from '@/src/lib/pendingScanImage'
-import { BASE_URL, WEB_URL } from '@/src/api/client'
+import { WEB_URL } from '@/src/api/client'
 import { getSystemStatus } from '@/src/api/systemStatus'
 import { useUser } from '@/src/hooks/useUser'
 import { useBillingStatus } from '@/src/hooks/useBillingStatus'
@@ -397,7 +397,7 @@ export default function MoreScreen() {
               <View style={[styles.divider, { backgroundColor: tokens.border }]} />
               <AccountRow icon={MessageCircle} label="Help & feedback" hint="We read every one" onPress={() => router.push('/account/help')} tokens={tokens} />
               <View style={[styles.divider, { backgroundColor: tokens.border }]} />
-              <AccountRow icon={Globe} label="Open web app" onPress={() => Linking.openURL(BASE_URL)} tokens={tokens} />
+              <AccountRow icon={Globe} label="Open web app" onPress={() => Linking.openURL(WEB_URL)} tokens={tokens} />
               <View style={[styles.divider, { backgroundColor: tokens.border }]} />
               <AccountRow
                 icon={FileText}

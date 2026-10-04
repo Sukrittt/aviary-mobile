@@ -8,7 +8,7 @@ import { revokeSession } from '@/src/api/account'
 import { getCategories } from '@/src/api/categories'
 import { takePendingScanImage } from '@/src/lib/pendingScanImage'
 import { getSystemStatus } from '@/src/api/systemStatus'
-import { BASE_URL } from '@/src/api/client'
+import { WEB_URL } from '@/src/api/client'
 import appJson from '@/app.json'
 import MoreScreen from './more'
 
@@ -133,7 +133,7 @@ describe('More tab · web app row', () => {
     const { findByText } = renderWithProviders(<MoreScreen />)
     fireEvent.press(await findByText('Open web app'))
 
-    expect(openUrl).toHaveBeenCalledWith(BASE_URL)
+    expect(openUrl).toHaveBeenCalledWith(WEB_URL)
     openUrl.mockRestore()
   })
 })

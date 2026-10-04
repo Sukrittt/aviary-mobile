@@ -125,8 +125,10 @@ export default function LogExpenseScreen() {
   const updateMutate = updateExpense.mutate;
   const categories = useMemo(() => categoriesQ.data ?? [], [categoriesQ.data]);
 
-  // A plain visit (no edit row, no prefill) picks up where the last one left off.
-  const [draft] = useState(() => (Object.keys(params).length ? null : getLogExpenseDraft()));
+  // A plain visit (no edit row, no prefill) picks up where the last one left
+  // off, and is the only kind that saves one: a prefill must not overwrite it.
+  const [plainVisit] = useState(() => Object.keys(params).length === 0);
+  const [draft] = useState(() => (plainVisit ? getLogExpenseDraft() : null));
   const [newCategoryName, setNewCategoryName] = useState("");
   // `expr` is what was typed, maybe a sum ("5+5"); `amount` is its total.
   const { amount: expr, setAmount, pushDigit, handleBackspace, shake } = useAmountEntry(draft?.amount ?? (origAmountInr ? String(origAmountInr) : ""), { shakeAtZero: true });
@@ -229,9 +231,9 @@ export default function LogExpenseScreen() {
   }, [item, categoryMapQ.data, categories, categoryTouched]);
 
   useEffect(() => {
-    if (isEdit || logSuccess) return;
+    if (!plainVisit || logSuccess) return;
     setLogExpenseDraft({ amount: expr, item, category, categoryTouched, autoPicked, date, notes, paymentMethod });
-  }, [isEdit, logSuccess, expr, item, category, categoryTouched, autoPicked, date, notes, paymentMethod]);
+  }, [plainVisit, logSuccess, expr, item, category, categoryTouched, autoPicked, date, notes, paymentMethod]);
 
   function handleItemChange(value: string) {
     if (value === item) return;

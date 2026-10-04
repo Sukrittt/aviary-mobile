@@ -10,6 +10,7 @@ import { AlertHost } from '@/src/components/ui/AlertHost'
 import { PrivacyProvider } from '@/src/context/PrivacyContext'
 import { MaintenanceBanner } from '@/src/components/shared/MaintenanceBanner'
 import { LogExpenseNavigation } from '@/src/features/log-expense/LogExpenseNavigation'
+import { clearLogExpenseDraft } from '@/src/features/log-expense/draft'
 import { LOG_EXPENSE_PATH,LogExpenseSubmitProvider } from '@/src/features/log-expense/SubmitContext'
 import { identifyUser,initAnalytics,trackScreen } from '@/src/lib/analytics'
 import { clearCategoryCache,readCategoryCache } from '@/src/lib/categoryCache'
@@ -113,6 +114,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
       // or a different account) must drop it all or the new identity sees
       // the previous one's data until staleTime happens to expire.
       queryClient.clear()
+      clearLogExpenseDraft()
       // Fire-and-forget: registration failures must never block app usage.
       if (m === 'real') registerForPushNotificationsAsync()
     })
@@ -120,6 +122,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
       setHasSession(false)
       setJustOnboarded(false)
       queryClient.clear()
+      clearLogExpenseDraft()
       // Otherwise the next account signed into on this device inherits the
       // previous one's budget numbers on the home screen (see PrivacyContext
       // for the same reasoning applied to the hide-amounts preference).
