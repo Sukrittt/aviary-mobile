@@ -18,7 +18,7 @@ export interface BillingStatus {
   basePlanId: string | null
   paidExpiresAt: string | null
   autoRenew: boolean
-  renewalState: 'active' | 'cancelled' | 'grace' | 'on_hold' | 'paused' | 'expired' | 'revoked' | 'pending' | null
+  renewalState: 'active' | 'cancelled' | 'grace' | 'on_hold' | 'paused' | 'expired' | 'revoked' | 'pending' | 'scheduled' | null
   /**
    * Where the purchase lives, so where it's managed: `'play'` (bought in this
    * app) or `'web'` (bought on the website through Razorpay, and managed
