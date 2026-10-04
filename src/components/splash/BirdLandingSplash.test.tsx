@@ -35,3 +35,13 @@ describe('BirdLandingSplash', () => {
     origins.forEach(origin => expect(origin).toHaveLength(3))
   })
 })
+
+it('shows the perched bird nodding and blinking instead of the landing swoop', () => {
+  const { Animated } = jest.requireActual('react-native')
+  const loopSpy = jest.spyOn(Animated, 'loop')
+  const view = render(<BirdLandingSplash />)
+  // Perched nod + blink start from mount (no landing first).
+  expect(loopSpy).toHaveBeenCalledTimes(2)
+  view.unmount()
+  loopSpy.mockRestore()
+})
