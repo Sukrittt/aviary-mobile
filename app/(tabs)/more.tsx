@@ -64,8 +64,8 @@ export default function MoreScreen() {
   const user = userQuery.data
   const wrappedStatus = useWrappedStatus().data
   const billing = useBillingStatus().data
-  // Before launch there's nothing to manage, so the row keeps pointing at the
-  // "payments are coming" note it always has.
+  // Until the billing status loads there's no plan to show, so the row opens
+  // the trial notice.
   const showBilling = billingVisible(billing)
   const categoriesQ = useCategories()
   const systemStatusQ = useQuery({

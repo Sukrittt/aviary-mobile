@@ -8,12 +8,11 @@ import { Icon } from '@/src/components/shared/Icon'
 import { Button } from '@/src/components/ui/Button'
 import { PopIn } from '@/src/components/shared/PopIn'
 import { useBillingStatus } from '@/src/hooks/useBillingStatus'
-import { billingVisible, formatDate } from '@/src/lib/billingStatus'
+import { formatDate } from '@/src/lib/billingStatus'
 
 /**
- * Shown once, right after budget setup finishes onboarding. Payments
- * aren't live yet, so this sets expectations instead of staying silent
- * about it. See Mobile/app/_layout.tsx for the onboarding handoff, and
+ * Shown once, right after budget setup finishes onboarding, so the trial's
+ * end isn't a surprise on day 45. See Mobile/app/_layout.tsx for the onboarding handoff, and
  * Mobile/app/(tabs)/more.tsx for the same note surfaced
  * later under Plan & billing — that row pushes here with ?from=more, which is
  * what decides whether "Got it" goes back or hands off to the app.
@@ -23,10 +22,7 @@ export default function TrialNoticeScreen() {
   const insets = useSafeAreaInsets()
   const router = useRouter()
   const { from } = useLocalSearchParams<{ from?: string }>()
-  // Once subscriptions launch the trial is real and dated, so say so instead
-  // of the "payments are coming" note.
   const billing = useBillingStatus().data
-  const live = billingVisible(billing)
 
   return (
     <View style={{ flex: 1, backgroundColor: tokens.bg }}>
@@ -52,21 +48,19 @@ export default function TrialNoticeScreen() {
             {"You're on the trial plan"}
           </Text>
           <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodySemiBold, fontSize: type.caption, textAlign: 'center', lineHeight: 20 }}>
-            {live
-              ? `Everything's free until ${formatDate(billing?.trialEndsAt)}. No card needed, nothing to cancel.`
-              : "We're still building payments, so everything's free while you wait. No card needed, nothing to cancel."}
+            {billing?.trialEndsAt
+              ? `Everything's free until ${formatDate(billing.trialEndsAt)}. No card needed, nothing to cancel.`
+              : "Everything's free for 45 days. No card needed, nothing to cancel."}
           </Text>
         </PopIn>
 
         <PopIn play delay={160} style={{ width: '100%' }}>
           <View style={[styles.card, { backgroundColor: tokens.cardSolid, borderColor: tokens.border, borderRadius: radius.md, padding: space.md, gap: space.sm }]}>
             <Text style={{ color: tokens.text, fontFamily: fontFamily.bodyExtraBold, fontSize: type.caption }}>
-              {live ? 'What happens when it ends' : 'What happens once payments are ready'}
+              What happens when it ends
             </Text>
             <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodyMedium, fontSize: type.caption, lineHeight: 20 }}>
-              {live
-                ? "We'll remind you a week before. Then you can pick a monthly or yearly plan in the app. Nothing is charged automatically, and you can always export your data for free."
-                : "You'll get a full 45-day trial from that point, we'll tell you before it starts. We haven't landed on a price yet, but it'll be easy on your wallet."}
+              {"We'll remind you a week before. Then you can pick a monthly or yearly plan in the app. Nothing is charged automatically, and you can always export your data for free."}
             </Text>
           </View>
         </PopIn>
