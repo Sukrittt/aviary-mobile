@@ -9,6 +9,7 @@ import { getCategories } from '@/src/api/categories'
 import { takePendingScanImage } from '@/src/lib/pendingScanImage'
 import { getSystemStatus } from '@/src/api/systemStatus'
 import { WEB_URL } from '@/src/api/client'
+import { FEEDBACK_BOARD_URL } from '@/src/lib/constants'
 import appJson from '@/app.json'
 import MoreScreen from './more'
 
@@ -123,6 +124,18 @@ describe('More tab · app version', () => {
     expect(await findByText(`v${appJson.expo.version} · built in the open`)).toBeTruthy()
     await waitFor(() => expect(mockGetSystemStatus).toHaveBeenCalled())
     expect(queryByText(/Update available/)).toBeNull()
+  })
+})
+
+describe('More tab · early access card', () => {
+  it('opens the feedback board', async () => {
+    const openUrl = jest.spyOn(Linking, 'openURL').mockResolvedValue(true)
+
+    const { findByText } = renderWithProviders(<MoreScreen />)
+    fireEvent.press(await findByText("Aviary's still early. Help shape it."))
+
+    expect(openUrl).toHaveBeenCalledWith(FEEDBACK_BOARD_URL)
+    openUrl.mockRestore()
   })
 })
 

@@ -39,9 +39,8 @@ export function accessAllowed(status: BillingStatus | undefined, now: number = D
 }
 
 /**
- * Whether billing is worth mentioning at all. Before launch both server
- * flags are off and nobody has paid, so the app keeps its pre-launch
- * "payments are coming" copy instead of a countdown to nothing.
+ * Whether billing is worth mentioning at all. With both server flags off
+ * and nobody paid, there's no plan to show or trial to count down.
  */
 export function billingVisible(status: BillingStatus | undefined): boolean {
   return !!status && (status.enforced || status.purchaseEnabled || status.mode === 'paid')
