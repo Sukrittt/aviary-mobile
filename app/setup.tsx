@@ -22,7 +22,8 @@ import { LoadingPhrase } from '@/src/components/shared/LoadingPhrase'
 import { currentMonthKey, INCOME_CATEGORY } from '@/src/lib/envelope'
 import { getBudgets, updateBudget } from '@/src/api/budgets'
 import { addGroup } from '@/src/api/groups'
-import { addCategory } from '@/src/api/categories'
+import { addCategory, getSplitBuckets } from '@/src/api/categories'
+import { BUCKET_LABELS, BUCKET_PLURALS, bucketsOf, summarizeSplit, type Bucket, normName, splitEvenly, suggestSplit, unknownCategories, type BucketTags } from '@/src/lib/budgetSplit'
 import { getUser, updateUser } from '@/src/api/account'
 import { completeOnboarding } from '@/src/api/billing'
 import { signalOnboarded } from '@/src/api/onboardingSignal'
@@ -52,7 +53,7 @@ interface LiveCat {
   key: string
   groupId: string
   catId: string
-  gi: number
+  group: string
   emoji: string
   name: string
 }
@@ -107,15 +108,6 @@ async function ignoreConflict(err: unknown): Promise<void> {
   throw err
 }
 
-// SetupWizard.dc.html:345 — group 0 gets the biggest weighted share, group 1 next,
-// every group after that (including "rest") shares the same smaller weight.
-function groupWeight(gi: number, weighted: boolean): number {
-  if (!weighted) return 1
-  if (gi === 0) return 3
-  if (gi === 1) return 2
-  return 1.5
-}
-
 // Analytics names for the five steps, so a funnel reads 'groups' rather than '2'.
 const STEP_NAMES = ['currency', 'income', 'groups', 'categories', 'assign'] as const
 
@@ -124,7 +116,7 @@ const TITLES: Record<number, [string, string]> = {
   1: ['What lands each month?', 'Your take-home income. This becomes the pot you assign from. You can change it any month.'],
   2: ['Group your money', 'Groups are the big buckets. Accept these or rename them to fit your life.'],
   3: ['Add your categories', 'These are the envelopes you actually spend from. Pick the ones you recognize.'],
-  4: ['Assign your money', 'We suggested a split. Tap any amount to change it. The leftover has to reach zero.'],
+  4: ['Assign your money', 'We suggested a split based on what each category is for. Tap any amount to change it. The leftover has to reach zero.'],
 }
 
 function remainderColors(rem: number, tokens: ThemeTokens): { color: string; bg: string } {
@@ -185,6 +177,9 @@ function CurrencyWizard({ currencyCode, onCurrencyChange }: { currencyCode: stri
   // Whether the user touched the suggested split on the assign step, which is
   // the thing worth knowing about the step that asks the most of them.
   const editedSplit = useRef(false)
+  // Need/want/savings tags Jev gave the user's own categories, and every name already asked about.
+  const [bucketTags, setBucketTags] = useState<BucketTags>({})
+  const askedBuckets = useRef(new Set<string>())
 
   useEffect(() => {
     wizardTimer.current = startTimer()
@@ -205,9 +200,9 @@ function CurrencyWizard({ currencyCode, onCurrencyChange }: { currencyCode: stri
 
   const liveCats = (): LiveCat[] => {
     const out: LiveCat[] = []
-    selectedGroups.forEach((g, gi) => {
+    selectedGroups.forEach((g) => {
       ;(cats[g.id] ?? []).forEach((c) => {
-        if (c.on && c.name.trim()) out.push({ key: `${g.id}:${c.id}`, groupId: g.id, catId: c.id, gi, emoji: c.emoji, name: c.name })
+        if (c.on && c.name.trim()) out.push({ key: `${g.id}:${c.id}`, groupId: g.id, catId: c.id, group: g.name, emoji: c.emoji, name: c.name })
       })
     })
     return out
@@ -216,21 +211,31 @@ function CurrencyWizard({ currencyCode, onCurrencyChange }: { currencyCode: stri
   const assignedTotal = () => liveCats().reduce((n, c) => n + (amounts[c.key] ?? 0), 0)
   const remainder = () => (Number(income) || 0) - assignedTotal()
 
-  const distribute = (weighted: boolean): Record<string, number> => {
+  const distribute = (weighted: boolean, tags: BucketTags = bucketTags): Record<string, number> => {
     const items = liveCats()
     const incomeValue = Number(income) || 0
-    if (!items.length) return {}
-    const weights = items.map((it) => groupWeight(it.gi, weighted))
-    const totalWeight = weights.reduce((a, b) => a + b, 0)
-    const out: Record<string, number> = {}
-    let used = 0
-    items.forEach((it, idx) => {
-      let v = idx === items.length - 1 ? incomeValue - used : Math.round((incomeValue * weights[idx]) / totalWeight / 100) * 100
-      if (v < 0) v = 0
-      used += v
-      out[it.key] = v
-    })
-    return out
+    return weighted ? suggestSplit(incomeValue, items, tags) : splitEvenly(incomeValue, items.map((it) => it.key))
+  }
+
+  const openAssign = (tags: BucketTags) => {
+    setAmounts((prev) => (Object.keys(prev).length ? prev : distribute(true, tags)))
+    setStep(4)
+  }
+
+  // Jev tags the categories the user named themselves, once per name, before
+  // the assign step opens. Any failure leaves them on the group-name fallback.
+  // With nothing new to ask, the step opens at once.
+  const tagThenOpenAssign = async () => {
+    const ask = unknownCategories(liveCats()).filter((c) => !askedBuckets.current.has(normName(c.name)))
+    if (!ask.length) return openAssign(bucketTags)
+    ask.forEach((c) => askedBuckets.current.add(normName(c.name)))
+    saveFill.value = 0
+    setSaveStep('Working out your split…')
+    setPending(true)
+    const tags = { ...bucketTags, ...(await getSplitBuckets(ask)) }
+    setPending(false)
+    setBucketTags(tags)
+    openAssign(tags)
   }
 
   const applyDistribution = (weighted: boolean) => {
@@ -542,13 +547,12 @@ function CurrencyWizard({ currencyCode, onCurrencyChange }: { currencyCode: stri
   }
 
   const next = () => {
-    if (!canAdvance) return
+    if (!canAdvance || pending) return
     // The assign step reports itself once the save lands (see commit), so a
     // failed save doesn't count as a finished step.
     if (step < 4) trackStepCompleted()
     if (step === 3) {
-      setAmounts((prev) => (Object.keys(prev).length ? prev : distribute(true)))
-      setStep(4)
+      void tagThenOpenAssign()
       return
     }
     if (step === 4) {
@@ -578,6 +582,15 @@ function CurrencyWizard({ currencyCode, onCurrencyChange }: { currencyCode: stri
 
   const [title, blurb] = TITLES[step]
   const rem = remainder()
+  // Need/want/savings per category, labelled on the assign step so the suggested split explains itself.
+  const buckets = bucketsOf(liveCats(), bucketTags)
+  const summary = summarizeSplit(liveCats(), bucketTags)
+  // Same colours on the split line and each row's label, so the two read together.
+  const bucketColors: Record<Bucket, { fg: string; bg: string }> = {
+    need: { fg: tokens.blue, bg: tokens.blueSoft },
+    want: { fg: tokens.violet, bg: tokens.violetSoft },
+    savings: { fg: tokens.mint, bg: tokens.mintSoft },
+  }
   const hint = step === 0 ? '' :
     step === 1
       ? canAdvance
@@ -719,6 +732,18 @@ function CurrencyWizard({ currencyCode, onCurrencyChange }: { currencyCode: stri
             <SplitButton label="Suggested split" onPress={() => applyDistribution(true)} />
             <SplitButton label="Split evenly" onPress={() => applyDistribution(false)} />
           </View>
+          {summary && (
+            <View style={styles.splitWhy}>
+              {summary.map((s) => (
+                <View key={s.bucket} style={styles.splitKey}>
+                  <View style={[styles.splitDot, { backgroundColor: bucketColors[s.bucket].fg }]} />
+                  <Text style={[styles.splitKeyLabel, { color: tokens.text2, fontFamily: fontFamily.bodyBold }]}>
+                    {BUCKET_PLURALS[s.bucket]} {s.pct}%
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
           <ScrollView contentContainerStyle={[styles.sectionList, { paddingTop: 22 }]} showsVerticalScrollIndicator={false}>
             {selectedGroups.map((g) => {
               const rows = (cats[g.id] ?? []).filter((c) => c.on && c.name.trim())
@@ -750,6 +775,9 @@ function CurrencyWizard({ currencyCode, onCurrencyChange }: { currencyCode: stri
                         </View>
                         <Text style={[styles.assignName, { color: tokens.text, fontFamily: fontFamily.bodyBold }]} numberOfLines={1}>
                           {c.name}
+                        </Text>
+                        <Text style={[styles.assignBucket, { color: bucketColors[buckets[key]].fg, backgroundColor: bucketColors[buckets[key]].bg, fontFamily: fontFamily.bodyExtraBold }]}>
+                          {BUCKET_LABELS[buckets[key]]}
                         </Text>
                         <Text style={[styles.assignAmount, { color: v ? tokens.text : tokens.text3, fontFamily: fontFamily.displaySemiBold }]}>
                           {formatMoney(v)}
@@ -1007,6 +1035,11 @@ const styles = StyleSheet.create({
   assignEmoji: { width: 36, height: 36, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   assignName: { flex: 1, fontSize: 14 },
   assignAmount: { fontSize: 15 },
+  assignBucket: { fontSize: 10, borderRadius: 100, paddingHorizontal: 8, paddingVertical: 2, overflow: 'hidden' },
+  splitWhy: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 12, rowGap: 4, marginTop: 10, paddingHorizontal: 2 },
+  splitKey: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  splitDot: { width: 8, height: 8, borderRadius: 4 },
+  splitKeyLabel: { fontSize: 12 },
 
   emojiGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 10 },
   emojiOpt: { width: '23%', aspectRatio: 1, borderRadius: 16, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
