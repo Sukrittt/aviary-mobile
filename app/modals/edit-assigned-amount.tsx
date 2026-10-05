@@ -24,6 +24,7 @@ import { useEffect,useState } from 'react'
 import { ActivityIndicator,Animated,Pressable,ScrollView,StyleSheet,Text,View } from 'react-native'
 import Reanimated,{ FadeIn } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import * as Haptics from 'expo-haptics'
 
 const QUICK_PICKS = [500, 1000, 2500]
 
@@ -366,7 +367,10 @@ function QuickChip({
 }) {
   return (
     <Pressable
-      onPress={onPress}
+      onPress={() => {
+        Haptics.selectionAsync().catch(() => {})
+        onPress()
+      }}
       style={[
         styles.quickChip,
         {

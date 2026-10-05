@@ -7,6 +7,7 @@ import { getGroups } from '@/src/api/groups'
 import EditAssignedAmountModal from './edit-assigned-amount'
 import { currentMonthKey, prevMonthKey } from '@/src/lib/envelope'
 import { BudgetWriteError } from '@/src/lib/budgetConflict'
+import * as Haptics from 'expo-haptics'
 
 jest.mock('@/src/api/expenses', () => ({ getExpenses: jest.fn() }))
 jest.mock('@/src/api/budgets', () => ({
@@ -132,4 +133,15 @@ it('shows the shared full-screen conflict review, preserves the draft, and requi
   expect(updateBudget).toHaveBeenCalledTimes(1)
   await act(async () => { fireEvent.press(getByText('Save')) })
   await waitFor(() => expect(updateBudget).toHaveBeenLastCalledWith(MONTH, 'Food', { assigned: '8000' }, 8))
+})
+
+it('gives selection haptics when a quick pick is tapped', async () => {
+  const selection = jest.spyOn(Haptics, 'selectionAsync').mockResolvedValue()
+  const { getByText, getByLabelText } = setup([
+    { month: MONTH, category: 'Food', assigned: '0', rolled_over: '0', version: 1 },
+  ])
+  await waitFor(() => expect(getByText('₹2,500')).toBeTruthy())
+  fireEvent.press(getByText('₹2,500'))
+  expect(selection).toHaveBeenCalledTimes(1)
+  expect(getByLabelText('₹2,500')).toBeTruthy()
 })

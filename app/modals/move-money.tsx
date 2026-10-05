@@ -23,6 +23,7 @@ import { useEffect,useMemo,useState } from 'react'
 import { ActivityIndicator,Animated,KeyboardAvoidingView,Platform,Pressable,ScrollView,StyleSheet,Text,TextInput,View } from 'react-native'
 import Reanimated, { FadeIn,FadeOut,LinearTransition,ZoomIn } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import * as Haptics from 'expo-haptics'
 
 const RTA_SENTINEL = '__ready_to_assign__'
 const MAX_AUTO_SOURCES = 3
@@ -533,7 +534,10 @@ function QuickChip({
 }) {
   return (
     <Pressable
-      onPress={onPress}
+      onPress={() => {
+        Haptics.selectionAsync().catch(() => {})
+        onPress()
+      }}
       style={[
         styles.quickChip,
         {
