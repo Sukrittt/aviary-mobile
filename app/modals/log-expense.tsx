@@ -3,9 +3,10 @@ import { ExpenseConflictReview } from '@/src/features/log-expense/ExpenseConflic
 import { AutoCategoryPill, MIN_SPIN_MS, PILL_MAX_WIDTH } from '@/src/features/log-expense/AutoCategoryPill'
 import { createThinkingGate, type ThinkingGate } from '@/src/lib/thinkingGate'
 import { ExpenseWriteError, expenseChanges, expenseDraft, rebaseExpenseDraft } from '@/src/lib/expenseConflict'
-import type { ExpenseRow } from '@/src/types'
+import type { CategoryRow, ExpenseRow } from '@/src/types'
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { suggestCategoryLLM } from "@/src/api/categoryMap";
+import { AddCategoryForm } from "@/src/components/shared/AddCategoryForm";
 import { CategoryPickerSheet } from "@/src/components/shared/CategoryPickerSheet";
 import { DatePicker } from "@/src/components/shared/DatePicker";
 import { BottomSheet } from "@/src/components/shared/Modal";
@@ -25,7 +26,7 @@ import {
 missingFields,
 missingFieldsMessage,
 } from "@/src/features/log-expense/missingFields";
-import { useAddCategory,useCategories } from "@/src/hooks/useCategories";
+import { useCategories } from "@/src/hooks/useCategories";
 import { useCategoryMap } from "@/src/hooks/useCategoryMap";
 import {
 useAddExpense,
@@ -41,7 +42,7 @@ import { useTheme } from "@/src/theme/ThemeProvider";
 import { fontFamily } from "@/src/theme/fonts";
 import { NAV_HEIGHT } from "@/src/theme/scale";
 import { useLocalSearchParams,useRouter } from "expo-router";
-import { ChevronDown, PencilLine, Tag, TriangleAlert, WalletMinimal } from "lucide-react-native";
+import { ChevronDown, PencilLine, Plus, Tag, TriangleAlert, WalletMinimal } from "lucide-react-native";
 import { useCallback,useEffect,useMemo,useRef,useState } from "react";
 import {
 Animated,
@@ -118,7 +119,6 @@ export default function LogExpenseScreen() {
   const expensesQ = useRecentExpenses();
   const addExpense = useAddExpense();
   const updateExpense = useUpdateExpense();
-  const addCategory = useAddCategory();
 
   const publishLogExpenseSubmit = useLogExpenseSubmitPublisher();
   const addMutate = addExpense.mutate;
@@ -129,7 +129,8 @@ export default function LogExpenseScreen() {
   // off, and is the only kind that saves one: a prefill must not overwrite it.
   const [plainVisit] = useState(() => Object.keys(params).length === 0);
   const [draft] = useState(() => (plainVisit ? getLogExpenseDraft() : null));
-  const [newCategoryName, setNewCategoryName] = useState("");
+  const [createCategoryOpen, setCreateCategoryOpen] = useState(false);
+  const [createdCategory, setCreatedCategory] = useState<CategoryRow | null>(null);
   // `expr` is what was typed, maybe a sum ("5+5"); `amount` is its total.
   const { amount: expr, setAmount, pushDigit, handleBackspace, shake } = useAmountEntry(draft?.amount ?? (origAmountInr ? String(origAmountInr) : ""), { shakeAtZero: true });
   const amount = hasOperator(expr) ? String(evaluateAmount(expr)) : expr;
@@ -252,7 +253,8 @@ export default function LogExpenseScreen() {
     [categories],
   );
 
-  const selectedCategory = categories.find((c) => c.name === category);
+  const selectedCategory = categories.find((c) => c.name === category)
+    ?? (createdCategory?.name === category ? createdCategory : undefined);
 
   const parsedAmount = Number(amount);
   const missing = missingFields({ amount, item, category });
@@ -279,31 +281,6 @@ export default function LogExpenseScreen() {
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [logSuccess]);
-
-  function handleCreateCategory() {
-    const name = newCategoryName.trim();
-    if (!name || addCategory.isPending) return;
-    setError("");
-    addCategory.mutate(
-      { name, group: categories.length === 0 ? "Miscellaneous" : undefined },
-      {
-        onSuccess: () => {
-          setCategory(name);
-          setCategoryTouched(true);
-          setAutoPicked(false);
-          setNewCategoryName("");
-        },
-        onError: (e) => {
-          const msg = e instanceof Error ? e.message : "";
-          setError(
-            msg.includes("already exists")
-              ? "That name is already taken. Try a different name."
-              : "Failed to add category",
-          );
-        },
-      },
-    );
-  }
 
   const handleSubmit = useCallback(() => {
     if (!canSubmit) return;
@@ -627,7 +604,7 @@ export default function LogExpenseScreen() {
 
       <CategoryPickerSheet
         visible={pickerOpen}
-        onClose={() => setPickerOpen(false)}
+        onClose={() => { setPickerOpen(false); setCreateCategoryOpen(false); }}
         value={category}
         onSelect={(c) => {
           setCategory(c);
@@ -636,74 +613,34 @@ export default function LogExpenseScreen() {
         }}
         title="Choose a category"
         noneLabel="No category"
+        creationForm={createCategoryOpen ? (
+          <AddCategoryForm
+            onCreated={(created) => {
+              gateRef.current?.cancel();
+              setCreatedCategory(created);
+              setCategory(created.name);
+              setCategoryTouched(true);
+              setAutoPicked(false);
+              setCreateCategoryOpen(false);
+              setPickerOpen(false);
+            }}
+          />
+        ) : undefined}
         footer={
-          <>
-            {categories.length === 0 && !online && (
-              <Text
-                style={[
-                  styles.fieldLabel,
-                  {
-                    color: tokens.text3,
-                    fontFamily: fontFamily.bodyMedium,
-                    marginTop: space.md,
-                  },
-                ]}
-              >
-                You can add categories once you&apos;re back online.
-              </Text>
-            )}
-            {categories.length === 0 && online && (
-              <View
-                style={{
-                  flexDirection: "row",
-                  gap: space.sm,
-                  marginTop: space.md,
-                }}
-              >
-                <TextInput
-                  value={newCategoryName}
-                  onChangeText={setNewCategoryName}
-                  placeholder="New category name"
-                  placeholderTextColor={tokens.text3}
-                  onSubmitEditing={handleCreateCategory}
-                  style={[
-                    styles.itemInput,
-                    {
-                      flex: 1,
-                      backgroundColor: tokens.inputBg,
-                      borderRadius: radius.md,
-                      color: tokens.text,
-                      fontFamily: fontFamily.bodyMedium,
-                      fontSize: type.body,
-                    },
-                  ]}
-                />
-                <Pressable
-                  onPress={handleCreateCategory}
-                  disabled={!newCategoryName.trim() || addCategory.isPending}
-                  style={[
-                    styles.addCategory,
-                    {
-                      backgroundColor: tokens.accentInk,
-                      borderRadius: radius.md,
-                      opacity:
-                        !newCategoryName.trim() || addCategory.isPending ? 0.5 : 1,
-                    },
-                  ]}
-                >
-                  <Text
-                    style={{
-                      color: tokens.onAccent,
-                      fontFamily: fontFamily.bodySemiBold,
-                      fontSize: type.caption,
-                    }}
-                  >
-                    Add
-                  </Text>
-                </Pressable>
-              </View>
-            )}
-          </>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Add category in picker"
+            onPress={() => {
+              Keyboard.dismiss();
+              setCreateCategoryOpen(true);
+            }}
+            disabled={!online}
+            style={{ alignSelf: "flex-end", flexDirection: "row", alignItems: "center", gap: space.xs, paddingHorizontal: space.md, paddingVertical: space.sm, marginTop: space.sm, borderRadius: radius.full, backgroundColor: tokens.inputBg, opacity: online ? 1 : 0.5 }}
+          >
+            <Plus size={16} color={tokens.accentInk} />
+            <Text style={{ color: tokens.accentInk, fontFamily: fontFamily.bodySemiBold }}>Add</Text>
+            {!online && <Text style={{ color: tokens.text3, textAlign: "center", marginTop: space.xs }}>You can add categories once you&apos;re back online.</Text>}
+          </Pressable>
         }
       />
 
@@ -812,9 +749,4 @@ const styles = StyleSheet.create({
   sheetTitle: { marginBottom: 12 },
   sheetList: { maxHeight: 320 },
   sheetChips: { flexDirection: "row", flexWrap: "wrap" },
-  addCategory: {
-    paddingHorizontal: 16,
-    alignItems: "center",
-    justifyContent: "center",
-  },
 });

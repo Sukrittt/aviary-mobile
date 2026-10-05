@@ -27,8 +27,10 @@ interface Props {
   noneLabel?: string
   /** Sheet heading. Defaults to "Category". */
   title?: string
-  /** Rendered below the category list, e.g. log-expense's inline "create category" form. */
+  /** Rendered below the category list, e.g. log-expense's "Add category" action. */
   footer?: ReactNode
+  /** Replaces the picker with a creation form in the same native modal. */
+  creationForm?: ReactNode
 }
 
 /**
@@ -45,6 +47,7 @@ export function CategoryPickerSheet({
   noneLabel = 'No category linked',
   title = 'Category',
   footer,
+  creationForm,
 }: Props) {
   const { tokens } = useTheme()
   const categoriesQ = useCategories()
@@ -100,6 +103,7 @@ export function CategoryPickerSheet({
 
   return (
     <BottomSheet visible={visible} onClose={() => { onClose(); setSearch('') }}>
+      {creationForm ?? (<>
       <Text style={[styles.title, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>{title}</Text>
       <TextInput
         value={search}
@@ -169,6 +173,7 @@ export function CategoryPickerSheet({
         )}
       </ScrollView>
       {footer}
+      </>)}
     </BottomSheet>
   )
 }

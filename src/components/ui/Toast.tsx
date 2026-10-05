@@ -116,7 +116,9 @@ export function Toast({
   }))
 
   return (
-    <Reanimated.View pointerEvents="none" style={[styles.wrap, style, animStyle]}>
+    // Offscreen compositing fades the pill and its Android elevation shadow as
+    // one layer; without it the shadow box lingers solid after the text fades.
+    <Reanimated.View pointerEvents="none" needsOffscreenAlphaCompositing style={[styles.wrap, style, animStyle]}>
       <View
         accessible
         accessibilityRole="alert"
@@ -155,7 +157,9 @@ export function Toast({
 }
 
 const styles = StyleSheet.create({
-  wrap: { position: 'absolute', left: 0, right: 0, alignItems: 'center', zIndex: 10 },
+  // Vertical padding (cancelled by the negative margin) leaves room for the
+  // shadow, which the offscreen layer would otherwise clip.
+  wrap: { position: 'absolute', left: 0, right: 0, alignItems: 'center', zIndex: 10, paddingVertical: 24, marginTop: -24 },
   pill: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, minHeight: 58, maxWidth: '90%', borderWidth: 1 },
   badgeWrap: { width: 36, height: 36 },
   badgeBack: { ...StyleSheet.absoluteFill, transform: [{ rotate: '-12deg' }] },

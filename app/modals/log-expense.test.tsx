@@ -1,9 +1,10 @@
 import { ExpenseWriteError } from '@/src/lib/expenseConflict'
 import type { ExpenseRow } from '@/src/types'
+import { Modal } from 'react-native'
 import { act, fireEvent } from '@testing-library/react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { getRecentExpenses, postExpensePayload, updateExpense } from '@/src/api/expenses'
-import { getCategories } from '@/src/api/categories'
+import { addCategory, getCategories } from '@/src/api/categories'
 import { getGroups } from '@/src/api/groups'
 import { getCategoryMap, suggestCategoryLLM } from '@/src/api/categoryMap'
 import LogExpenseScreen from './log-expense'
@@ -401,4 +402,86 @@ it('leaves a half-filled expense alone while a prefilled entry is open', async (
   prefilled.unmount()
 
   expect(getLogExpenseDraft()?.item).toBe('Milk')
+})
+
+
+it('creates a category from a populated picker, closes the modal and uses it for the expense', async () => {
+  let finishSave!: () => void
+  ;(addCategory as jest.Mock).mockImplementation(() => new Promise<void>((resolve) => { finishSave = resolve }))
+  ;(postExpensePayload as jest.Mock).mockResolvedValue({ id: 'new-expense', timestamp: '2026-10-06T01:24:00' })
+  const utils = setup()
+  await fillValidForm(utils)
+  fireEvent.press(utils.getByLabelText('Category: Groceries'))
+  fireEvent.press(utils.getByLabelText('Add category in picker'))
+  expect(utils.queryByText('Choose a category')).toBeNull()
+  fireEvent.changeText(utils.getByPlaceholderText('New category name'), '  🏋️ Gym  ')
+  fireEvent.press(utils.getByText('Food'))
+  await act(async () => { fireEvent.press(utils.getByLabelText('Save category')) })
+  expect(addCategory).toHaveBeenCalledWith('🏋️ Gym', 'Food')
+  expect(utils.getByText('Saving…')).toBeTruthy()
+  // The category refetch stays unresolved: selection must appear immediately.
+  ;(getCategories as jest.Mock).mockImplementation(() => new Promise(() => {}))
+  await act(async () => { finishSave() })
+  expect(utils.queryByPlaceholderText('New category name')).toBeNull()
+  expect(utils.queryByText('Choose a category')).toBeNull()
+  expect(utils.getByLabelText('Category: Gym')).toBeTruthy()
+  expect(utils.getByPlaceholderText('What was it for?').props.value).toBe('Milk')
+  await act(async () => { (globalThis as any).__submit() })
+  expect(postExpensePayload).toHaveBeenCalledWith(expect.objectContaining({ item: 'Milk', amount_inr: '450', category: '🏋️ Gym' }), 0)
+})
+
+it('keeps category creation errors in the modal and lets the user retry', async () => {
+  ;(addCategory as jest.Mock).mockRejectedValueOnce(new Error('Category already exists'))
+    .mockResolvedValueOnce(undefined)
+  const utils = setup()
+  await fillValidForm(utils)
+  fireEvent.press(utils.getByLabelText('Category: Groceries'))
+  fireEvent.press(utils.getByLabelText('Add category in picker'))
+  fireEvent.changeText(utils.getByPlaceholderText('New category name'), 'Groceries')
+  fireEvent.press(utils.getByLabelText('Save category'))
+  expect(await utils.findByText('That name is already taken. Try a different name.')).toBeTruthy()
+  expect(utils.getByPlaceholderText('New category name').props.value).toBe('Groceries')
+  fireEvent.changeText(utils.getByPlaceholderText('New category name'), 'Gym')
+  await act(async () => { fireEvent.press(utils.getByLabelText('Save category')) })
+  expect(utils.queryByPlaceholderText('New category name')).toBeNull()
+  expect(utils.getByLabelText('Category: Gym')).toBeTruthy()
+})
+
+it('discards a cancelled category draft without changing the expense category', async () => {
+  const utils = setup()
+  await fillValidForm(utils)
+  fireEvent.press(utils.getByLabelText('Category: Groceries'))
+  fireEvent.press(utils.getByLabelText('Add category in picker'))
+  fireEvent.changeText(utils.getByPlaceholderText('New category name'), 'Gym')
+  fireEvent(utils.UNSAFE_getAllByType(Modal).find((modal) => modal.props.visible)!, 'requestClose')
+  expect(utils.queryByPlaceholderText('New category name')).toBeNull()
+  expect(utils.getByLabelText('Category: Groceries')).toBeTruthy()
+  fireEvent.press(utils.getByLabelText('Category: Groceries'))
+  fireEvent.press(utils.getByLabelText('Add category in picker'))
+  expect(utils.getByPlaceholderText('New category name').props.value).toBe('')
+  fireEvent.changeText(utils.getByPlaceholderText('New category name'), '   ')
+  expect(utils.getByLabelText('Save category')).toBeDisabled()
+  expect(addCategory).not.toHaveBeenCalled()
+})
+
+it('offers category creation when there are no categories yet', async () => {
+  ;(addCategory as jest.Mock).mockResolvedValue(undefined)
+  const utils = setup({}, [], [])
+  await act(async () => {})
+  fireEvent.press(utils.getByText('Category'))
+  fireEvent.press(utils.getByLabelText('Add category in picker'))
+  fireEvent.changeText(utils.getByPlaceholderText('New category name'), 'First category')
+  await act(async () => { fireEvent.press(utils.getByLabelText('Save category')) })
+  expect(addCategory).toHaveBeenCalledWith('First category', '')
+  expect(utils.getByLabelText('Category: First category')).toBeTruthy()
+})
+
+
+it('offers category creation only inside the category picker', async () => {
+  const utils = setup()
+  await fillValidForm(utils)
+  expect(utils.queryByLabelText('Add category')).toBeNull()
+  expect(utils.queryByLabelText('Add category in picker')).toBeNull()
+  fireEvent.press(utils.getByLabelText('Category: Groceries'))
+  expect(utils.getByLabelText('Add category in picker')).toBeTruthy()
 })
