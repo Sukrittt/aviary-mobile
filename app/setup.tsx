@@ -167,6 +167,8 @@ function CurrencyWizard({ currencyCode, onCurrencyChange }: { currencyCode: stri
   // The open category's name as it's being edited in the assign sheet; it
   // only lands on the category when the sheet closes.
   const [nameDraft, setNameDraft] = useState('')
+  // The assign sheet swaps its numpad for the emoji grid while this is on.
+  const [sheetEmojiOpen, setSheetEmojiOpen] = useState(false)
   const [pending, setPending] = useState(false)
   // Real save progress for the Finish button: the step being written and a
   // fill that grows as each write lands, so a slow save visibly moves.
@@ -374,6 +376,7 @@ function CurrencyWizard({ currencyCode, onCurrencyChange }: { currencyCode: stri
     Haptics.selectionAsync().catch(() => {})
     setActiveKey(key)
     setBuf('')
+    setSheetEmojiOpen(false)
     setNameDraft(liveCats().find((c) => c.key === key)?.name ?? '')
   }
 
@@ -790,9 +793,18 @@ function CurrencyWizard({ currencyCode, onCurrencyChange }: { currencyCode: stri
           <View style={{ gap: 12 }}>
             <View style={[styles.sheetGrabber, { backgroundColor: tokens.borderStrong }]} />
             <View style={styles.sheetHeader}>
-              <View style={[styles.sheetEmoji, { backgroundColor: tokens.inputBg, borderColor: tokens.border }]}>
+              <Pressable
+                onPress={() => setSheetEmojiOpen((o) => !o)}
+                accessibilityRole="button"
+                accessibilityLabel={`Change emoji for ${activeCat.name}`}
+                accessibilityState={{ expanded: sheetEmojiOpen }}
+                style={[
+                  styles.sheetEmoji,
+                  { backgroundColor: tokens.inputBg, borderColor: sheetEmojiOpen ? tokens.accent : tokens.border },
+                ]}
+              >
                 <Text style={{ fontSize: 16 }}>{activeCat.emoji}</Text>
-              </View>
+              </Pressable>
               <View style={[styles.sheetNameField, { borderColor: tokens.border }]}>
                 <TextInput
                   value={nameDraft}
@@ -812,15 +824,28 @@ function CurrencyWizard({ currencyCode, onCurrencyChange }: { currencyCode: stri
                 </Text>
               </View>
             </View>
-            <Text style={[styles.sheetAmount, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
-              {formatMoney(amounts[activeCat.key] ?? 0)}
-            </Text>
-            {rem !== 0 && (
-              <Pressable onPress={fillRemainder} style={[styles.fillButton, { borderColor: tokens.accent, backgroundColor: tokens.accentSoft }]}>
-                <Text style={[styles.fillButtonLabel, { color: tokens.accent }]}>Give this the leftover</Text>
-              </Pressable>
+            {sheetEmojiOpen ? (
+              <EmojiGrid
+                current={activeCat.emoji}
+                onPick={(emoji) => {
+                  Haptics.selectionAsync().catch(() => {})
+                  patchCat(activeCat.groupId, activeCat.catId, { emoji })
+                  setSheetEmojiOpen(false)
+                }}
+              />
+            ) : (
+              <>
+                <Text style={[styles.sheetAmount, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
+                  {formatMoney(amounts[activeCat.key] ?? 0)}
+                </Text>
+                {rem !== 0 && (
+                  <Pressable onPress={fillRemainder} style={[styles.fillButton, { borderColor: tokens.accent, backgroundColor: tokens.accentSoft }]}>
+                    <Text style={[styles.fillButtonLabel, { color: tokens.accent }]}>Give this the leftover</Text>
+                  </Pressable>
+                )}
+                <Numpad extraKey="00" onDigit={pressAmt} onBackspace={() => pressAmt('del')} onClear={clearAmt} />
+              </>
             )}
-            <Numpad extraKey="00" onDigit={pressAmt} onBackspace={() => pressAmt('del')} onClear={clearAmt} />
             <Pressable onPress={closeRow} style={[styles.sheetDone, { backgroundColor: tokens.accent }]}>
               <Text style={[styles.sheetDoneLabel, { color: tokens.onAccent, fontFamily: fontFamily.displaySemiBold }]}>Done</Text>
             </Pressable>
@@ -835,26 +860,7 @@ function CurrencyWizard({ currencyCode, onCurrencyChange }: { currencyCode: stri
             <Text style={[styles.sheetName, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]} numberOfLines={1}>
               Pick an emoji{emojiFor.name.trim() ? ` for ${emojiFor.name.trim()}` : ''}
             </Text>
-            <View style={styles.emojiGrid}>
-              {EMOJI_CHOICES.map((e) => {
-                const active = e === emojiFor.emoji
-                return (
-                  <Pressable
-                    key={e}
-                    onPress={() => pickEmoji(e)}
-                    accessibilityRole="button"
-                    accessibilityLabel={e}
-                    accessibilityState={{ selected: active }}
-                    style={[
-                      styles.emojiOpt,
-                      { backgroundColor: active ? tokens.accentSoft : tokens.inputBg, borderColor: active ? tokens.accent : tokens.border },
-                    ]}
-                  >
-                    <Text style={styles.emojiOptLabel}>{e}</Text>
-                  </Pressable>
-                )
-              })}
-            </View>
+            <EmojiGrid current={emojiFor.emoji} onPick={pickEmoji} />
           </View>
         )}
       </BottomSheet>
@@ -929,6 +935,34 @@ function SplitButton({ label, onPress }: { label: string; onPress: () => void })
     >
       <Text style={[styles.splitButtonLabel, { color: tokens.text2 }]}>{label}</Text>
     </AnimatedPressable>
+  )
+}
+
+// The 4x4 grid of EMOJI_CHOICES, shared by the group/category emoji sheet and
+// the assign sheet.
+function EmojiGrid({ current, onPick }: { current: string; onPick: (emoji: string) => void }) {
+  const { tokens } = useTheme()
+  return (
+    <View style={styles.emojiGrid}>
+      {EMOJI_CHOICES.map((e) => {
+        const active = e === current
+        return (
+          <Pressable
+            key={e}
+            onPress={() => onPick(e)}
+            accessibilityRole="button"
+            accessibilityLabel={e}
+            accessibilityState={{ selected: active }}
+            style={[
+              styles.emojiOpt,
+              { backgroundColor: active ? tokens.accentSoft : tokens.inputBg, borderColor: active ? tokens.accent : tokens.border },
+            ]}
+          >
+            <Text style={styles.emojiOptLabel}>{e}</Text>
+          </Pressable>
+        )
+      })}
+    </View>
   )
 }
 

@@ -94,3 +94,17 @@ it('renames a category from the assign sheet, keeping the old name on a blank or
   fireEvent.press(getByText('Done'))
   expect(getByText('Home rent')).toBeTruthy()
 })
+
+it('changes a category emoji from the assign sheet', () => {
+  const { getByText, getByLabelText, queryByLabelText } = toGroupsStep()
+  fireEvent.press(getByText('Continue')) // groups
+  fireEvent.press(getByText('Continue')) // categories
+
+  fireEvent.press(getByText('Rent'))
+  fireEvent.press(getByLabelText('Change emoji for Rent'))
+  fireEvent.press(getByLabelText('🐶'))
+  expect(queryByLabelText('🐶')).toBeNull()
+  expect(getByLabelText('Change emoji for Rent')).toHaveTextContent('🐶')
+  fireEvent.press(getByText('Done'))
+  expect(getByText('🐶')).toBeTruthy()
+})
