@@ -158,8 +158,9 @@ function CurrencyWizard({ currencyCode, onCurrencyChange }: { currencyCode: stri
   const [cats, setCats] = useState<Record<string, Item[]>>(defaultCats)
   const [amounts, setAmounts] = useState<Record<string, number>>({})
   const [activeKey, setActiveKey] = useState<string | null>(null)
-  // Two checked groups (or categories) can't share a name; trying it shows this toast.
-  const [dupToast, setDupToast] = useState({ n: 0, name: '', kind: 'group' })
+  // Why a row couldn't be checked (no name yet, or a name another checked row
+  // already has); each bump of `n` shows it as a toast.
+  const [rowToast, setRowToast] = useState({ n: 0, message: '' })
   // The row whose emoji sheet is open: a group, or a category when catId is set.
   const [emojiFor, setEmojiFor] = useState<{ groupId: string; catId?: string; emoji: string; name: string } | null>(null)
   const [buf, setBuf] = useState('')
@@ -274,8 +275,9 @@ function CurrencyWizard({ currencyCode, onCurrencyChange }: { currencyCode: stri
   const patchCat = (groupId: string, catId: string, patch: Partial<Item>) =>
     setCats((c) => ({ ...c, [groupId]: (c[groupId] ?? []).map((cat) => (cat.id === catId ? { ...cat, ...patch } : cat)) }))
 
+  const blockRow = (message: string) => setRowToast((t) => ({ n: t.n + 1, message }))
   const blockDup = (kind: 'group' | 'category', name: string) =>
-    setDupToast((t) => ({ n: t.n + 1, name: name.trim(), kind }))
+    blockRow(`You've already got a ${kind} called ${name.trim()}.`)
 
   // Whether `name` matches another checked row. Categories compare across
   // every selected group, since they all become envelopes side by side.
@@ -286,6 +288,10 @@ function CurrencyWizard({ currencyCode, onCurrencyChange }: { currencyCode: stri
     selectedGroups.some((g) => (cats[g.id] ?? []).some((c) => c.id !== catId && c.on && sameName(c.name, name)))
 
   const toggleGuarded = (item: Item, isDup: (name: string) => boolean, kind: 'group' | 'category'): Partial<Item> | null => {
+    if (!item.on && !item.name.trim()) {
+      blockRow(`Give this ${kind} a name first.`)
+      return null
+    }
     if (!item.on && isDup(item.name)) {
       blockDup(kind, item.name)
       return null
@@ -830,8 +836,8 @@ function CurrencyWizard({ currencyCode, onCurrencyChange }: { currencyCode: stri
       </BottomSheet>
 
       <Toast
-        trigger={dupToast.n}
-        message={`You've already got a ${dupToast.kind} called ${dupToast.name}.`}
+        trigger={rowToast.n}
+        message={rowToast.message}
         icon={CopyX}
         style={{ top: insets.top + 12 }}
       />

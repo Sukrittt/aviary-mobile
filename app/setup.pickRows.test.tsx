@@ -30,6 +30,9 @@ it('keeps a new group unchecked until it has a name', () => {
   const { getByText, getByLabelText, getAllByPlaceholderText } = toGroupsStep()
   fireEvent.press(getByText('Add your own group'))
   expect(getByLabelText('Select Group name')).not.toBeChecked()
+  fireEvent.press(getByLabelText('Select Group name'))
+  expect(getByLabelText('Select Group name')).not.toBeChecked()
+  expect(getByText('Give this group a name first.')).toBeTruthy()
   const input = getAllByPlaceholderText('Group name').at(-1)!
   fireEvent.changeText(input, 'Pets')
   expect(getByLabelText('Deselect Pets')).toBeChecked()
