@@ -1,11 +1,11 @@
 import { CurrencyPicker } from '@/src/components/CurrencyPicker'
 import { CurrencyScope, useCurrency } from '@/src/context/CurrencyContext'
 import { useEffect, useRef, useState } from 'react'
-import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native'
+import { View, Text, TextInput, ScrollView, Pressable, StyleSheet } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useQueryClient } from '@tanstack/react-query'
 import * as Haptics from 'expo-haptics'
-import { ArrowLeft, CopyX, Plus } from 'lucide-react-native'
+import { ArrowLeft, CopyX, Pencil, Plus } from 'lucide-react-native'
 import { Toast } from '@/src/components/ui/Toast'
 import Animated, { useSharedValue, useAnimatedStyle, useReducedMotion, withSequence, withSpring, withTiming } from 'react-native-reanimated'
 import { useTheme } from '@/src/theme/ThemeProvider'
@@ -164,6 +164,9 @@ function CurrencyWizard({ currencyCode, onCurrencyChange }: { currencyCode: stri
   // The row whose emoji sheet is open: a group, or a category when catId is set.
   const [emojiFor, setEmojiFor] = useState<{ groupId: string; catId?: string; emoji: string; name: string } | null>(null)
   const [buf, setBuf] = useState('')
+  // The open category's name as it's being edited in the assign sheet; it
+  // only lands on the category when the sheet closes.
+  const [nameDraft, setNameDraft] = useState('')
   const [pending, setPending] = useState(false)
   // Real save progress for the Finish button: the step being written and a
   // fill that grows as each write lands, so a slow save visibly moves.
@@ -371,9 +374,21 @@ function CurrencyWizard({ currencyCode, onCurrencyChange }: { currencyCode: stri
     Haptics.selectionAsync().catch(() => {})
     setActiveKey(key)
     setBuf('')
+    setNameDraft(liveCats().find((c) => c.key === key)?.name ?? '')
+  }
+
+  // A blank name keeps the old one (a nameless category would drop off this
+  // step), and a clashing name keeps the old one with the duplicate toast.
+  const commitName = () => {
+    const cat = liveCats().find((c) => c.key === activeKey)
+    const name = nameDraft.trim()
+    if (!cat || !name || name === cat.name.trim()) return
+    if (catDup(cat.catId)(name)) return blockDup('category', name)
+    patchCat(cat.groupId, cat.catId, { name })
   }
 
   const closeRow = () => {
+    commitName()
     setActiveKey(null)
     setBuf('')
   }
@@ -778,9 +793,18 @@ function CurrencyWizard({ currencyCode, onCurrencyChange }: { currencyCode: stri
               <View style={[styles.sheetEmoji, { backgroundColor: tokens.inputBg, borderColor: tokens.border }]}>
                 <Text style={{ fontSize: 16 }}>{activeCat.emoji}</Text>
               </View>
-              <Text style={[styles.sheetName, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]} numberOfLines={1}>
-                {activeCat.name}
-              </Text>
+              <View style={[styles.sheetNameField, { borderColor: tokens.border }]}>
+                <TextInput
+                  value={nameDraft}
+                  onChangeText={setNameDraft}
+                  placeholder={activeCat.name}
+                  placeholderTextColor={tokens.text3}
+                  accessibilityLabel="Category name"
+                  returnKeyType="done"
+                  style={[styles.sheetName, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}
+                />
+                <Pencil size={13} color={tokens.text3} strokeWidth={2.2} />
+              </View>
               <View style={[styles.remChipSmall, { backgroundColor: remColors.bg, borderColor: remColors.color }]}>
                 <Text style={[styles.remLabelSmall, { color: remColors.color }]}>{remLabel}</Text>
                 <Text style={[styles.remValueSmall, { color: remColors.color, fontFamily: fontFamily.displaySemiBold }]}>
@@ -956,7 +980,8 @@ const styles = StyleSheet.create({
   sheetGrabber: { alignSelf: 'center', width: 38, height: 4, borderRadius: 100 },
   sheetHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   sheetEmoji: { width: 34, height: 34, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  sheetName: { flex: 1, fontSize: 16 },
+  sheetName: { flex: 1, fontSize: 16, paddingVertical: 4 },
+  sheetNameField: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, borderBottomWidth: 1 },
   remChipSmall: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 12, borderWidth: 1 },
   remLabelSmall: { fontSize: 10, fontWeight: '800' },
   remValueSmall: { fontSize: 13 },

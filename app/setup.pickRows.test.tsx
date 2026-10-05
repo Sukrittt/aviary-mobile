@@ -71,3 +71,26 @@ it('picks a group emoji from the sheet instead of cycling', () => {
   expect(queryByText('Pick an emoji for Essentials')).toBeNull()
   expect(getByLabelText('Change emoji for Essentials')).toHaveTextContent('🐶')
 })
+
+it('renames a category from the assign sheet, keeping the old name on a blank or clashing one', () => {
+  const { getByText, getByLabelText, queryByText } = toGroupsStep()
+  fireEvent.press(getByText('Continue')) // groups
+  fireEvent.press(getByText('Continue')) // categories
+
+  fireEvent.press(getByText('Rent'))
+  fireEvent.changeText(getByLabelText('Category name'), 'Home rent')
+  fireEvent.press(getByText('Done'))
+  expect(getByText('Home rent')).toBeTruthy()
+  expect(queryByText('Rent')).toBeNull()
+
+  fireEvent.press(getByText('Home rent'))
+  fireEvent.changeText(getByLabelText('Category name'), 'groceries')
+  fireEvent.press(getByText('Done'))
+  expect(getByText('Home rent')).toBeTruthy()
+  expect(getByText("You've already got a category called groceries.")).toBeTruthy()
+
+  fireEvent.press(getByText('Home rent'))
+  fireEvent.changeText(getByLabelText('Category name'), '  ')
+  fireEvent.press(getByText('Done'))
+  expect(getByText('Home rent')).toBeTruthy()
+})
