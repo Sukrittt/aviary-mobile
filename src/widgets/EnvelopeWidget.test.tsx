@@ -5,7 +5,8 @@
 import { buildWidgetTree } from "react-native-android-widget/src/api/build-widget-tree";
 import { darkTokens, lightTokens } from "@/src/theme/tokens";
 import type { WidgetData } from "./data";
-import { birdRingSvg } from "./bird";
+import { birdRingFrames, birdRingSvg } from "./bird";
+import { BIRD_EYE } from "@/src/components/splash/birdPath";
 import { EnvelopeWidget } from "./EnvelopeWidget";
 import { EnvelopeBarWidget } from "./EnvelopeBarWidget";
 import { EnvelopeMiniWidget } from "./EnvelopeMiniWidget";
@@ -181,5 +182,27 @@ describe("birdRingSvg", () => {
   it("leaves out the arc entirely at zero, rather than a round-cap dot", () => {
     expect(svg({ leftPct: 0 })).not.toContain("stroke-dasharray");
     expect(svg({ leftPct: null })).not.toContain("stroke-dasharray");
+  });
+});
+
+describe("birdRingFrames", () => {
+  const args = { leftPct: 0.5, tokens: lightTokens, scheme: "light" as const };
+
+  it("holds the open-eyed bird, then shuts the eye for the last frame", () => {
+    const frames = birdRingFrames({ ...args, mood: "ok" })!;
+    const open = birdRingSvg({ ...args, mood: "ok" });
+    expect(frames.slice(0, -1).every((f) => f === open)).toBe(true);
+    expect(frames.at(-1)).toBe(birdRingSvg({ ...args, mood: "ok", blink: true }));
+    expect(frames.at(-1)).not.toBe(open);
+  });
+
+  it("keeps the overspent brow while blinking", () => {
+    const { cx, cy } = BIRD_EYE;
+    const blink = birdRingFrames({ ...args, mood: "over" })!.at(-1)!;
+    expect(blink).toContain(`M ${cx - 22} ${cy - 30} L ${cx + 20} ${cy - 18}`);
+  });
+
+  it("leaves a sleeping bird still", () => {
+    expect(birdRingFrames({ ...args, mood: "stale" })).toBeUndefined();
   });
 });

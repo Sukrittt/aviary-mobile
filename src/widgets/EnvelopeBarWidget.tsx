@@ -7,7 +7,7 @@ import { fontFamily } from '@/src/theme/fonts'
 import { heroFontSize, widgetMood, withPerDay, type WidgetData } from './data'
 import { WidgetSurface, color } from './surface'
 import { plusSvg } from './icons'
-import { birdRingSvg } from './bird'
+import { birdRingFrames, birdRingSvg, FRAME_MS } from './bird'
 
 const LOG_URI = 'envelope://modals/log-expense'
 
@@ -31,7 +31,7 @@ export function EnvelopeBarWidget({
       scheme={scheme}
       style={{ paddingLeft: 10, paddingRight: 10, paddingVertical: 6, flexDirection: 'row', alignItems: 'center' }}
     >
-      <SvgWidget svg={birdRingSvg({ mood, leftPct: data.leftPct, tokens, scheme })} style={{ width: ring, height: ring }} />
+      <SvgWidget svg={birdRingSvg({ mood, leftPct: data.leftPct, tokens, scheme })} frames={birdRingFrames({ mood, leftPct: data.leftPct, tokens, scheme })} frameInterval={FRAME_MS} style={{ width: ring, height: ring }} />
       <FlexWidget style={{ flex: 1, flexDirection: 'column', marginLeft: 10, marginRight: 8 }}>
         <TextWidget
           text={data.totalLeft}

@@ -1,0 +1,486 @@
+diff --git a/node_modules/react-native-android-widget/android/src/main/java/com/reactnativeandroidwidget/RNWidget.java b/node_modules/react-native-android-widget/android/src/main/java/com/reactnativeandroidwidget/RNWidget.java
+index 5650d1e..fea77ba 100644
+--- a/node_modules/react-native-android-widget/android/src/main/java/com/reactnativeandroidwidget/RNWidget.java
++++ b/node_modules/react-native-android-widget/android/src/main/java/com/reactnativeandroidwidget/RNWidget.java
+@@ -7,6 +7,7 @@ import android.content.Intent;
+ import android.graphics.Bitmap;
+ import android.graphics.Canvas;
+ import android.graphics.Rect;
++import android.graphics.drawable.PictureDrawable;
+ import android.net.Uri;
+ import android.os.Build;
+ import android.os.Bundle;
+@@ -14,6 +15,7 @@ import android.util.Base64;
+ import android.util.TypedValue;
+ import android.view.View;
+ import android.view.ViewGroup;
++import android.widget.ImageView;
+ import android.widget.RemoteViews;
+ 
+ import androidx.annotation.RequiresApi;
+@@ -23,6 +25,8 @@ import com.facebook.react.bridge.ReactApplicationContext;
+ import com.facebook.react.bridge.ReadableMap;
+ import com.facebook.react.bridge.WritableArray;
+ import com.facebook.react.bridge.WritableMap;
++import com.caverock.androidsvg.SVG;
++import com.reactnativeandroidwidget.builder.AnimatedView;
+ import com.reactnativeandroidwidget.builder.ClickableView;
+ import com.reactnativeandroidwidget.builder.CollectionView;
+ import com.reactnativeandroidwidget.builder.CollectionViewItem;
+@@ -31,6 +35,8 @@ import com.reactnativeandroidwidget.builder.WidgetWithViews;
+ 
+ import java.io.ByteArrayOutputStream;
+ import java.util.ArrayList;
++import java.util.HashMap;
++import java.util.Map;
+ import java.util.List;
+ 
+ public class RNWidget {
+@@ -73,6 +79,7 @@ public class RNWidget {
+             RNWidgetUtil.getWidgetHeight(appContext, widgetId)
+         );
+ 
++        hideAnimatedViews(widgetWithViews);
+         Bitmap bitmap = drawViewToBitmap(widgetWithViews.getRootView());
+         Uri bitmapUri = saveBitmapToDisk(widgetId, "light", bitmap);
+         remoteWidgetView.setImageViewUri(R.id.rn_widget_image_light, bitmapUri);
+@@ -81,14 +88,16 @@ public class RNWidget {
+             remoteWidgetView.setContentDescription(R.id.rn_widget_clickable_container, widgetWithViews.getRootAccessibilityLabel());
+         }
+ 
++        WidgetWithViews darkWidgetWithViews = null;
+         if (dark != null) {
+-            WidgetWithViews darkWidgetWithViews = WidgetFactory.buildWidgetFromRoot(
++            darkWidgetWithViews = WidgetFactory.buildWidgetFromRoot(
+                 appContext,
+                 Arguments.makeNativeMap(dark.toHashMap()),
+                 RNWidgetUtil.getWidgetWidth(appContext, widgetId),
+                 RNWidgetUtil.getWidgetHeight(appContext, widgetId)
+             );
+ 
++            hideAnimatedViews(darkWidgetWithViews);
+             Bitmap darkBitmap = drawViewToBitmap(darkWidgetWithViews.getRootView());
+             Uri darkBitmapUri = saveBitmapToDisk(widgetId, "dark", darkBitmap);
+             remoteWidgetView.setImageViewUri(R.id.rn_widget_image_dark, darkBitmapUri);
+@@ -115,6 +124,7 @@ public class RNWidget {
+             addClickableAreas(widgetId, remoteWidgetView, widgetWithViews);
+         }
+         addCollectionViews(widgetId, remoteWidgetView, widgetWithViews);
++        addAnimatedViews(widgetId, remoteWidgetView, widgetWithViews, darkWidgetWithViews);
+ 
+         AppWidgetManager.getInstance(appContext)
+             .updateAppWidget(widgetId, remoteWidgetView);
+@@ -134,6 +144,77 @@ public class RNWidget {
+         return preview;
+     }
+ 
++    // Animated views are drawn by a ViewFlipper overlay instead, so they're left
++    // out of the static image (otherwise every frame would sit on top of it).
++    private void hideAnimatedViews(WidgetWithViews widgetWithViews) {
++        for (AnimatedView animatedView : widgetWithViews.getAnimatedViews()) {
++            animatedView.getView().setVisibility(View.INVISIBLE);
++        }
++    }
++
++    private void addAnimatedViews(int widgetId, RemoteViews remoteWidgetView, WidgetWithViews light, WidgetWithViews dark) throws Exception {
++        remoteWidgetView.removeAllViews(R.id.rn_widget_animation_container);
++
++        ViewGroup rootView = (ViewGroup) light.getRootView();
++        List<AnimatedView> lightViews = light.getAnimatedViews();
++        List<AnimatedView> darkViews = dark != null ? dark.getAnimatedViews() : lightViews;
++
++        for (int i = 0; i < lightViews.size(); i++) {
++            AnimatedView lightView = lightViews.get(i);
++            AnimatedView darkView = i < darkViews.size() ? darkViews.get(i) : lightView;
++
++            View view = lightView.getView();
++            Rect bounds = new Rect();
++            view.getDrawingRect(bounds);
++            rootView.offsetDescendantRectToMyCoords(view, bounds);
++
++            RemoteViews flipper = new RemoteViews(appContext.getPackageName(), R.layout.rn_widget_flipper);
++            flipper.setViewPadding(R.id.rn_widget_flipper_positioner, bounds.left, bounds.top, 0, 0);
++            flipper.setInt(R.id.rn_widget_flipper, "setFlipInterval", lightView.getInterval());
++
++            Map<String, Uri> lightUris = saveFrames(widgetId, i, "light", lightView.getFrames(), bounds.width(), bounds.height());
++            Map<String, Uri> darkUris = darkView == lightView
++                ? lightUris
++                : saveFrames(widgetId, i, "dark", darkView.getFrames(), bounds.width(), bounds.height());
++
++            List<String> lightFrames = lightView.getFrames();
++            List<String> darkFrames = darkView.getFrames();
++            for (int f = 0; f < lightFrames.size(); f++) {
++                String darkFrame = darkFrames.get(Math.min(f, darkFrames.size() - 1));
++                RemoteViews frame = new RemoteViews(appContext.getPackageName(), R.layout.rn_widget_flipper_frame);
++                frame.setImageViewUri(R.id.rn_widget_frame_light, lightUris.get(lightFrames.get(f)));
++                frame.setImageViewUri(R.id.rn_widget_frame_dark, darkUris.get(darkFrame));
++                flipper.addView(R.id.rn_widget_flipper, frame);
++            }
++
++            remoteWidgetView.addView(R.id.rn_widget_animation_container, flipper);
++        }
++    }
++
++    // One PNG per distinct frame: a loop that holds a pose repeats the same
++    // SVG string, and those all share one file.
++    private Map<String, Uri> saveFrames(int widgetId, int index, String mode, List<String> frames, int width, int height) throws Exception {
++        Map<String, Uri> uris = new HashMap<>();
++        for (String svg : frames) {
++            if (uris.containsKey(svg)) continue;
++            Bitmap bitmap = drawSvgToBitmap(svg, width, height);
++            uris.put(svg, saveBitmapToDisk(widgetId, mode + "_anim_" + index + "_frame_" + uris.size(), bitmap));
++        }
++        return uris;
++    }
++
++    // Same drawing path as SvgWidget, so a frame lines up with the view it replaces.
++    private Bitmap drawSvgToBitmap(String svg, int width, int height) throws Exception {
++        ImageView imageView = new ImageView(appContext);
++        imageView.setImageDrawable(new PictureDrawable(SVG.getFromString(svg).renderToPicture()));
++        imageView.measure(
++            View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
++            View.MeasureSpec.makeMeasureSpec(height, View.MeasureSpec.EXACTLY)
++        );
++        imageView.layout(0, 0, width, height);
++        return drawViewToBitmap(imageView);
++    }
++
+     private Bitmap drawViewToBitmap(View rootView) {
+         Bitmap bitmap = Bitmap.createBitmap(
+             rootView.getMeasuredWidth(),
+diff --git a/node_modules/react-native-android-widget/android/src/main/java/com/reactnativeandroidwidget/RNWidgetImageProvider.java b/node_modules/react-native-android-widget/android/src/main/java/com/reactnativeandroidwidget/RNWidgetImageProvider.java
+index 0f963f0..b516a28 100644
+--- a/node_modules/react-native-android-widget/android/src/main/java/com/reactnativeandroidwidget/RNWidgetImageProvider.java
++++ b/node_modules/react-native-android-widget/android/src/main/java/com/reactnativeandroidwidget/RNWidgetImageProvider.java
+@@ -90,11 +90,21 @@ public class RNWidgetImageProvider extends ContentProvider {
+         File folder = getFolderWithImages(context);
+         if (!folder.exists()) folder.mkdirs();
+         File file = new File(folder, imageName);
++        // Write to a temp file and rename over the target: the launcher may be
++        // reading the previous image while we write, and a truncated PNG
++        // decodes as just its top rows (a widget cut off with a blank bottom).
++        File tmp = new File(folder, imageName + ".tmp");
+ 
+         FileOutputStream fos = null;
+         try {
+-            fos = new FileOutputStream(file);
++            fos = new FileOutputStream(tmp);
+             bitmap.compress(Bitmap.CompressFormat.PNG, 100, fos);
++            fos.getFD().sync();
++            fos.close();
++            fos = null;
++            if (!tmp.renameTo(file)) {
++                tmp.delete();
++            }
+         } catch (Exception e) {
+             e.printStackTrace();
+         } finally {
+diff --git a/node_modules/react-native-android-widget/android/src/main/java/com/reactnativeandroidwidget/builder/AnimatedView.java b/node_modules/react-native-android-widget/android/src/main/java/com/reactnativeandroidwidget/builder/AnimatedView.java
+new file mode 100644
+index 0000000..d922c9b
+--- /dev/null
++++ b/node_modules/react-native-android-widget/android/src/main/java/com/reactnativeandroidwidget/builder/AnimatedView.java
+@@ -0,0 +1,29 @@
++package com.reactnativeandroidwidget.builder;
++
++import android.view.View;
++
++import java.util.List;
++
++public class AnimatedView {
++    private final View view;
++    private final List<String> frames;
++    private final int interval;
++
++    AnimatedView(View view, List<String> frames, int interval) {
++        this.view = view;
++        this.frames = frames;
++        this.interval = interval;
++    }
++
++    public View getView() {
++        return view;
++    }
++
++    public List<String> getFrames() {
++        return frames;
++    }
++
++    public int getInterval() {
++        return interval;
++    }
++}
+diff --git a/node_modules/react-native-android-widget/android/src/main/java/com/reactnativeandroidwidget/builder/WidgetFactory.java b/node_modules/react-native-android-widget/android/src/main/java/com/reactnativeandroidwidget/builder/WidgetFactory.java
+index 78e37ac..45e9a99 100644
+--- a/node_modules/react-native-android-widget/android/src/main/java/com/reactnativeandroidwidget/builder/WidgetFactory.java
++++ b/node_modules/react-native-android-widget/android/src/main/java/com/reactnativeandroidwidget/builder/WidgetFactory.java
+@@ -29,11 +29,13 @@ import java.util.Objects;
+ public class WidgetFactory {
+     private final List<ClickableView> clickableViews;
+     private final List<CollectionView> collectionViews;
++    private final List<AnimatedView> animatedViews;
+     private String rootAccessibilityLabel;
+ 
+     private WidgetFactory() {
+         this.clickableViews = new ArrayList<>();
+         this.collectionViews = new ArrayList<>();
++        this.animatedViews = new ArrayList<>();
+         this.rootAccessibilityLabel = null;
+     }
+ 
+@@ -57,7 +59,7 @@ public class WidgetFactory {
+         ResourceUtils.clear();
+ 
+         Collections.sort(widgetFactory.clickableViews);
+-        return new WidgetWithViews(view, widgetFactory.clickableViews, widgetFactory.collectionViews, widgetFactory.rootAccessibilityLabel);
++        return new WidgetWithViews(view, widgetFactory.clickableViews, widgetFactory.collectionViews, widgetFactory.rootAccessibilityLabel, widgetFactory.animatedViews);
+     }
+ 
+     @NonNull
+@@ -90,6 +92,16 @@ public class WidgetFactory {
+             );
+         }
+ 
++        if (config.getMap("props").hasKey("animationFrames")) {
++            ReadableMap props = config.getMap("props");
++            ReadableArray frameArray = props.getArray("animationFrames");
++            List<String> frames = new ArrayList<>();
++            for (int i = 0; i < frameArray.size(); i++) {
++                frames.add(frameArray.getString(i));
++            }
++            animatedViews.add(new AnimatedView(view, frames, props.getInt("animationInterval")));
++        }
++
+         if (config.getMap("props").hasKey("clickAction")) {
+             ReadableMap props = config.getMap("props");
+             String accessibilityLabel = null;
+diff --git a/node_modules/react-native-android-widget/android/src/main/java/com/reactnativeandroidwidget/builder/WidgetWithViews.java b/node_modules/react-native-android-widget/android/src/main/java/com/reactnativeandroidwidget/builder/WidgetWithViews.java
+index 9b9e94e..2c16826 100644
+--- a/node_modules/react-native-android-widget/android/src/main/java/com/reactnativeandroidwidget/builder/WidgetWithViews.java
++++ b/node_modules/react-native-android-widget/android/src/main/java/com/reactnativeandroidwidget/builder/WidgetWithViews.java
+@@ -11,12 +11,18 @@ public class WidgetWithViews {
+     private final List<ClickableView> clickableViews;
+     private final List<CollectionView> collectionViews;
+     private final String rootAccessibilityLabel;
++    private final List<AnimatedView> animatedViews;
+ 
+     WidgetWithViews(View rootView, List<ClickableView> clickableViews, List<CollectionView> collectionViews) {
+         this(rootView, clickableViews, collectionViews, null);
+     }
+ 
+     WidgetWithViews(View rootView, List<ClickableView> clickableViews, List<CollectionView> collectionViews, @Nullable String rootAccessibilityLabel) {
++        this(rootView, clickableViews, collectionViews, rootAccessibilityLabel, new java.util.ArrayList<>());
++    }
++
++    WidgetWithViews(View rootView, List<ClickableView> clickableViews, List<CollectionView> collectionViews, @Nullable String rootAccessibilityLabel, List<AnimatedView> animatedViews) {
++        this.animatedViews = animatedViews;
+         this.rootView = rootView;
+         this.clickableViews = clickableViews;
+         this.collectionViews = collectionViews;
+@@ -31,6 +37,10 @@ public class WidgetWithViews {
+         return clickableViews;
+     }
+ 
++    public List<AnimatedView> getAnimatedViews() {
++        return animatedViews;
++    }
++
+     public List<CollectionView> getCollectionViews() {
+         return collectionViews;
+     }
+diff --git a/node_modules/react-native-android-widget/android/src/main/res/layout-night/rn_widget.xml b/node_modules/react-native-android-widget/android/src/main/res/layout-night/rn_widget.xml
+index e00a8c1..5959574 100644
+--- a/node_modules/react-native-android-widget/android/src/main/res/layout-night/rn_widget.xml
++++ b/node_modules/react-native-android-widget/android/src/main/res/layout-night/rn_widget.xml
+@@ -19,6 +19,11 @@
+         android:scaleType="matrix"
+         android:visibility="visible" />
+ 
++    <FrameLayout
++        android:id="@+id/rn_widget_animation_container"
++        android:layout_width="match_parent"
++        android:layout_height="match_parent" />
++
+     <FrameLayout
+         android:id="@+id/rn_widget_clickable_container"
+         android:layout_width="match_parent"
+diff --git a/node_modules/react-native-android-widget/android/src/main/res/layout-night/rn_widget_flipper_frame.xml b/node_modules/react-native-android-widget/android/src/main/res/layout-night/rn_widget_flipper_frame.xml
+new file mode 100644
+index 0000000..496f76c
+--- /dev/null
++++ b/node_modules/react-native-android-widget/android/src/main/res/layout-night/rn_widget_flipper_frame.xml
+@@ -0,0 +1,18 @@
++<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
++    android:layout_width="match_parent"
++    android:layout_height="match_parent">
++
++    <ImageView
++        android:id="@+id/rn_widget_frame_light"
++        android:layout_width="match_parent"
++        android:layout_height="match_parent"
++        android:scaleType="matrix"
++        android:visibility="gone" />
++
++    <ImageView
++        android:id="@+id/rn_widget_frame_dark"
++        android:layout_width="match_parent"
++        android:layout_height="match_parent"
++        android:scaleType="matrix"
++        android:visibility="visible" />
++</FrameLayout>
+diff --git a/node_modules/react-native-android-widget/android/src/main/res/layout/rn_widget.xml b/node_modules/react-native-android-widget/android/src/main/res/layout/rn_widget.xml
+index 870d18b..e6456bc 100644
+--- a/node_modules/react-native-android-widget/android/src/main/res/layout/rn_widget.xml
++++ b/node_modules/react-native-android-widget/android/src/main/res/layout/rn_widget.xml
+@@ -19,6 +19,11 @@
+         android:scaleType="matrix"
+         android:visibility="gone" />
+ 
++    <FrameLayout
++        android:id="@+id/rn_widget_animation_container"
++        android:layout_width="match_parent"
++        android:layout_height="match_parent" />
++
+     <FrameLayout
+         android:id="@+id/rn_widget_clickable_container"
+         android:layout_width="match_parent"
+diff --git a/node_modules/react-native-android-widget/android/src/main/res/layout/rn_widget_flipper.xml b/node_modules/react-native-android-widget/android/src/main/res/layout/rn_widget_flipper.xml
+new file mode 100644
+index 0000000..27dcf7d
+--- /dev/null
++++ b/node_modules/react-native-android-widget/android/src/main/res/layout/rn_widget_flipper.xml
+@@ -0,0 +1,12 @@
++<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
++    android:id="@+id/rn_widget_flipper_positioner"
++    android:layout_width="match_parent"
++    android:layout_height="match_parent">
++
++    <ViewFlipper
++        android:id="@+id/rn_widget_flipper"
++        android:layout_width="match_parent"
++        android:layout_height="match_parent"
++        android:autoStart="true"
++        android:flipInterval="150" />
++</FrameLayout>
+diff --git a/node_modules/react-native-android-widget/android/src/main/res/layout/rn_widget_flipper_frame.xml b/node_modules/react-native-android-widget/android/src/main/res/layout/rn_widget_flipper_frame.xml
+new file mode 100644
+index 0000000..ed610f6
+--- /dev/null
++++ b/node_modules/react-native-android-widget/android/src/main/res/layout/rn_widget_flipper_frame.xml
+@@ -0,0 +1,18 @@
++<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
++    android:layout_width="match_parent"
++    android:layout_height="match_parent">
++
++    <ImageView
++        android:id="@+id/rn_widget_frame_light"
++        android:layout_width="match_parent"
++        android:layout_height="match_parent"
++        android:scaleType="matrix"
++        android:visibility="visible" />
++
++    <ImageView
++        android:id="@+id/rn_widget_frame_dark"
++        android:layout_width="match_parent"
++        android:layout_height="match_parent"
++        android:scaleType="matrix"
++        android:visibility="gone" />
++</FrameLayout>
+diff --git a/node_modules/react-native-android-widget/lib/commonjs/widgets/SvgWidget.js b/node_modules/react-native-android-widget/lib/commonjs/widgets/SvgWidget.js
+index a208534..a87f2f3 100644
+--- a/node_modules/react-native-android-widget/lib/commonjs/widgets/SvgWidget.js
++++ b/node_modules/react-native-android-widget/lib/commonjs/widgets/SvgWidget.js
+@@ -24,6 +24,10 @@ SvgWidget.convertProps = props => {
+     } : {}),
+     ...(typeof props.svg !== 'string' ? {
+       svgUrl: svg
++    } : {}),
++    ...(props.frames?.length ? {
++      animationFrames: props.frames,
++      animationInterval: props.frameInterval ?? 150
+     } : {})
+   };
+ };
+diff --git a/node_modules/react-native-android-widget/lib/module/widgets/SvgWidget.js b/node_modules/react-native-android-widget/lib/module/widgets/SvgWidget.js
+index bf753e7..4b3049a 100644
+--- a/node_modules/react-native-android-widget/lib/module/widgets/SvgWidget.js
++++ b/node_modules/react-native-android-widget/lib/module/widgets/SvgWidget.js
+@@ -18,6 +18,10 @@ SvgWidget.convertProps = props => {
+     } : {}),
+     ...(typeof props.svg !== 'string' ? {
+       svgUrl: svg
++    } : {}),
++    ...(props.frames?.length ? {
++      animationFrames: props.frames,
++      animationInterval: props.frameInterval ?? 150
+     } : {})
+   };
+ };
+diff --git a/node_modules/react-native-android-widget/lib/typescript/widgets/SvgWidget.d.ts b/node_modules/react-native-android-widget/lib/typescript/widgets/SvgWidget.d.ts
+index 9d0a2f7..6712f2a 100644
+--- a/node_modules/react-native-android-widget/lib/typescript/widgets/SvgWidget.d.ts
++++ b/node_modules/react-native-android-widget/lib/typescript/widgets/SvgWidget.d.ts
+@@ -5,6 +5,8 @@ import type { CommonStyleProps } from './utils/style.props';
+ interface SvgWidgetInternalProps extends CommonInternalProps {
+     svgString?: string;
+     svgUrl?: string;
++    animationFrames?: string[];
++    animationInterval?: number;
+ }
+ export type SvgWidgetStyle = CommonStyleProps;
+ export interface SvgWidgetProps extends ClickActionProps {
+@@ -14,6 +16,13 @@ export interface SvgWidgetProps extends ClickActionProps {
+      * SVG string, or a path to svg starting with "http:" or "https:"
+      */
+     svg: string | ImageRequireSource;
++    /**
++     * SVG strings played on a loop over this view by a native ViewFlipper, one
++     * every `frameInterval` ms. The view itself is left out of the widget image.
++     */
++    frames?: string[];
++    /** Milliseconds per frame. Defaults to 150. */
++    frameInterval?: number;
+ }
+ export declare function SvgWidget(_: SvgWidgetProps): null;
+ export declare namespace SvgWidget {
+diff --git a/node_modules/react-native-android-widget/src/widgets/SvgWidget.tsx b/node_modules/react-native-android-widget/src/widgets/SvgWidget.tsx
+index 515e54b..2633c4f 100644
+--- a/node_modules/react-native-android-widget/src/widgets/SvgWidget.tsx
++++ b/node_modules/react-native-android-widget/src/widgets/SvgWidget.tsx
+@@ -10,6 +10,8 @@ import { convertCommonStyle } from './utils/style.utils';
+ interface SvgWidgetInternalProps extends CommonInternalProps {
+   svgString?: string;
+   svgUrl?: string;
++  animationFrames?: string[];
++  animationInterval?: number;
+ }
+ 
+ export type SvgWidgetStyle = CommonStyleProps;
+@@ -22,6 +24,15 @@ export interface SvgWidgetProps extends ClickActionProps {
+    * SVG string, or a path to svg starting with "http:" or "https:"
+    */
+   svg: string | ImageRequireSource;
++
++  /**
++   * SVG strings played on a loop over this view by a native ViewFlipper, one
++   * every `frameInterval` ms. The view itself is left out of the widget image.
++   */
++  frames?: string[];
++
++  /** Milliseconds per frame. Defaults to 150. */
++  frameInterval?: number;
+ }
+ 
+ export function SvgWidget(_: SvgWidgetProps) {
+@@ -44,5 +55,11 @@ SvgWidget.convertProps = (props: SvgWidgetProps): SvgWidgetInternalProps => {
+       ? { svgUrl: svg }
+       : {}),
+     ...(typeof props.svg !== 'string' ? { svgUrl: svg } : {}),
++    ...(props.frames?.length
++      ? {
++          animationFrames: props.frames,
++          animationInterval: props.frameInterval ?? 150,
++        }
++      : {}),
+   };
+ };

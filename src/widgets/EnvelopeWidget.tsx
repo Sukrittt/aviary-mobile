@@ -8,7 +8,7 @@ import { fillColor } from "@/src/components/envelope/ProgressBar";
 import type { ThemeTokens } from "@/src/theme/tokens";
 import { fontFamily } from "@/src/theme/fonts";
 import { heroFontSize, layoutFor, widgetMood, withPerDay, type WidgetData } from "./data";
-import { birdRingSvg } from "./bird";
+import { birdRingFrames, birdRingSvg, FRAME_MS } from "./bird";
 import { WidgetSurface, color } from "./surface";
 import { plusSvg } from "./icons";
 
@@ -50,6 +50,8 @@ export function EnvelopeWidget({
       >
         <SvgWidget
           svg={birdRingSvg({ mood, leftPct: data.leftPct, tokens, scheme })}
+          frames={birdRingFrames({ mood, leftPct: data.leftPct, tokens, scheme })}
+          frameInterval={FRAME_MS}
           style={{ width: 56, height: 56, marginRight: 12 }}
         />
         <FlexWidget style={{ flex: 1, flexDirection: "column" }}>

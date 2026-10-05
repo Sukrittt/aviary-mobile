@@ -12,7 +12,7 @@ import { fontFamily } from "@/src/theme/fonts";
 import { headerRightLabel, heroFontSize, widgetMood, type WidgetData } from "./data";
 import { WidgetSurface, color } from "./surface";
 import { plusSvg } from "./icons";
-import { birdRingSvg } from "./bird";
+import { birdRingFrames, birdRingSvg, FRAME_MS } from "./bird";
 
 const LOG_URI = "envelope://modals/log-expense";
 
@@ -48,6 +48,8 @@ export function EnvelopeMiniWidget({
       >
         <SvgWidget
           svg={birdRingSvg({ mood, leftPct: data.leftPct, tokens, scheme })}
+          frames={birdRingFrames({ mood, leftPct: data.leftPct, tokens, scheme })}
+          frameInterval={FRAME_MS}
           style={{ width: ring, height: ring }}
         />
         <FlexWidget

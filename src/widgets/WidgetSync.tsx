@@ -6,7 +6,7 @@ import { useCurrency } from '@/src/context/CurrencyContext'
 //
 // The headless widget-task-handler covers everything this can't reach: app
 // killed, a widget freshly added, or the 30-minute OS timer.
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { Platform } from "react-native";
 import { requestWidgetUpdate } from "react-native-android-widget";
 import type { WidgetInfo } from "react-native-android-widget";
@@ -30,6 +30,8 @@ import { EnvelopeWidget } from "./EnvelopeWidget";
 import { EnvelopeBarWidget } from "./EnvelopeBarWidget";
 import { EnvelopeMiniWidget } from "./EnvelopeMiniWidget";
 
+const HOUR_MS = 60 * 60 * 1000;
+
 export function WidgetSync() {
   const { currencyCode } = useCurrency()
   const { preference } = useTheme();
@@ -37,6 +39,10 @@ export function WidgetSync() {
   const expensesQ = useRecentExpenses();
   const categoriesQ = useCategories();
   const groupsQ = useGroups();
+  // Every refetch hands back fresh objects even when nothing changed. Skipping
+  // identical redraws keeps the widget image from being rewritten while the
+  // launcher may be reading it.
+  const lastDrawn = useRef("");
 
   useEffect(() => {
     if (Platform.OS !== "android" || !budgetsQ.data || !expensesQ.data) return;
@@ -55,6 +61,14 @@ export function WidgetSync() {
       todayLocal(),
       currencyCode,
     );
+    // updatedAt is Date.now(), so it's bucketed by the hour: still refreshed
+    // often enough that the widget never trips its day-old "stale" state.
+    const key = JSON.stringify([
+      { ...data, updatedAt: Math.floor(data.updatedAt / HOUR_MS) },
+      preference,
+    ]);
+    if (key === lastDrawn.current) return;
+    lastDrawn.current = key;
     void writeSnapshot(data);
 
     void requestWidgetUpdate({
