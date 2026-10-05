@@ -19,6 +19,8 @@ import { fontFamily } from '@/src/theme/fonts'
 // odometer roll: each digit that actually changed scrolls past its old value
 // like a mechanical counter, instead of the whole number dropping in fresh.
 // Unchanged characters (₹, commas, digits that stayed the same) sit still.
+// The roll and color flash are for quick-pick jumps only (delta !== 0):
+// animating every keypad press read as jarring, so typed digits just appear.
 export function AmountTicker({
   text,
   tick,
@@ -35,7 +37,8 @@ export function AmountTicker({
   fontSize?: number
 }) {
   const { tokens } = useTheme()
-  const flash = useSharedValue(0)
+  const flash = useSharedValue(1)
+  const jump = delta !== 0
 
   // usePrevious pattern: during this render, prevTextRef still holds the text
   // from the render before, so slots can diff old vs new before it's overwritten.
@@ -47,6 +50,10 @@ export function AmountTicker({
 
   useEffect(() => {
     if (dimmed) return
+    if (!jump) {
+      flash.value = 1
+      return
+    }
     flash.value = 0
     flash.value = withTiming(1, { duration: 700, easing: Easing.out(Easing.ease) })
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -63,7 +70,7 @@ export function AmountTicker({
 
   return (
     <View style={styles.wrap}>
-      {delta !== 0 && <DeltaBadge tick={tick} delta={delta} />}
+      {jump && <DeltaBadge tick={tick} delta={delta} />}
       <View style={styles.row}>
         {chars.map((ch, i) => {
           const fromRight = chars.length - 1 - i
@@ -72,7 +79,7 @@ export function AmountTicker({
           return (
             <Digit
               key={i}
-              oldChar={oldCh}
+              oldChar={jump ? oldCh : ch}
               newChar={ch}
               dir={dir}
               tick={tick}

@@ -1,0 +1,70 @@
+import { fireEvent } from '@testing-library/react-native'
+import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
+import SetupScreen from './setup'
+
+jest.mock('@/src/api/account', () => ({
+  getUser: jest.fn(async () => ({ onboardedAt: null })),
+  updateUser: jest.fn(async (patch) => patch),
+}))
+jest.mock('@/src/api/billing', () => ({
+  completeOnboarding: jest.fn(async () => ({ onboardedAt: '2026-09-18T12:00:00.000Z', access: {} })),
+}))
+jest.mock('@/src/api/budgets', () => ({
+  getBudgets: jest.fn(async () => []),
+  updateBudget: jest.fn(async () => ({})),
+}))
+jest.mock('@/src/api/groups', () => ({ addGroup: jest.fn(async () => ({})) }))
+jest.mock('@/src/api/categories', () => ({ addCategory: jest.fn(async () => ({})) }))
+jest.mock('@/src/api/accessMode', () => ({ accessMode: { subscribeLogout: () => () => {} } }))
+jest.mock('expo-secure-store', () => ({ getItemAsync: jest.fn(async () => null), setItemAsync: jest.fn(async () => {}), deleteItemAsync: jest.fn(async () => {}) }))
+
+function toGroupsStep() {
+  const utils = renderWithProviders(<SetupScreen />)
+  fireEvent.press(utils.getByText('Continue')) // currency
+  fireEvent.press(utils.getByText('₹50,000'))
+  fireEvent.press(utils.getByText('Continue')) // income
+  return utils
+}
+
+it('keeps a new group unchecked until it has a name', () => {
+  const { getByText, getByLabelText, getAllByPlaceholderText } = toGroupsStep()
+  fireEvent.press(getByText('Add your own group'))
+  expect(getByLabelText('Select Group name')).not.toBeChecked()
+  const input = getAllByPlaceholderText('Group name').at(-1)!
+  fireEvent.changeText(input, 'Pets')
+  expect(getByLabelText('Deselect Pets')).toBeChecked()
+  fireEvent.changeText(input, '')
+  expect(getByLabelText('Select Group name')).not.toBeChecked()
+})
+
+it('never lets two checked groups share a name', () => {
+  const { getByText, getByLabelText, getByDisplayValue, getAllByDisplayValue, getAllByLabelText } = toGroupsStep()
+  fireEvent.changeText(getByDisplayValue('Savings'), 'essentials')
+  fireEvent.press(getByLabelText('Select essentials'))
+  expect(getByLabelText('Select essentials')).not.toBeChecked()
+  expect(getByText("You've already got a group called essentials.")).toBeTruthy()
+
+  fireEvent.changeText(getByDisplayValue('Lifestyle'), 'Essentials')
+  expect(getAllByLabelText('Select Essentials')).toHaveLength(1)
+  fireEvent.changeText(getAllByDisplayValue('Essentials')[1], 'Fun')
+  expect(getByLabelText('Deselect Fun')).toBeChecked()
+})
+
+it('never lets two checked categories share a name, even across groups', () => {
+  const { getByText, getByLabelText, getByDisplayValue } = toGroupsStep()
+  fireEvent.press(getByText('Continue')) // groups
+  fireEvent.changeText(getByDisplayValue('Shopping'), 'rent')
+  fireEvent.press(getByLabelText('Select rent'))
+  expect(getByLabelText('Select rent')).not.toBeChecked()
+  expect(getByText("You've already got a category called rent.")).toBeTruthy()
+})
+
+it('picks a group emoji from the sheet instead of cycling', () => {
+  const { getByText, getByLabelText, queryByText } = toGroupsStep()
+
+  fireEvent.press(getByLabelText('Change emoji for Essentials'))
+  expect(getByText('Pick an emoji for Essentials')).toBeTruthy()
+  fireEvent.press(getByLabelText('🐶'))
+  expect(queryByText('Pick an emoji for Essentials')).toBeNull()
+  expect(getByLabelText('Change emoji for Essentials')).toHaveTextContent('🐶')
+})

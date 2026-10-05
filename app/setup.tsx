@@ -5,7 +5,8 @@ import { View, Text, ScrollView, Pressable, StyleSheet } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useQueryClient } from '@tanstack/react-query'
 import * as Haptics from 'expo-haptics'
-import { ArrowLeft, Plus } from 'lucide-react-native'
+import { ArrowLeft, CopyX, Plus } from 'lucide-react-native'
+import { Toast } from '@/src/components/ui/Toast'
 import Animated, { useSharedValue, useAnimatedStyle, useReducedMotion, withSequence, withSpring, withTiming } from 'react-native-reanimated'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import type { ThemeTokens } from '@/src/theme/tokens'
@@ -32,7 +33,7 @@ import { startTimer, track } from '@/src/lib/analytics'
 // land on finish (step 4's CTA), not per-step: groups/categories aren't
 // reorderable or renameable server-side until they exist, so there's nothing
 // worth syncing mid-flow.
-const EMOJI_CYCLE = ['🏠', '🎬', '🌱', '🛒', '💡', '🚌', '🍜', '📺', '🛍', '🛟', '📈', '🎓', '🐶', '💊', '✈️', '🎁']
+const EMOJI_CHOICES = ['🏠', '🎬', '🌱', '🛒', '💡', '🚌', '🍜', '📺', '🛍', '🛟', '📈', '🎓', '🐶', '💊', '✈️', '🎁']
 const QUICK_PICKS = ['30000', '50000', '75000', '100000']
 // Shortest time a Finish-button save step stays on screen.
 const STEP_MIN_MS = 500
@@ -87,10 +88,15 @@ function defaultCats(): Record<string, Item[]> {
   }
 }
 
-function nextEmoji(current: string): string {
-  const i = EMOJI_CYCLE.indexOf(current)
-  return EMOJI_CYCLE[(i + 1 + EMOJI_CYCLE.length) % EMOJI_CYCLE.length]
+
+// A blank row stays unchecked; it checks itself the moment it gets a name,
+// and unchecks again if the name is cleared.
+function onForName(item: Item, name: string): boolean {
+  if (!name.trim()) return false
+  return item.name.trim() ? item.on : true
 }
+
+const sameName = (a: string, b: string) => a.trim().toLowerCase() === b.trim().toLowerCase()
 
 function label(item: Item): string {
   return `${item.emoji} ${item.name.trim()}`
@@ -152,6 +158,10 @@ function CurrencyWizard({ currencyCode, onCurrencyChange }: { currencyCode: stri
   const [cats, setCats] = useState<Record<string, Item[]>>(defaultCats)
   const [amounts, setAmounts] = useState<Record<string, number>>({})
   const [activeKey, setActiveKey] = useState<string | null>(null)
+  // Two checked groups (or categories) can't share a name; trying it shows this toast.
+  const [dupToast, setDupToast] = useState({ n: 0, name: '', kind: 'group' })
+  // The row whose emoji sheet is open: a group, or a category when catId is set.
+  const [emojiFor, setEmojiFor] = useState<{ groupId: string; catId?: string; emoji: string; name: string } | null>(null)
   const [buf, setBuf] = useState('')
   const [pending, setPending] = useState(false)
   // Real save progress for the Finish button: the step being written and a
@@ -264,14 +274,62 @@ function CurrencyWizard({ currencyCode, onCurrencyChange }: { currencyCode: stri
   const patchCat = (groupId: string, catId: string, patch: Partial<Item>) =>
     setCats((c) => ({ ...c, [groupId]: (c[groupId] ?? []).map((cat) => (cat.id === catId ? { ...cat, ...patch } : cat)) }))
 
+  const blockDup = (kind: 'group' | 'category', name: string) =>
+    setDupToast((t) => ({ n: t.n + 1, name: name.trim(), kind }))
+
+  // Whether `name` matches another checked row. Categories compare across
+  // every selected group, since they all become envelopes side by side.
+  const groupDup = (id: string) => (name: string) =>
+    name.trim() !== '' && groups.some((g) => g.id !== id && g.on && sameName(g.name, name))
+  const catDup = (catId: string) => (name: string) =>
+    name.trim() !== '' &&
+    selectedGroups.some((g) => (cats[g.id] ?? []).some((c) => c.id !== catId && c.on && sameName(c.name, name)))
+
+  const toggleGuarded = (item: Item, isDup: (name: string) => boolean, kind: 'group' | 'category'): Partial<Item> | null => {
+    if (!item.on && isDup(item.name)) {
+      blockDup(kind, item.name)
+      return null
+    }
+    return { on: !item.on }
+  }
+
+  const renameGuarded = (item: Item, name: string, isDup: (name: string) => boolean, kind: 'group' | 'category'): Partial<Item> => {
+    const dup = isDup(name)
+    const wasDup = isDup(item.name)
+    // A row unchecked only because it was a duplicate checks again once renamed.
+    const wantOn = wasDup && !item.on && name.trim() ? true : onForName(item, name)
+    if (wantOn && dup && !wasDup) blockDup(kind, name)
+    return { name, on: wantOn && !dup }
+  }
+
+  const toggleGroup = (g: Item) => {
+    const patch = toggleGuarded(g, groupDup(g.id), 'group')
+    if (patch) patchGroup(g.id, patch)
+  }
+  const renameGroup = (g: Item, name: string) => patchGroup(g.id, renameGuarded(g, name, groupDup(g.id), 'group'))
+  const toggleCat = (groupId: string, c: Item) => {
+    const patch = toggleGuarded(c, catDup(c.id), 'category')
+    if (patch) patchCat(groupId, c.id, patch)
+  }
+  const renameCat = (groupId: string, c: Item, name: string) =>
+    patchCat(groupId, c.id, renameGuarded(c, name, catDup(c.id), 'category'))
+
+  const pickEmoji = (emoji: string) => {
+    if (!emojiFor) return
+    Haptics.selectionAsync().catch(() => {})
+    if (emojiFor.catId) patchCat(emojiFor.groupId, emojiFor.catId, { emoji })
+    else patchGroup(emojiFor.groupId, { emoji })
+    setEmojiFor(null)
+  }
+
   const addGroupRow = () => {
     const id = makeId()
-    setGroups((gs) => [...gs, { id, emoji: '🎁', name: '', on: true }])
+    setGroups((gs) => [...gs, { id, emoji: '🎁', name: '', on: false }])
     setCats((c) => ({ ...c, [id]: [] }))
   }
 
   const addCatRow = (groupId: string) => {
-    setCats((c) => ({ ...c, [groupId]: [...(c[groupId] ?? []), { id: makeId(), emoji: '🎁', name: '', on: true }] }))
+    setCats((c) => ({ ...c, [groupId]: [...(c[groupId] ?? []), { id: makeId(), emoji: '🎁', name: '', on: false }] }))
   }
 
   const pressIncomeDigit = (d: string) => {
@@ -574,16 +632,16 @@ function CurrencyWizard({ currencyCode, onCurrencyChange }: { currencyCode: stri
               name={g.name}
               on={g.on}
               placeholder="Group name"
-              onCycleEmoji={() => patchGroup(g.id, { emoji: nextEmoji(g.emoji) })}
-              onChangeName={(name) => patchGroup(g.id, { name })}
-              onToggle={() => patchGroup(g.id, { on: !g.on })}
+              onPressEmoji={() => setEmojiFor({ groupId: g.id, emoji: g.emoji, name: g.name })}
+              onChangeName={(name) => renameGroup(g, name)}
+              onToggle={() => toggleGroup(g)}
             />
           ))}
           <Pressable onPress={addGroupRow} style={[styles.addRow, { borderColor: tokens.borderStrong }]}>
             <Plus size={16} color={tokens.text2} strokeWidth={2.2} />
             <Text style={[styles.addRowLabel, { color: tokens.text2 }]}>Add your own group</Text>
           </Pressable>
-          <Text style={[styles.microHint, { color: tokens.text3 }]}>tap a name to rename · tap the emoji to change it</Text>
+          <Text style={[styles.microHint, { color: tokens.text3 }]}>tap a name to rename · tap the emoji to pick another</Text>
         </ScrollView>
       )}
 
@@ -605,9 +663,9 @@ function CurrencyWizard({ currencyCode, onCurrencyChange }: { currencyCode: stri
                     name={c.name}
                     on={c.on}
                     placeholder="Category name"
-                    onCycleEmoji={() => patchCat(g.id, c.id, { emoji: nextEmoji(c.emoji) })}
-                    onChangeName={(name) => patchCat(g.id, c.id, { name })}
-                    onToggle={() => patchCat(g.id, c.id, { on: !c.on })}
+                    onPressEmoji={() => setEmojiFor({ groupId: g.id, catId: c.id, emoji: c.emoji, name: c.name })}
+                    onChangeName={(name) => renameCat(g.id, c, name)}
+                    onToggle={() => toggleCat(g.id, c)}
                   />
                 ))}
                 <Pressable onPress={() => addCatRow(g.id)} style={[styles.addPill, { borderColor: tokens.borderStrong }]}>
@@ -739,6 +797,44 @@ function CurrencyWizard({ currencyCode, onCurrencyChange }: { currencyCode: stri
           </View>
         )}
       </BottomSheet>
+
+      <BottomSheet visible={!!emojiFor} onClose={() => setEmojiFor(null)}>
+        {emojiFor && (
+          <View style={{ gap: 14 }}>
+            <View style={[styles.sheetGrabber, { backgroundColor: tokens.borderStrong }]} />
+            <Text style={[styles.sheetName, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]} numberOfLines={1}>
+              Pick an emoji{emojiFor.name.trim() ? ` for ${emojiFor.name.trim()}` : ''}
+            </Text>
+            <View style={styles.emojiGrid}>
+              {EMOJI_CHOICES.map((e) => {
+                const active = e === emojiFor.emoji
+                return (
+                  <Pressable
+                    key={e}
+                    onPress={() => pickEmoji(e)}
+                    accessibilityRole="button"
+                    accessibilityLabel={e}
+                    accessibilityState={{ selected: active }}
+                    style={[
+                      styles.emojiOpt,
+                      { backgroundColor: active ? tokens.accentSoft : tokens.inputBg, borderColor: active ? tokens.accent : tokens.border },
+                    ]}
+                  >
+                    <Text style={styles.emojiOptLabel}>{e}</Text>
+                  </Pressable>
+                )
+              })}
+            </View>
+          </View>
+        )}
+      </BottomSheet>
+
+      <Toast
+        trigger={dupToast.n}
+        message={`You've already got a ${dupToast.kind} called ${dupToast.name}.`}
+        icon={CopyX}
+        style={{ top: insets.top + 12 }}
+      />
     </View>
   )
 }
@@ -848,6 +944,9 @@ const styles = StyleSheet.create({
   assignName: { flex: 1, fontSize: 14 },
   assignAmount: { fontSize: 15 },
 
+  emojiGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 10 },
+  emojiOpt: { width: '23%', aspectRatio: 1, borderRadius: 16, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  emojiOptLabel: { fontSize: 26 },
   sheetGrabber: { alignSelf: 'center', width: 38, height: 4, borderRadius: 100 },
   sheetHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   sheetEmoji: { width: 34, height: 34, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },

@@ -15,7 +15,7 @@ it('uses the Lucide check icon for a selected row', () => {
       name="Essentials"
       on
       placeholder="Group name"
-      onCycleEmoji={jest.fn()}
+      onPressEmoji={jest.fn()}
       onChangeName={jest.fn()}
       onToggle={jest.fn()}
     />,
@@ -33,7 +33,7 @@ it('animates as a checkbox and gives selection haptics when deselected', () => {
       name="Essentials"
       on
       placeholder="Group name"
-      onCycleEmoji={jest.fn()}
+      onPressEmoji={jest.fn()}
       onChangeName={jest.fn()}
       onToggle={onToggle}
     />,
@@ -53,7 +53,7 @@ it('animates as a checkbox and gives selection haptics when deselected', () => {
       name="Essentials"
       on={false}
       placeholder="Group name"
-      onCycleEmoji={jest.fn()}
+      onPressEmoji={jest.fn()}
       onChangeName={jest.fn()}
       onToggle={onToggle}
     />,

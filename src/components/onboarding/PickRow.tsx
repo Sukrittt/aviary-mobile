@@ -15,14 +15,14 @@ import { fontFamily } from '@/src/theme/fonts'
 
 const AnimatedPressable = Reanimated.createAnimatedComponent(Pressable)
 
-// SetupWizard.dc.html:301-304 — the group/category row: emoji cycle button,
+// SetupWizard.dc.html:301-304 — the group/category row: emoji picker button,
 // name input, on/off toggle. Shared by the groups and categories steps.
 export function PickRow({
   emoji,
   name,
   on,
   placeholder,
-  onCycleEmoji,
+  onPressEmoji,
   onChangeName,
   onToggle,
 }: {
@@ -30,7 +30,7 @@ export function PickRow({
   name: string
   on: boolean
   placeholder: string
-  onCycleEmoji: () => void
+  onPressEmoji: () => void
   onChangeName: (name: string) => void
   onToggle: () => void
 }) {
@@ -74,7 +74,9 @@ export function PickRow({
       ]}
     >
       <Pressable
-        onPress={onCycleEmoji}
+        onPress={onPressEmoji}
+        accessibilityRole="button"
+        accessibilityLabel={`Change emoji for ${name || placeholder}`}
         style={[styles.emojiBtn, { backgroundColor: tokens.inputBg, borderColor: tokens.border, opacity: on ? 1 : 0.55 }]}
       >
         <Text style={styles.emojiLabel}>{emoji}</Text>
