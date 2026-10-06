@@ -9,7 +9,8 @@ import type { WeekRecap } from '@/src/api/weekRecap'
 /** Below this many expenses there's nothing to learn yet, so the recap asks for more instead. */
 const LIGHT_WEEK = 3
 
-export type RecapSlide = { color: string; ink: string; eyebrow: string; title: string; emoji: string; body: string }
+/** `bird` shows the Aviary mark in place of an emoji. */
+export type RecapSlide = { color: string; ink: string; eyebrow: string; title: string; emoji?: string; bird?: boolean; body: string }
 
 /** Minutes after midnight, to the nearest half hour: 1230 -> "8:30pm", 1263 -> "9pm". */
 export function formatMinute(minute: number): string {
@@ -23,7 +24,7 @@ export function recapSlides(recap: WeekRecap, money: (n: number) => string): Rec
   if (n < LIGHT_WEEK) {
     return [
       {
-        color: '#4b4fcc', ink: '#ffffff', eyebrow: 'Your first week', title: "Let's get to know you", emoji: '🐦',
+        color: '#4b4fcc', ink: '#ffffff', eyebrow: 'Your first week', title: "Let's get to know you", bird: true,
         body: n === 0
           ? "You haven't logged anything yet. Log a few expenses and we'll start spotting your patterns."
           : `You logged ${n} ${n === 1 ? 'expense' : 'expenses'} this week. Log a few more and we'll start spotting your patterns.`,
@@ -33,7 +34,7 @@ export function recapSlides(recap: WeekRecap, money: (n: number) => string): Rec
 
   const slides: RecapSlide[] = [
     {
-      color: '#4b4fcc', ink: '#ffffff', eyebrow: 'Your first week', title: "Here's what we learned about you", emoji: '🐦',
+      color: '#4b4fcc', ink: '#ffffff', eyebrow: 'Your first week', title: "Here's what we learned about you", bird: true,
       body: `${n} expenses across ${recap.daysLogged} of 7 days. Here's what stood out.`,
     },
   ]
