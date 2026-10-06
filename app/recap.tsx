@@ -83,9 +83,9 @@ export default function RecapRoute() {
         <Pressable style={styles.tapZone} onPress={() => step(-1)} onLongPress={() => setPaused(true)} onPressOut={() => setPaused(false)} accessibilityLabel="Previous" />
         <Pressable style={styles.tapZone} onPress={() => step(1)} onLongPress={() => setPaused(true)} onPressOut={() => setPaused(false)} accessibilityLabel="Next" />
       </View>
-      <WrappedCard key={index} color={slide.color} onColor={slide.ink} eyebrow={slide.eyebrow} interactive={last} style={{ paddingBottom: insets.bottom + 40 }}>
+      <WrappedCard key={index} color={slide.color} onColor={slide.ink} eyebrow={slide.eyebrow} interactive={last} style={[styles.card, { paddingTop: insets.top + 40, paddingBottom: insets.bottom + 24 }]}>
         <WPop delay={80}>
-          {slide.bird ? <BirdLandingMark size={72} color={slide.ink} autoplay={false} perched /> : <Text style={styles.emoji}>{slide.emoji}</Text>}
+          {slide.bird ? <BirdLandingMark size={112} color={slide.ink} autoplay={false} perched /> : <Text style={styles.emoji}>{slide.emoji}</Text>}
         </WPop>
         <WPop delay={160}>
           <Text style={[styles.title, { color: slide.ink }]}>{slide.title}</Text>
@@ -135,8 +135,10 @@ const styles = StyleSheet.create({
   progressFillOrigin: { transformOrigin: 'left' },
   iconButton: { width: 30, height: 30, borderRadius: 15, backgroundColor: 'rgba(0,0,0,0.22)', alignItems: 'center', justifyContent: 'center' },
   iconButtonText: { fontSize: 13, color: '#fff' },
-  emoji: { fontSize: 56 },
-  title: { fontSize: 40, lineHeight: 46, fontFamily: fontFamily.displayBold, letterSpacing: -0.8 },
+  // Centred in the full screen, unlike Wrapped's cards which sit at the bottom.
+  card: { justifyContent: 'center' },
+  emoji: { fontSize: 84 },
+  title: { fontSize: 48, lineHeight: 54, fontFamily: fontFamily.displayBold, letterSpacing: -0.8 },
   cta: { alignSelf: 'flex-start', marginTop: 8, paddingHorizontal: 22, paddingVertical: 13, borderRadius: 999 },
   ctaText: { fontSize: 16, fontFamily: fontFamily.displaySemiBold },
 })
