@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { View, Text, StyleSheet, useWindowDimensions } from 'react-native'
 import Svg, { Circle, Path } from 'react-native-svg'
+import { Check } from 'lucide-react-native'
 import type { WeekRecap } from '@/src/api/weekRecap'
 import type { BlobSpec } from '@/src/components/wrapped/WrappedCard'
 import { WFade, WGrowX, WPop, WRise } from '@/src/components/wrapped/WrappedCard'
@@ -115,10 +116,8 @@ export function RecapDetail({ slide, recap, money }: { slide: RecapSlide; recap:
   }
 }
 
-/** One dot per day of the week, lit where they logged. */
+/** The week, all seven days ticked: a week done, not a scorecard of days logged. */
 function DayDots({ recap, ink, bg }: { recap: WeekRecap; ink: string; bg: string }) {
-  if (!recap.loggedDates) return null
-  const logged = new Set(recap.loggedDates)
   const days = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(`${recap.startDate}T00:00:00Z`)
     d.setUTCDate(d.getUTCDate() + i)
@@ -126,17 +125,14 @@ function DayDots({ recap, ink, bg }: { recap: WeekRecap; ink: string; bg: string
   })
   return (
     <View style={styles.dotRow}>
-      {days.map((day, i) => {
-        const on = logged.has(day.date)
-        return (
-          <WPop key={day.date} delay={450 + i * 90} style={styles.dotCol}>
-            <View style={[styles.dot, on ? { backgroundColor: ink } : { borderColor: `${ink}55`, borderWidth: 2 }]}>
-              {on && <Text style={[styles.dotTick, { color: bg }]}>✓</Text>}
-            </View>
-            <Text style={[styles.dotLabel, { color: `${ink}cc` }]}>{day.letter}</Text>
-          </WPop>
-        )
-      })}
+      {days.map((day, i) => (
+        <WPop key={day.date} delay={450 + i * 90} style={styles.dotCol}>
+          <View style={[styles.dot, { backgroundColor: ink }]} testID="recap-day">
+            <Check size={20} color={bg} strokeWidth={3} />
+          </View>
+          <Text style={[styles.dotLabel, { color: `${ink}cc` }]}>{day.letter}</Text>
+        </WPop>
+      ))}
     </View>
   )
 }
@@ -275,7 +271,6 @@ const styles = StyleSheet.create({
   dotRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 18 },
   dotCol: { alignItems: 'center', gap: 6 },
   dot: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
-  dotTick: { fontSize: 18, fontFamily: fontFamily.bodyBlack },
   dotLabel: { fontSize: 13, fontFamily: fontFamily.bodyBold },
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginTop: 18 },
   chip: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingLeft: 18, paddingRight: 8, paddingVertical: 8, borderRadius: 999, borderWidth: 2 },

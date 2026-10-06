@@ -24,13 +24,22 @@ it('says tomorrow on day 7', async () => {
   expect(await findByText('Day 7 of 7 · your recap unlocks tomorrow')).toBeTruthy()
 })
 
-it('ticks the days logged so far, from the local expense list', async () => {
-  ;(getWeekRecap as jest.Mock).mockResolvedValue({ due: false, learning: { day: 3, loggedDates: ['2026-10-02'], unlocksOn: '2026-10-08' } })
+it('ticks every day that has passed, logged or not, and today once logged', async () => {
+  ;(getWeekRecap as jest.Mock).mockResolvedValue({ due: false, learning: { day: 3, loggedDates: [], unlocksOn: '2026-10-08' } })
   const chai = (date: string) => ({ id: date, date, item: 'Chai', amount_inr: '20', source: 'manual' })
-  ;(getRecentExpenses as jest.Mock).mockResolvedValue({ rows: [chai('2026-10-01'), chai('2026-10-03'), chai('2026-10-05')], lastSpent: {} })
-  const { findAllByText } = renderWithProviders(<LearningCard />)
-  // 1 and 3 Oct; 5 Oct is after today (day 3), and the server's 2 Oct was since deleted.
-  expect(await findAllByText('✓')).toHaveLength(2)
+  // Nothing on day 1 or 2: still ticked. Day 3 (today) logged: ticked too.
+  ;(getRecentExpenses as jest.Mock).mockResolvedValue({ rows: [chai('2026-10-03')], lastSpent: {} })
+  const { findAllByTestId, queryAllByTestId } = renderWithProviders(<LearningCard />)
+  expect(await findAllByTestId('learning-day-done')).toHaveLength(3)
+  expect(queryAllByTestId('learning-day-today')).toHaveLength(0)
+  expect(queryAllByTestId('learning-day-ahead')).toHaveLength(4)
+})
+
+it('rings today until something is logged', async () => {
+  ;(getWeekRecap as jest.Mock).mockResolvedValue({ due: false, learning: { day: 3, loggedDates: [], unlocksOn: '2026-10-08' } })
+  const { findAllByTestId, getAllByTestId } = renderWithProviders(<LearningCard />)
+  expect(await findAllByTestId('learning-day-done')).toHaveLength(2)
+  expect(getAllByTestId('learning-day-today')).toHaveLength(1)
 })
 
 it('shows nothing outside the first week', async () => {

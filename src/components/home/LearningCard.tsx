@@ -1,5 +1,6 @@
 import { View, Text, StyleSheet } from 'react-native'
 import Reanimated, { FadeIn, ZoomIn } from 'react-native-reanimated'
+import { Check } from 'lucide-react-native'
 import { Card } from '@/src/components/ui/Card'
 import { BirdLandingMark } from '@/src/components/splash/BirdLandingMark'
 import { useWeekRecap } from '@/src/features/week-recap/useWeekRecap'
@@ -12,8 +13,9 @@ const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
 
 /**
  * Days 1 to 7: tells new users the app is learning them and that a recap is
- * coming, with a dot per day of the week ticking as they log. Hides once the
- * recap is due. Twin of Web's src/components/home/LearningCard.tsx.
+ * coming. The dots count the week down, not attendance: every day that has
+ * passed is ticked whether or not anything was spent, so a quiet day never
+ * reads as a miss. Today ticks once they log. Hides once the recap is due. Twin of Web's src/components/home/LearningCard.tsx.
  */
 export function LearningCard() {
   const { tokens } = useTheme()
@@ -47,20 +49,19 @@ export function LearningCard() {
         </View>
         <View style={styles.days}>
           {days.map((d, i) => {
-            const on = logged.has(d.date)
+            const done = i < learning.day - 1 || (d.today && logged.has(d.date))
             return (
-              <View key={d.date} style={styles.dayCol}>
+              <View key={d.date} style={styles.dayCol} testID={done ? 'learning-day-done' : d.today ? 'learning-day-today' : 'learning-day-ahead'}>
                 <View
                   style={[
                     styles.dot,
-                    on ? { backgroundColor: tokens.accent, borderColor: tokens.accent } : { borderColor: tokens.border },
-                    d.today && { borderColor: tokens.accentInk },
+                    done ? { backgroundColor: tokens.accent, borderColor: tokens.accent } : { borderColor: d.today ? tokens.accentInk : tokens.border },
                   ]}
                 >
-                  {on && (
-                    <Reanimated.Text entering={ZoomIn.delay(i * 60).springify()} style={[styles.tick, { color: tokens.onAccent }]}>
-                      ✓
-                    </Reanimated.Text>
+                  {done && (
+                    <Reanimated.View entering={ZoomIn.delay(120 + i * 90).springify().damping(12)}>
+                      <Check size={18} color={tokens.onAccent} strokeWidth={3} />
+                    </Reanimated.View>
                   )}
                 </View>
                 <Text style={[styles.letter, { color: tokens.text2, fontFamily: fontFamily.bodyBold }]}>{d.letter}</Text>
@@ -81,6 +82,5 @@ const styles = StyleSheet.create({
   days: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 16 },
   dayCol: { alignItems: 'center', gap: 6 },
   dot: { width: 34, height: 34, borderRadius: 17, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
-  tick: { fontSize: 15, fontWeight: '900' },
   letter: { fontSize: 11 },
 })

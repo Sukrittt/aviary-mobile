@@ -22,17 +22,17 @@ const recap: WeekRecap = {
 const slide = (kind: RecapSlide['kind']) => recapSlides(recap, money).find((s) => s.kind === kind)!
 const detail = (kind: RecapSlide['kind'], r: WeekRecap = recap) => renderWithProviders(<RecapDetail slide={slide(kind)} recap={r} money={money} />)
 
-it('ticks the days they logged, labelled by weekday from the start date', () => {
-  const { getAllByText } = detail('intro')
-  // 2026-09-28 is a Monday: M T W T F S S, with 5 of 7 logged.
-  expect(getAllByText('✓')).toHaveLength(5)
+it('ticks all seven days, labelled by weekday from the start date', () => {
+  const { getAllByTestId, getAllByText } = detail('intro')
+  // 2026-09-28 is a Monday: M T W T F S S. Every day ticked, not just the 5 logged.
+  expect(getAllByTestId('recap-day')).toHaveLength(7)
   expect(getAllByText('M')).toHaveLength(1)
   expect(getAllByText('S')).toHaveLength(2)
 })
 
-it('hides the day dots on an older server without loggedDates', () => {
-  const { queryAllByText } = detail('intro', { ...recap, loggedDates: undefined })
-  expect(queryAllByText('✓')).toHaveLength(0)
+it('still ticks the week on an older server without loggedDates', () => {
+  const { getAllByTestId } = detail('intro', { ...recap, loggedDates: undefined })
+  expect(getAllByTestId('recap-day')).toHaveLength(7)
 })
 
 it('stamps each repeat item with its count', () => {
