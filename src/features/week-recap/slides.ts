@@ -66,7 +66,7 @@ export function recapSlides(recap: WeekRecap, money: (n: number) => string): Rec
     const name = splitEmoji(recap.topCategory.category).text || recap.topCategory.category
     slides.push({
       kind: 'categories', color: '#008140', ink: '#ffffff', eyebrow: 'Where it went', title: name,
-      body: `${Math.round(recap.topCategory.pct)}% of your week. ${categoryQuip(recap.topCategory.category)}`,
+      body: `${Math.round(recap.topCategory.pct)}% of your spending went here. ${categoryQuip(recap.topCategory.category)}`,
     })
   }
   if (recap.biggest) {

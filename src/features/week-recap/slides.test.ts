@@ -69,7 +69,7 @@ describe('recapSlides', () => {
   it('names the top category without its emoji, with a share and a quip', () => {
     const slide = recapSlides({ ...recap, topCategory: { category: '🛍️ Shopping', total: 2000, pct: 76.5 } }, money)[3]
     expect(slide.title).toBe('Shopping')
-    expect(slide.body).toBe('77% of your week. One more thing never hurt anyone. Probably.')
+    expect(slide.body).toBe('77% of your spending went here. One more thing never hurt anyone. Probably.')
   })
 
   it('never uses an em dash', () => {

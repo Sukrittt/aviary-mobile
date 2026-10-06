@@ -107,7 +107,7 @@ export function RecapDetail({ slide, recap, money }: { slide: RecapSlide; recap:
     case 'hour':
       return <DayArc minutes={recap.logMinutes?.length ? recap.logMinutes : [recap.usualMinute ?? 0]} usual={recap.usualMinute ?? 0} ink={slide.ink} />
     case 'categories':
-      return <CategoryBars categories={recap.categories?.length ? recap.categories : recap.topCategory ? [recap.topCategory] : []} ink={slide.ink} money={money} />
+      return <CategoryBars categories={recap.categories?.length ? recap.categories : recap.topCategory ? [recap.topCategory] : []} ink={slide.ink} money={money} total={recap.totalSpent} />
     case 'biggest':
       return recap.biggest ? <Receipt biggest={recap.biggest} accent={slide.color} money={money} /> : null
     default:
@@ -197,26 +197,36 @@ function DayArc({ minutes, usual, ink }: { minutes: number[]; usual: number; ink
   )
 }
 
-function CategoryBars({ categories, ink, money }: { categories: NonNullable<WeekRecap['categories']>; ink: string; money: (n: number) => string }) {
-  const max = Math.max(...categories.map((c) => c.pct), 1)
+/**
+ * The whole week as one bar, split by share: the top categories, then
+ * everything else. Reads the same whether we have 1 category or 4.
+ */
+function CategoryBars({ categories, ink, money, total }: { categories: NonNullable<WeekRecap['categories']>; ink: string; money: (n: number) => string; total: number }) {
+  const shades = [1, 0.62, 0.42, 0.28]
+  const rest = Math.max(0, total - categories.reduce((s, c) => s + c.total, 0))
+  const parts = [
+    ...categories.map((c, i) => {
+      const { icon, text } = splitEmoji(c.category)
+      return { key: c.category, label: `${icon ? `${icon} ` : ''}${text || c.category}`, amount: c.total, opacity: shades[i] }
+    }),
+    ...(rest > 0 ? [{ key: '__rest', label: 'Everything else', amount: rest, opacity: 0.16 }] : []),
+  ]
   return (
     <View style={styles.bars}>
-      {categories.map((c, i) => {
-        const { icon, text } = splitEmoji(c.category)
-        return (
-          <WRise key={c.category} delay={300 + i * 120} style={{ gap: 6 }}>
-            <View style={styles.barHead}>
-              <Text style={[styles.barLabel, { color: ink }]} numberOfLines={1}>{icon ? `${icon} ` : ''}{text || c.category}</Text>
-              <Text style={[styles.barValue, { color: ink }]}>{money(c.total)} · {Math.round(c.pct)}%</Text>
-            </View>
-            <View style={[styles.barTrack, { backgroundColor: `${ink}26` }]}>
-              <WGrowX delay={380 + i * 120} duration={800} style={{ width: `${(c.pct / max) * 100}%` }}>
-                <View style={[styles.barFill, { backgroundColor: ink, opacity: i === 0 ? 1 : 0.6 }]} />
-              </WGrowX>
-            </View>
+      <WGrowX delay={300} duration={900} style={styles.stack}>
+        {parts.map((p) => (
+          <View key={p.key} style={{ flex: p.amount, backgroundColor: ink, opacity: p.opacity }} />
+        ))}
+      </WGrowX>
+      <View style={{ gap: 10 }}>
+        {parts.map((p, i) => (
+          <WRise key={p.key} delay={450 + i * 110} style={styles.legendRow}>
+            <View style={[styles.legendDot, { backgroundColor: ink, opacity: Math.max(p.opacity, 0.3) }]} />
+            <Text style={[styles.barLabel, { color: ink }]} numberOfLines={1}>{p.label}</Text>
+            <Text style={[styles.barValue, { color: ink }]}>{money(p.amount)} · {Math.round((p.amount / total) * 100)}%</Text>
           </WRise>
-        )
-      })}
+        ))}
+      </View>
     </View>
   )
 }
@@ -274,12 +284,12 @@ const styles = StyleSheet.create({
   badgeText: { fontSize: 15, fontFamily: fontFamily.bodyBlack },
   arcLabels: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
   arcLabel: { fontSize: 12, fontFamily: fontFamily.bodyBold, letterSpacing: 0.5 },
-  bars: { gap: 14, marginTop: 18 },
-  barHead: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
-  barLabel: { flexShrink: 1, fontSize: 16, fontFamily: fontFamily.bodyBold },
-  barValue: { fontSize: 14, fontFamily: fontFamily.bodyExtraBold },
-  barTrack: { height: 14, borderRadius: 7, overflow: 'hidden' },
-  barFill: { flex: 1, height: 14, borderRadius: 7 },
+  bars: { gap: 18, marginTop: 20 },
+  stack: { flexDirection: 'row', height: 28, borderRadius: 14, overflow: 'hidden' },
+  legendRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  legendDot: { width: 12, height: 12, borderRadius: 6 },
+  barLabel: { flex: 1, fontSize: 16, fontFamily: fontFamily.bodyBold },
+  barValue: { fontSize: 15, fontFamily: fontFamily.bodyExtraBold },
   receiptWrap: { marginTop: 20, transform: [{ rotate: '-2deg' }] },
   receipt: { backgroundColor: '#fffaf3', borderRadius: 18, padding: 20, gap: 10, shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 18, shadowOffset: { width: 0, height: 10 }, elevation: 8 },
   receiptHead: { fontSize: 12, letterSpacing: 2, fontFamily: fontFamily.bodyBlack, marginBottom: 4 },
