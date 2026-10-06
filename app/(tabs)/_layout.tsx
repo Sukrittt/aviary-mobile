@@ -4,10 +4,12 @@ import { View } from 'react-native'
 import { NavBackdrop } from '@/src/components/nav/FloatingNav'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { useHabitNudges } from '@/src/hooks/useHabitNudges'
+import { useWeekRecapGate } from '@/src/features/week-recap/useWeekRecap'
 
 export default function TabsLayout() {
   const { tokens } = useTheme()
   useHabitNudges()
+  useWeekRecapGate()
 
   return (
     <View style={{ flex: 1 }}>
