@@ -1,12 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { getBalanceStatus, resolveBalanceCheck, submitBalance, type ResolveAnswer } from '@/src/api/balanceChecks'
+import { getBalanceStatus, resolveBalanceCheck, submitBalance, type AccountBalance, type ResolveAnswer } from '@/src/api/balanceChecks'
 
 export const balanceCheckKey = ['balance-check'] as const
 
 /**
- * Whether a check is due, the balance to prefill and the logged meter.
- * `fresh` refetches on mount: the check screen prefills the expected balance,
- * which moves with every expense logged since the last fetch.
+ * Whether a check is due, the balance it expects, the accounts to ask about
+ * and the logged meter. `fresh` refetches on mount: the expected balance
+ * moves with every expense logged since the last fetch.
  */
 export function useBalanceStatus({ fresh = false }: { fresh?: boolean } = {}) {
   return useQuery({
@@ -20,7 +20,7 @@ export function useBalanceStatus({ fresh = false }: { fresh?: boolean } = {}) {
 export function useSubmitBalance() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (balance: number) => submitBalance(balance),
+    mutationFn: (accounts: AccountBalance[]) => submitBalance(accounts),
     onSuccess: () => qc.invalidateQueries({ queryKey: balanceCheckKey }),
   })
 }

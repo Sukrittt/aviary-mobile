@@ -19,7 +19,8 @@ const get = SecureStore.getItemAsync as jest.Mock
 const set = SecureStore.setItemAsync as jest.Mock
 
 const status = (over: Partial<BalanceStatus> = {}): BalanceStatus => ({
-  due: true,
+
+  accounts: [],  due: true,
   open: false,
   expected: 48000,
   anchor: { timestamp: '2026-09-20T10:00:00+05:30', date: '2026-09-20', balance: 50000 },

@@ -35,6 +35,7 @@ const status = (over: Partial<BalanceStatus> = {}): BalanceStatus => ({
   expected: 48000,
   anchor: { timestamp: '2026-09-20T10:00:00+05:30', date: '2026-09-20', balance: 50000 },
   loggedPct: null,
+  accounts: [],
   ...over,
 })
 
@@ -72,7 +73,7 @@ afterEach(() => {
 
 async function renderModal() {
   const utils = renderWithProviders(<BalanceCheckModal />)
-  await waitFor(() => expect(utils.getByText('YOUR UPI ACCOUNT')).toBeTruthy())
+  await waitFor(() => expect(utils.getByText('WHERE YOU PAY FROM')).toBeTruthy())
   return utils
 }
 
@@ -89,38 +90,88 @@ async function press(utils: Awaited<ReturnType<typeof renderModal>>, label: stri
 
 it('starts with the first balance and saves it as the starting point', async () => {
   mockStatus.mockResolvedValue(status({ anchor: null, expected: null }))
-  mockSubmit.mockResolvedValue({ id: 'c1', kind: 'baseline', balance: 50000 })
+  mockSubmit.mockResolvedValue({ id: 'c1', kind: 'baseline', reason: 'first', balance: 50000 })
   const utils = await renderModal()
 
   expect(utils.getByText('Your starting balance')).toBeTruthy()
   typeBalance(utils, '50000')
   await press(utils, 'Save')
 
-  expect(mockSubmit).toHaveBeenCalledWith(50000)
+  expect(mockSubmit).toHaveBeenCalledWith([{ name: 'Bank', balance: 50000 }])
   expect(utils.getByText('Starting point saved. See you next week.')).toBeTruthy()
-  expect(mockTrack).toHaveBeenCalledWith('balance_checked', { kind: 'baseline' })
+  expect(mockTrack).toHaveBeenCalledWith('balance_checked', { kind: 'baseline', accounts: 1 })
   await act(async () => {
     jest.advanceTimersByTime(1100)
   })
   expect(mockBack).toHaveBeenCalled()
 })
 
-it('prefills the balance it expects, so a user who logged everything just confirms', async () => {
+it('shows the balance it expects as a hint, never typed in for the user', async () => {
   mockSubmit.mockResolvedValue(measured('square', 0))
   const utils = await renderModal()
 
-  expect(utils.getByText("Our guess from what you've logged. Fix it if your bank says different.")).toBeTruthy()
+  expect(utils.getByText('We expect about ₹48,000.')).toBeTruthy()
+  expect(utils.getByLabelText('Check').props.accessibilityState.disabled).toBe(true)
+  typeBalance(utils, '48000')
   await press(utils, 'Check')
 
-  expect(mockSubmit).toHaveBeenCalledWith(48000)
+  expect(mockSubmit).toHaveBeenCalledWith([{ name: 'Bank', balance: 48000 }])
   expect(utils.getByText("All square. You've logged everything.")).toBeTruthy()
-  expect(mockTrack).toHaveBeenCalledWith('balance_checked', { kind: 'square', prefill_kept: true })
 })
 
-it('says what it expected once the user types something else', async () => {
+it('totals several accounts, named once and asked about again', async () => {
+  mockStatus.mockResolvedValue(status({ accounts: ['HDFC'] }))
+  mockSubmit.mockResolvedValue(measured('square', 0))
   const utils = await renderModal()
-  typeBalance(utils, '44600')
-  expect(utils.getByText('We expected ₹48,000')).toBeTruthy()
+
+  typeBalance(utils, '40000')
+  fireEvent.press(utils.getByText('+ Add another account'))
+  fireEvent.changeText(utils.getByLabelText('Account 2 name'), 'Slice')
+  typeBalance(utils, '8000')
+  expect(utils.getByText('Total ₹48,000')).toBeTruthy()
+  expect(utils.getByText('We expect about ₹48,000 in total.')).toBeTruthy()
+  await press(utils, 'Check')
+
+  expect(mockSubmit).toHaveBeenCalledWith([{ name: 'HDFC', balance: 40000 }, { name: 'Slice', balance: 8000 }])
+  expect(mockTrack).toHaveBeenCalledWith('balance_checked', { kind: 'square', accounts: 2 })
+})
+
+it('edits whichever account is picked, and waits for every balance', async () => {
+  mockStatus.mockResolvedValue(status({ accounts: ['HDFC', 'Slice'] }))
+  const utils = await renderModal()
+
+  typeBalance(utils, '40000')
+  expect(utils.getByLabelText('Check').props.accessibilityState.disabled).toBe(true)
+  fireEvent.press(utils.getByLabelText('Slice balance'))
+  typeBalance(utils, '8000')
+  fireEvent.press(utils.getByLabelText('HDFC balance'))
+  typeBalance(utils, '41000')
+  expect(utils.getByText('Total ₹49,000')).toBeTruthy()
+
+  fireEvent.press(utils.getByLabelText('Remove Slice'))
+  expect(utils.queryByLabelText('Slice balance')).toBeNull()
+  expect(utils.getByLabelText('Check').props.accessibilityState.disabled).toBe(false)
+})
+
+it('asks for distinct names before saving', async () => {
+  mockStatus.mockResolvedValue(status({ accounts: ['HDFC'] }))
+  const utils = await renderModal()
+  typeBalance(utils, '40000')
+  fireEvent.press(utils.getByText('+ Add another account'))
+  fireEvent.changeText(utils.getByLabelText('Account 2 name'), 'hdfc')
+  typeBalance(utils, '8000')
+  await press(utils, 'Check')
+
+  expect(utils.getByText('Give each account its own name.')).toBeTruthy()
+  expect(mockSubmit).not.toHaveBeenCalled()
+})
+
+it('starts over when the accounts change', async () => {
+  mockSubmit.mockResolvedValue({ id: 'c3', kind: 'baseline', reason: 'accounts_changed', balance: 59000 })
+  const utils = await renderModal()
+  typeBalance(utils, '59000')
+  await press(utils, 'Check')
+  expect(utils.getByText("New starting point saved. We'll compare next week.")).toBeTruthy()
 })
 
 it('turns spends not logged into estimates on the review card', async () => {
@@ -135,7 +186,7 @@ it('turns spends not logged into estimates on the review card', async () => {
 
   expect(mockResolve).toHaveBeenCalledWith('c2', {})
   expect(mockTrack).toHaveBeenCalledWith('balance_resolved', { reason: 'unlogged' })
-  expect(mockTrack).toHaveBeenCalledWith('balance_checked', { kind: 'unlogged', prefill_kept: false })
+  expect(mockTrack).toHaveBeenCalledWith('balance_checked', { kind: 'unlogged', accounts: 1 })
   fireEvent.press(utils.getByText('Review Food, Travel as balance_gap'))
   expect(utils.getByText("You'd logged 37% of what left your account yourself.")).toBeTruthy()
   fireEvent.press(utils.getByText('Done'))
@@ -220,6 +271,7 @@ it('records where extra money came from in one tap, and logs nothing', async () 
 it('shows a written message, never the server error, when saving fails', async () => {
   mockSubmit.mockRejectedValue(new Error('Failed to save balance: 503'))
   const utils = await renderModal()
+  typeBalance(utils, '48000')
   await press(utils, 'Check')
 
   expect(utils.getByText("Couldn't save your balance. Check your connection and try again.")).toBeTruthy()
@@ -231,6 +283,7 @@ it('shows a written message when an answer fails, and lets the user try again', 
   mockSubmit.mockResolvedValue(measured('surplus', -7000))
   mockResolve.mockRejectedValueOnce(new Error('Failed to resolve balance check: 500'))
   const utils = await renderModal()
+  typeBalance(utils, '55000')
   await press(utils, 'Check')
   await press(utils, 'Refund or paid back')
 
