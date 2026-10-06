@@ -34,12 +34,12 @@ export function LearningCard() {
   return (
     <Reanimated.View entering={FadeIn.duration(320)}>
       <Card elevated={false}>
-        <View style={styles.head} accessible accessibilityLabel={`Aviary is learning your habits. Day ${learning.day} of 7.`}>
+        <View style={styles.head} accessible accessibilityLabel={`We're learning your habits. Day ${learning.day} of 7.`}>
           <View style={[styles.bird, { backgroundColor: tokens.accentSoft }]}>
             <BirdLandingMark size={34} color={tokens.accentInk} autoplay={false} perched />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={[styles.title, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Aviary is learning your habits</Text>
+            <Text style={[styles.title, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>{"We're learning your habits"}</Text>
             <Text style={[styles.sub, { color: tokens.text2, fontFamily: fontFamily.bodyBold }]}>
               Day {learning.day} of 7 · your recap unlocks {left === 1 ? 'tomorrow' : `in ${left} days`}
             </Text>

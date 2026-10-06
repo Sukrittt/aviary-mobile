@@ -14,7 +14,7 @@ beforeEach(() => {
 it('shows the day of the week and when the recap unlocks', async () => {
   ;(getWeekRecap as jest.Mock).mockResolvedValue({ due: false, learning: { day: 3, loggedDates: ['2026-10-01'], unlocksOn: '2026-10-08' } })
   const { findByText } = renderWithProviders(<LearningCard />)
-  expect(await findByText('Aviary is learning your habits')).toBeTruthy()
+  expect(await findByText("We're learning your habits")).toBeTruthy()
   expect(await findByText('Day 3 of 7 · your recap unlocks in 5 days')).toBeTruthy()
 })
 
@@ -37,5 +37,5 @@ it('shows nothing outside the first week', async () => {
   ;(getWeekRecap as jest.Mock).mockResolvedValue({ due: false })
   const { queryByText } = renderWithProviders(<LearningCard />)
   await new Promise((r) => setTimeout(r, 0))
-  expect(queryByText('Aviary is learning your habits')).toBeNull()
+  expect(queryByText("We're learning your habits")).toBeNull()
 })

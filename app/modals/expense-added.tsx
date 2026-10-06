@@ -303,8 +303,8 @@ export default function ExpenseAddedScreen() {
   const subtitleIsCategory = !item && !!category;
   // A small "we're learning you" moment: only once the item has come up before this week.
   const noticed = useMemo(
-    () => noticedLine(item, weeklyRepeat(expensesQ.data ?? [], { id: id || undefined, item, date })),
-    [expensesQ.data, id, item, date],
+    () => noticedLine(item, weeklyRepeat(expensesQ.data ?? [], { id: id || undefined, timestamp: timestamp || undefined, item, date })),
+    [expensesQ.data, id, timestamp, item, date],
   );
 
   const [undoingPending, setUndoingPending] = useState(false);
