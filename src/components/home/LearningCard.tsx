@@ -1,5 +1,18 @@
+import { useEffect, type ReactNode } from 'react'
 import { View, Text, StyleSheet } from 'react-native'
-import Reanimated, { FadeIn, ZoomIn } from 'react-native-reanimated'
+import Reanimated, {
+  Easing,
+  FadeInDown,
+  LinearTransition,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withDelay,
+  withRepeat,
+  withSequence,
+  withTiming,
+  ZoomIn,
+} from 'react-native-reanimated'
 import { Check } from 'lucide-react-native'
 import { Card } from '@/src/components/ui/Card'
 import { BirdLandingMark } from '@/src/components/splash/BirdLandingMark'
@@ -10,6 +23,23 @@ import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
+
+/** Circles pop in one after another once the card is in; checks follow on the same stagger. */
+const DOT_DELAY = (i: number) => 250 + i * 70
+const CHECK_DELAY = (i: number) => 520 + i * 70
+
+/** Today's circle keeps gently breathing after it pops in. */
+function Pulse({ delay, children }: { delay: number; children: ReactNode }) {
+  const reduceMotion = useReducedMotion()
+  const scale = useSharedValue(1)
+  useEffect(() => {
+    if (reduceMotion) return
+    const half = { duration: 800, easing: Easing.inOut(Easing.ease) }
+    scale.value = withDelay(delay, withRepeat(withSequence(withTiming(0.86, half), withTiming(1, half)), -1))
+  }, [delay, reduceMotion, scale])
+  const style = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }))
+  return <Reanimated.View style={style}>{children}</Reanimated.View>
+}
 
 /**
  * Days 1 to 7: tells new users the app is learning them and that a recap is
@@ -34,7 +64,12 @@ export function LearningCard() {
   const logged = new Set(learnedDates(learning.loggedDates, rows, start.toISOString().slice(0, 10), days[learning.day - 1].date))
 
   return (
-    <Reanimated.View entering={FadeIn.duration(320)}>
+    // Springs in like the Get started card; the envelopes card below has a
+    // layout transition, so it slides down rather than jumping.
+    <Reanimated.View
+      entering={FadeInDown.duration(420).springify().damping(22).stiffness(200)}
+      layout={LinearTransition.springify().damping(44).stiffness(400)}
+    >
       <Card elevated={false}>
         <View style={styles.head} accessible accessibilityLabel={`We're learning your habits. Day ${learning.day} of 7.`}>
           <View style={[styles.bird, { backgroundColor: tokens.accentSoft }]}>
@@ -52,18 +87,21 @@ export function LearningCard() {
             const done = i < learning.day - 1 || (d.today && logged.has(d.date))
             return (
               <View key={d.date} style={styles.dayCol} testID={done ? 'learning-day-done' : d.today ? 'learning-day-today' : 'learning-day-ahead'}>
-                <View
-                  style={[
-                    styles.dot,
-                    done ? { backgroundColor: tokens.accent, borderColor: tokens.accent } : { borderColor: d.today ? tokens.accentInk : tokens.border },
-                  ]}
-                >
-                  {done && (
-                    <Reanimated.View entering={ZoomIn.delay(120 + i * 90).springify().damping(12)}>
-                      <Check size={18} color={tokens.onAccent} strokeWidth={3} />
-                    </Reanimated.View>
+                <Reanimated.View entering={ZoomIn.delay(DOT_DELAY(i)).springify().damping(13)}>
+                  {d.today && !done ? (
+                    <Pulse delay={DOT_DELAY(i) + 650}>
+                      <View style={[styles.dot, { borderColor: tokens.accentInk }]} />
+                    </Pulse>
+                  ) : (
+                    <View style={[styles.dot, done ? { backgroundColor: tokens.accent, borderColor: tokens.accent } : { borderColor: tokens.border }]}>
+                      {done && (
+                        <Reanimated.View entering={ZoomIn.delay(CHECK_DELAY(i)).springify().damping(12)}>
+                          <Check size={18} color={tokens.onAccent} strokeWidth={3} />
+                        </Reanimated.View>
+                      )}
+                    </View>
                   )}
-                </View>
+                </Reanimated.View>
                 <Text style={[styles.letter, { color: tokens.text2, fontFamily: fontFamily.bodyBold }]}>{d.letter}</Text>
               </View>
             )
