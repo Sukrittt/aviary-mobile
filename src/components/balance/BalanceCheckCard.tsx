@@ -11,7 +11,7 @@ function prompt(status: BalanceStatus): { title: string; body: string } {
   if (!status.anchor) {
     return {
       title: 'Weekly balance check',
-      body: "Type your UPI account's balance once a week. We'll catch the spends you didn't log.",
+      body: "Type your bank balances once a week. We'll catch the spends you didn't log.",
     }
   }
   if (status.open) {

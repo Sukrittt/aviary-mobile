@@ -1,6 +1,6 @@
 // The weekly balance check (Web/app/api/balance-checks). The user types the
-// balance of the account their UPI is linked to; the server compares the drop
-// since the last check with what they logged from it. A gap comes back as
+// balance of each account they pay from; the server compares the drop in the
+// total since the last check with what they logged. A gap comes back as
 // estimated rows in the money brain's proposal shape, reviewed on the same
 // card (src/components/brain/CaptureReview.tsx). See docs/effortless-logging.md.
 import { apiFetch } from './client'
@@ -16,12 +16,20 @@ export interface BalanceStatus {
   anchor: { timestamp: string; date: string; balance: number } | null
   /** Share of the bank's outflow the user logged themselves, at the last check that measured one. */
   loggedPct: number | null
+  /** Names of the accounts typed last time, to ask about again. Empty before the first named check. */
+  accounts: string[]
+}
+
+export interface AccountBalance {
+  name: string
+  balance: number
 }
 
 export type CheckKind = 'baseline' | 'square' | 'unlogged' | 'surplus'
 
 export type BalanceResult =
-  | { id: string; kind: 'baseline'; balance: number }
+  /** `accounts_changed`: an account was added or removed, so this check starts over. */
+  | { id: string; kind: 'baseline'; reason: 'first' | 'accounts_changed'; balance: number }
   | {
       id: string
       kind: Exclude<CheckKind, 'baseline'>
@@ -57,11 +65,11 @@ export async function getBalanceStatus(): Promise<BalanceStatus> {
   return resp.json()
 }
 
-export async function submitBalance(balance: number): Promise<BalanceResult> {
+export async function submitBalance(accounts: AccountBalance[]): Promise<BalanceResult> {
   const resp = await apiFetch('/api/balance-checks', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ balance }),
+    body: JSON.stringify({ accounts }),
   })
   if (!resp.ok) throw new Error(`Failed to save balance: ${resp.status}`)
   return resp.json()

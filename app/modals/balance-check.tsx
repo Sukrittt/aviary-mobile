@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { Animated, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { Animated, Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { useRouter } from 'expo-router'
 import { X } from 'lucide-react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -10,17 +10,20 @@ import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
 import { AmountText } from '@/src/components/ui/AmountText'
 import { Numpad } from '@/src/components/ui/Numpad'
-import { useAmountEntry } from '@/src/components/ui/useAmountEntry'
+import { useInvalidFeedback } from '@/src/components/ui/useInvalidFeedback'
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { GAP_ORIGIN } from '@/src/features/capture/captureRows'
 import { useBalanceStatus, useResolveBalanceCheck, useSubmitBalance } from '@/src/hooks/useBalanceCheck'
 import { track } from '@/src/lib/analytics'
+import { pushAmountKey } from '@/src/lib/calcAmount'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 
 /** Same beat as every other in-place success in the app (CLAUDE.md): let the check draw, then close. */
 const SUCCESS_MS = 1100
 const AMOUNT_RE = /^\d+(\.\d{1,2})?$/
+/** Same cap as the server's: more than this isn't someone's everyday accounts. */
+const MAX_ACCOUNTS = 5
 
 type Measured = Exclude<BalanceResult, { kind: 'baseline' }>
 type GapReason = 'unlogged' | 'card_bill' | 'moved' | 'mix'
@@ -54,9 +57,9 @@ function parseAmount(text: string): number {
 
 /**
  * The weekly balance check (docs/effortless-logging.md, phase 2). The user
- * types one number, the balance of the account their UPI is linked to, which
- * starts at the balance the app expects so a user who logged everything just
- * confirms it. A gap gets one more question with one-tap answers, and spends
+ * types the balance of each account they pay from, named once and asked about
+ * again every week, and the server checks the total. The balance the app
+ * expects is a hint, not a prefill. A gap gets one more question with one-tap answers, and spends
  * they didn't log come back as estimates on the money brain's review card.
  * No AI anywhere: the server does arithmetic on the user's own history.
  */
@@ -168,6 +171,13 @@ function Cta({ label, busyLabel, busy, success, disabled, onPress }: {
   )
 }
 
+/** What an account is called when the user hasn't named it. Distinct per row, so the server never sees two the same. */
+function defaultName(i: number): string {
+  return i === 0 ? 'Bank' : `Account ${i + 1}`
+}
+
+type AccountRow = { name: string; amount: string }
+
 function EnterBalance({ status: fetched, closing, onClose, onMeasured }: {
   status: BalanceStatus | null
   closing: string | null
@@ -182,29 +192,61 @@ function EnterBalance({ status: fetched, closing, onClose, onMeasured }: {
   const [status] = useState(fetched)
   const first = status !== null && !status.anchor
   const expected = status?.expected ?? null
-  const prefill = expected !== null && expected > 0 ? String(Math.round(expected * 100) / 100) : ''
-  const { amount, setAmount, pushDigit, handleBackspace, shake } = useAmountEntry(prefill)
+  // Each balance is typed, never prefilled: the app can't know how the total splits, and a
+  // prefill invites confirming without opening the bank app.
+  const [rows, setRows] = useState<AccountRow[]>(() =>
+    (status?.accounts?.length ? status.accounts : ['']).map((name) => ({ name, amount: '' })),
+  )
+  const [active, setActive] = useState(0)
+  const { shake, triggerInvalidFeedback } = useInvalidFeedback()
   const [error, setError] = useState('')
 
-  const kept = prefill !== '' && Number(amount) === Number(prefill)
+  const amount = rows[active].amount
+  const multi = rows.length > 1
+  const names = rows.map((r, i) => r.name.trim() || defaultName(i))
+  const total = rows.reduce((sum, r) => sum + (Number(r.amount) || 0), 0)
+  const complete = rows.every((r) => r.amount !== '')
+
+  function setAmount(next: (prev: string) => string) {
+    setRows((prev) => prev.map((r, i) => (i === active ? { ...r, amount: next(r.amount) } : r)))
+  }
+
+  function onBackspace() {
+    if (amount === '') triggerInvalidFeedback()
+    else setAmount((prev) => prev.slice(0, -1))
+  }
+
+  function addAccount() {
+    setRows((prev) => [...prev, { name: '', amount: '' }])
+    setActive(rows.length)
+  }
+
+  function removeAccount(index: number) {
+    setRows((prev) => prev.filter((_, i) => i !== index))
+    setActive((a) => (a === index ? 0 : a > index ? a - 1 : a))
+  }
+
   const caption =
     closing ??
     (first
       ? "This is your starting point. Next week we'll compare."
       : expected === null
         ? 'Type the balance your bank shows.'
-        : kept
-          ? "Our guess from what you've logged. Fix it if your bank says different."
-          : `We expected ${formatMoney(expected)}`)
+        : `We expect about ${formatMoney(expected)}${multi ? ' in total' : ''}.`)
 
   async function onSubmit() {
-    if (amount === '') return
+    if (!complete) return
+    if (new Set(names.map((n) => n.toLowerCase())).size < names.length) {
+      setError('Give each account its own name.')
+      return
+    }
     setError('')
     try {
-      const result = await submit.mutateAsync(Number(amount))
-      track('balance_checked', { kind: result.kind, ...(prefill ? { prefill_kept: kept } : {}) })
-      if (result.kind === 'baseline') onClose("Starting point saved. See you next week.")
-      else if (result.kind === 'square') onClose("All square. You've logged everything.")
+      const result = await submit.mutateAsync(rows.map((r, i) => ({ name: names[i], balance: Number(r.amount) })))
+      track('balance_checked', { kind: result.kind, accounts: rows.length })
+      if (result.kind === 'baseline') {
+        onClose(result.reason === 'accounts_changed' ? "New starting point saved. We'll compare next week." : 'Starting point saved. See you next week.')
+      } else if (result.kind === 'square') onClose("All square. You've logged everything.")
       else if (result.kind === 'unlogged') onMeasured({ name: 'gap', check: result })
       else onMeasured({ name: 'surplus', check: result })
     } catch {
@@ -214,8 +256,8 @@ function EnterBalance({ status: fetched, closing, onClose, onMeasured }: {
 
   return (
     <>
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: space.lg, paddingTop: space.lg, gap: space.lg }}>
-        <Text style={text.label}>YOUR UPI ACCOUNT</Text>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: space.lg, paddingTop: space.lg, gap: space.lg }} keyboardShouldPersistTaps="handled">
+        <Text style={text.label}>WHERE YOU PAY FROM</Text>
         <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border, borderRadius: radius.lg, padding: space.md, gap: space.md }]}>
           <View style={[styles.cardIcon, { backgroundColor: tokens.accentSoft, borderRadius: radius.md }]}>
             <Text style={{ fontSize: type.title }}>🏦</Text>
@@ -226,28 +268,88 @@ function EnterBalance({ status: fetched, closing, onClose, onMeasured }: {
             </Text>
             <Text style={text.body}>
               {first
-                ? 'Use the account your UPI is linked to. Check it in GPay, PhonePe or your bank app.'
+                ? 'Add each account you pay from with UPI. Check them in GPay, PhonePe or your bank app.'
                 : 'Check it in GPay, PhonePe or your bank app.'}
             </Text>
           </View>
         </View>
 
         <View style={[styles.amountWrap, { gap: space.sm }]}>
+          {multi && <Text style={text.label}>{names[active].toUpperCase()}</Text>}
           <Animated.View style={{ transform: [{ translateX: shake.interpolate({ inputRange: [-1, 1], outputRange: [-8, 8] }) }] }}>
             <AmountText value={Number(amount) || 0} rawText={formatAmountInput(amount)} size={type.hero} weight="displayBold" animate ignoreHide />
           </Animated.View>
           <Text style={[text.body, { textAlign: 'center' }]}>{caption}</Text>
         </View>
+
+        {multi && (
+          <View style={{ gap: space.sm }}>
+            {rows.map((r, i) => (
+              <Pressable
+                key={i}
+                accessibilityRole="button"
+                accessibilityLabel={`${names[i]} balance`}
+                accessibilityState={{ selected: i === active }}
+                onPress={() => {
+                  // The numpad sits under the keyboard, so picking a balance to type puts the keyboard away.
+                  Keyboard.dismiss()
+                  setActive(i)
+                }}
+                style={[
+                  styles.accountRow,
+                  {
+                    backgroundColor: tokens.card,
+                    borderColor: i === active ? tokens.accent : tokens.border,
+                    borderRadius: radius.md,
+                    paddingHorizontal: space.md,
+                    gap: space.sm,
+                  },
+                ]}
+              >
+                <TextInput
+                  accessibilityLabel={`Account ${i + 1} name`}
+                  value={r.name}
+                  onChangeText={(name) => setRows((prev) => prev.map((row, j) => (j === i ? { ...row, name } : row)))}
+                  onFocus={() => setActive(i)}
+                  placeholder={defaultName(i)}
+                  returnKeyType="done"
+                  placeholderTextColor={tokens.text3}
+                  maxLength={30}
+                  style={[styles.accountName, { color: tokens.text, fontFamily: fontFamily.bodySemiBold, fontSize: type.body }]}
+                />
+                <Text style={{ color: r.amount === '' ? tokens.text3 : tokens.text, fontFamily: fontFamily.bodySemiBold, fontSize: type.body }}>
+                  {r.amount === '' ? '—' : formatMoney(Number(r.amount))}
+                </Text>
+                <Pressable accessibilityRole="button" accessibilityLabel={`Remove ${names[i]}`} hitSlop={10} onPress={() => removeAccount(i)}>
+                  <X size={14} color={tokens.text3} />
+                </Pressable>
+              </Pressable>
+            ))}
+            <Text style={[text.body, { textAlign: 'right', color: tokens.text }]}>{`Total ${formatMoney(total)}`}</Text>
+          </View>
+        )}
+
+        {rows.length < MAX_ACCOUNTS && (
+          <Pressable accessibilityRole="button" onPress={addAccount} hitSlop={8} style={{ alignSelf: 'center' }}>
+            <Text style={{ color: tokens.accent, fontFamily: fontFamily.bodyBold, fontSize: type.caption }}>+ Add another account</Text>
+          </Pressable>
+        )}
         {error !== '' && <Text style={text.error}>{error}</Text>}
       </ScrollView>
       <Footer>
-        <Numpad extraKey="." onDigit={pushDigit} onBackspace={handleBackspace} onClear={() => setAmount('')} disabled={submit.isPending || closing !== null} />
+        <Numpad
+          extraKey="."
+          onDigit={(d) => setAmount((prev) => pushAmountKey(prev, d))}
+          onBackspace={onBackspace}
+          onClear={() => setAmount(() => '')}
+          disabled={submit.isPending || closing !== null}
+        />
         <Cta
           label={first ? 'Save' : 'Check'}
           busyLabel="Checking…"
           busy={submit.isPending}
           success={closing !== null}
-          disabled={amount === ''}
+          disabled={!complete}
           onPress={onSubmit}
         />
       </Footer>
@@ -516,4 +618,6 @@ const styles = StyleSheet.create({
   optionCheck: { alignItems: 'center', paddingVertical: 8 },
   field: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, gap: 6 },
   fieldInput: { flex: 1, paddingVertical: 12 },
+  accountRow: { flexDirection: 'row', alignItems: 'center', borderWidth: 1.5 },
+  accountName: { flex: 1, paddingVertical: 10 },
 })

@@ -24,19 +24,19 @@ describe('getBalanceStatus', () => {
 })
 
 describe('submitBalance', () => {
-  it('posts the balance', async () => {
+  it('posts each account balance', async () => {
     mockedApiFetch.mockResolvedValue({ ok: true, json: async () => ({ id: 'c1', kind: 'baseline', balance: 50000 }) })
-    await expect(submitBalance(50000)).resolves.toMatchObject({ kind: 'baseline' })
+    await expect(submitBalance([{ name: 'HDFC', balance: 42000 }, { name: 'Slice', balance: 8000 }])).resolves.toMatchObject({ kind: 'baseline' })
     expect(mockedApiFetch).toHaveBeenCalledWith('/api/balance-checks', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ balance: 50000 }),
+      body: JSON.stringify({ accounts: [{ name: 'HDFC', balance: 42000 }, { name: 'Slice', balance: 8000 }] }),
     })
   })
 
   it('throws on a failed save', async () => {
     mockedApiFetch.mockResolvedValue({ ok: false, status: 400 })
-    await expect(submitBalance(1)).rejects.toThrow('Failed to save balance: 400')
+    await expect(submitBalance([{ name: 'Bank', balance: 1 }])).rejects.toThrow('Failed to save balance: 400')
   })
 })
 
