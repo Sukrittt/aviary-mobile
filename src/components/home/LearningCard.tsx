@@ -2,6 +2,7 @@ import { useEffect, type ReactNode } from 'react'
 import { View, Text, StyleSheet } from 'react-native'
 import Reanimated, {
   Easing,
+  FadeIn,
   FadeInDown,
   LinearTransition,
   useAnimatedStyle,
@@ -24,7 +25,7 @@ import { fontFamily } from '@/src/theme/fonts'
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
 
-/** Circles pop in one after another once the card is in; checks follow on the same stagger. */
+/** Circles ease in one after another once the card is in (no spring, no overshoot); checks fade in on the same stagger. */
 const DOT_DELAY = (i: number) => 250 + i * 70
 const CHECK_DELAY = (i: number) => 520 + i * 70
 
@@ -87,7 +88,7 @@ export function LearningCard() {
             const done = i < learning.day - 1 || (d.today && logged.has(d.date))
             return (
               <View key={d.date} style={styles.dayCol} testID={done ? 'learning-day-done' : d.today ? 'learning-day-today' : 'learning-day-ahead'}>
-                <Reanimated.View entering={ZoomIn.delay(DOT_DELAY(i)).springify().damping(13)}>
+                <Reanimated.View entering={ZoomIn.delay(DOT_DELAY(i)).duration(260).easing(Easing.out(Easing.cubic))}>
                   {d.today && !done ? (
                     <Pulse delay={DOT_DELAY(i) + 650}>
                       <View style={[styles.dot, { borderColor: tokens.accentInk }]} />
@@ -95,7 +96,7 @@ export function LearningCard() {
                   ) : (
                     <View style={[styles.dot, done ? { backgroundColor: tokens.accent, borderColor: tokens.accent } : { borderColor: tokens.border }]}>
                       {done && (
-                        <Reanimated.View entering={ZoomIn.delay(CHECK_DELAY(i)).springify().damping(12)}>
+                        <Reanimated.View entering={FadeIn.delay(CHECK_DELAY(i)).duration(220)}>
                           <Check size={18} color={tokens.onAccent} strokeWidth={3} />
                         </Reanimated.View>
                       )}
