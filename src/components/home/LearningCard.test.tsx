@@ -24,10 +24,12 @@ it('says tomorrow on day 7', async () => {
   expect(await findByText('Day 7 of 7 · your recap unlocks tomorrow')).toBeTruthy()
 })
 
-it('ticks server days plus anything logged since', async () => {
-  ;(getWeekRecap as jest.Mock).mockResolvedValue({ due: false, learning: { day: 3, loggedDates: ['2026-10-01'], unlocksOn: '2026-10-08' } })
-  ;(getRecentExpenses as jest.Mock).mockResolvedValue({ rows: [{ id: 'x', date: '2026-10-03', item: 'Chai' }], lastSpent: {} })
+it('ticks the days logged so far, from the local expense list', async () => {
+  ;(getWeekRecap as jest.Mock).mockResolvedValue({ due: false, learning: { day: 3, loggedDates: ['2026-10-02'], unlocksOn: '2026-10-08' } })
+  const chai = (date: string) => ({ id: date, date, item: 'Chai', amount_inr: '20', source: 'manual' })
+  ;(getRecentExpenses as jest.Mock).mockResolvedValue({ rows: [chai('2026-10-01'), chai('2026-10-03'), chai('2026-10-05')], lastSpent: {} })
   const { findAllByText } = renderWithProviders(<LearningCard />)
+  // 1 and 3 Oct; 5 Oct is after today (day 3), and the server's 2 Oct was since deleted.
   expect(await findAllByText('✓')).toHaveLength(2)
 })
 
