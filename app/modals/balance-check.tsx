@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
-import { Animated, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { Animated, Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { useRouter } from 'expo-router'
 import { X } from 'lucide-react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -290,7 +290,11 @@ function EnterBalance({ status: fetched, closing, onClose, onMeasured }: {
                 accessibilityRole="button"
                 accessibilityLabel={`${names[i]} balance`}
                 accessibilityState={{ selected: i === active }}
-                onPress={() => setActive(i)}
+                onPress={() => {
+                  // The numpad sits under the keyboard, so picking a balance to type puts the keyboard away.
+                  Keyboard.dismiss()
+                  setActive(i)
+                }}
                 style={[
                   styles.accountRow,
                   {
@@ -308,6 +312,7 @@ function EnterBalance({ status: fetched, closing, onClose, onMeasured }: {
                   onChangeText={(name) => setRows((prev) => prev.map((row, j) => (j === i ? { ...row, name } : row)))}
                   onFocus={() => setActive(i)}
                   placeholder={defaultName(i)}
+                  returnKeyType="done"
                   placeholderTextColor={tokens.text3}
                   maxLength={30}
                   style={[styles.accountName, { color: tokens.text, fontFamily: fontFamily.bodySemiBold, fontSize: type.body }]}

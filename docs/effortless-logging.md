@@ -169,8 +169,9 @@ arithmetic or rules can do.
 
 ### 3. Weekly balance check and logged meter (phase 2)
 
-**Rule: one number, and a second question only when the numbers say something's off.** No setup,
-no list of accounts, no card statements.
+**Rule: one balance per account you pay from, and a second question only when the numbers say
+something's off.** No setup screen, no card statements. Most people have one account and type one
+number; a second account is one tap away.
 
 **Every account they pay from, totalled.** The user types the balance of each account they pay
 from with UPI (a bank plus, say, a Slice account), names each once, and is asked about the same
@@ -375,10 +376,13 @@ built; the design is in section 3 above.
    `{ user_id: 1, timestamp: -1 }`.
 2. **The math lives in `lib/balanceCheck.ts`**, all pure functions with tests: `spendBetween`
    (bank only, estimates left out), `toleranceFor`, `classify`, `splitByHabit`, `cardShortfall`,
-   `loggedPct`, `isDue`, `anchorOf` and `gapProposal`.
-3. **`GET /api/balance-checks`:** `{ due, open, expected, anchor, loggedPct }`. Due means no check
+   `loggedPct`, `isDue`, `anchorOf`, `gapProposal`, `parseAccounts` and `sameAccounts`.
+3. **`GET /api/balance-checks`:** `{ due, open, expected, anchor, loggedPct, accounts }`, where
+   `accounts` is the newest list of account names typed. Due means no check
    yet, 7+ days since the anchor, or an open gap. The demo account is never due.
-4. **`POST /api/balance-checks` `{ balance }`:** the first check is the baseline. Later ones come
+4. **`POST /api/balance-checks` `{ accounts: [{ name, balance }] }`** (1 to 5; older apps send
+   `{ balance }`, read as one unnamed account): the check runs on the total. The first check is
+   the baseline, and so is one over a different set of accounts (`reason: accounts_changed`). Later ones come
    back `square`, `unlogged` or `surplus` with `expected`, `logged`, `gap`, `tolerance` and
    `cardSpendRecent`. A new balance replaces an open check, so a typo is fixed by checking again.
 5. **`POST /api/balance-checks/:id/resolve`:** `{ cardBill?, movedOut? }` for a gap, or
