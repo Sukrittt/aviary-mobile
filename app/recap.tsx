@@ -5,9 +5,9 @@ import { router } from 'expo-router'
 import { WrappedCard, WPop, WRise, WrappedCaption } from '@/src/components/wrapped/WrappedCard'
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { fontFamily } from '@/src/theme/fonts'
-import { markWeekRecapSeen } from '@/src/api/weekRecap'
+import type { WeekRecap } from '@/src/api/weekRecap'
 import { recapSlides } from '@/src/features/week-recap/slides'
-import { markRecapOpened, useWeekRecap } from '@/src/features/week-recap/useWeekRecap'
+import { markRecapOpened, useMarkWeekRecapSeen, useWeekRecap } from '@/src/features/week-recap/useWeekRecap'
 import { track } from '@/src/lib/analytics'
 
 function close() {
@@ -19,25 +19,32 @@ export default function RecapRoute() {
   const insets = useSafeAreaInsets()
   const { formatCurrency } = useCurrency()
   const { data, isLoading } = useWeekRecap()
+  const markSeen = useMarkWeekRecapSeen()
   const [index, setIndex] = useState(0)
-  const recap = data?.due ? data.recap : undefined
+  // Held once loaded: marking it seen flips the cached query to `due: false`,
+  // which must not yank the story out from under the reader.
+  const [recap, setRecap] = useState<WeekRecap>()
+  if (!recap && data?.due && data.recap) setRecap(data.recap)
   const slides = useMemo(() => (recap ? recapSlides(recap, formatCurrency) : []), [recap, formatCurrency])
 
   useEffect(() => {
     markRecapOpened()
   }, [])
 
+  const { mutate } = markSeen
   useEffect(() => {
     if (!recap) return
     track('week_recap_opened')
-    // Seen on open, not on finish: closing early still counts.
-    markWeekRecapSeen().catch((err) => console.warn('Marking recap seen failed', err))
-  }, [recap])
+    // Seen on open, not on finish: closing early still counts. If every retry
+    // fails it stays due, and shows again next launch: better than never.
+    mutate()
+  }, [recap, mutate])
 
-  // Opened from a stale notification after it was seen elsewhere: nothing to show.
+  // Opened from a stale notification after it was seen: nothing to show.
+  const nothingDue = !isLoading && !(data?.due && data.recap)
   useEffect(() => {
-    if (!isLoading && !recap) close()
-  }, [isLoading, recap])
+    if (nothingDue && !recap) close()
+  }, [nothingDue, recap])
 
   if (!slides.length) return <View style={[styles.container, { backgroundColor: '#4b4fcc' }]} />
 

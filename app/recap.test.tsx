@@ -1,5 +1,6 @@
 import { fireEvent, waitFor } from '@testing-library/react-native'
-import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
+import { createTestQueryClient, renderWithProviders } from '@/src/test-utils/renderWithProviders'
+import { weekRecapKey } from '@/src/features/week-recap/useWeekRecap'
 import { getWeekRecap, markWeekRecapSeen, type WeekRecap } from '@/src/api/weekRecap'
 import RecapRoute from './recap'
 
@@ -47,4 +48,15 @@ it('closes without marking anything when the recap is no longer due', async () =
 
   await waitFor(() => expect(mockBack).toHaveBeenCalled())
   expect(markWeekRecapSeen).not.toHaveBeenCalled()
+})
+
+it('drops the cached due flag once seen, without closing the open story', async () => {
+  ;(getWeekRecap as jest.Mock).mockResolvedValue({ due: true, recap })
+  const queryClient = createTestQueryClient()
+  const { findByText, getByText } = renderWithProviders(<RecapRoute />, { queryClient })
+
+  expect(await findByText("Here's what we learned about you")).toBeTruthy()
+  await waitFor(() => expect(queryClient.getQueryData(weekRecapKey)).toEqual({ due: false }))
+  expect(getByText("Here's what we learned about you")).toBeTruthy()
+  expect(mockBack).not.toHaveBeenCalled()
 })
