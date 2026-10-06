@@ -113,6 +113,9 @@ function routeFromNotificationResponse(response: NotificationsType.NotificationR
   })
   if (typeof route === 'string' && route) {
     if (route === '/wrapped' || route === '/recap' || route === '/activity' || route === '/investments') router.push(route)
+    // Evening check. log-expense is the launch screen, so it's usually already
+    // at the bottom of the stack: go back to it rather than stack a second one.
+    else if (route === '/modals/log-expense') router.dismissTo(route)
     // Pace nudge: `category` is the hot envelope, which move-money calls `fromCategory` (it's the recipient).
     else if (route === '/modals/move-money' && typeof data.category === 'string' && data.category) {
       router.push({ pathname: '/modals/move-money', params: { fromCategory: data.category } })

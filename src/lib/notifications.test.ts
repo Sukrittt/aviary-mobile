@@ -2,7 +2,8 @@ import { addNotificationResponseListener, checkColdStartNotification, registerFo
 import { track } from '@/src/lib/analytics'
 
 const mockPush = jest.fn()
-jest.mock('expo-router', () => ({ router: { push: (...args: unknown[]) => mockPush(...args) } }))
+const mockDismissTo = jest.fn()
+jest.mock('expo-router', () => ({ router: { push: (...args: unknown[]) => mockPush(...args), dismissTo: (...args: unknown[]) => mockDismissTo(...args) } }))
 jest.mock('@/src/api/notifications', () => ({ registerPushToken: jest.fn() }))
 jest.mock('@/src/lib/analytics', () => ({ track: jest.fn() }))
 jest.mock('expo-device', () => ({ isDevice: true }))
@@ -124,5 +125,12 @@ it('drops a Move money route with no category', () => {
  mockPush.mockClear()
  addNotificationResponseListener()
  responseListener!({notification:{request:{content:{data:{route:'/modals/move-money'}}}}})
+ expect(mockPush).not.toHaveBeenCalled()
+})
+it('goes back to log expense from the evening check instead of stacking a second one', () => {
+ mockPush.mockClear()
+ addNotificationResponseListener()
+ responseListener!({notification:{request:{content:{data:{route:'/modals/log-expense'}}}}})
+ expect(mockDismissTo).toHaveBeenCalledWith('/modals/log-expense')
  expect(mockPush).not.toHaveBeenCalled()
 })
