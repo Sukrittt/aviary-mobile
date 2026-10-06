@@ -43,5 +43,3 @@ a user reads: second person, sentence case, short.
 OTA updates (`expo-updates`, `runtimeVersion.policy: "appVersion"`) vs store builds: follow `docs/releasing.md`. Never publish an OTA update containing a native change.
 
 When a step doesn't need my input, keep going. Put status notes in the same message as the next action. Stop and ask only when you can't continue without me, before anything destructive (deleting data, force pushing, or changing anything outside this repository).
-
-Merge PRs with --admin.

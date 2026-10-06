@@ -1,10 +1,10 @@
 /**
  * Local visual-review switch for the illustrated empty states.
  *
- * Flip to true locally to see every screen's empty state with real data loaded.
- * Keep it false in commits: on, it blanks all data in every dev build (Expo Go).
+ * It is intentionally on for development builds and off for production and
+ * tests. Remove the call sites (and this file) once the review is finished.
  */
-export const FORCE_EMPTY_STATE_PREVIEW = false
+export const FORCE_EMPTY_STATE_PREVIEW = __DEV__ && process.env.NODE_ENV !== 'test'
 
 const PREVIEW_EMPTY: never[] = []
 
