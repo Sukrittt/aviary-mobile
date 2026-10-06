@@ -278,3 +278,19 @@ it('hides undo when the server did not return an id', async () => {
   await waitFor(() => expect(getGroups).toHaveBeenCalled())
   expect(queryByText('Undo')).toBeNull()
 })
+
+describe('we noticed', () => {
+  const milk = (id: string, date: string) => ({ id, date, item: 'Milk', timestamp: `${date}T09:00:00`, amount_inr: '50', category: '🛒 Groceries', source: 'manual' })
+
+  it('says so when the item has come up earlier this week', async () => {
+    const earlier = `${MONTH}-${String(Number(TODAY.slice(8)) - 2).padStart(2, '0')}`
+    const { findByText } = setup({}, [milk('e1', earlier), milk('e2', TODAY)])
+    expect(await findByText("Noted. That's your 3rd Milk this week.")).toBeTruthy()
+  })
+
+  it('stays quiet the first time', async () => {
+    const { findByText, queryByText } = setup({}, [])
+    await findByText('Milk')
+    expect(queryByText(/Noted\./)).toBeNull()
+  })
+})

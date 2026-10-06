@@ -12,6 +12,7 @@ import { fontFamily } from "@/src/theme/fonts";
 import { useBudgets } from "@/src/hooks/useBudgets";
 import { useCategories } from "@/src/hooks/useCategories";
 import { useDeleteExpense, useRecentExpenses } from "@/src/hooks/useExpenses";
+import { noticedLine, weeklyRepeat } from "@/src/lib/noticed";
 import { useGroups } from "@/src/hooks/useGroups";
 import {
   computeEnvelopeState,
@@ -300,6 +301,11 @@ export default function ExpenseAddedScreen() {
   // Falls back to the category name when the logged item has no name of its own.
   const subtitle = item || categoryName;
   const subtitleIsCategory = !item && !!category;
+  // A small "we're learning you" moment: only once the item has come up before this week.
+  const noticed = useMemo(
+    () => noticedLine(item, weeklyRepeat(expensesQ.data ?? [], { id: id || undefined, timestamp: timestamp || undefined, item, date })),
+    [expensesQ.data, id, timestamp, item, date],
+  );
 
   const [undoingPending, setUndoingPending] = useState(false);
 
@@ -419,6 +425,17 @@ export default function ExpenseAddedScreen() {
                 ]}
               >
                 {subtitle}
+              </Text>
+            </Reanimated.View>
+          )}
+
+          {noticed && (
+            <Reanimated.View
+              entering={FadeInDown.delay(STAGGER.detail + 120).duration(420)}
+              style={[styles.noticed, { backgroundColor: tokens.accentSoft }]}
+            >
+              <Text style={{ color: tokens.text, fontFamily: fontFamily.bodyExtraBold, fontSize: type.body, textAlign: "center" }}>
+                {noticed}
               </Text>
             </Reanimated.View>
           )}
@@ -599,6 +616,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1 },
   body: { flex: 1, alignItems: "center", justifyContent: "center" },
   receipt: { alignItems: "center" },
+  noticed: { marginTop: 12, paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999 },
   headlineRow: {
     flexDirection: "row",
     alignItems: "baseline",

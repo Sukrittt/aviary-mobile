@@ -8,7 +8,8 @@ import { currentUserId } from '@/src/api/accessMode'
 export const weekRecapKey = ['week-recap'] as const
 
 export function useWeekRecap() {
-  return useQuery({ queryKey: weekRecapKey, queryFn: getWeekRecap, staleTime: Infinity, retry: false })
+  // Also every 15 minutes, so Home left open across midnight moves on to the next day (or to the recap).
+  return useQuery({ queryKey: weekRecapKey, queryFn: getWeekRecap, staleTime: Infinity, refetchInterval: 15 * 60_000, retry: false })
 }
 
 /** Marks it seen, retrying a few times, then drops the cached `due` so nothing in this session reopens it. */
