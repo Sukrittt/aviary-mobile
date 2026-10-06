@@ -126,3 +126,9 @@ it('drops a Move money route with no category', () => {
  responseListener!({notification:{request:{content:{data:{route:'/modals/move-money'}}}}})
  expect(mockPush).not.toHaveBeenCalled()
 })
+it('opens a blank log expense from the evening check', () => {
+ mockPush.mockClear()
+ addNotificationResponseListener()
+ responseListener!({notification:{request:{content:{data:{route:'/modals/log-expense'}}}}})
+ expect(mockPush).toHaveBeenCalledWith('/modals/log-expense')
+})
