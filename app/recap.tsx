@@ -85,7 +85,7 @@ export default function RecapRoute() {
         <Pressable style={styles.tapZone} onPress={() => step(-1)} onLongPress={() => setPaused(true)} onPressOut={() => setPaused(false)} accessibilityLabel="Previous" />
         <Pressable style={styles.tapZone} onPress={() => step(1)} onLongPress={() => setPaused(true)} onPressOut={() => setPaused(false)} accessibilityLabel="Next" />
       </View>
-      <WrappedCard key={index} color={slide.color} onColor={slide.ink} eyebrow={slide.eyebrow} blobs={recapBlobs(slide.kind)} interactive={last} style={[styles.card, { paddingTop: insets.top + 40, paddingBottom: insets.bottom + 24 }]}>
+      <WrappedCard key={index} color={slide.color} onColor={slide.ink} eyebrow={slide.eyebrow} blobs={recapBlobs(slide.kind)} style={[styles.card, { paddingTop: insets.top + 40, paddingBottom: insets.bottom + (last ? 100 : 24) }]}>
         <RecapHero slide={slide} />
         <WPop delay={160}>
           <RecapTitle slide={slide} recap={recap!} money={formatCurrency} />
@@ -94,7 +94,11 @@ export default function RecapRoute() {
           <WrappedCaption value={slide.body} onColor={slide.ink} />
         </WRise>
         <RecapDetail slide={slide} recap={recap!} money={formatCurrency} />
-        {last && (
+      </WrappedCard>
+      {slide.kind === 'done' && <Confetti />}
+      {/* Pinned outside the card, so large text or a short screen can't push it off. */}
+      {last && (
+        <View style={[styles.ctaBar, { paddingBottom: insets.bottom + 24 }]} pointerEvents="box-none">
           <WRise delay={450}>
             <Pressable
               onPress={() => {
@@ -106,9 +110,8 @@ export default function RecapRoute() {
               <Text style={[styles.ctaText, { color: slide.color }]}>Keep going</Text>
             </Pressable>
           </WRise>
-        )}
-      </WrappedCard>
-      {slide.kind === 'done' && <Confetti />}
+        </View>
+      )}
       <View style={[styles.top, { paddingTop: insets.top + 10 }]} pointerEvents="box-none">
         <View style={styles.progressRow}>
           {slides.map((_, i) => (
@@ -139,6 +142,7 @@ const styles = StyleSheet.create({
   iconButtonText: { fontSize: 13, color: '#fff' },
   // Centred in the full screen, unlike Wrapped's cards which sit at the bottom.
   card: { justifyContent: 'center' },
+  ctaBar: { position: 'absolute', left: 28, right: 28, bottom: 0 },
   cta: { alignSelf: 'flex-start', marginTop: 8, paddingHorizontal: 22, paddingVertical: 13, borderRadius: 999 },
   ctaText: { fontSize: 16, fontFamily: fontFamily.displaySemiBold },
 })
