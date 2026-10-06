@@ -146,6 +146,11 @@ const TOP_CATEGORY_QUIPS: Record<string, string> = {
 }
 const DEFAULT_CATEGORY_QUIP = "That's commitment."
 
+/** A one-liner for a top category. Shared with the first-week recap. */
+export function categoryQuip(category: string): string {
+  return TOP_CATEGORY_QUIPS[splitEmoji(category).text.trim().toLowerCase()] ?? DEFAULT_CATEGORY_QUIP
+}
+
 export function TopCategoryCard({ data, color, onColor }: CardProps) {
   const { formatCurrency } = useCurrency()
 
@@ -155,7 +160,7 @@ export function TopCategoryCard({ data, color, onColor }: CardProps) {
   const maxTotal = top3[0]?.total ?? 1
   const barOpacity = [1, 0.5, 0.32]
   const barDelays = [450, 550, 650]
-  const quip = TOP_CATEGORY_QUIPS[splitEmoji(top.category).text.trim().toLowerCase()] ?? DEFAULT_CATEGORY_QUIP
+  const quip = categoryQuip(top.category)
 
   return (
     <WrappedCard
@@ -383,7 +388,7 @@ export function WeekRaceCard({ data, color, onColor }: CardProps) {
   )
 }
 
-const BREAKDOWN_COLORS = [
+export const BREAKDOWN_COLORS = [
   'rgba(168, 0, 39, 1)',
   'rgba(78, 56, 175, 1)',
   'rgba(0, 116, 52, 1)',

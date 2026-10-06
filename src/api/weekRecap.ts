@@ -11,6 +11,10 @@ export interface WeekRecap {
   biggest: { item: string; category: string; amountInr: number; date: string } | null
   repeats: { item: string; category: string; count: number }[]
   usualMinute: number | null
+  /** Newer servers only: each date with an expense, every log's minute, and up to 4 categories. */
+  loggedDates?: string[]
+  logMinutes?: number[]
+  categories?: { category: string; total: number; pct: number }[]
 }
 
 export async function getWeekRecap(): Promise<{ due: boolean; recap?: WeekRecap }> {

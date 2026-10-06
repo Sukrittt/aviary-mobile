@@ -22,7 +22,7 @@ import { fontFamily } from '@/src/theme/fonts'
 // drifting dx and rotating 180+i*37deg, fading out.
 const CONFETTI_COLORS = ['accent', 'mint', 'coral', 'violet', 'blue'] as const
 
-function ConfettiPiece({ index, tokens }: { index: number; tokens: ThemeTokens }) {
+export function ConfettiPiece({ index, tokens }: { index: number; tokens: ThemeTokens }) {
   const left = 6 + ((index * 5.3) % 88)
   const dx = (index % 2 ? 1 : -1) * (14 + ((index * 7) % 46))
   const rot = 180 + index * 37

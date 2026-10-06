@@ -9,7 +9,8 @@ import type { WeekRecap } from '@/src/api/weekRecap'
 import { recapSlides } from '@/src/features/week-recap/slides'
 import { markRecapOpened, useMarkWeekRecapSeen, useWeekRecap } from '@/src/features/week-recap/useWeekRecap'
 import { track } from '@/src/lib/analytics'
-import { BirdLandingMark } from '@/src/components/splash/BirdLandingMark'
+import * as Haptics from 'expo-haptics'
+import { Confetti, RecapDetail, RecapHero, RecapTitle, recapBlobs } from '@/src/features/week-recap/RecapVisuals'
 
 /** Same pace as Wrapped's cards. */
 const SLIDE_MS = 5000
@@ -58,6 +59,7 @@ export default function RecapRoute() {
   const count = slides.length
   useEffect(() => {
     progress.setValue(0)
+    if (index > 0) Haptics.selectionAsync().catch(() => {})
   }, [index, progress])
   useEffect(() => {
     if (!count || paused) return
@@ -83,16 +85,15 @@ export default function RecapRoute() {
         <Pressable style={styles.tapZone} onPress={() => step(-1)} onLongPress={() => setPaused(true)} onPressOut={() => setPaused(false)} accessibilityLabel="Previous" />
         <Pressable style={styles.tapZone} onPress={() => step(1)} onLongPress={() => setPaused(true)} onPressOut={() => setPaused(false)} accessibilityLabel="Next" />
       </View>
-      <WrappedCard key={index} color={slide.color} onColor={slide.ink} eyebrow={slide.eyebrow} interactive={last} style={[styles.card, { paddingTop: insets.top + 40, paddingBottom: insets.bottom + 24 }]}>
-        <WPop delay={80}>
-          {slide.bird ? <BirdLandingMark size={112} color={slide.ink} autoplay={false} perched /> : <Text style={styles.emoji}>{slide.emoji}</Text>}
-        </WPop>
+      <WrappedCard key={index} color={slide.color} onColor={slide.ink} eyebrow={slide.eyebrow} blobs={recapBlobs(slide.kind)} interactive={last} style={[styles.card, { paddingTop: insets.top + 40, paddingBottom: insets.bottom + 24 }]}>
+        <RecapHero slide={slide} />
         <WPop delay={160}>
-          <Text style={[styles.title, { color: slide.ink }]}>{slide.title}</Text>
+          <RecapTitle slide={slide} recap={recap!} money={formatCurrency} />
         </WPop>
         <WRise delay={300}>
           <WrappedCaption value={slide.body} onColor={slide.ink} />
         </WRise>
+        <RecapDetail slide={slide} recap={recap!} money={formatCurrency} />
         {last && (
           <WRise delay={450}>
             <Pressable
@@ -107,6 +108,7 @@ export default function RecapRoute() {
           </WRise>
         )}
       </WrappedCard>
+      {slide.kind === 'done' && <Confetti />}
       <View style={[styles.top, { paddingTop: insets.top + 10 }]} pointerEvents="box-none">
         <View style={styles.progressRow}>
           {slides.map((_, i) => (
@@ -137,8 +139,6 @@ const styles = StyleSheet.create({
   iconButtonText: { fontSize: 13, color: '#fff' },
   // Centred in the full screen, unlike Wrapped's cards which sit at the bottom.
   card: { justifyContent: 'center' },
-  emoji: { fontSize: 84 },
-  title: { fontSize: 48, lineHeight: 54, fontFamily: fontFamily.displayBold, letterSpacing: -0.8 },
   cta: { alignSelf: 'flex-start', marginTop: 8, paddingHorizontal: 22, paddingVertical: 13, borderRadius: 999 },
   ctaText: { fontSize: 16, fontFamily: fontFamily.displaySemiBold },
 })
