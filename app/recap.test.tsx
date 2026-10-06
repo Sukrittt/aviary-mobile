@@ -1,4 +1,4 @@
-import { fireEvent, waitFor } from '@testing-library/react-native'
+import { act, fireEvent, waitFor } from '@testing-library/react-native'
 import { createTestQueryClient, renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { weekRecapKey } from '@/src/features/week-recap/useWeekRecap'
 import { getWeekRecap, markWeekRecapSeen, type WeekRecap } from '@/src/api/weekRecap'
@@ -59,4 +59,19 @@ it('drops the cached due flag once seen, without closing the open story', async 
   await waitFor(() => expect(queryClient.getQueryData(weekRecapKey)).toEqual({ due: false }))
   expect(getByText("Here's what we learned about you")).toBeTruthy()
   expect(mockBack).not.toHaveBeenCalled()
+})
+
+it('plays on its own like Wrapped and stops on the last slide', async () => {
+  ;(getWeekRecap as jest.Mock).mockResolvedValue({ due: true, recap })
+  const { findByText } = renderWithProviders(<RecapRoute />)
+  expect(await findByText("Here's what we learned about you")).toBeTruthy()
+
+  jest.useFakeTimers()
+  try {
+    for (let i = 0; i < 8; i++) await act(async () => { jest.advanceTimersByTime(5100) })
+    expect(await findByText("You're off to a great start")).toBeTruthy()
+    expect(mockBack).not.toHaveBeenCalled()
+  } finally {
+    jest.useRealTimers()
+  }
 })
