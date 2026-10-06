@@ -101,6 +101,12 @@ export function SetupDone({
       >
         Everything below can be changed later from Envelopes.
       </Animated.Text>
+      {/* Sets up the first-week recap from day 0. */}
+      <Animated.View entering={FadeIn.delay(170).duration(350)} style={[styles.promise, { backgroundColor: tokens.accentSoft }]}>
+        <Text style={[styles.promiseText, { color: tokens.text, fontFamily: fontFamily.bodyExtraBold }]}>
+          {"Log for 7 days and we'll show you what we learned about you."}
+        </Text>
+      </Animated.View>
 
       <Animated.View entering={FadeIn.delay(200).duration(350)} style={styles.summaryList}>
         {summary.map((s) => {
@@ -133,6 +139,8 @@ export function SetupDone({
 }
 
 const styles = StyleSheet.create({
+  promise: { alignSelf: 'flex-start', marginTop: 14, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999 },
+  promiseText: { fontSize: 14, lineHeight: 19 },
   confettiField: { position: 'absolute', top: 0, left: 0, right: 0, height: 340, overflow: 'hidden' },
   badge: { width: 60, height: 60, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   title: { fontSize: 32, fontWeight: '600', lineHeight: 37, marginTop: 12, letterSpacing: -0.3 },

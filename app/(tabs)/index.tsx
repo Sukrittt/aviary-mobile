@@ -48,6 +48,7 @@ import appJson from '@/app.json'
 import { useUser } from '@/src/hooks/useUser'
 import { isHidden } from '@/src/lib/features'
 import { GetStartedCard } from '@/src/components/home/GetStartedCard'
+import { LearningCard } from '@/src/components/home/LearningCard'
 import { EmptyState } from '@/src/components/shared/EmptyState'
 import { FORCE_EMPTY_STATE_PREVIEW, emptyForPreview } from '@/src/lib/emptyStatePreview'
 
@@ -322,6 +323,8 @@ export default function HomeScreen() {
             />
           </Reanimated.View>
         )}
+
+        <LearningCard />
 
         <Reanimated.View layout={LinearTransition.springify().damping(64).stiffness(900)}>
           <Card elevated={false} style={envelopesEmpty && styles.emptyEnvelopesCard}>
