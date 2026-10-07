@@ -293,7 +293,8 @@ export function FloatingNav({
         onMomentumScrollEnd={onMomentumScrollEnd}
         contentContainerStyle={{
           paddingHorizontal: (width - SLOT) / 2,
-          alignItems: 'center',
+          paddingTop: ROW_TOP_BLEED,
+          alignItems: 'flex-start',
         }}
         style={[styles.scroll, { height: ROW_HEIGHT + insets.bottom }]}
       >
