@@ -251,6 +251,20 @@ describe('multi-select delete', () => {
     expect(screen.getByText('1 selected')).toBeTruthy()
   })
 
+  it('drops the selection header as soon as the delete is confirmed, before requests settle', async () => {
+    let settle!: () => void
+    mockDeleteAsync.mockReset().mockImplementation(() => new Promise<void>((resolve) => { settle = resolve }))
+    const screen = renderWithProviders(<ActivityScreen />)
+    fireEvent(screen.getByText('Item 1'), 'longPress')
+    fireEvent.press(screen.getByLabelText('Delete selected'))
+    await act(async () => {
+      fireEvent.press(screen.getByText('Delete'))
+    })
+    expect(screen.getByText('Activity')).toBeTruthy()
+    expect(screen.queryByText('1 selected')).toBeNull()
+    await act(async () => settle())
+  })
+
   it('tapping the only selected row ends selection without opening the action sheet', () => {
     const screen = renderWithProviders(<ActivityScreen />)
     fireEvent(screen.getByText('Item 1'), 'longPress')

@@ -412,7 +412,9 @@ export default function ActivityScreen() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(
       () => {},
     );
+    // Optimistic: rows and the selection header go now; failures bring both back.
     setRemovedKeys((prev) => new Set([...prev, ...keys]));
+    setSelectedKeys(new Set());
     const startView = viewKeyRef.current;
     const failed: ExpenseRow[] = [];
     let firstStatus: number | undefined;
@@ -436,8 +438,7 @@ export default function ActivityScreen() {
     setBulkDeleting(false);
     setRemovedKeys(new Set());
     // Failed rows come back, still selected, so a retry is one tap away.
-    const failedKeys = new Set(failed.map(keyOf));
-    if (viewKeyRef.current === startView) setSelectedKeys(failedKeys);
+    if (failed.length && viewKeyRef.current === startView) setSelectedKeys(new Set(failed.map(keyOf)));
     if (failed.length) setDeleteNotice({ status: firstStatus });
   }
 
