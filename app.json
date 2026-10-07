@@ -2,7 +2,7 @@
   "expo": {
     "name": "Aviary",
     "slug": "Mobile",
-    "version": "2.6.1",
+    "version": "2.7.0",
     "runtimeVersion": {
       "policy": "appVersion"
     },
@@ -26,6 +26,7 @@
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.sukrit04.envelope",
+      "playStoreUrl": "https://play.google.com/store/apps/details?id=com.sukrit04.envelope",
       "googleServicesFile": "./google-services.json",
       "blockedPermissions": [
         "android.permission.RECORD_AUDIO",

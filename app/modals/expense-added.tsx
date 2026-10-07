@@ -20,6 +20,7 @@ import {
   daysLeftInMonth,
 } from "@/src/lib/envelope";
 import { remove as removePendingExpense } from "@/src/lib/pendingExpenses";
+import { maybeAskForReview, recordExpenseLogged } from "@/src/lib/reviewPrompt";
 import { categoryEmoji, splitEmoji } from "@/src/lib/emoji";
 import { formatDateTimeLong } from "@/src/lib/format";
 import { AmountText } from "@/src/components/ui/AmountText";
@@ -232,6 +233,11 @@ export default function ExpenseAddedScreen() {
       () => {},
     );
   }, [chime]);
+
+  // Every mount is one successful add (this screen is reached no other way).
+  useEffect(() => {
+    recordExpenseLogged();
+  }, []);
 
   const envelope = useMemo(() => {
     const state = computeEnvelopeState(
@@ -587,7 +593,13 @@ export default function ExpenseAddedScreen() {
           )}
           <Button
             label="Done"
-            onPress={() => router.replace("/(tabs)")}
+            onPress={() => {
+              // Done is the calm end of a successful log, so it's where the
+              // review sheet may appear, over home. Skipped offline (Play
+              // can't show it) and after a failed Undo.
+              if (!pending && undoError === "") maybeAskForReview();
+              router.replace("/(tabs)");
+            }}
             variant="secondary"
             style={[styles.doneButton, { backgroundColor: tokens.accent }]}
           />

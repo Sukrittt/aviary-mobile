@@ -8,6 +8,7 @@ import { getBudgets } from '@/src/api/budgets'
 import { getCategories } from '@/src/api/categories'
 import { getGroups } from '@/src/api/groups'
 import ExpenseAddedScreen from './expense-added'
+import { maybeAskForReview, recordExpenseLogged } from '@/src/lib/reviewPrompt'
 import { DELTA_DELAY, DELTA_DURATION } from '@/src/components/envelope/DeltaBar'
 import { currentMonthKey, daysLeftInMonth, prevMonthKey } from '@/src/lib/envelope'
 import { fontFamily } from '@/src/theme/fonts'
@@ -45,6 +46,10 @@ jest.mock('expo-haptics', () => ({
   impactAsync: jest.fn(() => Promise.resolve()),
   NotificationFeedbackType: { Success: 'success' },
   ImpactFeedbackStyle: { Soft: 'soft', Light: 'light', Medium: 'medium' },
+}))
+jest.mock('@/src/lib/reviewPrompt', () => ({
+  recordExpenseLogged: jest.fn(() => Promise.resolve()),
+  maybeAskForReview: jest.fn(() => Promise.resolve(false)),
 }))
 jest.mock('expo-audio', () => ({ useAudioPlayer: () => ({ play: jest.fn(), pause: jest.fn() }) }))
 
@@ -292,5 +297,24 @@ describe('we noticed', () => {
     const { findByText, queryByText } = setup({}, [])
     await findByText('Milk')
     expect(queryByText(/Noted\./)).toBeNull()
+  })
+})
+
+describe('review prompt', () => {
+  it('counts the add and may ask for a review on Done', async () => {
+    const { getByText } = setup()
+    expect(recordExpenseLogged).toHaveBeenCalledTimes(1)
+    fireEvent.press(getByText('Done'))
+    expect(maybeAskForReview).toHaveBeenCalledTimes(1)
+    expect(mockReplace).toHaveBeenCalledWith('/(tabs)')
+    await waitFor(() => expect(getGroups).toHaveBeenCalled())
+  })
+
+  it("doesn't ask after an offline add", async () => {
+    const { getByText } = setup({ pending: '1', clientId: 'c1' } as never)
+    fireEvent.press(getByText('Done'))
+    expect(maybeAskForReview).not.toHaveBeenCalled()
+    expect(mockReplace).toHaveBeenCalledWith('/(tabs)')
+    await waitFor(() => expect(getGroups).toHaveBeenCalled())
   })
 })
