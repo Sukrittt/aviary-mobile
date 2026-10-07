@@ -3,10 +3,16 @@ import * as SecureStore from 'expo-secure-store'
 import { accessMode } from '@/src/api/accessMode'
 import { useRecentExpenses } from '@/src/hooks/useExpenses'
 import { track } from '@/src/lib/analytics'
-import { captureTipReason, parseTipState, recentManualLogs, type CaptureTipReason, type CaptureTipState } from '@/src/lib/captureTip'
+import { captureTipReason, clearManualLogs, parseTipState, recentManualLogs, type CaptureTipReason, type CaptureTipState } from '@/src/lib/captureTip'
 import { todayLocal } from '@/src/lib/date'
 
 const KEY = 'mc-capture-tip'
+
+// Once per app, not per screen: signing out anywhere clears the tip's memory for the next account.
+accessMode.subscribeLogout(() => {
+  clearManualLogs()
+  SecureStore.deleteItemAsync(KEY).catch(() => {})
+})
 
 /**
  * Whether log-expense should point at logging several spends at once right
@@ -21,12 +27,8 @@ export function useCaptureTip(enabled: boolean) {
     SecureStore.getItemAsync(KEY)
       .then((raw) => live && setState(parseTipState(raw)))
       .catch(() => live && setState(parseTipState(null)))
-    const unsubscribe = accessMode.subscribeLogout(() => {
-      SecureStore.deleteItemAsync(KEY).catch(() => {})
-    })
     return () => {
       live = false
-      unsubscribe()
     }
   }, [])
 

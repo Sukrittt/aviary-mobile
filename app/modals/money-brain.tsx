@@ -250,6 +250,8 @@ export default function MoneyBrainModal() {
         })
       })
       .finally(() => {
+        // A new chat aborted this stream and owns the screen now; leave its lock and queue alone.
+        if (abortRef.current !== controller) return
         streamingRef.current = false
         setSending(false)
         // Cards logged mid-stream whose stream then failed: record them on the chat
@@ -287,6 +289,10 @@ export default function MoneyBrainModal() {
 
   function startNewChat() {
     abortRef.current?.abort()
+    abortRef.current = null
+    streamingRef.current = false
+    // Outcomes still waiting on the old chat go to it, not to the next one.
+    for (const p of pendingSettles.current.splice(0)) if (sessionId) persistSettle(sessionId, p, () => {})
     setSending(false)
     setAcking(new Set())
     setMessages([])

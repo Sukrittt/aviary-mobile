@@ -68,3 +68,7 @@ export function noteManualLog(at: number = Date.now()): void {
 export function recentManualLogs(): number[] {
   return [...manualLogs]
 }
+
+export function clearManualLogs(): void {
+  manualLogs.length = 0
+}

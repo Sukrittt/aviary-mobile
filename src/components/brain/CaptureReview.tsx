@@ -111,7 +111,8 @@ export function CaptureReview({ proposal, onSettled, origin = CAPTURE_ORIGIN, lo
     .map((r) => (known && r.category && !known.has(r.category) ? { ...r, category: '' } : r))
   const kept = keptRows(open)
   const busy = phase !== 'idle'
-  const ready = canLog(open)
+  // Not before the envelope list is in (or has failed, offline): until then a deleted envelope looks valid.
+  const ready = canLog(open) && (known !== null || categoriesQ.isError)
   const hint = blockerHint(kept)
 
   useEffect(() => {

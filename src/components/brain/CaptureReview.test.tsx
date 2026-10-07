@@ -12,7 +12,8 @@ jest.mock('@/src/hooks/useExpenses', () => ({
   useAddExpense: () => ({ mutateAsync: mockAdd }),
   useRecentExpenses: () => ({ data: [] }),
 }))
-const mockCategories: { data: { name: string; group: string }[] | undefined } = { data: undefined }
+const ENVELOPES = [{ name: 'Travel', group: 'Everyday' }, { name: 'Sports', group: 'Fun' }, { name: 'Shopping', group: 'Fun' }]
+const mockCategories: { data: { name: string; group: string }[] | undefined; isError: boolean } = { data: ENVELOPES, isError: false }
 jest.mock('@/src/hooks/useCategories', () => ({ useCategories: () => mockCategories }))
 jest.mock('@/src/lib/analytics', () => ({ track: (...args: unknown[]) => mockTrack(...args) }))
 jest.mock('@/src/lib/date', () => ({ ...jest.requireActual('@/src/lib/date'), todayLocal: () => '2026-09-26' }))
@@ -41,6 +42,8 @@ const proposal: CaptureProposal = {
 
 beforeEach(() => {
   jest.clearAllMocks()
+  mockCategories.data = ENVELOPES
+  mockCategories.isError = false
   jest.useFakeTimers({ legacyFakeTimers: false })
   let n = 0
   mockAdd.mockImplementation(async () => ({ id: `e${++n}`, pending: false }))
@@ -229,6 +232,7 @@ it('locks a failed row to retry as it was, and Not now keeps the spends that mad
 })
 
 it('names what blocks Log, and shows an envelope emoji once', () => {
+  mockCategories.data = [...ENVELOPES, { name: '🛵 Travel', group: 'Everyday' }]
   const utils = renderWithProviders(
     <CaptureReview
       proposal={{ ...proposal, items: [{ ...proposal.items[0], category: '🛵 Travel' }, proposal.items[2]] }}
@@ -247,7 +251,22 @@ it('makes a row whose envelope was deleted pick a new one', () => {
   )
   expect(utils.getByLabelText('Pick an envelope')).toBeTruthy()
   expect(utils.getByText('Pick an envelope for Auto to log these.')).toBeTruthy()
+})
+
+it("won't log before the envelope list is in, unless it failed to load", async () => {
   mockCategories.data = undefined
+  const one = { ...proposal, items: [proposal.items[0]] }
+  const utils = renderWithProviders(<CaptureReview proposal={one} onSettled={mockSettled} />)
+  fireEvent.press(utils.getByLabelText('Log 1 spend'))
+  await flush()
+  expect(mockAdd).not.toHaveBeenCalled()
+
+  utils.unmount()
+  mockCategories.isError = true
+  const retry = renderWithProviders(<CaptureReview proposal={one} onSettled={mockSettled} />)
+  fireEvent.press(retry.getByLabelText('Log 1 spend'))
+  await flush()
+  expect(mockAdd).toHaveBeenCalled()
 })
 
 it('hides the logged pill where a reply answers the log instead', async () => {
