@@ -1,8 +1,9 @@
 import { ExpenseWriteError } from '@/src/lib/expenseConflict'
 import type { ExpenseRow } from '@/src/types'
 import { Modal } from 'react-native'
-import { act, fireEvent } from '@testing-library/react-native'
-import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
+import { act, fireEvent, waitFor } from '@testing-library/react-native'
+import { createTestQueryClient, renderWithProviders } from '@/src/test-utils/renderWithProviders'
+import { accountsKey } from '@/src/hooks/useAccounts'
 import { getRecentExpenses, postExpensePayload, updateExpense } from '@/src/api/expenses'
 import { addCategory, getCategories } from '@/src/api/categories'
 import { getGroups } from '@/src/api/groups'
@@ -58,18 +59,22 @@ function Harness() {
   return null
 }
 
-function setup(params: Record<string, string> = {}, expenses: ExpenseRow[] = [], categories = [{ name: 'Groceries', group: 'Food' }]) {
+function setup(params: Record<string, string> = {}, expenses: ExpenseRow[] = [], categories = [{ name: 'Groceries', group: 'Food' }], { coldAccounts = false } = {}) {
   mockParams = params
   ;(getRecentExpenses as jest.Mock).mockResolvedValue({ rows: expenses, lastSpent: {} })
   ;(getCategories as jest.Mock).mockResolvedValue(categories)
   ;(getGroups as jest.Mock).mockResolvedValue(['Food'])
   ;(getCategoryMap as jest.Mock).mockResolvedValue({ words: {} })
   ;(suggestCategoryLLM as jest.Mock).mockResolvedValue('')
+  // Accounts are usually cached by the time this opens (Home loads them).
+  const queryClient = createTestQueryClient()
+  if (!coldAccounts) queryClient.setQueryData(accountsKey, mockAccounts)
   return renderWithProviders(
     <LogExpenseSubmitProvider>
       <LogExpenseScreen />
       <Harness />
     </LogExpenseSubmitProvider>,
+    { queryClient },
   )
 }
 
@@ -537,6 +542,27 @@ describe('accounts', () => {
       await Promise.resolve()
     })
     expect((postExpensePayload as jest.Mock).mock.calls[0][0]).toMatchObject({ account_id: 'card', payment_method: 'credit_card' })
+  })
+
+  it('waits for accounts to load before it can submit', async () => {
+    let release!: (rows: typeof mockAccounts) => void
+    const { getAccounts } = jest.requireMock('@/src/api/accounts')
+    ;(getAccounts as jest.Mock).mockImplementationOnce(() => new Promise((r) => { release = r }))
+    ;(postExpensePayload as jest.Mock).mockResolvedValue({ id: 'srv1', timestamp: '2026-09-04T01:24:00' })
+    const utils = setup({}, [], undefined, { coldAccounts: true })
+    await fillValidForm(utils)
+    await act(async () => {
+      ;(globalThis as any).__submit()
+      await Promise.resolve()
+    })
+    expect(postExpensePayload).not.toHaveBeenCalled()
+    await act(async () => {
+      release([])
+    })
+    await waitFor(() => {
+      if (!(postExpensePayload as jest.Mock).mock.calls.length) (globalThis as any).__submit()
+      expect(postExpensePayload).toHaveBeenCalled()
+    })
   })
 
   it('sends no account while the user has none', async () => {

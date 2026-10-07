@@ -160,7 +160,8 @@ export default function LogExpenseScreen() {
   const [accountPick, setAccountPick] = useState<string | null>(
     draft?.accountId !== undefined ? draft.accountId : isEdit ? str(params.accountId) : str(params.accountId) || null,
   );
-  const accounts = liveAccounts(useAccounts().data);
+  const accountsQ = useAccounts();
+  const accounts = liveAccounts(accountsQ.data);
   const accountId = accountPick ?? defaultAccountFor(expensesQ.data ?? [], category, accounts);
   const [base, setBase] = useState({ item: origItem, amount: String(origAmountInr), date: str(params.date).slice(0, 10), category: str(params.category) });
   const [expectedVersion, setExpectedVersion] = useState(str(params.version) === '' ? undefined : Number(str(params.version)));
@@ -276,7 +277,10 @@ export default function LogExpenseScreen() {
 
   const parsedAmount = Number(amount);
   const missing = missingFields({ amount, item, category });
-  const canSubmit = missing.length === 0 && !conflict && !deleted;
+  // Waits out a cold accounts fetch (one request) so the expense lands on the
+  // account it would default to. Never offline: logging must keep working there.
+  const accountsPending = online && accountsQ.isLoading;
+  const canSubmit = missing.length === 0 && !conflict && !deleted && !accountsPending;
   const flag = (f: (typeof missing)[number]) => nudge > 0 && missing.includes(f);
   const saving = addExpense.isPending || updateExpense.isPending;
   const unusual = useMemo(
