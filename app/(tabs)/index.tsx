@@ -1,5 +1,6 @@
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { useRecurringIncomes } from '@/src/hooks/useIncomes'
+import { useAccounts } from '@/src/hooks/useAccounts'
 import { useMemo, useRef, useState } from 'react'
 import { View, Text, Pressable, RefreshControl, StyleSheet, Linking, Platform } from 'react-native'
 import { useQuery } from '@tanstack/react-query'
@@ -100,6 +101,9 @@ export default function HomeScreen() {
   const [openSheetCount, setOpenSheetCount] = useState(0)
   const [incomeSheetOpen, setIncomeSheetOpen] = useState(false)
   const schedulesQ = useRecurringIncomes()
+  // Warms the accounts cache, so Log expense has them on its first open and
+  // doesn't send an expense without the account it would have defaulted to.
+  useAccounts()
   const monthlySchedules = (schedulesQ.data ?? []).filter((r) => r.frequency === 'monthly' && r.status === 'active')
   const birdMarkRef = useRef<BirdLandingMarkHandle>(null)
 

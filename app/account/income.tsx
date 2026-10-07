@@ -88,6 +88,7 @@ export default function IncomeScreen() {
   const monthlyTotal = active.reduce((sum, r) => sum + monthlyAmount(Number(r.amount) || 0, r.frequency), 0);
   const receivedTotal = thisMonth.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
   const loading = recurringQ.isLoading || incomesQ.isLoading;
+  const loadError = recurringQ.isError || incomesQ.isError;
   const empty = schedules.length === 0 && thisMonth.length === 0;
 
   if (!online) return <OfflineScreen />;
@@ -130,11 +131,16 @@ export default function IncomeScreen() {
       </View>
 
       <ScrollView
-        contentContainerStyle={loading || empty ? styles.centered : styles.body}
+        contentContainerStyle={loading || loadError || empty ? styles.centered : styles.body}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={tokens.accent} colors={[tokens.accent]} />}
       >
         {loading ? (
           <LoadingPhrase phrases={LOADING_PHRASES} color={tokens.text2} style={[styles.loadingPhrase, { fontFamily: fontFamily.bodyMedium }]} />
+        ) : loadError ? (
+          // Not the first-income prompt: there may well be income we couldn't read.
+          <Text style={[styles.loadingPhrase, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
+            Couldn&apos;t load your income. Pull down to try again.
+          </Text>
         ) : empty ? (
           <EmptyState
             subject="recurring"

@@ -2,7 +2,7 @@ import { ExpenseNoticeScreen } from '@/src/features/log-expense/ExpenseNoticeScr
 import { useIncomes } from "@/src/hooks/useIncomes";
 import { liveAccounts, useAccounts } from "@/src/hooks/useAccounts";
 import { AccountChips, accountName } from "@/src/components/shared/AccountChips";
-import { incomesForPage } from "@/src/lib/incomeActivity";
+import { incomesForPage, periodEnd } from "@/src/lib/incomeActivity";
 import { ExpenseWriteError } from '@/src/lib/expenseConflict';
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -316,7 +316,7 @@ export default function ActivityScreen() {
       ? []
       : incomesForPage(incomesQ.data ?? [], {
           from: from ?? "0000-01-01",
-          to: to ?? "9999-12-31",
+          to: to && !selectedDate ? periodEnd(period, to) : to ?? "9999-12-31",
           pageMin: pageRows.length > 0 ? pageRows[pageRows.length - 1].date : null,
           prevPageMin: prevRows.length > 0 ? prevRows[prevRows.length - 1].date : null,
           page,

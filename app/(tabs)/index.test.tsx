@@ -30,6 +30,7 @@ jest.mock('@/src/hooks/useExpenses', () => ({
 }))
 let mockSchedules: { id: string; frequency: string; status: string }[] | undefined = []
 jest.mock('@/src/hooks/useIncomes', () => ({ useRecurringIncomes: () => ({ data: mockSchedules }) }))
+jest.mock('@/src/hooks/useAccounts', () => ({ useAccounts: () => ({ data: [] }) }))
 jest.mock('@/src/hooks/useCategories', () => ({
   useCategories: () => ({ data: [{ name: 'Food', group: 'Everyday' }], isLoading: false, error: null, refetch: jest.fn() }),
 }))

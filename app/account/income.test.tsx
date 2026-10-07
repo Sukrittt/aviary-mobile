@@ -70,3 +70,10 @@ it('invites a first income when there is none', async () => {
   const { findByText } = renderWithProviders(<IncomeScreen />)
   expect(await findByText('What comes in?')).toBeTruthy()
 })
+
+it('says it could not load rather than inviting a first income', async () => {
+  ;(getIncomes as jest.Mock).mockRejectedValue(new Error('503'))
+  const { findByText, queryByText } = renderWithProviders(<IncomeScreen />)
+  expect(await findByText("Couldn't load your income. Pull down to try again.")).toBeTruthy()
+  expect(queryByText('What comes in?')).toBeNull()
+})
