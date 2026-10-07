@@ -1,6 +1,6 @@
 import { accessMode, currentUserId, type AccessMode } from '../api/accessMode'
 import { Platform } from 'react-native'
-import { flushAnalytics, identifyUser, initAnalytics, isAnalyticsEnabled, posthog, setAnalyticsEnabled, setEventContext, startTimer, track, trackFirst } from './analytics'
+import { flushAnalytics, identifyUser, initAnalytics, isAnalyticsEnabled, posthog, setAnalyticsEnabled, setEventContext, startTimer, track, trackFirst, trackScreen } from './analytics'
 
 jest.mock('../api/accessMode', () => ({
   accessMode: { subscribe: jest.fn(), subscribeLogout: jest.fn() },
@@ -126,6 +126,13 @@ describe('track', () => {
       category: 'Groceries',
       payment_method: 'bank',
     })
+  })
+})
+
+describe('trackScreen', () => {
+  it('drops the query string, so a sign-in callback never sends its auth code', () => {
+    trackScreen('callback?code=01M3Z7N9XD&state=gSKBcEbsbt')
+    expect(posthog.screen).toHaveBeenCalledWith('callback')
   })
 })
 
