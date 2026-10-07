@@ -40,7 +40,7 @@ it('adds a weekly income, saying it lands on each payday', async () => {
   await act(async () => {
     fireEvent.press(getByText('Add income'))
   })
-  expect(addRecurringIncome).toHaveBeenCalledWith(expect.objectContaining({ label: 'Tutoring', amount: '1500', frequency: 'weekly', account_id: '' }))
+  expect(addRecurringIncome).toHaveBeenCalledWith(expect.objectContaining({ label: 'Tutoring', amount: '1500', frequency: 'weekly' }))
 })
 
 it("prefills Home's Change income as a monthly income counted from the 1st", () => {
@@ -65,4 +65,19 @@ it('edits an existing schedule and its account', async () => {
     fireEvent.press(getByText('Save changes'))
   })
   await waitFor(() => expect(updateRecurringIncome).toHaveBeenCalledWith('r1', expect.objectContaining({ amount: '55000', account_id: 'a1' })))
+})
+
+it("leaves an archived account alone when editing something else", async () => {
+  mockParams = { id: 'r1' }
+  ;(getRecurringIncomes as jest.Mock).mockResolvedValue([
+    { id: 'r1', label: 'Salary', amount: '50000', frequency: 'monthly', start_date: '2026-10-01', end_date: '', next_run_date: '2026-11-01', account_id: 'gone', status: 'active', created_at: '' },
+  ])
+  const { findByDisplayValue, getByText, getByLabelText } = renderWithProviders(<RecurringIncomeModal />)
+  await findByDisplayValue('Salary')
+  fireEvent.changeText(getByLabelText('Amount'), '52000')
+  await act(async () => {
+    fireEvent.press(getByText('Save changes'))
+  })
+  await waitFor(() => expect(updateRecurringIncome).toHaveBeenCalled())
+  expect((updateRecurringIncome as jest.Mock).mock.calls[0][1]).not.toHaveProperty('account_id')
 })

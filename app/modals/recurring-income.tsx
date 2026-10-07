@@ -88,7 +88,9 @@ export default function RecurringIncomeModal() {
 
   function handleSubmit() {
     if (!canSubmit || busy) return
-    const fields = { label: label.trim(), amount: String(parsed), frequency, start_date: payday, end_date: endDate, account_id: accountId }
+    // The account goes only when it changed: an archived one the schedule
+    // still names would make every other edit fail.
+    const fields = { label: label.trim(), amount: String(parsed), frequency, start_date: payday, end_date: endDate, ...(accountId !== (existing?.account_id ?? '') ? { account_id: accountId } : {}) }
     const onSuccess = () => setSaved(true)
     if (isEdit) {
       update.mutate({ id, updates: fields }, { onSuccess, onError: () => Alert.alert("Couldn't save", 'Check your connection and try again.') })
