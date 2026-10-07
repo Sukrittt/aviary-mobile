@@ -16,6 +16,9 @@ import MoreScreen from './more'
 jest.mock('@/src/hooks/useUser', () => ({
   useUpdateUser: () => ({ mutate: jest.fn(), isPending: false, isError: false }), useUser: jest.fn() }))
 jest.mock('@/src/hooks/useWrapped', () => ({ useWrappedStatus: jest.fn() }))
+const PLAY_URL = 'https://play.google.com/store/apps/details?id=com.sukrit04.envelope'
+const mockStoreUrl = jest.fn<string | null, []>(() => PLAY_URL)
+jest.mock('expo-store-review', () => ({ storeUrl: () => mockStoreUrl() }))
 jest.mock('@/src/api/systemStatus', () => ({ getSystemStatus: jest.fn() }))
 // Expo Go reports its own host version. The More screen must ignore it and
 // display Aviary's app.json version instead.
@@ -148,6 +151,26 @@ describe('More tab · web app row', () => {
 
     expect(openUrl).toHaveBeenCalledWith(WEB_URL)
     openUrl.mockRestore()
+  })
+})
+
+describe('More tab · rate row', () => {
+  it('opens the Play listing', async () => {
+    const openUrl = jest.spyOn(Linking, 'openURL').mockResolvedValue(true)
+
+    const { findByText } = renderWithProviders(<MoreScreen />)
+    fireEvent.press(await findByText('Rate Aviary'))
+
+    expect(openUrl).toHaveBeenCalledWith(PLAY_URL)
+    openUrl.mockRestore()
+  })
+
+  it('hides when there is no store listing', async () => {
+    mockStoreUrl.mockReturnValue(null)
+    const { findByText, queryByText } = renderWithProviders(<MoreScreen />)
+    await findByText('Open web app')
+    expect(queryByText('Rate Aviary')).toBeNull()
+    mockStoreUrl.mockReturnValue(PLAY_URL)
   })
 })
 

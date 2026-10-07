@@ -20,6 +20,7 @@ import {
   daysLeftInMonth,
 } from "@/src/lib/envelope";
 import { remove as removePendingExpense } from "@/src/lib/pendingExpenses";
+import { recordLogAndMaybeAsk } from "@/src/lib/reviewPrompt";
 import { categoryEmoji, splitEmoji } from "@/src/lib/emoji";
 import { formatDateTimeLong } from "@/src/lib/format";
 import { AmountText } from "@/src/components/ui/AmountText";
@@ -587,7 +588,15 @@ export default function ExpenseAddedScreen() {
           )}
           <Button
             label="Done"
-            onPress={() => router.replace("/(tabs)")}
+            onPress={() => {
+              // Done is the calm end of a saved log, so it's where the log is
+              // counted and the review sheet may appear, over home. An undone
+              // add never reaches Done. Skipped offline (not saved yet, and
+              // Play can't show the sheet) and during or after an Undo.
+              const undoing = deleteExpense.isPending || undoingPending;
+              if (!pending && !undoing && undoError === "") recordLogAndMaybeAsk();
+              router.replace("/(tabs)");
+            }}
             variant="secondary"
             style={[styles.doneButton, { backgroundColor: tokens.accent }]}
           />

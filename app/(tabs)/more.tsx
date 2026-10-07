@@ -7,7 +7,8 @@ import { useQuery } from '@tanstack/react-query'
 import { requestPinWidget } from 'react-native-android-widget'
 import * as ImagePicker from 'expo-image-picker'
 import * as Haptics from 'expo-haptics'
-import { Gift, Brain, TrendingUp, Lock, Database, Archive, Repeat, CreditCard, MessageCircle, Compass, LayoutGrid, ChevronRight, ScanLine, Camera, Images, FileText, Receipt, LineChart, History, Globe, type LucideIcon } from 'lucide-react-native'
+import * as StoreReview from 'expo-store-review'
+import { Gift, Brain, TrendingUp, Lock, Database, Archive, Repeat, CreditCard, MessageCircle, Compass, LayoutGrid, ChevronRight, ScanLine, Camera, Images, FileText, Receipt, LineChart, History, Globe, Star, type LucideIcon } from 'lucide-react-native'
 import { AnimatedTabContent } from '@/src/components/nav/AnimatedTabContent'
 import { Screen } from '@/src/components/ui/Screen'
 import { Alert } from '@/src/components/ui/AlertHost'
@@ -76,6 +77,8 @@ export default function MoreScreen() {
   const scanOff = !!systemStatusQ.data?.aiDisabled
   const installedVersion = appJson.expo.version
   const androidUpdate = Platform.OS === 'android' ? systemStatusQ.data?.appUpdate?.android : undefined
+  // app.json's android.playStoreUrl; null on iOS, which has no App Store listing.
+  const rateUrl = StoreReview.storeUrl()
   const updateAvailable = !!androidUpdate && isVersionNewer(androidUpdate.latestVersion, installedVersion)
 
   async function doSignOut() {
@@ -397,6 +400,12 @@ export default function MoreScreen() {
               <View style={[styles.divider, { backgroundColor: tokens.border }]} />
               <AccountRow icon={MessageCircle} label="Help & feedback" hint="We read every one" onPress={() => router.push('/account/help')} tokens={tokens} />
               <View style={[styles.divider, { backgroundColor: tokens.border }]} />
+              {rateUrl && (
+                <>
+                  <AccountRow icon={Star} label="Rate Aviary" hint="Helps other people find us" onPress={() => Linking.openURL(rateUrl)} tokens={tokens} />
+                  <View style={[styles.divider, { backgroundColor: tokens.border }]} />
+                </>
+              )}
               <AccountRow icon={Globe} label="Open web app" onPress={() => Linking.openURL(WEB_URL)} tokens={tokens} />
               <View style={[styles.divider, { backgroundColor: tokens.border }]} />
               <AccountRow
