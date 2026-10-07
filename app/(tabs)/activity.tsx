@@ -296,6 +296,9 @@ export default function ActivityScreen() {
     (t) => !removedKeys.has(keyOf(t)),
   );
   const selectedTxns = filtered.filter((t) => selectedKeys.has(keyOf(t)));
+  // keepPreviousData shows the old page's rows while the new one loads; they
+  // aren't what the filter asked for, so nothing gets picked or deleted then.
+  const selectionLocked = bulkDeleting || expensesQ.isPlaceholderData;
   const allSelected = filtered.length > 0 && selectedTxns.length === filtered.length;
   const totalCount = FORCE_EMPTY_STATE_PREVIEW ? 0 : expensesQ.data?.total ?? 0;
   const totalPages = FORCE_EMPTY_STATE_PREVIEW ? 1 : expensesQ.data?.pageCount ?? 1;
@@ -311,6 +314,13 @@ export default function ActivityScreen() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setPage(1);
   }, [selectedDate, period, customRange.from, customRange.to, selectedCategory, search]);
+
+  useEffect(() => {
+    // A selection only means the rows on screen: drop it when they change, so
+    // rows picked earlier can't come back selected and get swept into a delete.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSelectedKeys(new Set());
+  }, [page, selectedDate, period, customRange.from, customRange.to, selectedCategory, search]);
 
   // Warms the next page's cache slot once the current page has loaded, so
   // "Next" reads from cache instead of waiting on a fetch.
@@ -455,16 +465,17 @@ export default function ActivityScreen() {
             <>
               <Chip
                 label={allSelected ? "Clear" : "Select all"}
-                onPress={() =>
-                  setSelectedKeys(allSelected ? new Set() : new Set(filtered.map(keyOf)))
-                }
+                onPress={() => {
+                  if (!selectionLocked)
+                    setSelectedKeys(allSelected ? new Set() : new Set(filtered.map(keyOf)));
+                }}
               />
               <IconButton
                 icon={Trash2}
                 color={tokens.coral}
                 accessibilityLabel="Delete selected"
                 onPress={() => {
-                  if (!bulkDeleting && selectedTxns.length) setConfirmBulk(true);
+                  if (!selectionLocked && selectedTxns.length) setConfirmBulk(true);
                 }}
               />
               <IconButton
@@ -597,7 +608,7 @@ export default function ActivityScreen() {
                   onLongPress={() => {
                     if (!selecting) toggleSelected(txn);
                   }}
-                  disabled={bulkDeleting}
+                  disabled={selectionLocked}
                   accessibilityState={selecting ? { selected: isSelected } : undefined}
                   style={[
                     styles.row,

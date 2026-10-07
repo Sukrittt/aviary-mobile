@@ -248,6 +248,14 @@ describe('multi-select delete', () => {
     expect(screen.queryByText('Edit')).toBeNull()
   })
 
+  it('drops the selection when the search changes', () => {
+    const screen = renderWithProviders(<ActivityScreen />)
+    fireEvent(screen.getByText('Item 1'), 'longPress')
+    expect(screen.getByText('1 selected')).toBeTruthy()
+    fireEvent.changeText(screen.getByPlaceholderText('Search transactions'), 'x')
+    expect(screen.getByText('Activity')).toBeTruthy()
+  })
+
   it('brings failed rows back, still selected, with a friendly message', async () => {
     mockDeleteAsync.mockReset()
       .mockResolvedValueOnce(undefined)
