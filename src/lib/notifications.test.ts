@@ -119,12 +119,16 @@ it('reports a failed push token fetch to analytics instead of only swallowing it
 })
 it('does not report a registration that lost a race with an account switch', async () => {
   const Notifications = jest.requireMock('expo-notifications')
+  const original = Notifications.getExpoPushTokenAsync
   Notifications.getExpoPushTokenAsync = () => Promise.resolve({ data: 'ExponentPushToken[x]' })
-  jest.mocked(registerPushToken).mockRejectedValueOnce(new SessionChangedError())
-  jest.mocked(track).mockClear()
-  await registerForPushNotificationsAsync()
-  expect(track).not.toHaveBeenCalledWith('push_registration_failed', expect.anything())
-  Notifications.getExpoPushTokenAsync = () => Promise.reject(new Error('FIS_AUTH_ERROR'))
+  try {
+    jest.mocked(registerPushToken).mockRejectedValueOnce(new SessionChangedError())
+    jest.mocked(track).mockClear()
+    await registerForPushNotificationsAsync()
+    expect(track).not.toHaveBeenCalledWith('push_registration_failed', expect.anything())
+  } finally {
+    Notifications.getExpoPushTokenAsync = original
+  }
 })
 it('opens Move money for the hot category from a pace nudge', () => {
  mockPush.mockClear()
