@@ -59,6 +59,17 @@ describe('initAnalytics', () => {
     notifyLogout()
     expect(posthog.reset).toHaveBeenCalledTimes(1)
   })
+
+  // reset() clears registered properties too, which used to leave every event
+  // after a sign-out without `platform` until the next cold start.
+  it('puts platform back after the logout reset', () => {
+    ;(posthog.register as jest.Mock).mockClear()
+    notifyLogout()
+    expect(posthog.register).toHaveBeenCalledWith({ platform: Platform.OS })
+    expect((posthog.reset as jest.Mock).mock.invocationCallOrder[0]).toBeLessThan(
+      (posthog.register as jest.Mock).mock.invocationCallOrder[0],
+    )
+  })
 })
 
 describe('identifyUser', () => {
