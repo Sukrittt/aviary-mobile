@@ -536,7 +536,7 @@ describe('accounts', () => {
       await Promise.resolve()
       await Promise.resolve()
     })
-    expect((postExpensePayload as jest.Mock).mock.calls[0][0]).toMatchObject({ account_id: 'card' })
+    expect((postExpensePayload as jest.Mock).mock.calls[0][0]).toMatchObject({ account_id: 'card', payment_method: 'credit_card' })
   })
 
   it('sends no account while the user has none', async () => {

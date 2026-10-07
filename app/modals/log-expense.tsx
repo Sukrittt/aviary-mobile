@@ -352,7 +352,9 @@ export default function LogExpenseScreen() {
           category,
           date,
           notes: notes.trim(),
-          payment_method: paymentMethod,
+          // With an account, its type is the payment method, sent too so a
+          // queued create on an account archived since still funds the right envelope.
+          payment_method: accountId ? accounts.find((a) => a.id === accountId)?.type ?? paymentMethod : paymentMethod,
           ...(accountId ? { account_id: accountId } : {}),
           source: 'manual',
         },
