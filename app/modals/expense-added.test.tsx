@@ -286,16 +286,16 @@ it('hides undo when the server did not return an id', async () => {
 describe('we noticed', () => {
   const milk = (id: string, date: string) => ({ id, date, item: 'Milk', timestamp: `${date}T09:00:00`, amount_inr: '50', category: '🛒 Groceries', source: 'manual' })
 
-  it('says so when the item has come up earlier this week', async () => {
+  it('says so from the third time this week, with the running total', async () => {
     const earlier = `${MONTH}-${String(Number(TODAY.slice(8)) - 2).padStart(2, '0')}`
     const { findByText } = setup({}, [milk('e1', earlier), milk('e2', TODAY)])
-    expect(await findByText("Noted. That's your 3rd Milk this week.")).toBeTruthy()
+    expect(await findByText(/^3rd time this week · .+ so far$/)).toBeTruthy()
   })
 
-  it('stays quiet the first time', async () => {
-    const { findByText, queryByText } = setup({}, [])
+  it('stays quiet the second time', async () => {
+    const { findByText, queryByText } = setup({}, [milk('e0', TODAY)])
     await findByText('Milk')
-    expect(queryByText(/Noted\./)).toBeNull()
+    expect(queryByText(/time this week/)).toBeNull()
   })
 })
 

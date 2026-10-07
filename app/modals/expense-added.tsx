@@ -302,10 +302,10 @@ export default function ExpenseAddedScreen() {
   // Falls back to the category name when the logged item has no name of its own.
   const subtitle = item || categoryName;
   const subtitleIsCategory = !item && !!category;
-  // A small "we're learning you" moment: only once the item has come up before this week.
+  // A small "we're learning you" moment: only once the item is a habit this week.
   const noticed = useMemo(
-    () => noticedLine(item, weeklyRepeat(expensesQ.data ?? [], { id: id || undefined, timestamp: timestamp || undefined, item, date })),
-    [expensesQ.data, id, timestamp, item, date],
+    () => noticedLine(weeklyRepeat(expensesQ.data ?? [], { id: id || undefined, timestamp: timestamp || undefined, item, date, amount }), formatMoney),
+    [expensesQ.data, id, timestamp, item, date, amount, formatMoney],
   );
 
   const [undoingPending, setUndoingPending] = useState(false);
@@ -433,9 +433,9 @@ export default function ExpenseAddedScreen() {
           {noticed && (
             <Reanimated.View
               entering={FadeInDown.delay(STAGGER.detail + 120).duration(420)}
-              style={[styles.noticed, { backgroundColor: tokens.accentSoft }]}
+              style={[styles.noticed, { backgroundColor: tokens.mintSoft }]}
             >
-              <Text style={{ color: tokens.text, fontFamily: fontFamily.bodyExtraBold, fontSize: type.body, textAlign: "center" }}>
+              <Text style={{ color: tokens.text, fontFamily: fontFamily.bodyBold, fontSize: type.body, textAlign: "center" }}>
                 {noticed}
               </Text>
             </Reanimated.View>
@@ -625,7 +625,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1 },
   body: { flex: 1, alignItems: "center", justifyContent: "center" },
   receipt: { alignItems: "center" },
-  noticed: { marginTop: 12, paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999 },
+  noticed: { marginTop: 16, paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999 },
   headlineRow: {
     flexDirection: "row",
     alignItems: "baseline",
