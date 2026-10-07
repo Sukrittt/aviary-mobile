@@ -58,6 +58,8 @@ export interface ChatMessage {
   text: string
   /** Set on a reply to a message the user was logging spends with. */
   proposal?: CaptureProposal
+  /** Ask Aviary's reply once a proposal's rows were logged. */
+  ack?: boolean
 }
 
 /**
@@ -201,18 +203,21 @@ export async function streamChat(
  * Records what became of a proposal so a reopened chat shows it as logged or
  * dismissed. Best effort: logging twice is already prevented by each row's
  * client_id, so a failure here only means the card comes back as pending.
- * A 409 means it already has an answer, which is fine.
+ * A 409 means it already has an answer, which is fine. The first `submitted`
+ * answers with Ask Aviary's reply to the logged rows, which this returns.
  */
 export async function updateProposalStatus(
   sessionId: string,
   proposalId: string,
   status: Exclude<ProposalStatus, 'pending'>,
   expenseIds?: string[],
-): Promise<void> {
+): Promise<string | null> {
   const resp = await apiFetch(`/api/ai/chat/sessions/${encodeURIComponent(sessionId)}/proposals/${encodeURIComponent(proposalId)}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(expenseIds && expenseIds.length ? { status, expenseIds } : { status }),
   })
   if (!resp.ok && resp.status !== 409) throw new Error(`Failed to update proposal: ${resp.status}`)
+  const body = (await resp.json().catch(() => null)) as { reply?: unknown } | null
+  return typeof body?.reply === 'string' ? body.reply : null
 }

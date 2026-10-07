@@ -11,6 +11,8 @@ const mockSubmit = jest.fn()
 const mockResolve = jest.fn()
 const mockTrack = jest.fn()
 
+const mockPreventRemove = jest.fn()
+jest.mock('expo-router/react-navigation', () => ({ usePreventRemove: (...args: unknown[]) => mockPreventRemove(...args) }))
 jest.mock('expo-router', () => ({ useRouter: () => ({ back: mockBack, push: jest.fn() }) }))
 jest.mock('@/src/api/balanceChecks', () => ({
   getBalanceStatus: () => mockStatus(),
@@ -297,4 +299,28 @@ it('asks to finish a check with an unexplained gap', async () => {
   mockStatus.mockResolvedValue(status({ open: true }))
   const utils = await renderModal()
   expect(utils.getByText("Let's finish your last check")).toBeTruthy()
+})
+
+it('keeps the estimates open until they are logged or put off', async () => {
+  mockSubmit.mockResolvedValue(measured('unlogged', 3400))
+  mockResolve.mockResolvedValue({ status: 'resolved', forgotten: 3400, cardShortfall: 0, proposal: estimate, loggedPct: 37 })
+  const utils = await renderModal()
+  typeBalance(utils, '44600')
+  await press(utils, 'Check')
+  await press(utils, "Spends I didn't log")
+
+  expect(mockPreventRemove).toHaveBeenLastCalledWith(true, expect.any(Function))
+  expect(utils.getByText('Log them, or tap Not now. Closing would lose these.')).toBeTruthy()
+  fireEvent.press(utils.getByText('Review Food, Travel as balance_gap'))
+  expect(mockPreventRemove).toHaveBeenLastCalledWith(false, expect.any(Function))
+})
+
+it('goes back from the amounts to the gap question', async () => {
+  mockSubmit.mockResolvedValue(measured('unlogged', 3400))
+  const utils = await renderModal()
+  typeBalance(utils, '44600')
+  await press(utils, 'Check')
+  await press(utils, 'Card bill')
+  fireEvent.press(utils.getByText('Pick something else'))
+  expect(utils.getByText("₹3,400 left your account that you haven't logged.")).toBeTruthy()
 })

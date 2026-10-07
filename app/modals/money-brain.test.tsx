@@ -5,13 +5,14 @@ import type { CaptureProposal } from '@/src/api/ai'
 import MoneyBrainModal from './money-brain'
 
 const mockPush = jest.fn()
+const mockDismissTo = jest.fn()
 let mockParams: Record<string, string> = {}
 const mockStreamChat = jest.fn()
-const mockUpdateProposalStatus = jest.fn().mockResolvedValue(undefined)
+const mockUpdateProposalStatus = jest.fn().mockResolvedValue(null)
 let mockBrief: Record<string, unknown> = {}
 
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: mockPush, back: jest.fn() }),
+  useRouter: () => ({ push: mockPush, back: jest.fn(), dismissTo: mockDismissTo }),
   useLocalSearchParams: () => mockParams,
 }))
 jest.mock('@/src/hooks/useBudgets', () => ({ useBudgets: () => ({ data: [] }) }))
@@ -92,9 +93,46 @@ it('shows the review card under the reply when the stream sends a proposal', asy
   expect(await utils.findByText("Here's what I got. Check it, then log.")).toBeTruthy()
   await waitFor(() => expect(utils.getByText('Review card: 2 rows')).toBeTruthy())
 
-  // The card reports its outcome; the chat records it against this session's proposal.
+  // The card reports its outcome; the chat records it against this session's proposal,
+  // and Ask Aviary's reply to the logged rows lands right under the card.
+  mockUpdateProposalStatus.mockResolvedValueOnce('Lunch and an auto, a classic day.')
   fireEvent.press(utils.getByText('Review card: 2 rows'))
   expect(mockUpdateProposalStatus).toHaveBeenCalledWith('s1', 'p1', 'submitted', ['e1', 'e2'])
+  expect(await utils.findByText('Lunch and an auto, a classic day.')).toBeTruthy()
+  expect(utils.getByText('2 spends logged')).toBeTruthy()
+  fireEvent.press(utils.getByText('See them in Activity'))
+  expect(mockDismissTo).toHaveBeenCalledWith('/(tabs)/activity')
+})
+
+it('records an outcome picked mid-stream once the chat exists, retrying while the reply saves', async () => {
+  jest.useFakeTimers()
+  let finish!: (id: string) => void
+  mockStreamChat.mockImplementation((_sessionId, _messages, onDelta, _signal, onProposal) => {
+    onProposal(proposal)
+    onDelta('Got it.')
+    return new Promise((resolve) => (finish = resolve))
+  })
+  mockUpdateProposalStatus.mockRejectedValueOnce(new Error('Failed to update proposal: 404')).mockResolvedValueOnce(null)
+  mockParams = { capture: '1' }
+  const utils = renderWithProviders(<MoneyBrainModal />)
+  fireEvent.changeText(await utils.findByPlaceholderText('What did you spend?'), 'auto 240')
+  await act(async () => {
+    fireEvent(utils.getByPlaceholderText('What did you spend?'), 'submitEditing')
+  })
+  fireEvent.press(await utils.findByText('Review card: 2 rows'))
+  expect(mockUpdateProposalStatus).not.toHaveBeenCalled()
+
+  await act(async () => {
+    finish('s9')
+  })
+  expect(mockUpdateProposalStatus).toHaveBeenCalledWith('s9', 'p1', 'submitted', ['e1', 'e2'])
+  await act(async () => {
+    jest.advanceTimersByTime(700)
+  })
+  expect(mockUpdateProposalStatus).toHaveBeenCalledTimes(2)
+  // No reply came back, so the plain line stands in.
+  expect(await utils.findByText('All set, your books are up to date.')).toBeTruthy()
+  jest.useRealTimers()
 })
 
 it('offers manual entry when the money brain could not read the spends', async () => {

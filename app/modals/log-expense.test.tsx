@@ -42,6 +42,8 @@ jest.mock('@/src/api/accounts', () => ({
 const mockReplace = jest.fn()
 const mockBack = jest.fn()
 const mockPush = jest.fn()
+const mockTip: { reason: 'batch' | 'gap' | null; close: jest.Mock } = { reason: null, close: jest.fn() }
+jest.mock('@/src/hooks/useCaptureTip', () => ({ useCaptureTip: () => mockTip }))
 let mockParams: Record<string, string> = {}
 jest.mock('expo-router', () => ({
   useRouter: () => ({ replace: mockReplace, back: mockBack, push: mockPush, navigate: jest.fn() }),
@@ -503,6 +505,15 @@ it('offers category creation only inside the category picker', async () => {
   expect(utils.queryByLabelText('Add category in picker')).toBeNull()
   fireEvent.press(utils.getByLabelText('Category: Groceries'))
   expect(utils.getByLabelText('Add category in picker')).toBeTruthy()
+})
+
+it('points at logging several at once when the tip says now is the moment', () => {
+  mockTip.reason = 'batch'
+  const utils = setup()
+  fireEvent.press(utils.getByLabelText('Try logging several at once'))
+  expect(mockTip.close).toHaveBeenCalledWith('try')
+  expect(mockPush).toHaveBeenCalledWith({ pathname: '/modals/money-brain', params: { capture: '1' } })
+  mockTip.reason = null
 })
 
 describe('accounts', () => {
