@@ -42,7 +42,9 @@ import { useTheme } from "@/src/theme/ThemeProvider";
 import { fontFamily } from "@/src/theme/fonts";
 import { NAV_HEIGHT } from "@/src/theme/scale";
 import { useLocalSearchParams,useRouter } from "expo-router";
-import { ChevronDown, MessageSquareText, PencilLine, Plus, Tag, TriangleAlert, WalletMinimal } from "lucide-react-native";
+import { ChevronDown, MessageSquareText, PencilLine, Plus, Tag, TriangleAlert, WalletMinimal, X } from "lucide-react-native";
+import { useCaptureTip } from "@/src/hooks/useCaptureTip";
+import { noteManualLog, type CaptureTipReason } from "@/src/lib/captureTip";
 import { useCallback,useEffect,useMemo,useRef,useState } from "react";
 import {
 Animated,
@@ -99,6 +101,11 @@ function suggestCategory(
  * a fresh entry. Edit reuses this screen rather than a second form; the keypad
  * starts on the existing amount and backspaces from there.
  */
+const CAPTURE_TIP_COPY: Record<CaptureTipReason, { title: string; body: string }> = {
+  batch: { title: "Logging a few?", body: "Type them all in Ask Aviary at once, like “auto 240, lunch 150”. Tap to try." },
+  gap: { title: "Been a couple of days?", body: "Type whatever you remember in Ask Aviary, like “auto 240, lunch 150”. Tap to try." },
+};
+
 export default function LogExpenseScreen() {
   const { formatAmountInput, formatMoney } = useCurrency()
 
@@ -111,6 +118,7 @@ export default function LogExpenseScreen() {
   const origId = str(params.id) || undefined;
   const origTimestamp = str(params.timestamp);
   const isEdit = origTimestamp !== "";
+  const captureTip = useCaptureTip(!isEdit && online);
   const origItem = str(params.item);
   const origAmountInr = Number(params.amountInr) || 0;
 
@@ -342,6 +350,7 @@ export default function LogExpenseScreen() {
           // the nav circle's save animation plays first (see the effect above).
           onSuccess: (res) => {
             clearLogExpenseDraft();
+            noteManualLog();
             pendingAddNavRef.current = {
               pathname: "/modals/expense-added",
               params: {
@@ -526,11 +535,40 @@ export default function LogExpenseScreen() {
             <ChevronDown size={16} color={onAccentDim} />
           </Pressable>
 
+          {!isEdit && captureTip.reason && (
+            // The moment it would help (src/lib/captureTip.ts): logging a few by
+            // hand, or back after a couple of days with a backlog.
+            <View style={[styles.captureTip, { backgroundColor: fieldBg, borderRadius: radius.md, padding: space.sm, gap: space.sm }]}>
+              <Pressable
+                style={{ flex: 1 }}
+                onPress={() => {
+                  captureTip.close("try");
+                  router.push({ pathname: "/modals/money-brain", params: { capture: "1" } });
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Try logging several at once"
+              >
+                <Text style={{ color: tokens.onAccent, fontFamily: fontFamily.bodyBold, fontSize: type.caption }}>
+                  {CAPTURE_TIP_COPY[captureTip.reason].title}
+                </Text>
+                <Text style={{ color: onAccentDim, fontFamily: fontFamily.bodyMedium, fontSize: type.caption, marginTop: 2 }}>
+                  {CAPTURE_TIP_COPY[captureTip.reason].body}
+                </Text>
+              </Pressable>
+              <Pressable onPress={() => captureTip.close("dismiss")} hitSlop={10} accessibilityLabel="Dismiss tip">
+                <X size={16} color={onAccentDim} />
+              </Pressable>
+            </View>
+          )}
+
           {!isEdit && (
             // Several spends at once go through the money brain: type them,
             // review the list it reads out, log them together.
             <Pressable
-              onPress={() => router.push({ pathname: "/modals/money-brain", params: { capture: "1" } })}
+              onPress={() => {
+                captureTip.close("try");
+                router.push({ pathname: "/modals/money-brain", params: { capture: "1" } });
+              }}
               style={[styles.moreToggle, { gap: space.xs }]}
               hitSlop={8}
               accessibilityLabel="Log several spends at once"
@@ -765,6 +803,12 @@ const styles = StyleSheet.create({
   categoryPill: { position: "absolute", right: 6, maxWidth: PILL_MAX_WIDTH },
   fieldLabel: { fontSize: 12 },
   error: { fontSize: 12, textAlign: "center" },
+  captureTip: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    width: "100%",
+    maxWidth: 360,
+  },
   moreToggle: {
     flexDirection: "row",
     alignItems: "center",

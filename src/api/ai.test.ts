@@ -100,24 +100,24 @@ describe('streamChat', () => {
 })
 
 describe('updateProposalStatus', () => {
-  it('PATCHes the status with the expense ids', async () => {
-    mockedApiFetch.mockResolvedValue({ ok: true, status: 200 })
+  it('PATCHes the status with the expense ids, and returns the reply to the logged rows', async () => {
+    mockedApiFetch.mockResolvedValue({ ok: true, status: 200, json: async () => ({ status: 'submitted', reply: 'Nice lunch.' }) })
 
-    await updateProposalStatus('s1', 'p1', 'submitted', ['e1'])
+    await expect(updateProposalStatus('s1', 'p1', 'submitted', ['e1'])).resolves.toBe('Nice lunch.')
 
     expect(mockedApiFetch).toHaveBeenCalledWith('/api/ai/chat/sessions/s1/proposals/p1', expect.objectContaining({ method: 'PATCH' }))
     expect(JSON.parse(mockedApiFetch.mock.calls[0][1].body)).toEqual({ status: 'submitted', expenseIds: ['e1'] })
   })
 
   it('leaves the ids out when there are none', async () => {
-    mockedApiFetch.mockResolvedValue({ ok: true, status: 200 })
-    await updateProposalStatus('s1', 'p1', 'dismissed')
+    mockedApiFetch.mockResolvedValue({ ok: true, status: 200, json: async () => ({ status: 'dismissed' }) })
+    await expect(updateProposalStatus('s1', 'p1', 'dismissed')).resolves.toBeNull()
     expect(JSON.parse(mockedApiFetch.mock.calls[0][1].body)).toEqual({ status: 'dismissed' })
   })
 
   it('treats an already-answered proposal as fine', async () => {
-    mockedApiFetch.mockResolvedValue({ ok: false, status: 409 })
-    await expect(updateProposalStatus('s1', 'p1', 'submitted')).resolves.toBeUndefined()
+    mockedApiFetch.mockResolvedValue({ ok: false, status: 409, json: async () => ({ error: 'already' }) })
+    await expect(updateProposalStatus('s1', 'p1', 'submitted')).resolves.toBeNull()
   })
 
   it('throws on any other failure', async () => {

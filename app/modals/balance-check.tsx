@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Animated, Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { useRouter } from 'expo-router'
+import { usePreventRemove } from 'expo-router/react-navigation'
 import { X } from 'lucide-react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import type { CaptureProposal } from '@/src/api/ai'
@@ -71,6 +72,10 @@ export default function BalanceCheckModal() {
   const [step, setStep] = useState<Step>({ name: 'enter' })
   // Set on a success that ends the check: the caption to show while the check draws, then the modal closes.
   const [closing, setClosing] = useState<string | null>(null)
+  // The check is already resolved by the time estimates show, and they live only here: closing
+  // would lose them, so the review has to end with Log or Not now. Blocks the X, swipe and back.
+  const [reviewing, setReviewing] = useState(false)
+  usePreventRemove(reviewing, () => {})
 
   useEffect(() => {
     if (closing === null) return
@@ -94,11 +99,20 @@ export default function BalanceCheckModal() {
   } else if (step.name === 'gap') {
     body = <GapQuestion check={step.check} closing={closing} onClose={setClosing} onNext={setStep} />
   } else if (step.name === 'amounts') {
-    body = <GapAmounts check={step.check} reason={step.reason} closing={closing} onClose={setClosing} onNext={setStep} />
+    body = (
+      <GapAmounts
+        check={step.check}
+        reason={step.reason}
+        closing={closing}
+        onClose={setClosing}
+        onNext={setStep}
+        onBack={() => setStep({ name: 'gap', check: step.check })}
+      />
+    )
   } else if (step.name === 'surplus') {
     body = <SurplusQuestion check={step.check} closing={closing} onClose={setClosing} />
   } else {
-    body = <Estimates {...step} onDone={() => router.back()} />
+    body = <Estimates {...step} onReviewing={setReviewing} onDone={() => router.back()} />
   }
 
   return (
@@ -113,8 +127,9 @@ export default function BalanceCheckModal() {
           accessibilityRole="button"
           accessibilityLabel="Close"
           onPress={() => router.back()}
+          disabled={reviewing}
           hitSlop={12}
-          style={[styles.headerBtn, { backgroundColor: tokens.card, borderColor: tokens.border, borderRadius: radius.full }]}
+          style={[styles.headerBtn, { backgroundColor: tokens.card, borderColor: tokens.border, borderRadius: radius.full, opacity: reviewing ? 0.4 : 1 }]}
         >
           <X size={16} color={tokens.text} />
         </Pressable>
@@ -471,14 +486,15 @@ function AmountField({ label, value, onChange }: { label: string; value: string;
   )
 }
 
-function GapAmounts({ check, reason, closing, onClose, onNext }: {
+function GapAmounts({ check, reason, closing, onClose, onNext, onBack }: {
   check: Measured
   reason: Exclude<GapReason, 'unlogged'>
   closing: string | null
   onClose: (caption: string) => void
   onNext: (step: Step) => void
+  onBack: () => void
 }) {
-  const { space } = useTheme()
+  const { tokens, space, type } = useTheme()
   const text = useTextStyles()
   const { formatMoney } = useCurrency()
   const resolve = useResolveBalanceCheck()
@@ -520,6 +536,15 @@ function GapAmounts({ check, reason, closing, onClose, onNext }: {
       </ScrollView>
       <Footer>
         <Cta label="Continue" busyLabel="Saving…" busy={resolve.isPending} success={closing !== null} disabled={!valid} onPress={onSubmit} />
+        <Pressable
+          accessibilityRole="button"
+          onPress={onBack}
+          disabled={resolve.isPending || closing !== null}
+          hitSlop={8}
+          style={styles.back}
+        >
+          <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodySemiBold, fontSize: type.body }}>Pick something else</Text>
+        </Pressable>
       </Footer>
     </>
   )
@@ -565,16 +590,21 @@ function SurplusQuestion({ check, closing, onClose }: { check: Measured; closing
   )
 }
 
-function Estimates({ proposal, cardShortfall, loggedPct, onDone }: {
+function Estimates({ proposal, cardShortfall, loggedPct, onReviewing, onDone }: {
   proposal: CaptureProposal
   cardShortfall: number
   loggedPct: number
+  onReviewing: (reviewing: boolean) => void
   onDone: () => void
 }) {
   const { tokens, space, radius, type } = useTheme()
   const text = useTextStyles()
   const { formatMoney } = useCurrency()
   const [settled, setSettled] = useState(false)
+
+  useEffect(() => {
+    onReviewing(!settled)
+  }, [onReviewing, settled])
 
   return (
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: space.lg, gap: space.md }} keyboardShouldPersistTaps="handled">
@@ -587,6 +617,7 @@ function Estimates({ proposal, cardShortfall, loggedPct, onDone }: {
           {`Your card bill was ${formatMoney(cardShortfall)} more than the card spends you logged, so those are in here too.`}
         </Text>
       )}
+      {!settled && <Text style={text.body}>{'Log them, or tap Not now. Closing would lose these.'}</Text>}
       <CaptureReview proposal={proposal} origin={GAP_ORIGIN} onSettled={() => setSettled(true)} />
       {settled && (
         <>
@@ -614,6 +645,7 @@ const styles = StyleSheet.create({
   cardIcon: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   amountWrap: { alignItems: 'center', paddingVertical: 8 },
   cta: { paddingVertical: 15, alignItems: 'center', justifyContent: 'center' },
+  back: { alignItems: 'center', paddingVertical: 6 },
   option: { borderWidth: 1 },
   optionCheck: { alignItems: 'center', paddingVertical: 8 },
   field: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, gap: 6 },
