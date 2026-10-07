@@ -253,7 +253,8 @@ export function identifyUser(profile: { email?: string; name?: string | null }):
 export function initAnalytics(): void {
   // Web sends 'web' into the same PostHog project, so one person who uses both
   // apps stays one person and every chart can split by platform.
-  setEventContext({ platform: Platform.OS })
+  const platformContext = { platform: Platform.OS }
+  setEventContext(platformContext)
 
   accessMode.subscribe((mode) => {
     // Guest sessions stay anonymous. The guard is also load-bearing on the way
@@ -266,7 +267,11 @@ export function initAnalytics(): void {
 
   // Same contract as queryClient.clear() and clearSnapshot() on logout: drop
   // per-user state so the next account on this device starts clean.
+  // reset() wipes registered properties along with the identity, so platform
+  // goes straight back on. plan_status is per account and returns with the
+  // next account's billing status.
   accessMode.subscribeLogout(() => {
     void posthog.reset()
+    setEventContext(platformContext)
   })
 }
