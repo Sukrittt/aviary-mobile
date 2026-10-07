@@ -124,14 +124,10 @@ function avatarColorFor(name: string, tokens: ThemeTokens): string {
   return AVATAR_HUES[hash % AVATAR_HUES.length](tokens);
 }
 
+// Id first: two same-item rows logged in the same second share a timestamp,
+// and selecting (or rendering) one must not stand in for both.
 function keyOf(t: ExpenseRow): string {
-  return `t-${t.timestamp}-${t.item}`;
-}
-
-// Selection and bulk-hide need the row's id: two same-item rows logged in the
-// same second share a keyOf, and selecting one must not select both.
-function selectionKey(t: ExpenseRow): string {
-  return t.id || keyOf(t);
+  return t.id || `t-${t.timestamp}-${t.item}`;
 }
 
 export default function ActivityScreen() {
@@ -299,9 +295,9 @@ export default function ActivityScreen() {
     q: search.trim() || undefined,
   });
   const filtered = emptyForPreview(expensesQ.data?.rows ?? EMPTY).filter(
-    (t) => !removedKeys.has(selectionKey(t)),
+    (t) => !removedKeys.has(keyOf(t)),
   );
-  const selectedTxns = filtered.filter((t) => selectedKeys.has(selectionKey(t)));
+  const selectedTxns = filtered.filter((t) => selectedKeys.has(keyOf(t)));
   // keepPreviousData shows the old page's rows while the new one loads; they
   // aren't what the filter asked for, so nothing gets picked or deleted then.
   const selectionLocked = bulkDeleting || expensesQ.isPlaceholderData;
@@ -398,7 +394,7 @@ export default function ActivityScreen() {
   function toggleSelected(t: ExpenseRow) {
     Haptics.selectionAsync().catch(() => {});
     openRowRef.current?.close();
-    const key = selectionKey(t);
+    const key = keyOf(t);
     setSelectedKeys((keys) => {
       const next = new Set(keys);
       if (!next.delete(key)) next.add(key);
@@ -410,7 +406,7 @@ export default function ActivityScreen() {
   // (credit-card envelope rebalance included), so parallel requests would just
   // race those for no real speed-up at a page's worth of rows.
   async function runBulkDelete(txns: ExpenseRow[]) {
-    const keys = txns.map(selectionKey);
+    const keys = txns.map(keyOf);
     setConfirmBulk(false);
     setBulkDeleting(true);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(
@@ -440,7 +436,7 @@ export default function ActivityScreen() {
     setBulkDeleting(false);
     setRemovedKeys(new Set());
     // Failed rows come back, still selected, so a retry is one tap away.
-    const failedKeys = new Set(failed.map(selectionKey));
+    const failedKeys = new Set(failed.map(keyOf));
     if (viewKeyRef.current === startView) setSelectedKeys(failedKeys);
     if (failed.length) setDeleteNotice({ status: firstStatus });
   }
@@ -484,7 +480,7 @@ export default function ActivityScreen() {
                 label={allSelected ? "Clear" : "Select all"}
                 onPress={() => {
                   if (!selectionLocked)
-                    setSelectedKeys(allSelected ? new Set() : new Set(filtered.map(selectionKey)));
+                    setSelectedKeys(allSelected ? new Set() : new Set(filtered.map(keyOf)));
                 }}
               />
               <IconButton
@@ -618,7 +614,7 @@ export default function ActivityScreen() {
           <View>
             {filtered.map((txn) => {
               const avatarBg = avatarColorFor(txn.category, tokens);
-              const isSelected = selectedKeys.has(selectionKey(txn));
+              const isSelected = selectedKeys.has(keyOf(txn));
               const content = (
                 <Pressable
                   onPress={() => (selecting ? toggleSelected(txn) : setSheetTxn(txn))}
