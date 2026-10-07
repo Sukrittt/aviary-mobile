@@ -11,7 +11,7 @@ import {
   Platform,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { ArrowLeft, ArrowUp, Clock, Plus } from 'lucide-react-native'
+import { ArrowLeft, ArrowRight, ArrowUp, Check, Clock, Plus } from 'lucide-react-native'
 import { Alert } from '@/src/components/ui/AlertHost'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { usePrivacy } from '@/src/context/PrivacyContext'
@@ -54,6 +54,36 @@ const ITEM_STAGGER_CAP_INDEX = 6
 
 /** A chat turn as this screen holds it: `captureFailed` marks a reply that offers manual entry instead. */
 type BrainMessage = ChatMessage & { captureFailed?: boolean }
+
+type PendingSettle = { proposalId: string; status: 'submitted' | 'dismissed'; expenseIds: string[] }
+
+/** Said when the server's reply to logged rows never arrives. */
+const LOGGED_FALLBACK = 'All set, your books are up to date.'
+
+/** The line over Ask Aviary's reply to logged rows; a reopened chat may not know the count. */
+function loggedLabel(count: number | undefined) {
+  if (!count) return 'Logged'
+  return count === 1 ? '1 spend logged' : `${count} spends logged`
+}
+
+/**
+ * The server sends the end of a reply before it saves it, so the first try can
+ * land before the proposal exists. A few spaced retries cover that; after them
+ * it's best effort, since client_ids already stop a second log.
+ */
+function persistSettle(
+  sessionId: string,
+  settle: PendingSettle,
+  onReply: (proposalId: string, reply: string | null) => void,
+  attempt = 0,
+) {
+  updateProposalStatus(sessionId, settle.proposalId, settle.status, settle.expenseIds)
+    .then((reply) => onReply(settle.proposalId, reply))
+    .catch(() => {
+      if (attempt < 3) setTimeout(() => persistSettle(sessionId, settle, onReply, attempt + 1), 600 * (attempt + 1))
+      else onReply(settle.proposalId, null)
+    })
+}
 
 export default function MoneyBrainModal() {
   const { formatCurrency } = useCurrency()
@@ -113,6 +143,11 @@ export default function MoneyBrainModal() {
   const [sending, setSending] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
   const scrollRef = useRef<ScrollView>(null)
+  // Outcomes picked while a reply streams wait here until the chat exists on the server.
+  const streamingRef = useRef(false)
+  const pendingSettles = useRef<PendingSettle[]>([])
+  // Proposals whose rows were just logged, waiting on Ask Aviary's reply to them.
+  const [acking, setAcking] = useState<ReadonlySet<string>>(new Set())
 
   // True until the async brief load first finishes — gates the reveal to
   // genuinely-first content, not refetches or later re-renders of this same
@@ -164,6 +199,7 @@ export default function MoneyBrainModal() {
 
     const controller = new AbortController()
     abortRef.current = controller
+    streamingRef.current = true
     const elapsed = startTimer()
     const answered = (ok: boolean, reason?: string) =>
       track('money_brain_answered', { ok, seconds: elapsed(), ...(reason ? { reason } : {}) })
@@ -192,6 +228,8 @@ export default function MoneyBrainModal() {
       .then((resolvedSessionId) => {
         answered(true)
         setSessionId(resolvedSessionId)
+        streamingRef.current = false
+        if (resolvedSessionId) for (const p of pendingSettles.current.splice(0)) persistSettle(resolvedSessionId, p, onSettleReply)
       })
       .catch((err) => {
         const captureFailed = err instanceof Error && err.message === CAPTURE_FAILED_MESSAGE
@@ -211,12 +249,52 @@ export default function MoneyBrainModal() {
           return copy
         })
       })
-      .finally(() => setSending(false))
+      .finally(() => {
+        // A new chat aborted this stream and owns the screen now; leave its lock and queue alone.
+        if (abortRef.current !== controller) return
+        streamingRef.current = false
+        setSending(false)
+        // Cards logged mid-stream whose stream then failed: record them on the chat
+        // they came from, or, with no saved chat, just stop waiting on a reply.
+        for (const p of pendingSettles.current.splice(0)) {
+          if (sessionId) persistSettle(sessionId, p, onSettleReply)
+          else onSettleReply(p.proposalId, null)
+        }
+      })
+  }
+
+  /** Records a proposal's outcome on the chat, so reopening it shows the card read-only. */
+  function settleProposal(proposalId: string, status: 'submitted' | 'dismissed', expenseIds: string[]) {
+    setMessages((prev) => prev.map((m) => (m.proposal?.id === proposalId ? { ...m, proposal: { ...m.proposal, status, expenseIds } } : m)))
+    if (status === 'submitted') setAcking((prev) => new Set(prev).add(proposalId))
+    const settle = { proposalId, status, expenseIds }
+    if (sessionId && !streamingRef.current) persistSettle(sessionId, settle, onSettleReply)
+    else pendingSettles.current.push(settle)
+  }
+
+  /** Puts Ask Aviary's reply to logged rows right under their card. Dismissals get none. */
+  function onSettleReply(proposalId: string, reply: string | null) {
+    setAcking((prev) => {
+      if (!prev.has(proposalId)) return prev
+      const next = new Set(prev)
+      next.delete(proposalId)
+      return next
+    })
+    setMessages((prev) => {
+      const at = prev.findIndex((m) => m.proposal?.id === proposalId)
+      if (at < 0 || prev[at].proposal?.status !== 'submitted' || prev[at + 1]?.ack) return prev
+      return [...prev.slice(0, at + 1), { role: 'model', text: reply ?? LOGGED_FALLBACK, ack: true }, ...prev.slice(at + 1)]
+    })
   }
 
   function startNewChat() {
     abortRef.current?.abort()
+    abortRef.current = null
+    streamingRef.current = false
+    // Outcomes still waiting on the old chat go to it, not to the next one.
+    for (const p of pendingSettles.current.splice(0)) if (sessionId) persistSettle(sessionId, p, () => {})
     setSending(false)
+    setAcking(new Set())
     setMessages([])
     setSessionId(null)
     setInput('')
@@ -446,6 +524,14 @@ export default function MoneyBrainModal() {
                         : { alignSelf: 'flex-start', backgroundColor: tokens.card, borderColor: tokens.border, borderWidth: 1 },
                     ]}
                   >
+                    {m.ack && (
+                      <View style={[styles.ackKicker, { backgroundColor: tokens.mintSoft }]}>
+                        <Icon icon={Check} size={12} color={tokens.mint} strokeWidth={3} />
+                        <Text style={[styles.ackKickerText, { color: tokens.mint, fontFamily: fontFamily.bodyBold }]}>
+                          {loggedLabel(messages[i - 1]?.proposal?.expenseIds?.length)}
+                        </Text>
+                      </View>
+                    )}
                     {m.role === 'model' ? (
                       <ChatMarkdown text={m.text} />
                     ) : (
@@ -453,18 +539,30 @@ export default function MoneyBrainModal() {
                         {m.text}
                       </Text>
                     )}
+                    {m.ack && (
+                      <Pressable
+                        accessibilityRole="link"
+                        onPress={() => router.dismissTo('/(tabs)/activity')}
+                        hitSlop={8}
+                        style={styles.ackLink}
+                      >
+                        <Text style={[styles.ackLinkText, { color: tokens.accent, fontFamily: fontFamily.bodyBold }]}>See them in Activity</Text>
+                        <Icon icon={ArrowRight} size={14} color={tokens.accent} />
+                      </Pressable>
+                    )}
                   </View>
                 )}
                 {m.proposal && (
                   <CaptureReview
                     key={m.proposal.id}
                     proposal={m.proposal}
+                    loggedSummary={false}
                     onSettled={(status, expenseIds) => {
-                      const proposalId = m.proposal?.id
-                      if (sessionId && proposalId) updateProposalStatus(sessionId, proposalId, status, expenseIds).catch(() => {})
+                      if (m.proposal) settleProposal(m.proposal.id, status, expenseIds)
                     }}
                   />
                 )}
+                {m.proposal && acking.has(m.proposal.id) && <BrainThinking color={tokens.accent} />}
                 {m.captureFailed && (
                   <Pressable
                     onPress={() => router.push('/modals/log-expense')}
@@ -490,6 +588,9 @@ export default function MoneyBrainModal() {
           placeholderTextColor={tokens.text3}
           style={[styles.input, { backgroundColor: tokens.inputBg, borderColor: tokens.border, color: tokens.text, fontFamily: fontFamily.bodyMedium }]}
           onSubmitEditing={() => send(input, 'typed')}
+          // Grows as a list of spends wraps, up to the style's maxHeight; Return still sends.
+          multiline
+          submitBehavior="submit"
           editable={!sending}
         />
         <Pressable
@@ -535,7 +636,11 @@ const styles = StyleSheet.create({
   chip: { borderWidth: 1, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 10 },
   chipText: { fontSize: 13 },
   bubble: { maxWidth: '85%', borderRadius: 16, paddingHorizontal: 14, paddingVertical: 10 },
-  inputRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth },
-  input: { flex: 1, borderWidth: 1, borderRadius: 22, paddingHorizontal: 16, paddingVertical: 12, fontSize: 14 },
+  inputRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 10, paddingHorizontal: 16, paddingTop: 12, borderTopWidth: StyleSheet.hairlineWidth },
+  input: { flex: 1, borderWidth: 1, borderRadius: 22, paddingHorizontal: 16, paddingTop: 12, paddingBottom: 12, fontSize: 14, minHeight: 44, maxHeight: 160 },
+  ackKicker: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 5, marginBottom: 6, paddingLeft: 7, paddingRight: 10, paddingVertical: 3, borderRadius: 100 },
+  ackKickerText: { fontSize: 12 },
+  ackLink: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 8 },
+  ackLinkText: { fontSize: 13 },
   sendButton: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
 })

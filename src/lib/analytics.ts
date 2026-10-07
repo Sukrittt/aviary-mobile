@@ -97,6 +97,7 @@ export type AppEvent =
   // shown, logged, or dismissed. Row counts and edit counts only.
   | 'capture_proposed'
   | 'capture_logged'
+  | 'capture_tip'
   | 'capture_dismissed'
   // The weekly balance check: what a check found (kind, and whether the
   // prefilled balance was kept as is), and how a gap was explained. No amounts.

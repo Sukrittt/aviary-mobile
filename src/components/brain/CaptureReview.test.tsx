@@ -12,6 +12,9 @@ jest.mock('@/src/hooks/useExpenses', () => ({
   useAddExpense: () => ({ mutateAsync: mockAdd }),
   useRecentExpenses: () => ({ data: [] }),
 }))
+const ENVELOPES = [{ name: 'Travel', group: 'Everyday' }, { name: 'Sports', group: 'Fun' }, { name: 'Shopping', group: 'Fun' }]
+const mockCategories: { data: { name: string; group: string }[] | undefined; isError: boolean } = { data: ENVELOPES, isError: false }
+jest.mock('@/src/hooks/useCategories', () => ({ useCategories: () => mockCategories }))
 jest.mock('@/src/lib/analytics', () => ({ track: (...args: unknown[]) => mockTrack(...args) }))
 jest.mock('@/src/lib/date', () => ({ ...jest.requireActual('@/src/lib/date'), todayLocal: () => '2026-09-26' }))
 jest.mock('@/src/components/shared/CategoryPickerSheet', () => {
@@ -39,6 +42,8 @@ const proposal: CaptureProposal = {
 
 beforeEach(() => {
   jest.clearAllMocks()
+  mockCategories.data = ENVELOPES
+  mockCategories.isError = false
   jest.useFakeTimers({ legacyFakeTimers: false })
   let n = 0
   mockAdd.mockImplementation(async () => ({ id: `e${++n}`, pending: false }))
@@ -60,7 +65,8 @@ it('shows each row with its envelope, split and date', () => {
 
   expect(utils.getByDisplayValue('Auto')).toBeTruthy()
   expect(utils.getByLabelText('Envelope: Travel. Change it')).toBeTruthy()
-  expect(utils.getByText('₹1,200 ÷ 6 = ₹200')).toBeTruthy()
+  expect(utils.getByText('₹1,200 ÷ 6')).toBeTruthy()
+  expect(utils.getByText('your share ₹200')).toBeTruthy()
   // Yesterday's row says so; today's rows don't.
   expect(utils.getByText('25 Sep')).toBeTruthy()
   expect(utils.getByLabelText('Pick an envelope')).toBeTruthy()
@@ -107,6 +113,9 @@ it('plays the success check, then settles into a summary', async () => {
   fireEvent.press(utils.getByLabelText('Log 2 spends'))
   await flush()
   expect(utils.queryByTestId('capture-summary')).toBeNull()
+  // The rows stay on the card while the check draws, instead of leaving an empty card.
+  expect(utils.getByDisplayValue('Auto')).toBeTruthy()
+  expect(utils.getByDisplayValue('Turf')).toBeTruthy()
 
   await act(async () => {
     jest.advanceTimersByTime(1100)
@@ -162,7 +171,7 @@ it('dismisses without logging anything', () => {
   expect(utils.getByText('Not logged')).toBeTruthy()
   expect(mockAdd).not.toHaveBeenCalled()
   expect(mockSettled).toHaveBeenCalledWith('dismissed', [])
-  expect(mockTrack).toHaveBeenCalledWith('capture_dismissed', { source: 'text', rows: 3 })
+  expect(mockTrack).toHaveBeenCalledWith('capture_dismissed', { source: 'text', rows: 3, logged: 0 })
 })
 
 it('shows a proposal from chat history as read only', () => {
@@ -207,4 +216,68 @@ it('logs a balance check estimate as balance_gap, as a card spend where it was o
   })
   expect(mockAdd.mock.calls[1][0]).toMatchObject({ payment_method: 'credit_card', client_id: 'gap:c1:g2' })
   expect(mockTrack).toHaveBeenCalledWith('capture_logged', expect.objectContaining({ source: 'balance_gap' }))
+})
+
+it('locks a failed row to retry as it was, and Not now keeps the spends that made it', async () => {
+  mockAdd.mockResolvedValueOnce({ id: 'e1', pending: false }).mockRejectedValueOnce(new Error('400'))
+  const utils = renderWithProviders(<CaptureReview proposal={proposal} onSettled={mockSettled} />)
+  fireEvent.press(utils.getByLabelText('Remove Sneakers'))
+  fireEvent.press(utils.getByLabelText('Log 2 spends'))
+  await flush()
+
+  expect(utils.getByDisplayValue('Turf').props.editable).toBe(false)
+  fireEvent.press(utils.getByText('Not now'))
+  expect(mockSettled).toHaveBeenCalledWith('submitted', ['e1'])
+  expect(utils.getByText('Logged 1 spend · ₹240')).toBeTruthy()
+})
+
+it('names what blocks Log, and shows an envelope emoji once', () => {
+  mockCategories.data = [...ENVELOPES, { name: '🛵 Travel', group: 'Everyday' }]
+  const utils = renderWithProviders(
+    <CaptureReview
+      proposal={{ ...proposal, items: [{ ...proposal.items[0], category: '🛵 Travel' }, proposal.items[2]] }}
+      onSettled={mockSettled}
+    />,
+  )
+  expect(utils.getByText('Pick an envelope for Sneakers to log these.')).toBeTruthy()
+  expect(utils.getByText('🛵')).toBeTruthy()
+  expect(utils.getByText('Travel')).toBeTruthy()
+})
+
+it('makes a row whose envelope was deleted pick a new one', () => {
+  mockCategories.data = [{ name: 'Sports', group: 'Fun' }]
+  const utils = renderWithProviders(
+    <CaptureReview proposal={{ ...proposal, items: [proposal.items[0]] }} onSettled={mockSettled} />,
+  )
+  expect(utils.getByLabelText('Pick an envelope')).toBeTruthy()
+  expect(utils.getByText('Pick an envelope for Auto to log these.')).toBeTruthy()
+})
+
+it("won't log before the envelope list is in, unless it failed to load", async () => {
+  mockCategories.data = undefined
+  const one = { ...proposal, items: [proposal.items[0]] }
+  const utils = renderWithProviders(<CaptureReview proposal={one} onSettled={mockSettled} />)
+  fireEvent.press(utils.getByLabelText('Log 1 spend'))
+  await flush()
+  expect(mockAdd).not.toHaveBeenCalled()
+
+  utils.unmount()
+  mockCategories.isError = true
+  const retry = renderWithProviders(<CaptureReview proposal={one} onSettled={mockSettled} />)
+  fireEvent.press(retry.getByLabelText('Log 1 spend'))
+  await flush()
+  expect(mockAdd).toHaveBeenCalled()
+})
+
+it('hides the logged pill where a reply answers the log instead', async () => {
+  const utils = renderWithProviders(
+    <CaptureReview proposal={{ ...proposal, items: [proposal.items[0]] }} onSettled={mockSettled} loggedSummary={false} />,
+  )
+  fireEvent.press(utils.getByLabelText('Log 1 spend'))
+  await flush()
+  await act(async () => {
+    jest.advanceTimersByTime(1100)
+  })
+  expect(utils.queryByTestId('capture-summary')).toBeNull()
+  expect(utils.queryByTestId('capture-review')).toBeNull()
 })
