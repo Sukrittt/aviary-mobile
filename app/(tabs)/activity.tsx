@@ -128,6 +128,12 @@ function keyOf(t: ExpenseRow): string {
   return `t-${t.timestamp}-${t.item}`;
 }
 
+// Selection and bulk-hide need the row's id: two same-item rows logged in the
+// same second share a keyOf, and selecting one must not select both.
+function selectionKey(t: ExpenseRow): string {
+  return t.id || keyOf(t);
+}
+
 export default function ActivityScreen() {
   const { formatCurrency } = useCurrency()
 
@@ -293,9 +299,9 @@ export default function ActivityScreen() {
     q: search.trim() || undefined,
   });
   const filtered = emptyForPreview(expensesQ.data?.rows ?? EMPTY).filter(
-    (t) => !removedKeys.has(keyOf(t)),
+    (t) => !removedKeys.has(selectionKey(t)),
   );
-  const selectedTxns = filtered.filter((t) => selectedKeys.has(keyOf(t)));
+  const selectedTxns = filtered.filter((t) => selectedKeys.has(selectionKey(t)));
   // keepPreviousData shows the old page's rows while the new one loads; they
   // aren't what the filter asked for, so nothing gets picked or deleted then.
   const selectionLocked = bulkDeleting || expensesQ.isPlaceholderData;
@@ -385,7 +391,7 @@ export default function ActivityScreen() {
   function toggleSelected(t: ExpenseRow) {
     Haptics.selectionAsync().catch(() => {});
     openRowRef.current?.close();
-    const key = keyOf(t);
+    const key = selectionKey(t);
     setSelectedKeys((keys) => {
       const next = new Set(keys);
       if (!next.delete(key)) next.add(key);
@@ -397,7 +403,7 @@ export default function ActivityScreen() {
   // (credit-card envelope rebalance included), so parallel requests would just
   // race those for no real speed-up at a page's worth of rows.
   async function runBulkDelete(txns: ExpenseRow[]) {
-    const keys = txns.map(keyOf);
+    const keys = txns.map(selectionKey);
     setConfirmBulk(false);
     setBulkDeleting(true);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(
@@ -420,10 +426,13 @@ export default function ActivityScreen() {
         failed.push(t);
       }
     }
+    // Wait for the list to drop the deleted rows, then stop hiding anything:
+    // a row restored from Archive later must show up again on this tab.
+    await qc.refetchQueries({ queryKey: ["expenses"] }).catch(() => {});
     setBulkDeleting(false);
+    setRemovedKeys(new Set());
     // Failed rows come back, still selected, so a retry is one tap away.
-    const failedKeys = new Set(failed.map(keyOf));
-    setRemovedKeys((prev) => new Set([...prev].filter((k) => !failedKeys.has(k))));
+    const failedKeys = new Set(failed.map(selectionKey));
     setSelectedKeys(failedKeys);
     if (failed.length) setDeleteNotice({ status: firstStatus });
   }
@@ -467,7 +476,7 @@ export default function ActivityScreen() {
                 label={allSelected ? "Clear" : "Select all"}
                 onPress={() => {
                   if (!selectionLocked)
-                    setSelectedKeys(allSelected ? new Set() : new Set(filtered.map(keyOf)));
+                    setSelectedKeys(allSelected ? new Set() : new Set(filtered.map(selectionKey)));
                 }}
               />
               <IconButton
@@ -601,7 +610,7 @@ export default function ActivityScreen() {
           <View>
             {filtered.map((txn) => {
               const avatarBg = avatarColorFor(txn.category, tokens);
-              const isSelected = selectedKeys.has(keyOf(txn));
+              const isSelected = selectedKeys.has(selectionKey(txn));
               const content = (
                 <Pressable
                   onPress={() => (selecting ? toggleSelected(txn) : setSheetTxn(txn))}

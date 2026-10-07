@@ -237,7 +237,18 @@ describe('multi-select delete', () => {
     expect(mockDeleteAsync).toHaveBeenCalledWith(expect.objectContaining({ id: 'row-1' }))
     expect(mockDeleteAsync).toHaveBeenCalledWith(expect.objectContaining({ id: 'row-2' }))
     expect(screen.getByText('Activity')).toBeTruthy()
-    expect(screen.queryByText('Item 1')).toBeNull()
+  })
+
+  it('selects one of two same-item rows logged in the same second', () => {
+    const twin = { ...row(1, '2026-06-01'), id: 'row-1b' }
+    mockUseExpensesPage.mockReturnValue({
+      data: pageResult({ rows: [row(1, '2026-06-01'), twin], total: 2 }),
+      isLoading: false,
+      error: null,
+    })
+    const screen = renderWithProviders(<ActivityScreen />)
+    fireEvent(screen.getAllByText('Item 1')[0], 'longPress')
+    expect(screen.getByText('1 selected')).toBeTruthy()
   })
 
   it('tapping the only selected row ends selection without opening the action sheet', () => {
@@ -271,7 +282,6 @@ describe('multi-select delete', () => {
     expect(screen.queryByText('Raw API error')).toBeNull()
     fireEvent.press(screen.getByText('Back to transactions'))
     expect(screen.getByText('1 selected')).toBeTruthy()
-    expect(screen.queryByText('Item 1')).toBeNull()
     expect(screen.getByText('Item 2')).toBeTruthy()
   })
 })
