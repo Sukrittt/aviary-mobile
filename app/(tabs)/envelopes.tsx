@@ -58,7 +58,13 @@ function pctArraysEqual(a: number[], b: number[]): boolean {
 }
 
 const OTHER_LABEL = 'Other'
-const ARCHIVED_GROUP = 'Archived'
+
+// Delete-group confirm copy: its categories go to Archive with it.
+export function groupDeleteNote(categoryCount: number): string {
+  if (categoryCount === 0) return 'You can restore it from Archive for 7 days.'
+  const what = categoryCount === 1 ? 'Its 1 category goes' : `Its ${categoryCount} categories go`
+  return `${what} to Archive too. You can restore them for 7 days.`
+}
 const ROW_HEIGHT = 45
 // Group cards stack with these, and the group drag math depends on them matching the styles.
 const GROUP_GAP = 10
@@ -736,18 +742,10 @@ export default function EnvelopesScreen() {
   function runDeleteCategory(name: string) {
     deleteCategory.mutate(name, { onSuccess: () => showToast(`${splitEmoji(name).text} removed`) })
   }
-  // Deleting a group must not delete the categories inside it — move them into
-  // an "Archived" group first (creating it if needed) so they stay findable.
+  // Server sends the group's categories to Archive along with it.
   async function runDeleteGroup(name: string) {
     setDeletingGroup(true)
     try {
-      const orphaned = categories.filter((c) => (c.group || '') === name)
-      if (orphaned.length > 0) {
-        if (!groups.includes(ARCHIVED_GROUP)) await addGroup.mutateAsync(ARCHIVED_GROUP)
-        await Promise.all(
-          orphaned.map((c) => updateCategory.mutateAsync({ name: c.name, updates: { group: ARCHIVED_GROUP } })),
-        )
-      }
       await deleteGroup.mutateAsync(name)
     } finally {
       setDeletingGroup(false)
@@ -755,7 +753,6 @@ export default function EnvelopesScreen() {
     }
   }
   function requestDelete(kind: 'category' | 'group', name: string) {
-    if (kind === 'group' && name === ARCHIVED_GROUP) return
     setMenuTarget(null)
     setDeleteTarget({ kind, name })
   }
@@ -1171,13 +1168,11 @@ export default function EnvelopesScreen() {
             else openRenameGroup(name)
           }}
         />
-        {!(menuTarget?.kind === 'group' && menuTarget.name === ARCHIVED_GROUP) && (
-          <SheetOption
-            label="Delete"
-            color={tokens.coral}
-            onPress={() => menuTarget && requestDelete(menuTarget.kind, menuTarget.name)}
-          />
-        )}
+        <SheetOption
+          label="Delete"
+          color={tokens.coral}
+          onPress={() => menuTarget && requestDelete(menuTarget.kind, menuTarget.name)}
+        />
         <SheetOption label="Cancel" color={tokens.text2} onPress={() => setMenuTarget(null)} />
       </BottomSheet>
 
@@ -1185,9 +1180,9 @@ export default function EnvelopesScreen() {
         <Text style={[styles.confirmTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
           {deleteTarget?.kind === 'group' ? 'Delete group' : 'Remove category'}
         </Text>
-        <Text style={[styles.confirmBody, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]} numberOfLines={2}>
+        <Text style={[styles.confirmBody, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]} numberOfLines={3}>
           {deleteTarget?.kind === 'group'
-            ? `Delete "${deleteTarget ? splitEmoji(deleteTarget.name).text : ''}"? Its categories move to Archived.`
+            ? `Delete "${deleteTarget ? splitEmoji(deleteTarget.name).text : ''}"? ${groupDeleteNote(categories.filter((c) => (c.group || '') === deleteTarget?.name).length)}`
             : `Remove "${deleteTarget ? splitEmoji(deleteTarget.name).text : ''}"? Past transactions are kept.`}
         </Text>
         <SheetOption
