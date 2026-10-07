@@ -14,7 +14,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter, useLocalSearchParams, useFocusEffect, type Href } from "expo-router";
 import * as Haptics from "expo-haptics";
-import { ChevronLeft, ChevronRight, SlidersHorizontal, X } from "lucide-react-native";
+import { Check, ChevronLeft, ChevronRight, SlidersHorizontal, Trash2, X } from "lucide-react-native";
 import Reanimated, { FadeIn, FadeOut, LinearTransition } from "react-native-reanimated";
 import type { ThemeTokens } from "@/src/theme/tokens";
 import { AnimatedTabContent } from "@/src/components/nav/AnimatedTabContent";
@@ -124,8 +124,10 @@ function avatarColorFor(name: string, tokens: ThemeTokens): string {
   return AVATAR_HUES[hash % AVATAR_HUES.length](tokens);
 }
 
+// Id first: two same-item rows logged in the same second share a timestamp,
+// and selecting (or rendering) one must not stand in for both.
 function keyOf(t: ExpenseRow): string {
-  return `t-${t.timestamp}-${t.item}`;
+  return t.id || `t-${t.timestamp}-${t.item}`;
 }
 
 export default function ActivityScreen() {
@@ -196,6 +198,13 @@ export default function ActivityScreen() {
   // animation finishes (see its onDone), so the refetch-driven removal never
   // pops a still-visible row.
   const [pendingDelete, setPendingDelete] = useState<ExpenseRow | null>(null);
+  // Multi-select: a long-press starts it, and clearing the last row ends it.
+  const [selectedKeys, setSelectedKeys] = useState<ReadonlySet<string>>(() => new Set());
+  const selecting = selectedKeys.size > 0;
+  const [confirmBulk, setConfirmBulk] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  // Rows hidden the moment a bulk delete starts; failed ones come back.
+  const [removedKeys, setRemovedKeys] = useState<ReadonlySet<string>>(() => new Set());
   const [categorySheetOpen, setCategorySheetOpen] = useState(false);
   const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
 
@@ -285,7 +294,14 @@ export default function ActivityScreen() {
     to,
     q: search.trim() || undefined,
   });
-  const filtered = emptyForPreview(expensesQ.data?.rows ?? EMPTY);
+  const filtered = emptyForPreview(expensesQ.data?.rows ?? EMPTY).filter(
+    (t) => !removedKeys.has(keyOf(t)),
+  );
+  const selectedTxns = filtered.filter((t) => selectedKeys.has(keyOf(t)));
+  // keepPreviousData shows the old page's rows while the new one loads; they
+  // aren't what the filter asked for, so nothing gets picked or deleted then.
+  const selectionLocked = bulkDeleting || expensesQ.isPlaceholderData;
+  const allSelected = filtered.length > 0 && selectedTxns.length === filtered.length;
   const totalCount = FORCE_EMPTY_STATE_PREVIEW ? 0 : expensesQ.data?.total ?? 0;
   const totalPages = FORCE_EMPTY_STATE_PREVIEW ? 1 : expensesQ.data?.pageCount ?? 1;
   const totalSpend = FORCE_EMPTY_STATE_PREVIEW ? 0 : expensesQ.data?.totalAmount ?? 0;
@@ -300,6 +316,20 @@ export default function ActivityScreen() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setPage(1);
   }, [selectedDate, period, customRange.from, customRange.to, selectedCategory, search]);
+
+  // Which rows are on screen; a bulk delete that finishes after it changed
+  // mustn't reselect its failures into a view that no longer shows them.
+  const viewKey = [page, selectedDate, period, customRange.from, customRange.to, selectedCategory, search].join("|");
+  const viewKeyRef = useRef(viewKey);
+  useEffect(() => {
+    viewKeyRef.current = viewKey;
+  });
+  useEffect(() => {
+    // A selection only means the rows on screen: drop it when they change, so
+    // rows picked earlier can't come back selected and get swept into a delete.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSelectedKeys(new Set());
+  }, [page, selectedDate, period, customRange.from, customRange.to, selectedCategory, search]);
 
   // Warms the next page's cache slot once the current page has loaded, so
   // "Next" reads from cache instead of waiting on a fetch.
@@ -361,6 +391,56 @@ export default function ActivityScreen() {
     );
   }
 
+  function toggleSelected(t: ExpenseRow) {
+    Haptics.selectionAsync().catch(() => {});
+    openRowRef.current?.close();
+    const key = keyOf(t);
+    setSelectedKeys((keys) => {
+      const next = new Set(keys);
+      if (!next.delete(key)) next.add(key);
+      return next;
+    });
+  }
+
+  // One request per row, in order: each delete runs its own server transaction
+  // (credit-card envelope rebalance included), so parallel requests would just
+  // race those for no real speed-up at a page's worth of rows.
+  async function runBulkDelete(txns: ExpenseRow[]) {
+    const keys = txns.map(keyOf);
+    setConfirmBulk(false);
+    setBulkDeleting(true);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(
+      () => {},
+    );
+    setRemovedKeys((prev) => new Set([...prev, ...keys]));
+    const startView = viewKeyRef.current;
+    const failed: ExpenseRow[] = [];
+    let firstStatus: number | undefined;
+    for (const t of txns) {
+      try {
+        await deleteExpense.mutateAsync({
+          id: t.id,
+          version: t.version,
+          timestamp: t.timestamp,
+          item: t.item,
+          amountInr: Number(t.amount_inr) || 0,
+        });
+      } catch (err) {
+        if (!failed.length) firstStatus = err instanceof ExpenseWriteError ? err.status : undefined;
+        failed.push(t);
+      }
+    }
+    // Wait for the list to drop the deleted rows, then stop hiding anything:
+    // a row restored from Archive later must show up again on this tab.
+    await qc.refetchQueries({ queryKey: ["expenses"] }).catch(() => {});
+    setBulkDeleting(false);
+    setRemovedKeys(new Set());
+    // Failed rows come back, still selected, so a retry is one tap away.
+    const failedKeys = new Set(failed.map(keyOf));
+    if (viewKeyRef.current === startView) setSelectedKeys(failedKeys);
+    if (failed.length) setDeleteNotice({ status: firstStatus });
+  }
+
   const isLoading = !FORCE_EMPTY_STATE_PREVIEW && (anchorQuery.isLoading || expensesQ.isLoading || categoriesQ.isLoading);
   const hasError = !FORCE_EMPTY_STATE_PREVIEW && (expensesQ.error || categoriesQ.error);
 
@@ -392,9 +472,34 @@ export default function ActivityScreen() {
       {deleteNotice && <ExpenseNoticeScreen status={deleteNotice.status} action="delete" onBack={() => setDeleteNotice(null)} />}
       <Screen
         ref={scrollRef}
-        title="Activity"
+        title={selecting ? `${selectedTxns.length} selected` : "Activity"}
         actions={
-          duplicateCount > 0 ? (
+          selecting ? (
+            <>
+              <Chip
+                label={allSelected ? "Clear" : "Select all"}
+                onPress={() => {
+                  if (!selectionLocked)
+                    setSelectedKeys(allSelected ? new Set() : new Set(filtered.map(keyOf)));
+                }}
+              />
+              <IconButton
+                icon={Trash2}
+                color={tokens.coral}
+                accessibilityLabel="Delete selected"
+                onPress={() => {
+                  if (!selectionLocked && selectedTxns.length) setConfirmBulk(true);
+                }}
+              />
+              <IconButton
+                icon={X}
+                accessibilityLabel="Cancel selection"
+                onPress={() => {
+                  if (!bulkDeleting) setSelectedKeys(new Set());
+                }}
+              />
+            </>
+          ) : duplicateCount > 0 ? (
             <Chip
               selected
               label={`Review ${duplicateCount} duplicate${duplicateCount === 1 ? "" : "s"}`}
@@ -509,6 +614,79 @@ export default function ActivityScreen() {
           <View>
             {filtered.map((txn) => {
               const avatarBg = avatarColorFor(txn.category, tokens);
+              const isSelected = selectedKeys.has(keyOf(txn));
+              const content = (
+                <Pressable
+                  onPress={() => (selecting ? toggleSelected(txn) : setSheetTxn(txn))}
+                  onLongPress={() => {
+                    if (!selecting) toggleSelected(txn);
+                  }}
+                  disabled={selectionLocked}
+                  accessibilityState={selecting ? { selected: isSelected } : undefined}
+                  style={[
+                    styles.row,
+                    { backgroundColor: isSelected ? tokens.accentSoft : tokens.bg },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.icon,
+                      { backgroundColor: isSelected ? tokens.accent : avatarBg },
+                    ]}
+                  >
+                    {isSelected ? (
+                      <Icon icon={Check} size={18} color={tokens.onAccent} />
+                    ) : (
+                      <Text style={{ fontSize: 15 }}>
+                        {categoryEmoji(txn.category)}
+                      </Text>
+                    )}
+                  </View>
+                  <View style={{ flex: 1, minWidth: 0 }}>
+                    <Text
+                      style={[
+                        styles.rowItem,
+                        {
+                          color: tokens.text,
+                          fontFamily: fontFamily.bodySemiBold,
+                        },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {txn.item}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.rowMeta,
+                        {
+                          color: tokens.text3,
+                          fontFamily: fontFamily.bodyMedium,
+                        },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {formatShortDate(txn.date)} ·{" "}
+                      {splitEmoji(txn.category).text}
+                    </Text>
+                  </View>
+                  <Text
+                    style={[
+                      styles.rowAmount,
+                      {
+                        color: INCOME_CATEGORIES.has(txn.category)
+                          ? tokens.mint
+                          : tokens.text,
+                        fontFamily: fontFamily.bodySemiBold,
+                      },
+                    ]}
+                  >
+                    {formatCurrency(
+                      Number(txn.amount_inr) || 0,
+                      hideAmounts,
+                    )}
+                  </Text>
+                </Pressable>
+              );
               return (
                 <DeletingRow
                   key={keyOf(txn)}
@@ -520,76 +698,26 @@ export default function ActivityScreen() {
                     if (pendingDelete) runDelete(pendingDelete);
                   }}
                 >
-                  <SwipeableRow
-                    rowKey={keyOf(txn)}
-                    onDelete={() => confirmDelete(txn)}
-                    onEdit={() => openEdit(txn)}
-                    onOpen={(key, close, reset) => {
-                      if (
-                        openRowRef.current &&
-                        openRowRef.current.key !== key
-                      ) {
-                        openRowRef.current.close();
-                      }
-                      openRowRef.current = { key, close, reset };
-                    }}
-                  >
-                    <Pressable
-                      onPress={() => setSheetTxn(txn)}
-                      style={[styles.row, { backgroundColor: tokens.bg }]}
+                  {selecting ? (
+                    content
+                  ) : (
+                    <SwipeableRow
+                      rowKey={keyOf(txn)}
+                      onDelete={() => confirmDelete(txn)}
+                      onEdit={() => openEdit(txn)}
+                      onOpen={(key, close, reset) => {
+                        if (
+                          openRowRef.current &&
+                          openRowRef.current.key !== key
+                        ) {
+                          openRowRef.current.close();
+                        }
+                        openRowRef.current = { key, close, reset };
+                      }}
                     >
-                      <View
-                        style={[styles.icon, { backgroundColor: avatarBg }]}
-                      >
-                        <Text style={{ fontSize: 15 }}>
-                          {categoryEmoji(txn.category)}
-                        </Text>
-                      </View>
-                      <View style={{ flex: 1, minWidth: 0 }}>
-                        <Text
-                          style={[
-                            styles.rowItem,
-                            {
-                              color: tokens.text,
-                              fontFamily: fontFamily.bodySemiBold,
-                            },
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {txn.item}
-                        </Text>
-                        <Text
-                          style={[
-                            styles.rowMeta,
-                            {
-                              color: tokens.text3,
-                              fontFamily: fontFamily.bodyMedium,
-                            },
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {formatShortDate(txn.date)} ·{" "}
-                          {splitEmoji(txn.category).text}
-                        </Text>
-                      </View>
-                      <Text
-                        style={[
-                          styles.rowAmount,
-                          {
-                            color: INCOME_CATEGORIES.has(txn.category)
-                              ? tokens.mint
-                              : tokens.text,
-                            fontFamily: fontFamily.bodySemiBold,
-                          },
-                        ]}
-                      >
-                        {formatCurrency(
-                          Number(txn.amount_inr) || 0,
-                          hideAmounts,
-                        )}
-                      </Text>
-                    </Pressable>
-                  </SwipeableRow>
+                      {content}
+                    </SwipeableRow>
+                  )}
                 </DeletingRow>
               );
             })}
@@ -730,6 +858,39 @@ export default function ActivityScreen() {
             label="Cancel"
             color={tokens.text2}
             onPress={() => setDeleteTxn(null)}
+          />
+        </BottomSheet>
+
+        <BottomSheet
+          visible={confirmBulk}
+          onClose={() => setConfirmBulk(false)}
+        >
+          <Text
+            style={[
+              styles.confirmTitle,
+              { color: tokens.text, fontFamily: fontFamily.displaySemiBold },
+            ]}
+          >
+            Delete {selectedTxns.length} transaction{selectedTxns.length === 1 ? "" : "s"}
+          </Text>
+          <Text
+            style={[
+              styles.confirmBody,
+              { color: tokens.text2, fontFamily: fontFamily.bodyMedium },
+            ]}
+            numberOfLines={2}
+          >
+            {selectedTxns.length === 1 ? "It'll" : "They'll"} move to Archive. You can restore {selectedTxns.length === 1 ? "it" : "them"} for 7 days.
+          </Text>
+          <SheetOption
+            label="Delete"
+            color={tokens.coral}
+            onPress={() => void runBulkDelete(selectedTxns)}
+          />
+          <SheetOption
+            label="Cancel"
+            color={tokens.text2}
+            onPress={() => setConfirmBulk(false)}
           />
         </BottomSheet>
 
