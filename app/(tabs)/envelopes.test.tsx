@@ -2,7 +2,7 @@ import { act, fireEvent, render } from '@testing-library/react-native'
 import { ScrollView, View } from 'react-native'
 import { moveItem } from '@/src/lib/dragReorder'
 import { GestureDetector } from 'react-native-gesture-handler'
-import EnvelopesScreen from './envelopes'
+import EnvelopesScreen, { groupDeleteNote } from './envelopes'
 
 const initialGroups = ['House', 'Lifestyle', 'Savings', 'Personal', 'Food']
 let mockGroups = [...initialGroups]
@@ -301,4 +301,10 @@ it('keeps the owning gesture when the other recognizer starts on the same card',
   for (let f = 0; f < 4; f++) frame()
   expect(mockMove).toHaveBeenCalledTimes(1)
   expect(screen.UNSAFE_getByType(ScrollView).props.scrollEnabled).toBe(true)
+})
+
+it('warns that a group delete sends its categories to Archive', () => {
+  expect(groupDeleteNote(0)).toBe('You can restore it from Archive for 7 days.')
+  expect(groupDeleteNote(1)).toBe('Its 1 category goes to Archive too. You can restore them for 7 days.')
+  expect(groupDeleteNote(3)).toBe('Its 3 categories go to Archive too. You can restore them for 7 days.')
 })
