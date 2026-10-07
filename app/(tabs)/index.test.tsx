@@ -28,7 +28,7 @@ jest.mock('@/src/hooks/useExpenses', () => ({
   useRecentExpenses: () => ({ data: [], isLoading: false, error: null, refetch: jest.fn() }),
   useLastSpent: () => ({ data: {} }),
 }))
-let mockSchedules: { id: string; frequency: string; status: string }[] = []
+let mockSchedules: { id: string; frequency: string; status: string }[] | undefined = []
 jest.mock('@/src/hooks/useIncomes', () => ({ useRecurringIncomes: () => ({ data: mockSchedules }) }))
 jest.mock('@/src/hooks/useCategories', () => ({
   useCategories: () => ({ data: [{ name: 'Food', group: 'Everyday' }], isLoading: false, error: null, refetch: jest.fn() }),
@@ -102,6 +102,14 @@ describe('HomeScreen · Ready to Assign', () => {
     const second = renderHome()
     fireEvent.press(second.getByLabelText('Ready to Assign options'))
     fireEvent.press(second.getByText('Change income'))
+    expect(mockPush).toHaveBeenLastCalledWith('/account/income')
+    second.unmount()
+
+    // Not loaded yet: never a create form that could duplicate a schedule.
+    mockSchedules = undefined
+    const third = renderHome()
+    fireEvent.press(third.getByLabelText('Ready to Assign options'))
+    fireEvent.press(third.getByText('Change income'))
     expect(mockPush).toHaveBeenLastCalledWith('/account/income')
     mockSchedules = []
   })

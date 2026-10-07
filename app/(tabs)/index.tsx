@@ -99,7 +99,8 @@ export default function HomeScreen() {
   // against overlap and avoids relying on that assumption.
   const [openSheetCount, setOpenSheetCount] = useState(0)
   const [incomeSheetOpen, setIncomeSheetOpen] = useState(false)
-  const monthlySchedules = (useRecurringIncomes().data ?? []).filter((r) => r.frequency === 'monthly' && r.status === 'active')
+  const schedulesQ = useRecurringIncomes()
+  const monthlySchedules = (schedulesQ.data ?? []).filter((r) => r.frequency === 'monthly' && r.status === 'active')
   const birdMarkRef = useRef<BirdLandingMarkHandle>(null)
 
   const budgets = emptyForPreview(budgetsQ.data ?? EMPTY)
@@ -419,10 +420,11 @@ export default function HomeScreen() {
         </Text>
         {([
           // Change income edits the monthly schedule Ready to Assign counts from
-          // day 1. With more than one, the Income screen is the place to pick.
+          // day 1. With more than one, or before they've loaded (a create form
+          // then could duplicate one), the Income screen is the place to pick.
           [
             'Change income',
-            monthlySchedules.length > 1
+            !schedulesQ.data || monthlySchedules.length > 1
               ? '/account/income'
               : monthlySchedules.length === 1
                 ? { pathname: '/modals/recurring-income', params: { id: monthlySchedules[0].id } }
