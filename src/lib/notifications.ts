@@ -1,4 +1,4 @@
-import { currentAccessToken } from '@/src/api/accessMode'
+import { currentAccessToken, SessionChangedError } from '@/src/api/accessMode'
 import { Platform } from 'react-native'
 import * as Device from 'expo-device'
 import Constants, { ExecutionEnvironment } from 'expo-constants'
@@ -71,6 +71,9 @@ export async function registerForPushNotificationsAsync(): Promise<void> {
     stage = 'register'
     await registerToken(token)
   } catch (err) {
+    // The account changed mid-flight. Not a failure: the new account's sign-in
+    // runs its own registration.
+    if (err instanceof SessionChangedError) return
     console.warn('Push registration failed', err)
     track('push_registration_failed', { stage, error: String(err).slice(0, 300) })
   }

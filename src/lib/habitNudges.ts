@@ -172,7 +172,13 @@ export function refreshHabitNudges(rows: ExpenseRow[], now = new Date()): Promis
       })
       scheduled.push({ id: nudgeId, habitId: habit.id, fireAt: p.fireAt.toISOString(), date: p.date })
     }
-    if (scheduled.length) track('habit_nudges_scheduled', { count: scheduled.length, habits: habits.length })
+    // Every launch rebuilds the plan, so only report one that differs from what
+    // was already coming. Otherwise this is one event per app open.
+    const planKey = (ns: { habitId: string; fireAt: string }[]) => ns.map((n) => `${n.habitId}@${n.fireAt}`).sort().join()
+    const before = store.scheduled.filter((n) => Date.parse(n.fireAt) > now.getTime())
+    if (scheduled.length && planKey(scheduled) !== planKey(before)) {
+      track('habit_nudges_scheduled', { count: scheduled.length, habits: habits.length })
+    }
     return keep([...waiting, ...scheduled], copy, copyFailedAt)
   }).then(() => undefined)
 }

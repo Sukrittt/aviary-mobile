@@ -179,7 +179,9 @@ export function setEventContext(properties: EventProperties): void {
 export function trackScreen(pathname: string): void {
   if (!isOnline()) return
   try {
-    posthog.screen(pathname)
+    // usePathname() is normally query-free, but an OAuth deep link that lands
+    // before routing settles arrives as `callback?code=…`. Never send that code.
+    posthog.screen(pathname.split('?')[0])
   } catch {
     // Losing a screen view is not worth a broken screen.
   }

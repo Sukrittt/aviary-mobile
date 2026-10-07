@@ -1,4 +1,5 @@
 import { cancelHabitNudges, handleHabitResponse, refreshHabitNudges, setHabitNudgesEnabled, type NudgeData } from './habitNudges'
+import { track } from '@/src/lib/analytics'
 import { enqueue } from '@/src/lib/pendingExpenses'
 import { flush } from '@/src/sync/flush'
 import type { ExpenseRow } from '@/src/types'
@@ -144,6 +145,12 @@ describe('refreshHabitNudges', () => {
     await refreshHabitNudges(footballRows(), now)
     await refreshHabitNudges(footballRows(), now)
     expect(mockScheduled).toHaveLength(1)
+  })
+
+  it('reports a plan once, not on every refresh that rebuilds the same one', async () => {
+    await refreshHabitNudges(footballRows(), now)
+    await refreshHabitNudges(footballRows(), new Date(now.getTime() + 60 * 60 * 1000))
+    expect(jest.mocked(track).mock.calls.filter(([e]) => e === 'habit_nudges_scheduled')).toHaveLength(1)
   })
 
   it('schedules nothing without notification permission', async () => {

@@ -1,5 +1,7 @@
 import { addNotificationResponseListener, checkColdStartNotification, registerForPushNotificationsAsync } from './notifications'
 import { track } from '@/src/lib/analytics'
+import { registerPushToken } from '@/src/api/notifications'
+import { SessionChangedError } from '@/src/api/accessMode'
 
 const mockPush = jest.fn()
 const mockDismissTo = jest.fn()
@@ -114,6 +116,15 @@ it('encodes notification dates as a single parameter', () => {
 it('reports a failed push token fetch to analytics instead of only swallowing it', async () => {
   await registerForPushNotificationsAsync()
   expect(track).toHaveBeenCalledWith('push_registration_failed', { stage: 'token', error: 'Error: FIS_AUTH_ERROR' })
+})
+it('does not report a registration that lost a race with an account switch', async () => {
+  const Notifications = jest.requireMock('expo-notifications')
+  Notifications.getExpoPushTokenAsync = () => Promise.resolve({ data: 'ExponentPushToken[x]' })
+  jest.mocked(registerPushToken).mockRejectedValueOnce(new SessionChangedError())
+  jest.mocked(track).mockClear()
+  await registerForPushNotificationsAsync()
+  expect(track).not.toHaveBeenCalledWith('push_registration_failed', expect.anything())
+  Notifications.getExpoPushTokenAsync = () => Promise.reject(new Error('FIS_AUTH_ERROR'))
 })
 it('opens Move money for the hot category from a pace nudge', () => {
  mockPush.mockClear()
