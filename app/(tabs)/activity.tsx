@@ -321,6 +321,13 @@ export default function ActivityScreen() {
     setPage(1);
   }, [selectedDate, period, customRange.from, customRange.to, selectedCategory, search]);
 
+  // Which rows are on screen; a bulk delete that finishes after it changed
+  // mustn't reselect its failures into a view that no longer shows them.
+  const viewKey = [page, selectedDate, period, customRange.from, customRange.to, selectedCategory, search].join("|");
+  const viewKeyRef = useRef(viewKey);
+  useEffect(() => {
+    viewKeyRef.current = viewKey;
+  });
   useEffect(() => {
     // A selection only means the rows on screen: drop it when they change, so
     // rows picked earlier can't come back selected and get swept into a delete.
@@ -410,6 +417,7 @@ export default function ActivityScreen() {
       () => {},
     );
     setRemovedKeys((prev) => new Set([...prev, ...keys]));
+    const startView = viewKeyRef.current;
     const failed: ExpenseRow[] = [];
     let firstStatus: number | undefined;
     for (const t of txns) {
@@ -433,7 +441,7 @@ export default function ActivityScreen() {
     setRemovedKeys(new Set());
     // Failed rows come back, still selected, so a retry is one tap away.
     const failedKeys = new Set(failed.map(selectionKey));
-    setSelectedKeys(failedKeys);
+    if (viewKeyRef.current === startView) setSelectedKeys(failedKeys);
     if (failed.length) setDeleteNotice({ status: firstStatus });
   }
 
