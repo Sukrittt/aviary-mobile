@@ -1,4 +1,8 @@
 import { ExpenseNoticeScreen } from '@/src/features/log-expense/ExpenseNoticeScreen';
+import { useIncomes } from "@/src/hooks/useIncomes";
+import { liveAccounts, useAccounts } from "@/src/hooks/useAccounts";
+import { AccountChips, accountName } from "@/src/components/shared/AccountChips";
+import { incomesForPage } from "@/src/lib/incomeActivity";
 import { ExpenseWriteError } from '@/src/lib/expenseConflict';
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -44,7 +48,7 @@ import { LoadingCaption } from "@/src/components/shared/LoadingCaption";
 import { OfflineScreen } from "@/src/components/shared/OfflineScreen";
 import { ErrorScreen } from "@/src/components/shared/ErrorScreen";
 import { EmptyState } from "@/src/components/shared/EmptyState";
-import type { ExpenseRow } from "@/src/types";
+import type { ExpenseRow, IncomeRow } from "@/src/types";
 import { toLocalDateString } from "@/src/lib/date";
 import { useOnline } from "@/src/lib/netStatus";
 import { EMPTY } from "@/src/lib/constants";
@@ -55,18 +59,6 @@ type PeriodKey = "all" | "week" | "month" | "custom";
 const CHIP_TRANSITION = LinearTransition.springify().damping(64).stiffness(700);
 const PAGE_SIZE = 30;
 
-// Mirrors Web's TransactionsView.tsx INCOME_CATEGORIES set — colors/signs these
-// as income instead of spend.
-const INCOME_CATEGORIES = new Set([
-  "Salary",
-  "Income",
-  "Refund",
-  "Cashback",
-  "Bonus",
-  "Interest",
-  "Gift",
-  "Transfer",
-]);
 
 function toDateInput(d: Date): string {
   return toLocalDateString(d);
@@ -207,6 +199,10 @@ export default function ActivityScreen() {
   const [removedKeys, setRemovedKeys] = useState<ReadonlySet<string>>(() => new Set());
   const [categorySheetOpen, setCategorySheetOpen] = useState(false);
   const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
+  const [selectedAccount, setSelectedAccount] = useState("");
+  const accountsQ = useAccounts();
+  const accountOptions = liveAccounts(accountsQ.data);
+  const incomesQ = useIncomes();
 
   const timeFilterLabel = useMemo(() => {
     if (selectedDate) return formatDateHeader(selectedDate);
@@ -218,7 +214,8 @@ export default function ActivityScreen() {
   const categoryFilterLabel = selectedCategory
     ? `${categoryEmoji(selectedCategory)} ${splitEmoji(selectedCategory).text}`
     : null;
-  const hasActiveFilters = Boolean(timeFilterLabel || categoryFilterLabel);
+  const accountFilterLabel = selectedAccount ? accountName(accountsQ.data, selectedAccount) || "Account" : null;
+  const hasActiveFilters = Boolean(timeFilterLabel || categoryFilterLabel || accountFilterLabel);
 
   const clearTimeFilter = useCallback(() => {
     setSelectedDate("");
@@ -229,6 +226,7 @@ export default function ActivityScreen() {
   const clearAllFilters = useCallback(() => {
     clearTimeFilter();
     setSelectedCategory("");
+    setSelectedAccount("");
   }, [clearTimeFilter]);
   // Currently swiped-open row's close/reset fns + key — snapped shut on blur so the
   // edit/delete panel is never left revealed when the user returns to this tab. Blur uses
@@ -286,14 +284,18 @@ export default function ActivityScreen() {
     return { from: startStr, to: endStr };
   }, [selectedDate, period, customRange.from, customRange.to, latestDate]);
 
-  const expensesQ = useExpensesPage({
-    page,
+  const pageParams = {
     limit: PAGE_SIZE,
     category: selectedCategory || undefined,
+    account: selectedAccount || undefined,
     from,
     to,
     q: search.trim() || undefined,
-  });
+  };
+  const expensesQ = useExpensesPage({ ...pageParams, page });
+  // Where this page's income starts: the oldest date on the page before it
+  // (src/lib/incomeActivity.ts). Already cached from visiting that page.
+  const prevPageQ = useExpensesPage({ ...pageParams, page: Math.max(1, page - 1) });
   const filtered = emptyForPreview(expensesQ.data?.rows ?? EMPTY).filter(
     (t) => !removedKeys.has(keyOf(t)),
   );
@@ -305,6 +307,24 @@ export default function ActivityScreen() {
   const totalCount = FORCE_EMPTY_STATE_PREVIEW ? 0 : expensesQ.data?.total ?? 0;
   const totalPages = FORCE_EMPTY_STATE_PREVIEW ? 1 : expensesQ.data?.pageCount ?? 1;
   const totalSpend = FORCE_EMPTY_STATE_PREVIEW ? 0 : expensesQ.data?.totalAmount ?? 0;
+  const pageRows = expensesQ.data?.rows ?? EMPTY;
+  const prevRows = page > 1 ? prevPageQ.data?.rows ?? EMPTY : EMPTY;
+  // Income has no category, so a category filter hides it; and while an old
+  // page is still on screen, so is its income.
+  const visibleIncomes =
+    selectedCategory || expensesQ.isPlaceholderData || FORCE_EMPTY_STATE_PREVIEW
+      ? []
+      : incomesForPage(incomesQ.data ?? [], {
+          from: from ?? "0000-01-01",
+          to: to ?? "9999-12-31",
+          pageMin: pageRows.length > 0 ? pageRows[pageRows.length - 1].date : null,
+          prevPageMin: prevRows.length > 0 ? prevRows[prevRows.length - 1].date : null,
+          page,
+          isLastPage: page >= totalPages,
+          q: search,
+          account: selectedAccount || undefined,
+        });
+  const listItems = mergeByDate(filtered, visibleIncomes);
   // ponytail: with search + period "all" + no category, the server can't
   // filter item/notes in Mongo (they're encrypted) and falls back to an
   // unbounded JS scan for that one combo — same as this screen's own
@@ -315,11 +335,11 @@ export default function ActivityScreen() {
     // Reset pagination whenever any filter changes.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setPage(1);
-  }, [selectedDate, period, customRange.from, customRange.to, selectedCategory, search]);
+  }, [selectedDate, period, customRange.from, customRange.to, selectedCategory, selectedAccount, search]);
 
   // Which rows are on screen; a bulk delete that finishes after it changed
   // mustn't reselect its failures into a view that no longer shows them.
-  const viewKey = [page, selectedDate, period, customRange.from, customRange.to, selectedCategory, search].join("|");
+  const viewKey = [page, selectedDate, period, customRange.from, customRange.to, selectedCategory, selectedAccount, search].join("|");
   const viewKeyRef = useRef(viewKey);
   useEffect(() => {
     viewKeyRef.current = viewKey;
@@ -329,7 +349,7 @@ export default function ActivityScreen() {
     // rows picked earlier can't come back selected and get swept into a delete.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setSelectedKeys(new Set());
-  }, [page, selectedDate, period, customRange.from, customRange.to, selectedCategory, search]);
+  }, [page, selectedDate, period, customRange.from, customRange.to, selectedCategory, selectedAccount, search]);
 
   // Warms the next page's cache slot once the current page has loaded, so
   // "Next" reads from cache instead of waiting on a fetch.
@@ -339,11 +359,12 @@ export default function ActivityScreen() {
       page: page + 1,
       limit: PAGE_SIZE,
       category: selectedCategory || undefined,
+      account: selectedAccount || undefined,
       from,
       to,
       q: search.trim() || undefined,
     });
-  }, [expensesQ.data, page, totalPages, selectedCategory, from, to, search, qc]);
+  }, [expensesQ.data, page, totalPages, selectedCategory, selectedAccount, from, to, search, qc]);
 
   function openEdit(t: ExpenseRow) {
     setSheetTxn(null);
@@ -359,6 +380,7 @@ export default function ActivityScreen() {
         date: t.date,
         notes: t.notes,
         paymentMethod: t.payment_method,
+        accountId: t.account_id ?? "",
       },
     });
   }
@@ -597,11 +619,18 @@ export default function ActivityScreen() {
                   onRemove={() => setSelectedCategory("")}
                 />
               ) : null}
+              {accountFilterLabel ? (
+                <AppliedFilterChip
+                  label={accountFilterLabel}
+                  accessibilityLabel="Remove account filter"
+                  onRemove={() => setSelectedAccount("")}
+                />
+              ) : null}
             </Reanimated.View>
           </Reanimated.View>
         ) : null}
 
-        {totalCount === 0 ? (
+        {totalCount === 0 && visibleIncomes.length === 0 ? (
           <EmptyState
             style={styles.emptyState}
             mood={hasActiveFilters || search.trim() ? "searching" : "snoozing"}
@@ -613,7 +642,36 @@ export default function ActivityScreen() {
           />
         ) : (
           <View>
-            {filtered.map((txn) => {
+            {listItems.map((entry) => {
+              if (entry.kind === "income") {
+                const income = entry.income;
+                const account = accountName(accountsQ.data, income.account_id);
+                return (
+                  <Pressable
+                    key={`income-${income.id}`}
+                    onPress={() => router.push("/account/income")}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${income.label}, income. Open Income`}
+                    style={[styles.row, { backgroundColor: tokens.bg }]}
+                  >
+                    <View style={[styles.icon, { backgroundColor: tokens.mintSoft }]}>
+                      <Text style={{ fontSize: 15 }}>💰</Text>
+                    </View>
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <Text style={[styles.rowItem, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]} numberOfLines={1}>
+                        {income.label}
+                      </Text>
+                      <Text style={[styles.rowMeta, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]} numberOfLines={1}>
+                        {formatShortDate(income.date)} · Income{account ? ` · ${account}` : ""}
+                      </Text>
+                    </View>
+                    <Text style={[styles.rowAmount, { color: tokens.mint, fontFamily: fontFamily.bodySemiBold }]}>
+                      +{formatCurrency(Number(income.amount) || 0, hideAmounts)}
+                    </Text>
+                  </Pressable>
+                );
+              }
+              const txn = entry.txn;
               const avatarBg = avatarColorFor(txn.category, tokens);
               const isSelected = selectedKeys.has(keyOf(txn));
               const content = (
@@ -674,9 +732,7 @@ export default function ActivityScreen() {
                     style={[
                       styles.rowAmount,
                       {
-                        color: INCOME_CATEGORIES.has(txn.category)
-                          ? tokens.mint
-                          : tokens.text,
+                        color: tokens.text,
                         fontFamily: fontFamily.bodySemiBold,
                       },
                     ]}
@@ -725,7 +781,7 @@ export default function ActivityScreen() {
           </View>
         )}
 
-        {totalCount > 0 ? (
+        {totalCount > 0 || visibleIncomes.length > 0 ? (
           <View style={styles.footer}>
             <Text
               style={{
@@ -969,6 +1025,17 @@ export default function ActivityScreen() {
                 : "View All"}
             </Text>
           </Pressable>
+          {accountOptions.length > 0 && (
+            <View style={[styles.accountFilter, { borderTopColor: tokens.border }]}>
+              <AccountChips
+                accounts={accountOptions}
+                value={selectedAccount}
+                onChange={setSelectedAccount}
+                allowNone
+                label="Account"
+              />
+            </View>
+          )}
         </BottomSheet>
 
         <CategoryPickerSheet
@@ -1047,7 +1114,22 @@ function SheetOption({
   );
 }
 
+type ListItem = { kind: "expense"; txn: ExpenseRow } | { kind: "income"; income: IncomeRow };
+
+/** Expenses as the server ordered them (newest first), with income slotted in by date: ahead of that day's spends. */
+function mergeByDate(expenses: ExpenseRow[], incomes: IncomeRow[]): ListItem[] {
+  const pending = [...incomes].sort((a, b) => b.date.localeCompare(a.date));
+  const out: ListItem[] = [];
+  for (const txn of expenses) {
+    while (pending.length > 0 && pending[0].date >= txn.date) out.push({ kind: "income", income: pending.shift()! });
+    out.push({ kind: "expense", txn });
+  }
+  for (const income of pending) out.push({ kind: "income", income });
+  return out;
+}
+
 const styles = StyleSheet.create({
+  accountFilter: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 14, marginTop: 4 },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   scrollContent: { gap: 4 },
   scrollContentGrow: { flexGrow: 1 },

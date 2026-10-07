@@ -29,6 +29,49 @@ export interface ExpenseRow {
   amount: string
   description: string
   payment_method: string
+  /** One of the user's accounts, or '' / absent for an unlabelled row. */
+  account_id?: string
+}
+
+/** One payment that came in (Web/lib/income.ts). `counted: 'extra'` rows are part of their month's Ready to Assign; 'monthly' rows are a payday of the monthly income, already counted from day 1. */
+export interface IncomeRow {
+  id: string
+  version: number
+  date: string
+  amount: string
+  label: string
+  notes: string
+  account_id: string
+  recurring_id: string
+  source: 'manual' | 'recurring' | 'balance_gap' | string
+  counted: 'extra' | 'monthly' | string
+  created_at: string
+}
+
+/** A salary, a weekly gig, a yearly bonus. `next_run_date` is the server's; never recomputed here. */
+export interface RecurringIncomeRow {
+  id: string
+  label: string
+  amount: string
+  frequency: string
+  /** The first payday. */
+  start_date: string
+  end_date: string
+  next_run_date: string
+  account_id: string
+  status: string
+  created_at: string
+}
+
+export type AccountType = 'bank' | 'cash' | 'credit_card'
+
+/** A label for where money lives. No balance: the weekly balance check covers that. */
+export interface AccountRow {
+  id: string
+  name: string
+  type: AccountType
+  archived: boolean
+  created_at: string
 }
 
 export interface CategoryRow {

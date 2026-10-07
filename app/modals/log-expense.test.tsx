@@ -33,6 +33,12 @@ jest.mock('@/src/api/categoryMap', () => ({
   suggestCategoryLLM: jest.fn(),
 }))
 
+let mockAccounts: { id: string; name: string; type: string; archived: boolean; created_at: string }[] = []
+jest.mock('@/src/api/accounts', () => ({
+  ...jest.requireActual('@/src/api/accounts'),
+  getAccounts: jest.fn(async () => mockAccounts),
+}))
+
 const mockReplace = jest.fn()
 const mockBack = jest.fn()
 const mockPush = jest.fn()
@@ -66,6 +72,7 @@ function setup(params: Record<string, string> = {}, expenses: ExpenseRow[] = [],
 }
 
 beforeEach(() => {
+  mockAccounts = []
   clearLogExpenseDraft()
   jest.clearAllMocks()
   jest.useFakeTimers({ legacyFakeTimers: false })
@@ -496,4 +503,57 @@ it('offers category creation only inside the category picker', async () => {
   expect(utils.queryByLabelText('Add category in picker')).toBeNull()
   fireEvent.press(utils.getByLabelText('Category: Groceries'))
   expect(utils.getByLabelText('Add category in picker')).toBeTruthy()
+})
+
+describe('accounts', () => {
+  const row = (category: string, account_id: string, date: string): ExpenseRow => ({
+    id: `${category}-${date}`, version: 0, timestamp: `${date}T10:00:00`, date, item: 'x', amount_inr: '10', category, notes: '', source: 'manual', amount: '', description: '', payment_method: 'bank', account_id,
+  })
+
+  it("logs on the account the category is usually paid from", async () => {
+    mockAccounts = [
+      { id: 'hdfc', name: 'HDFC', type: 'bank', archived: false, created_at: '1' },
+      { id: 'card', name: 'Amex', type: 'credit_card', archived: false, created_at: '2' },
+    ]
+    ;(postExpensePayload as jest.Mock).mockResolvedValue({ id: 'srv1', timestamp: '2026-09-04T01:24:00' })
+    const utils = setup({}, [row('Groceries', 'card', '2026-09-01'), row('Groceries', 'card', '2026-09-02'), row('Rent', 'hdfc', '2026-09-03')])
+    await fillValidForm(utils)
+    fireEvent.press(utils.getByText('More'))
+    expect((await utils.findByLabelText('💳 Amex')).props.accessibilityState).toMatchObject({ checked: true })
+    await act(async () => {
+      ;(globalThis as any).__submit()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    expect((postExpensePayload as jest.Mock).mock.calls[0][0]).toMatchObject({ account_id: 'card' })
+  })
+
+  it('sends no account while the user has none', async () => {
+    ;(postExpensePayload as jest.Mock).mockResolvedValue({ id: 'srv1', timestamp: '2026-09-04T01:24:00' })
+    const utils = setup()
+    await fillValidForm(utils)
+    await act(async () => {
+      ;(globalThis as any).__submit()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    expect((postExpensePayload as jest.Mock).mock.calls[0][0]).not.toHaveProperty('account_id')
+  })
+
+  it("an edit that moves the row to another account sends only that change", async () => {
+    mockAccounts = [
+      { id: 'hdfc', name: 'HDFC', type: 'bank', archived: false, created_at: '1' },
+      { id: 'cash', name: 'Wallet', type: 'cash', archived: false, created_at: '2' },
+    ]
+    ;(updateExpense as jest.Mock).mockResolvedValue(undefined)
+    const utils = setup({ id: 'e1', version: '0', timestamp: '2026-09-04T10:00:00', item: 'Milk', amountInr: '450', category: 'Groceries', date: '2026-09-04', notes: '', paymentMethod: 'bank', accountId: 'hdfc' })
+    fireEvent.press(utils.getByText('More'))
+    fireEvent.press(await utils.findByLabelText('💵 Wallet'))
+    await act(async () => {
+      ;(globalThis as any).__submit()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    expect(updateExpense).toHaveBeenCalledWith('e1', '2026-09-04T10:00:00', 'Milk', 450, { new_account_id: 'cash' }, 0)
+  })
 })

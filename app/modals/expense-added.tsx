@@ -207,6 +207,7 @@ export default function ExpenseAddedScreen() {
   const date = str(params.date);
   const notes = str(params.notes);
   const paymentMethod = str(params.paymentMethod);
+  const accountId = str(params.accountId);
   const amount = Number(str(params.amount)) || 0;
   // Older servers return no timestamp on POST, which left the stamp line blank.
   // log-expense sends the moment it navigated as a fallback; it is only ever
@@ -327,6 +328,7 @@ export default function ExpenseAddedScreen() {
             date,
             notes,
             paymentMethod,
+            ...(accountId ? { accountId } : {}),
           },
         }),
       );
@@ -346,6 +348,7 @@ export default function ExpenseAddedScreen() {
               date,
               notes,
               paymentMethod,
+              ...(accountId ? { accountId } : {}),
             },
           }),
         onError: (err) =>

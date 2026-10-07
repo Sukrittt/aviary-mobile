@@ -1,4 +1,7 @@
 import { ExpenseNoticeScreen } from '@/src/features/log-expense/ExpenseNoticeScreen'
+import { liveAccounts, useAccounts } from "@/src/hooks/useAccounts";
+import { AccountChips } from "@/src/components/shared/AccountChips";
+import { defaultAccountFor } from "@/src/lib/defaultAccount";
 import { ExpenseConflictReview } from '@/src/features/log-expense/ExpenseConflictReview'
 import { AutoCategoryPill, MIN_SPIN_MS, PILL_MAX_WIDTH } from '@/src/features/log-expense/AutoCategoryPill'
 import { createThinkingGate, type ThinkingGate } from '@/src/lib/thinkingGate'
@@ -144,6 +147,13 @@ export default function LogExpenseScreen() {
   const [paymentMethod, setPaymentMethod] = useState<"bank" | "credit_card">(
     draft?.paymentMethod ?? (str(params.paymentMethod) === "credit_card" ? "credit_card" : "bank"),
   );
+  // null: follow the category's usual account (src/lib/defaultAccount.ts).
+  // An edit starts on the row's own account, even none.
+  const [accountPick, setAccountPick] = useState<string | null>(
+    draft?.accountId !== undefined ? draft.accountId : isEdit ? str(params.accountId) : str(params.accountId) || null,
+  );
+  const accounts = liveAccounts(useAccounts().data);
+  const accountId = accountPick ?? defaultAccountFor(expensesQ.data ?? [], category, accounts);
   const [base, setBase] = useState({ item: origItem, amount: String(origAmountInr), date: str(params.date).slice(0, 10), category: str(params.category) });
   const [expectedVersion, setExpectedVersion] = useState(str(params.version) === '' ? undefined : Number(str(params.version)));
   const [conflict, setConflict] = useState<ExpenseRow | null>(null);
@@ -233,8 +243,8 @@ export default function LogExpenseScreen() {
 
   useEffect(() => {
     if (!plainVisit || logSuccess) return;
-    setLogExpenseDraft({ amount: expr, item, category, categoryTouched, autoPicked, date, notes, paymentMethod });
-  }, [plainVisit, logSuccess, expr, item, category, categoryTouched, autoPicked, date, notes, paymentMethod]);
+    setLogExpenseDraft({ amount: expr, item, category, categoryTouched, autoPicked, date, notes, paymentMethod, accountId: accountPick });
+  }, [plainVisit, logSuccess, expr, item, category, categoryTouched, autoPicked, date, notes, paymentMethod, accountPick]);
 
   function handleItemChange(value: string) {
     if (value === item) return;
@@ -292,7 +302,10 @@ export default function LogExpenseScreen() {
       return;
     }
     if (isEdit) {
-      const updates = expenseChanges(base, { item, amount, date, category });
+      const updates = {
+        ...expenseChanges(base, { item, amount, date, category }),
+        ...(accounts.length > 0 && accountId !== str(params.accountId) ? { new_account_id: accountId } : {}),
+      };
       if (!Object.keys(updates).length) { setLogSuccess(true); return; }
       updateMutate(
         {
@@ -332,6 +345,7 @@ export default function LogExpenseScreen() {
           date,
           notes: notes.trim(),
           payment_method: paymentMethod,
+          ...(accountId ? { account_id: accountId } : {}),
           source: 'manual',
         },
         {
@@ -363,6 +377,7 @@ export default function LogExpenseScreen() {
                 date,
                 notes: notes.trim(),
                 paymentMethod,
+                ...(accountId ? { accountId } : {}),
               },
             };
             setLogSuccess(true);
@@ -382,12 +397,13 @@ export default function LogExpenseScreen() {
                 date,
                 notes: notes.trim(),
                 paymentMethod,
+                ...(accountId ? { accountId } : {}),
               },
             }),
         },
       );
     }
-  }, [canSubmit, unusual, unusualWarnedFor, base, amount, expectedVersion, isEdit, origId, origTimestamp, origItem, origAmountInr, item, parsedAmount, date, category, notes, paymentMethod, router, addMutate, updateMutate, autoPicked]);
+  }, [canSubmit, unusual, unusualWarnedFor, base, amount, expectedVersion, isEdit, origId, origTimestamp, origItem, origAmountInr, item, parsedAmount, date, category, notes, paymentMethod, accountId, accounts.length, params.accountId, router, addMutate, updateMutate, autoPicked]);
 
   // Publish only when the action or its visible state changes.
   useEffect(() => {
@@ -693,18 +709,24 @@ export default function LogExpenseScreen() {
                 { color: tokens.text3, fontFamily: fontFamily.bodySemiBold },
               ]}
             >
-              Payment Method
+              {accounts.length > 0 ? "Paid from" : "Payment Method"}
             </Text>
-            <View style={{ flexDirection: "row", gap: space.sm }}>
-              {(["bank", "credit_card"] as const).map((m) => (
-                <Chip
-                  key={m}
-                  selected={paymentMethod === m}
-                  label={m === "bank" ? "Bank/UPI" : "Credit Card"}
-                  onPress={() => setPaymentMethod(m)}
-                />
-              ))}
-            </View>
+            {accounts.length > 0 ? (
+              // Accounts replace the toggle once there are some; the server
+              // takes the payment method from the account's type.
+              <AccountChips accounts={accounts} value={accountId} onChange={setAccountPick} allowNone={isEdit && !accountId} showLabel={false} label="Paid from" />
+            ) : (
+              <View style={{ flexDirection: "row", gap: space.sm }}>
+                {(["bank", "credit_card"] as const).map((m) => (
+                  <Chip
+                    key={m}
+                    selected={paymentMethod === m}
+                    label={m === "bank" ? "Bank/UPI" : "Credit Card"}
+                    onPress={() => setPaymentMethod(m)}
+                  />
+                ))}
+              </View>
+            )}
           </View>
 
           <View style={{ gap: space.sm }}>
