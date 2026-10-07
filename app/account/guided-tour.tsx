@@ -37,7 +37,7 @@ export default function GuidedTourScreen() {
   const { tokens, radius, space, type } = useTheme()
   const insets = useSafeAreaInsets()
   const router = useRouter()
-  const completeGuidedTour = useCompleteGuidedTour()
+  const { mutate: completeGuidedTour } = useCompleteGuidedTour()
   // Read by exitTour to tell a skip from leaving the finished tour, without
   // making the back handler below re-register on every chapter change.
   const progress = useRef({ finished: false, chaptersDone: 0 })
@@ -69,16 +69,15 @@ export default function GuidedTourScreen() {
 
   useEffect(() => {
     track('tour_started', { fresh: false })
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- once per visit
   }, [])
 
   useEffect(() => {
     if (view === 'chapter') track('tour_step_viewed', { chapter })
     if (view === 'done') {
       track('tour_completed', { fresh: false })
-      completeGuidedTour.mutate()
+      completeGuidedTour()
     }
-  }, [view, chapter])
+  }, [view, chapter, completeGuidedTour])
   const firstOpen = CHAPTERS.findIndex((_, i) => !done.has(i))
   const current = CHAPTERS[chapter]
   const isLast = chapter === CHAPTERS.length - 1
