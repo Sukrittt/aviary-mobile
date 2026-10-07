@@ -1,18 +1,19 @@
 import { ExpenseWriteError } from '@/src/lib/expenseConflict'
 import type { ReactNode } from 'react'
-import { fireEvent } from '@testing-library/react-native'
+import { act, fireEvent } from '@testing-library/react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import type { ExpensesPage, ExpensesPageParams } from '@/src/api/expenses'
 import ActivityScreen from './activity'
 
 const mockUseExpensesPage = jest.fn()
 const mockDelete = jest.fn()
+const mockDeleteAsync = jest.fn()
 const mockPush = jest.fn()
 let mockDuplicates: unknown[] = []
 
 jest.mock('@/src/hooks/useExpenses', () => ({
   useExpensesPage: (params: ExpensesPageParams) => mockUseExpensesPage(params),
-  useDeleteExpense: () => ({ mutate: mockDelete }),
+  useDeleteExpense: () => ({ mutate: mockDelete, mutateAsync: mockDeleteAsync }),
   prefetchExpensesPage: jest.fn(),
   useDuplicates: () => ({ data: mockDuplicates }),
   // CategoryPickerSheet (rendered inside a BottomSheet) reads the base,
@@ -209,4 +210,60 @@ it.each([[409, 'This transaction was updated'], [404, 'This transaction is alrea
   fireEvent.press(screen.getByText('Back to transactions'))
   expect(screen.queryByText(String(title))).toBeNull()
   expect(mockDelete).toHaveBeenCalledTimes(1)
+})
+
+describe('multi-select delete', () => {
+  beforeEach(() => {
+    mockUseExpensesPage.mockReturnValue({
+      data: pageResult({ rows: [row(1, '2026-06-01'), row(2, '2026-06-02')], total: 2 }),
+      isLoading: false,
+      error: null,
+    })
+  })
+
+  it('long-press starts selection, select all, then deletes each row after one confirm', async () => {
+    mockDeleteAsync.mockReset().mockResolvedValue(undefined)
+    const screen = renderWithProviders(<ActivityScreen />)
+    fireEvent(screen.getByText('Item 1'), 'longPress')
+    expect(screen.getByText('1 selected')).toBeTruthy()
+    fireEvent.press(screen.getByText('Select all'))
+    expect(screen.getByText('2 selected')).toBeTruthy()
+    fireEvent.press(screen.getByLabelText('Delete selected'))
+    expect(screen.getByText('Delete 2 transactions')).toBeTruthy()
+    await act(async () => {
+      fireEvent.press(screen.getByText('Delete'))
+    })
+    expect(mockDeleteAsync).toHaveBeenCalledTimes(2)
+    expect(mockDeleteAsync).toHaveBeenCalledWith(expect.objectContaining({ id: 'row-1' }))
+    expect(mockDeleteAsync).toHaveBeenCalledWith(expect.objectContaining({ id: 'row-2' }))
+    expect(screen.getByText('Activity')).toBeTruthy()
+    expect(screen.queryByText('Item 1')).toBeNull()
+  })
+
+  it('tapping the only selected row ends selection without opening the action sheet', () => {
+    const screen = renderWithProviders(<ActivityScreen />)
+    fireEvent(screen.getByText('Item 1'), 'longPress')
+    fireEvent.press(screen.getByText('Item 1'))
+    expect(screen.getByText('Activity')).toBeTruthy()
+    expect(screen.queryByText('Edit')).toBeNull()
+  })
+
+  it('brings failed rows back, still selected, with a friendly message', async () => {
+    mockDeleteAsync.mockReset()
+      .mockResolvedValueOnce(undefined)
+      .mockRejectedValueOnce(new ExpenseWriteError(409, 'Raw API error'))
+    const screen = renderWithProviders(<ActivityScreen />)
+    fireEvent(screen.getByText('Item 1'), 'longPress')
+    fireEvent.press(screen.getByText('Select all'))
+    fireEvent.press(screen.getByLabelText('Delete selected'))
+    await act(async () => {
+      fireEvent.press(screen.getByText('Delete'))
+    })
+    expect(screen.getByText('This transaction was updated')).toBeTruthy()
+    expect(screen.queryByText('Raw API error')).toBeNull()
+    fireEvent.press(screen.getByText('Back to transactions'))
+    expect(screen.getByText('1 selected')).toBeTruthy()
+    expect(screen.queryByText('Item 1')).toBeNull()
+    expect(screen.getByText('Item 2')).toBeTruthy()
+  })
 })
