@@ -2,6 +2,7 @@ import {
   selectRows,
   selectChips,
   selectToday,
+  todayTotal,
   toWidgetData,
   headerRightLabel,
   weeklyTrend,
@@ -185,6 +186,18 @@ describe("selectChips", () => {
   });
 });
 
+describe("todayTotal", () => {
+  it("sums today's spends only, as money", () => {
+    const expenses: ExpenseRow[] = [
+      expense("2026-08-05T09:00:00.000Z", "2026-08-05", "🍔 Food", "420", "Blue Tokai"),
+      expense("2026-08-05T11:00:00.000Z", "2026-08-05", "🛒 Groceries", "754.4", "Zepto"),
+      expense("2026-08-04T10:00:00.000Z", "2026-08-04", "🍔 Food", "999", "Yesterday"),
+    ];
+    expect(todayTotal(expenses, "2026-08-05")).toBe("₹1,174");
+    expect(todayTotal(expenses, "2026-08-06")).toBe("₹0");
+  });
+});
+
 describe("selectToday", () => {
   const expenses: ExpenseRow[] = [
     expense(
@@ -252,8 +265,9 @@ describe("headerRightLabel", () => {
 describe("layoutFor", () => {
   it("shows the full layout at the tall end of the resizable range", () => {
     expect(layoutFor(250, 320)).toEqual({
-      rows: 5,
-      today: 3,
+      rows: 4,
+      today: 1,
+      pills: true,
       buttons: 3,
       actionHeight: 48,
     });
@@ -261,8 +275,9 @@ describe("layoutFor", () => {
 
   it("drops a row and a today line in the upper-middle band", () => {
     expect(layoutFor(250, 270)).toEqual({
-      rows: 4,
-      today: 2,
+      rows: 3,
+      today: 0,
+      pills: true,
       buttons: 3,
       actionHeight: 48,
     });
@@ -270,17 +285,19 @@ describe("layoutFor", () => {
 
   it("drops today entirely and shrinks the action row in the lower-middle band", () => {
     expect(layoutFor(250, 220)).toEqual({
-      rows: 3,
+      rows: 2,
       today: 0,
+      pills: false,
       buttons: 3,
       actionHeight: 40,
     });
   });
 
-  it("drops to 2 rows when short", () => {
+  it("drops to 1 row when short", () => {
     expect(layoutFor(250, 180)).toEqual({
-      rows: 2,
+      rows: 1,
       today: 0,
+      pills: false,
       buttons: 3,
       actionHeight: 40,
     });
@@ -290,6 +307,7 @@ describe("layoutFor", () => {
     expect(layoutFor(250, 120)).toEqual({
       rows: 0,
       today: 0,
+      pills: false,
       buttons: 3,
       actionHeight: 40,
     });

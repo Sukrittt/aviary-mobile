@@ -8,7 +8,8 @@
 //
 // Playwright isn't a dependency of the app. Run with it on hand:
 //   npx -p playwright npm run widget-previews
-// Pass --sheet to also write every mood in both themes to .out/sheet.png.
+// Pass --sheet to also write every mood in both themes to .out/sheet.png;
+// SHEET_NAMES=envelopemini,envelope narrows it to those widgets.
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -145,7 +146,7 @@ if (process.argv.includes('--sheet')) {
   const moods = ['ok', 'tight', 'over', 'stale']
   const cells = []
   for (const scheme of ['light', 'dark']) {
-    for (const name of ['envelopemini', 'envelopebar', 'envelope']) {
+    for (const name of process.env.SHEET_NAMES?.split(',') ?? [...new Set(trees.map((t) => t.name))]) {
       for (const mood of moods) {
         const t = trees.find((x) => x.name === name && x.scheme === scheme && x.mood === mood)
         cells.push(`<div style="display:flex;flex-direction:column;gap:6px;align-items:flex-start"><div style="font:12px sans-serif;color:#bbb">${name} · ${scheme} · ${mood}</div><div style="width:${t.width}px;height:${t.height}px;display:flex;flex-direction:column">${render(t.tree, 'column')}</div></div>`)
