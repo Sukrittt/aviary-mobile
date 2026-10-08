@@ -29,7 +29,9 @@ import { clearSnapshot } from '@/src/widgets/snapshot'
 import { WidgetSync, lockWidgets } from '@/src/widgets/WidgetSync'
 import { useAccessAllowed } from '@/src/hooks/useBillingStatus'
 import { onAiAllowanceExceeded } from '@/src/lib/aiAllowance'
-import { QueryClient,QueryClientProvider } from '@tanstack/react-query'
+import { QueryClient } from '@tanstack/react-query'
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client'
+import { PERSIST_MAX_AGE, persistOptions, queryPersister } from '@/src/lib/queryPersist'
 import { setAudioModeAsync } from 'expo-audio'
 import { Stack,useGlobalSearchParams,usePathname,useRouter,useSegments,type Href } from 'expo-router'
 import * as SplashScreen from 'expo-splash-screen'
@@ -55,8 +57,10 @@ function isAuthError(error: unknown): boolean {
   return /: 401\b/.test(message) || /: 403\b/.test(message)
 }
 
+// gcTime matches the persisted maxAge: an unused query outliving the 5 min
+// default is what makes going back to a tab instant instead of a spinner.
 const queryClient = new QueryClient({
-  defaultOptions: { queries: { retry: 1 } },
+  defaultOptions: { queries: { retry: 1, gcTime: PERSIST_MAX_AGE } },
 })
 
 /**
@@ -91,13 +95,15 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
   const [justOnboarded, setJustOnboarded] = useState(false)
 
   useEffect(() => {
+    // initAccessMode notifies the subscriber below when it restores the saved
+    // session. That's the same user as the cache restored from disk (logout
+    // wipes both), so that one notification must not clear it.
+    let restoringSession = true
     initAccessMode().then((restored) => {
+      restoringSession = false
       setHasSession(restored !== null)
       setAuthReady(true)
-      // Hydrate the offline category picker instantly from disk, after the
-      // sign-in notification above has already cleared the query cache for
-      // this boot — hydrating any earlier would just get wiped by that clear.
-      // React Query revalidates in the background once online (staleTime
+      // Hydrate the offline category picker instantly from disk. React Query revalidates in the background once online (staleTime
       // already 30s), so this is a fast first paint, not a stale-forever cache.
       if (restored) {
         readCategoryCache().then((cached) => cached && queryClient.setQueryData(['categories'], cached))
@@ -114,7 +120,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
       // keyed without a user id, so switching identity (guest <-> real,
       // or a different account) must drop it all or the new identity sees
       // the previous one's data until staleTime happens to expire.
-      queryClient.clear()
+      if (!restoringSession) queryClient.clear()
       clearLogExpenseDraft()
       // Fire-and-forget: registration failures must never block app usage.
       if (m === 'real') registerForPushNotificationsAsync()
@@ -129,7 +135,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
       // for the same reasoning applied to the hide-amounts preference).
       // Offline expense queues stay: they're keyed by user id, so only that
       // account can sync them when it signs back in.
-      await Promise.allSettled([clearSnapshot(), clearCategoryCache(), clearGroupCache(), unregisterDevicePushToken(token), cancelHabitNudges()])
+      await Promise.allSettled([queryPersister.removeClient(), clearSnapshot(), clearCategoryCache(), clearGroupCache(), unregisterDevicePushToken(token), cancelHabitNudges()])
     })
     return () => {
       unsubscribe()
@@ -427,13 +433,13 @@ function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <QueryClientProvider client={queryClient}>
+        <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
           <ThemeProvider>
             <PrivacyProvider><LogExpenseSubmitProvider>
               <RootNavigator fontsLoaded={fontsLoaded} />
             </LogExpenseSubmitProvider></PrivacyProvider>
           </ThemeProvider>
-        </QueryClientProvider>
+        </PersistQueryClientProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   )
