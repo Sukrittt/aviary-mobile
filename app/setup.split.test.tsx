@@ -26,7 +26,7 @@ function toCategoriesStep() {
   const utils = renderWithProviders(<SetupScreen />)
   fireEvent.press(utils.getByText('Continue')) // currency
   fireEvent.press(utils.getByText('₹50,000'))
-  fireEvent.press(utils.getByText('Continue')) // income
+  fireEvent.press(utils.getByText('Pick my own groups and categories')) // income
   fireEvent.press(utils.getByText('Continue')) // groups
   return utils
 }
