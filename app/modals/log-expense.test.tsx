@@ -79,7 +79,7 @@ afterEach(() => {
 
 async function fillValidForm(utils: ReturnType<typeof setup>) {
   const { getByPlaceholderText, getByLabelText, getByText, findByText } = utils
-  fireEvent.changeText(getByPlaceholderText('Name (optional)'), 'Milk')
+  fireEvent.changeText(getByPlaceholderText('What was it for?'), 'Milk')
   fireEvent.press(getByLabelText('4'))
   fireEvent.press(getByLabelText('5'))
   fireEvent.press(getByLabelText('0'))
@@ -190,7 +190,7 @@ it('names what is still missing when an incomplete submit is blocked', async () 
   expect(await findByText('Pick a category')).toBeTruthy()
 })
 
-it('saves a blank "Name (optional)" under the category name', async () => {
+it('saves a blank "What was it for?" under the category name', async () => {
   ;(postExpensePayload as jest.Mock).mockResolvedValue({ id: 'srv1', timestamp: '2026-09-04T01:24:00' })
   const utils = setup()
   fireEvent.press(utils.getByLabelText('4'))
@@ -216,7 +216,7 @@ it('preserves an edit draft on conflict and only reapplies changed fields after 
   ;(updateExpense as jest.Mock).mockRejectedValueOnce(new ExpenseWriteError(409, 'Changed on another device', {
     id: 'srv1', version: 1, item: 'Lunch', amount_inr: '150', date: '2026-09-18', category: 'Groceries',
   } as ExpenseRow)).mockResolvedValueOnce(undefined)
-  fireEvent.changeText(utils.getByPlaceholderText('Name (optional)'), 'Dinner')
+  fireEvent.changeText(utils.getByPlaceholderText('What was it for?'), 'Dinner')
   await act(async () => { (globalThis as any).__submit(); await Promise.resolve(); await Promise.resolve() })
   await act(async () => { jest.advanceTimersByTime(1) })
   expect(utils.getByText('This transaction was updated')).toBeTruthy()
@@ -231,13 +231,13 @@ it('preserves an edit draft on conflict and only reapplies changed fields after 
 it('keeps the draft and shows a deleted-elsewhere message', async () => {
   const utils = setup({ id: 'srv1', version: '0', timestamp: 'ts', item: 'Lunch', amountInr: '100', category: 'Groceries', date: '2026-09-18' })
   ;(updateExpense as jest.Mock).mockRejectedValueOnce(new ExpenseWriteError(404, 'This transaction was deleted on another device.'))
-  fireEvent.changeText(utils.getByPlaceholderText('Name (optional)'), 'Dinner')
+  fireEvent.changeText(utils.getByPlaceholderText('What was it for?'), 'Dinner')
   await act(async () => { (globalThis as any).__submit(); await Promise.resolve(); await Promise.resolve() })
   await act(async () => { jest.advanceTimersByTime(1) })
   expect(utils.getByText('This transaction is already deleted')).toBeTruthy()
   expect(utils.queryByText('This transaction was deleted on another device.')).toBeNull()
   fireEvent.press(utils.getByText('Back to my draft'))
-  expect(utils.getByPlaceholderText('Name (optional)').props.value).toBe('Dinner')
+  expect(utils.getByPlaceholderText('What was it for?').props.value).toBe('Dinner')
   ;(updateExpense as jest.Mock).mockClear()
   await act(async () => { (globalThis as any).__submit() })
   expect(updateExpense).not.toHaveBeenCalled()
@@ -248,14 +248,14 @@ it('uses the latest version to prefill the editor without saving automatically',
   ;(updateExpense as jest.Mock).mockRejectedValueOnce(new ExpenseWriteError(409, 'Changed elsewhere', {
     id: 'srv1', version: 2, item: 'Lunch', amount_inr: '150', date: '2026-09-18', category: 'Groceries',
   } as ExpenseRow)).mockResolvedValueOnce(undefined)
-  fireEvent.changeText(utils.getByPlaceholderText('Name (optional)'), 'Dinner')
+  fireEvent.changeText(utils.getByPlaceholderText('What was it for?'), 'Dinner')
   await act(async () => { (globalThis as any).__submit(); await Promise.resolve(); await Promise.resolve() })
   await act(async () => { jest.advanceTimersByTime(1) })
   fireEvent.press(utils.getByText('Use latest instead'))
-  expect(utils.getByPlaceholderText('Name (optional)').props.value).toBe('Lunch')
+  expect(utils.getByPlaceholderText('What was it for?').props.value).toBe('Lunch')
   expect(utils.queryByText('This transaction was updated')).toBeNull()
   expect(updateExpense).toHaveBeenCalledTimes(1)
-  fireEvent.changeText(utils.getByPlaceholderText('Name (optional)'), 'Coffee')
+  fireEvent.changeText(utils.getByPlaceholderText('What was it for?'), 'Coffee')
   await act(async () => { (globalThis as any).__submit(); await Promise.resolve(); await Promise.resolve() })
   expect(updateExpense).toHaveBeenLastCalledWith('srv1', 'ts', 'Lunch', 100, { new_item: 'Coffee' }, 2)
 })
@@ -265,11 +265,11 @@ it('returns from review with the draft and original version intact until a choic
   ;(updateExpense as jest.Mock).mockRejectedValue(new ExpenseWriteError(409, 'Changed elsewhere', {
     id: 'srv1', version: 1, item: 'Lunch', amount_inr: '150', date: '2026-09-18', category: 'Groceries',
   } as ExpenseRow))
-  fireEvent.changeText(utils.getByPlaceholderText('Name (optional)'), 'Dinner')
+  fireEvent.changeText(utils.getByPlaceholderText('What was it for?'), 'Dinner')
   await act(async () => { (globalThis as any).__submit(); await Promise.resolve(); await Promise.resolve() })
   await act(async () => { jest.advanceTimersByTime(1) })
   fireEvent.press(utils.getByLabelText('Back to editing'))
-  expect(utils.getByPlaceholderText('Name (optional)').props.value).toBe('Dinner')
+  expect(utils.getByPlaceholderText('What was it for?').props.value).toBe('Dinner')
   expect(updateExpense).toHaveBeenCalledTimes(1)
   await act(async () => { (globalThis as any).__submit(); await Promise.resolve(); await Promise.resolve() })
   await act(async () => { jest.advanceTimersByTime(1) })
@@ -304,7 +304,7 @@ it('predicts again when a new expense name changes after a manual category choic
   fireEvent.press(await utils.findByText(/Eating out/))
   expect(utils.getByLabelText('Category: Eating out')).toBeTruthy()
 
-  fireEvent.changeText(utils.getByPlaceholderText('Name (optional)'), 'house rent')
+  fireEvent.changeText(utils.getByPlaceholderText('What was it for?'), 'house rent')
   expect(utils.queryByLabelText('Category: Eating out')).toBeNull()
   await act(async () => { jest.advanceTimersByTime(300) })
   expect(suggestCategoryLLM).toHaveBeenCalledWith('house rent', ['Eating out', 'Rent'])
@@ -318,11 +318,11 @@ it('clears an earlier auto-pick while predicting a different new expense name', 
   ;(suggestCategoryLLM as jest.Mock).mockResolvedValueOnce('Eating out')
     .mockImplementationOnce(() => new Promise<string>((r) => { answer = r }))
   await act(async () => { await Promise.resolve(); await Promise.resolve() })
-  fireEvent.changeText(utils.getByPlaceholderText('Name (optional)'), 'coffee')
+  fireEvent.changeText(utils.getByPlaceholderText('What was it for?'), 'coffee')
   await act(async () => { jest.advanceTimersByTime(300); await Promise.resolve() })
   expect(utils.getByLabelText('Category: Eating out, picked for you')).toBeTruthy()
 
-  fireEvent.changeText(utils.getByPlaceholderText('Name (optional)'), 'house rent')
+  fireEvent.changeText(utils.getByPlaceholderText('What was it for?'), 'house rent')
   expect(utils.queryByLabelText('Category: Eating out, picked for you')).toBeNull()
   await act(async () => { jest.advanceTimersByTime(300) })
   expect(suggestCategoryLLM).toHaveBeenLastCalledWith('house rent', ['Eating out', 'Rent'])
@@ -335,7 +335,7 @@ it('keeps a manual choice made during prediction until the name changes again', 
   const utils = setup({}, [], [{ name: 'Eating out', group: 'Food' }, { name: 'Rent', group: 'Food' }])
   ;(suggestCategoryLLM as jest.Mock).mockImplementation(() => new Promise<string>((r) => { answer = r }))
   await act(async () => { await Promise.resolve(); await Promise.resolve() })
-  fireEvent.changeText(utils.getByPlaceholderText('Name (optional)'), 'dinner')
+  fireEvent.changeText(utils.getByPlaceholderText('What was it for?'), 'dinner')
   await act(async () => { jest.advanceTimersByTime(300) })
   fireEvent.press(utils.getByLabelText('Category'))
   fireEvent.press(await utils.findByText(/Rent/))
@@ -351,7 +351,7 @@ it('shows the pill picking while the AI looks up a category, then lands on its a
   // Wait for the category map to load; the suggest effect waits on it.
   await act(async () => { await Promise.resolve(); await Promise.resolve() })
 
-  fireEvent.changeText(getByPlaceholderText('Name (optional)'), 'weekly shop')
+  fireEvent.changeText(getByPlaceholderText('What was it for?'), 'weekly shop')
   await act(async () => { jest.advanceTimersByTime(300 + 150) })
   expect(getByText('Picking…')).toBeTruthy()
 
@@ -374,7 +374,7 @@ it('lands on Miscellaneous, not marked as picked for you, when the AI finds noth
   const { getByPlaceholderText, findByText, getByText, queryByText, getByLabelText } = utils
   await act(async () => { await Promise.resolve(); await Promise.resolve() })
 
-  fireEvent.changeText(getByPlaceholderText('Name (optional)'), 'random thing')
+  fireEvent.changeText(getByPlaceholderText('What was it for?'), 'random thing')
   await act(async () => { jest.advanceTimersByTime(300 + 150) })
   expect(getByText('Picking…')).toBeTruthy()
 
@@ -390,7 +390,7 @@ it('adds up an amount on the keypad and saves the total', async () => {
   ;(postExpensePayload as jest.Mock).mockResolvedValue({ id: 'srv1', timestamp: '2026-09-04T01:24:00' })
   const utils = setup()
   const { getByLabelText, getByPlaceholderText, getByText, findByText } = utils
-  fireEvent.changeText(getByPlaceholderText('Name (optional)'), 'Milk')
+  fireEvent.changeText(getByPlaceholderText('What was it for?'), 'Milk')
   fireEvent.press(getByLabelText('Calculator'))
   for (const k of ['1', '5', '+', '5', '.', '5', '÷', '2']) fireEvent.press(getByLabelText(k))
   expect(getByText('20.5 ÷ 2')).toBeTruthy()
@@ -426,12 +426,12 @@ it('keeps a half-filled expense across leaving and coming back, until it is logg
 
 it('leaves a half-filled expense alone while a prefilled entry is open', async () => {
   const plain = setup()
-  fireEvent.changeText(plain.getByPlaceholderText('Name (optional)'), 'Milk')
+  fireEvent.changeText(plain.getByPlaceholderText('What was it for?'), 'Milk')
   plain.unmount()
 
   const prefilled = setup({ item: 'Bread', amountInr: '40' })
   expect(prefilled.getByDisplayValue('Bread')).toBeTruthy()
-  fireEvent.changeText(prefilled.getByPlaceholderText('Name (optional)'), 'Bread and eggs')
+  fireEvent.changeText(prefilled.getByPlaceholderText('What was it for?'), 'Bread and eggs')
   prefilled.unmount()
 
   expect(getLogExpenseDraft()?.item).toBe('Milk')
@@ -458,7 +458,7 @@ it('creates a category from a populated picker, closes the modal and uses it for
   expect(utils.queryByPlaceholderText('New category name')).toBeNull()
   expect(utils.queryByText('Choose a category')).toBeNull()
   expect(utils.getByLabelText('Category: Gym')).toBeTruthy()
-  expect(utils.getByPlaceholderText('Name (optional)').props.value).toBe('Milk')
+  expect(utils.getByPlaceholderText('What was it for?').props.value).toBe('Milk')
   await act(async () => { (globalThis as any).__submit() })
   expect(postExpensePayload).toHaveBeenCalledWith(expect.objectContaining({ item: 'Milk', amount_inr: '450', category: '🏋️ Gym' }), 0)
 })

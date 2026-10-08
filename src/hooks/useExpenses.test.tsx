@@ -128,7 +128,7 @@ describe('expense analytics', () => {
     const { result } = renderHook(() => useAddExpense(), { wrapper: wrapper(client()) })
     result.current.mutate({ item: 'Therapy', amount_inr: '2500', category: '🧠 Therapy', payment_method: 'bank', notes: ' ' })
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    // Named after its category: what a blank "Name (optional)" saves as.
+    // Named after its category: what a blank "What was it for?" saves as.
     expect(trackFirst).toHaveBeenCalledWith('expense_logged', 'first_expense_at', { payment_method: 'bank', has_notes: false, named: false })
   })
 

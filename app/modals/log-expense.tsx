@@ -611,7 +611,7 @@ export default function LogExpenseScreen() {
           <TextInput
             value={item}
             onChangeText={handleItemChange}
-            placeholder="Name (optional)"
+            placeholder="What was it for?"
             placeholderTextColor={onAccentDim}
             style={[
               styles.itemInput,
