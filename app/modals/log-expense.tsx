@@ -644,9 +644,7 @@ export default function LogExpenseScreen() {
             }
             thinking={suggesting}
             auto={autoPicked}
-            // Empty and not mid-pick, the pill is the field to fill: it wears
-            // the white "look here" style, not just after a blocked save.
-            highlighted={flag("category") || (!category && !suggesting)}
+            highlighted={flag("category")}
             rollEmojis={rollEmojis}
             onPress={() => setPickerOpen(true)}
           />
