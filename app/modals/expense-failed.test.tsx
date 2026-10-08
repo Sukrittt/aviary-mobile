@@ -1,3 +1,4 @@
+import { setOnline } from '@/src/lib/netStatus'
 import ExpenseAddedScreen from './expense-added'
 import { enqueue, remove } from '@/src/lib/pendingExpenses'
 import { fireEvent, waitFor } from '@testing-library/react-native'
@@ -16,7 +17,13 @@ jest.mock('@/src/api/expenses', () => ({
   deleteExpense: jest.fn(),
 }))
 
-jest.mock('@/src/lib/pendingExpenses', () => ({ enqueue: jest.fn(), remove: jest.fn(async () => {}) }))
+jest.mock('@/src/lib/pendingExpenses', () => ({
+  enqueue: jest.fn(), remove: jest.fn(async () => {}),
+  syncReceipt: jest.fn(async () => undefined),
+  list: jest.fn(async () => [{ payload: { client_id: 'client-1' }, submitted: false }]),
+  listFailed: jest.fn(async () => []),
+}))
+jest.mock('@/src/api/accessMode', () => ({ ...jest.requireActual('@/src/api/accessMode'), currentUserId: jest.fn(() => 'user_1') }))
 jest.mock('@/src/api/budgets', () => ({ getBudgets: jest.fn(async () => []) }))
 jest.mock('expo-audio', () => ({ useAudioPlayer: () => ({ play: jest.fn(), pause: jest.fn() }) }))
 jest.mock('@/src/lib/reviewPrompt', () => ({ recordLogAndMaybeAsk: jest.fn(async () => false) }))
@@ -52,7 +59,10 @@ function setup(overrides: Partial<typeof BASE_PARAMS> = {}) {
   return renderWithProviders(<ExpenseFailedScreen />)
 }
 
+afterEach(() => setOnline(true))
+
 beforeEach(() => {
+  setOnline(true)
   jest.clearAllMocks()
 })
 
@@ -146,6 +156,7 @@ it.each([false, true])('preserves Retry create metadata and supports Undo (offli
   )
   ;(deleteExpense as jest.Mock).mockResolvedValue(undefined)
   const failed = setup()
+  if (offline) { setOnline(false); setOnline(false) }
   fireEvent.press(failed.getByText('Retry'))
   await waitFor(() => expect(mockReplace).toHaveBeenCalled())
   mockParams = mockReplace.mock.calls[0][0].params
@@ -165,7 +176,7 @@ it.each([false, true])('preserves Retry create metadata and supports Undo (offli
   fireEvent.press(success.getByText('Undo'))
   await waitFor(() => expect(mockReplace).toHaveBeenCalled())
   if (offline) {
-    expect(remove).toHaveBeenCalledWith('client-1')
+    expect((remove as jest.Mock).mock.calls[0][0]).toBe('client-1')
     expect(deleteExpense).not.toHaveBeenCalled()
   } else {
     expect(deleteExpense).toHaveBeenCalledWith('retry-row', '2026-10-08T10:00:00', 'Milk', 450, 7)

@@ -1,3 +1,4 @@
+import { setOnline } from '@/src/lib/netStatus'
 import ExpenseAddedScreen from './expense-added'
 import { enqueue, remove } from '@/src/lib/pendingExpenses'
 import { act, fireEvent, waitFor } from '@testing-library/react-native'
@@ -34,7 +35,13 @@ jest.mock('@/src/api/expenses', () => ({
 }))
 jest.mock('@/src/api/scan', () => ({ scanBill: jest.fn() }))
 jest.mock('@/src/api/bills', () => ({ saveBillScan: jest.fn() }))
-jest.mock('@/src/lib/pendingExpenses', () => ({ enqueue: jest.fn(), remove: jest.fn(async () => {}) }))
+jest.mock('@/src/lib/pendingExpenses', () => ({
+  enqueue: jest.fn(), remove: jest.fn(async () => {}),
+  syncReceipt: jest.fn(async () => undefined),
+  list: jest.fn(async () => [{ payload: { client_id: 'client-1' }, submitted: false }]),
+  listFailed: jest.fn(async () => []),
+}))
+jest.mock('@/src/api/accessMode', () => ({ ...jest.requireActual('@/src/api/accessMode'), currentUserId: jest.fn(() => 'user_1') }))
 jest.mock('@/src/api/budgets', () => ({ getBudgets: jest.fn(async () => []) }))
 jest.mock('expo-audio', () => ({ useAudioPlayer: () => ({ play: jest.fn(), pause: jest.fn() }) }))
 jest.mock('@/src/lib/reviewPrompt', () => ({ recordLogAndMaybeAsk: jest.fn(async () => false) }))
@@ -72,7 +79,10 @@ async function flushCategories() {
   }
 }
 
+afterEach(() => setOnline(true))
+
 beforeEach(() => {
+  setOnline(true)
   jest.clearAllMocks()
   ;(getCategories as jest.Mock).mockResolvedValue(CATEGORIES)
   ;(getGroups as jest.Mock).mockResolvedValue(['Essentials'])
@@ -280,6 +290,7 @@ it.each([false, true])('preserves scan create metadata and supports Undo (offlin
   const screen = renderWithProviders(<ScanBillScreen />)
   await flushCategories()
   await waitFor(() => expect(screen.getByText('Review ₹880 →')).toBeTruthy())
+  if (offline) { setOnline(false); setOnline(false) }
   fireEvent.press(screen.getByText('Review ₹880 →'))
   fireEvent.press(screen.getByText('Log ₹880 to Groceries'))
   await waitFor(() => expect(mockReplace).toHaveBeenCalled())
@@ -306,7 +317,7 @@ it.each([false, true])('preserves scan create metadata and supports Undo (offlin
   fireEvent.press(success.getByText('Undo'))
   await waitFor(() => expect(mockReplace).toHaveBeenCalled())
   if (offline) {
-    expect(remove).toHaveBeenCalledWith('client-1')
+    expect((remove as jest.Mock).mock.calls[0][0]).toBe('client-1')
     expect(deleteExpense).not.toHaveBeenCalled()
   } else {
     expect(deleteExpense).toHaveBeenCalledWith('scan-row', '2026-10-08T10:00:00', 'Blinkit', 880, 7)
