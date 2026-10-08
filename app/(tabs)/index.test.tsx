@@ -141,9 +141,9 @@ describe('HomeScreen · Ready to Assign', () => {
   it('shows DB-backed getting-started progress and opens each unfinished step', async () => {
     const { getByText, findByText } = renderHome()
 
-    expect(await findByText('2/4')).toBeTruthy()
+    expect(await findByText('1/4')).toBeTruthy()
     expect(getByText('Set up your budget')).toBeTruthy()
-    expect(getByText('Fund your envelopes')).toBeTruthy()
+    expect(getByText('₹15,000 still to assign')).toBeTruthy()
     fireEvent.press(getByText('Add a manual transaction'))
     expect(mockPush).toHaveBeenLastCalledWith('/modals/log-expense')
     fireEvent.press(getByText('Take a guided tour'))
@@ -170,7 +170,11 @@ describe('HomeScreen · Ready to Assign', () => {
     ;(SecureStore.getItemAsync as jest.Mock).mockImplementation(() => Promise.resolve(null))
   })
 
-  it('removes Get Started once both remaining milestones are complete', () => {
+  it('removes Get Started once every step is complete', () => {
+    mockBudgets = [
+      { month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' },
+      { month: MONTH, category: 'Food', assigned: '20000', rolled_over: '0' },
+    ]
     mockUser = {
       onboardedAt: '2026-10-01T00:00:00.000Z',
       getStartedAt: '2026-10-01T00:00:00.000Z',
@@ -206,16 +210,28 @@ describe('HomeScreen · Ready to Assign', () => {
   })
 
   // Income alone leaves every envelope at zero, so the next step is assigning it.
-  it('asks to fund envelopes once income is in, opening the first envelope', async () => {
+  it('asks to assign all of the income, opening the next empty envelope', async () => {
     mockBudgets = [
       { month: MONTH, category: '__income__', assigned: '50000', rolled_over: '0' },
       { month: MONTH, category: 'Food', assigned: '0', rolled_over: '0' },
     ]
-    const { findByText } = renderHome()
+    const { findByText, getByText } = renderHome()
     expect(await findByText('1/4')).toBeTruthy()
+    expect(getByText('₹50,000 still to assign')).toBeTruthy()
+    expect(getByText('Tap an envelope below to give this a job')).toBeTruthy()
 
-    fireEvent.press(await findByText('Fund your envelopes'))
+    fireEvent.press(getByText('Assign all your income'))
     expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/modals/edit-assigned-amount', params: { category: 'Food' } })
+  })
+
+  it('ticks the assign step once Ready to Assign hits zero', async () => {
+    mockBudgets = [
+      { month: MONTH, category: '__income__', assigned: '50000', rolled_over: '0' },
+      { month: MONTH, category: 'Food', assigned: '50000', rolled_over: '0' },
+    ]
+    const { findByText, queryByText } = renderHome()
+    expect(await findByText('2/4')).toBeTruthy()
+    expect(queryByText('Tap an envelope below to give this a job')).toBeNull()
   })
 
   it('shows a retryable error screen instead of raw error text when a query fails', () => {

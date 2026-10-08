@@ -10,6 +10,8 @@ import { fontFamily } from '@/src/theme/fonts'
 type Props = {
   incomeDone: boolean
   fundDone: boolean
+  /** Live remainder, e.g. "₹49,920 still to assign"; falls back to a generic hint. */
+  fundHint?: string
   manualTransactionDone: boolean
   guidedTourDone: boolean
   onAddIncome: () => void
@@ -24,12 +26,13 @@ type Step = { key: string; icon: LucideIcon; label: string; hint: string; done: 
 /**
  * A short, finite runway into the product. Setup is complete before Home is
  * reachable, but it can skip income, so the first step stays open until the
- * envelopes have money to hold, and the second until some of it is assigned.
+ * envelopes have money to hold, and the second until all of it is assigned.
  * The last two milestones are server-owned and survive devices. Skipping is a per-device choice, owned by the caller.
  */
 export function GetStartedCard({
   incomeDone,
   fundDone,
+  fundHint,
   manualTransactionDone,
   guidedTourDone,
   onAddIncome,
@@ -54,8 +57,8 @@ export function GetStartedCard({
     {
       key: 'fund',
       icon: Mail,
-      label: 'Fund your envelopes',
-      hint: 'Tap an envelope to give it some of your income',
+      label: 'Assign all your income',
+      hint: fundHint ?? 'Give all of it an envelope',
       done: fundDone,
       onPress: onFund,
     },

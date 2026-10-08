@@ -172,9 +172,12 @@ export default function HomeScreen() {
 
   const showRolloverBanner = rolloverDismissed === false && prevMonthLeftover > 0
   const incomeDone = envelopeState.income > 0
-  const fundDone = envelopeState.totalAssigned > 0
-  // The first envelope on screen, so "Fund your envelopes" opens somewhere real.
-  const firstEnvelope = groupedEnvelopes[0]?.envelopes[0]?.category
+  // Every rupee has a job once Ready to Assign is spent down, the whole point
+  // of the method, so Get started holds out for that, not one funded envelope.
+  const fundDone = incomeDone && envelopeState.readyToAssign <= 0
+  const homeEnvelopes = groupedEnvelopes.flatMap((g) => g.envelopes)
+  // The next empty envelope on screen, so each tap moves the job along.
+  const nextToFund = (homeEnvelopes.find((e) => e.assigned === 0) ?? homeEnvelopes[0])?.category
   const showGetStarted =
     getStartedSkipped === false &&
     !!user?.getStartedAt &&
@@ -270,6 +273,11 @@ export default function HomeScreen() {
               id="ready-to-assign"
             />
           </Pressable>
+          {incomeDone && envelopeState.readyToAssign > 0 && (
+            <Text style={{ color: tokens.accentInk, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>
+              Tap an envelope below to give this a job
+            </Text>
+          )}
           <Text style={{ color: tokens.text2, fontSize: type.caption, fontFamily: fontFamily.bodyMedium }}>
             {monthLabel(month)} · {daysLeftInMonth() === 0 ? 'Less than 24 hrs' : `${daysLeftInMonth()} days left`}
           </Text>
@@ -344,7 +352,8 @@ export default function HomeScreen() {
               onAddIncome={() =>
                 router.push({ pathname: '/modals/edit-month-income', params: { month, initial: String(envelopeState.incomeBase) } })
               }
-              onFund={() => (firstEnvelope ? handleEditAmount(firstEnvelope) : router.navigate('/(tabs)/envelopes'))}
+              fundHint={incomeDone ? `${formatCurrency(envelopeState.readyToAssign, hideAmounts)} still to assign` : undefined}
+              onFund={() => (nextToFund ? handleEditAmount(nextToFund) : router.navigate('/(tabs)/envelopes'))}
               onAddTransaction={() => router.push('/modals/log-expense')}
               onTakeTour={() => router.push('/account/guided-tour')}
               onSkip={() => {
