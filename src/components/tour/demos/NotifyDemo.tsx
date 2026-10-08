@@ -1,6 +1,7 @@
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { useEffect, useRef, useState } from 'react'
 import { View, Text, Pressable, StyleSheet } from 'react-native'
+import * as Haptics from 'expo-haptics'
 import Reanimated, { Easing, FadeIn, FadeInUp, LinearTransition, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
@@ -139,7 +140,10 @@ export function NotifyDemo({ onComplete }: { onComplete: () => void }) {
           </View>
           <Pressable
             accessibilityRole="button"
-            onPress={spend}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+              spend()
+            }}
             style={[styles.pill, { backgroundColor: over ? tokens.pillBg : tokens.accent, borderRadius: radius.full, paddingHorizontal: space.md }]}
           >
             <Text style={{ color: over ? tokens.text : tokens.onAccent, fontFamily: fontFamily.bodyExtraBold, fontSize: type.micro }}>
@@ -170,7 +174,10 @@ export function NotifyDemo({ onComplete }: { onComplete: () => void }) {
               key={c.value}
               accessibilityRole="button"
               accessibilityState={{ selected: active }}
-              onPress={() => setCadence(c.value)}
+              onPress={() => {
+                Haptics.selectionAsync().catch(() => {})
+                setCadence(c.value)
+              }}
               style={[styles.segment, { backgroundColor: active ? tokens.accent : 'transparent', borderRadius: radius.full }]}
             >
               <Text style={{ color: active ? tokens.onAccent : tokens.text2, fontFamily: fontFamily.bodyBold, fontSize: type.micro }}>{c.label}</Text>
@@ -195,7 +202,10 @@ export function NotifyDemo({ onComplete }: { onComplete: () => void }) {
             <Pressable
               key={k.id}
               accessibilityRole="button"
-              onPress={() => pick(k.id)}
+              onPress={() => {
+                Haptics.selectionAsync().catch(() => {})
+                pick(k.id)
+              }}
               style={[
                 styles.pill,
                 styles.chip,
