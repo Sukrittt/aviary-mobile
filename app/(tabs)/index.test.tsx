@@ -84,6 +84,21 @@ describe('HomeScreen · Ready to Assign', () => {
     expect(mockPush).toHaveBeenLastCalledWith('/modals/edit-ready-to-assign')
   })
 
+  it('shows an income pill that opens the income options', () => {
+    const { getByText } = renderHome()
+
+    fireEvent.press(getByText('Income · ₹20,000'))
+    expect(getByText('Change income')).toBeTruthy()
+  })
+
+  it('sends the pill straight to setting income when there is none', () => {
+    mockBudgets = []
+    const { getByText } = renderHome()
+
+    fireEvent.press(getByText('Set your income'))
+    expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/modals/edit-month-income', params: { month: MONTH, initial: '0' } })
+  })
+
   it('uses the app icon as the home header brand', () => {
     const { getByLabelText, queryByText, UNSAFE_getAllByType } = renderHome()
 
@@ -126,8 +141,9 @@ describe('HomeScreen · Ready to Assign', () => {
   it('shows DB-backed getting-started progress and opens each unfinished step', async () => {
     const { getByText, findByText } = renderHome()
 
-    expect(await findByText('1/3')).toBeTruthy()
+    expect(await findByText('1/4')).toBeTruthy()
     expect(getByText('Set up your budget')).toBeTruthy()
+    expect(getByText('₹15,000 still to assign')).toBeTruthy()
     fireEvent.press(getByText('Add a manual transaction'))
     expect(mockPush).toHaveBeenLastCalledWith('/modals/log-expense')
     fireEvent.press(getByText('Take a guided tour'))
@@ -154,7 +170,11 @@ describe('HomeScreen · Ready to Assign', () => {
     ;(SecureStore.getItemAsync as jest.Mock).mockImplementation(() => Promise.resolve(null))
   })
 
-  it('removes Get Started once both remaining milestones are complete', () => {
+  it('removes Get Started once every step is complete', () => {
+    mockBudgets = [
+      { month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' },
+      { month: MONTH, category: 'Food', assigned: '20000', rolled_over: '0' },
+    ]
     mockUser = {
       onboardedAt: '2026-10-01T00:00:00.000Z',
       getStartedAt: '2026-10-01T00:00:00.000Z',
@@ -169,7 +189,7 @@ describe('HomeScreen · Ready to Assign', () => {
   it('asks for income first when setup skipped it, opening the income editor', async () => {
     mockBudgets = [{ month: MONTH, category: 'Food', assigned: '0', rolled_over: '0' }]
     const { findByText, queryByText } = renderHome()
-    expect(await findByText('0/3')).toBeTruthy()
+    expect(await findByText('0/4')).toBeTruthy()
     expect(queryByText('Set up your budget')).toBeNull()
 
     fireEvent.press(await findByText('Add your income'))
@@ -185,12 +205,37 @@ describe('HomeScreen · Ready to Assign', () => {
       guidedTourCompletedAt: '2026-10-01T02:00:00.000Z',
     }
     const { findByText } = renderHome()
-    expect(await findByText('2/3')).toBeTruthy()
+    expect(await findByText('2/4')).toBeTruthy()
     expect(await findByText('Add your income')).toBeTruthy()
   })
 
+  // Income alone leaves every envelope at zero, so the next step is assigning it.
+  it('asks to assign all of the income, opening the next empty envelope', async () => {
+    mockBudgets = [
+      { month: MONTH, category: '__income__', assigned: '50000', rolled_over: '0' },
+      { month: MONTH, category: 'Food', assigned: '0', rolled_over: '0' },
+    ]
+    const { findByText, getByText } = renderHome()
+    expect(await findByText('1/4')).toBeTruthy()
+    expect(getByText('₹50,000 still to assign')).toBeTruthy()
+
+    fireEvent.press(getByText('Assign all your income'))
+    expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/modals/edit-assigned-amount', params: { category: 'Food' } })
+  })
+
+  it('ticks the assign step once Ready to Assign hits zero', async () => {
+    mockBudgets = [
+      { month: MONTH, category: '__income__', assigned: '50000', rolled_over: '0' },
+      { month: MONTH, category: 'Food', assigned: '50000', rolled_over: '0' },
+    ]
+    const { findByText } = renderHome()
+    expect(await findByText('2/4')).toBeTruthy()
+  })
+
   it('shows a retryable error screen instead of raw error text when a query fails', () => {
+    // First load failed, so there's nothing saved to fall back on.
     mockBudgetsError = new Error('network error')
+    mockBudgets = undefined as unknown as typeof mockBudgets
     const { getByText, queryByText } = renderHome()
 
     expect(getByText("Couldn't load your budget")).toBeTruthy()
@@ -198,6 +243,12 @@ describe('HomeScreen · Ready to Assign', () => {
 
     fireEvent.press(getByText('Try again'))
     expect(mockRefetch).toHaveBeenCalled()
+  })
+
+  it('keeps the budget on screen when a refresh fails', () => {
+    mockBudgetsError = new Error('network error')
+    const { queryByText } = renderHome()
+    expect(queryByText("Couldn't load your budget")).toBeNull()
   })
 })
 

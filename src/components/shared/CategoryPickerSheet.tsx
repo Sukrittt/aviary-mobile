@@ -23,8 +23,8 @@ interface Props {
   onClose: () => void
   value: string
   onSelect: (category: string) => void
-  /** Label for the "clear the link" row. Defaults to a generic "No category". */
-  noneLabel?: string
+  /** Label for the "clear the link" row. Defaults to a generic "No category"; null hides the row. */
+  noneLabel?: string | null
   /** Sheet heading. Defaults to "Category". */
   title?: string
   /** Rendered below the category list, e.g. log-expense's "Add category" action. */
@@ -114,13 +114,15 @@ export function CategoryPickerSheet({
         style={[styles.search, { backgroundColor: tokens.inputBg, borderColor: tokens.border, color: tokens.text, fontFamily: fontFamily.bodyMedium }]}
       />
       <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-        <Pressable
-          style={[styles.noneOption, value === '' && { backgroundColor: tokens.chipActiveBg }]}
-          onPress={() => pick('')}
-        >
-          <Text style={[styles.optionText, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>{noneLabel}</Text>
-          {value === '' && <Icon icon={Check} size={16} color={tokens.accentInk} strokeWidth={2.5} />}
-        </Pressable>
+        {noneLabel !== null && (
+          <Pressable
+            style={[styles.noneOption, value === '' && { backgroundColor: tokens.chipActiveBg }]}
+            onPress={() => pick('')}
+          >
+            <Text style={[styles.optionText, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>{noneLabel}</Text>
+            {value === '' && <Icon icon={Check} size={16} color={tokens.accentInk} strokeWidth={2.5} />}
+          </Pressable>
+        )}
         {showRecents && (
           <View style={styles.recentsSection}>
             <Text style={[styles.groupLabel, { color: tokens.text3, fontFamily: fontFamily.bodyBold }]}>

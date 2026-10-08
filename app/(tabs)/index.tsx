@@ -3,7 +3,7 @@ import { useMemo, useRef, useState } from 'react'
 import { View, Text, Pressable, RefreshControl, StyleSheet, Linking, Platform } from 'react-native'
 import { useQuery } from '@tanstack/react-query'
 import { useRouter, useIsFocused } from 'expo-router'
-import { ChevronRight, ChevronsDownUp, LineChart } from 'lucide-react-native'
+import { ChevronRight, LineChart } from 'lucide-react-native'
 import Reanimated, { FadeInDown, FadeOut, LinearTransition } from 'react-native-reanimated'
 import * as Haptics from 'expo-haptics'
 import { AnimatedTabContent } from '@/src/components/nav/AnimatedTabContent'
@@ -172,10 +172,16 @@ export default function HomeScreen() {
 
   const showRolloverBanner = rolloverDismissed === false && prevMonthLeftover > 0
   const incomeDone = envelopeState.income > 0
+  // Every rupee has a job once Ready to Assign is spent down, the whole point
+  // of the method, so Get started holds out for that, not one funded envelope.
+  const fundDone = incomeDone && envelopeState.readyToAssign <= 0
+  const homeEnvelopes = groupedEnvelopes.flatMap((g) => g.envelopes)
+  // The next empty envelope on screen, so each tap moves the job along.
+  const nextToFund = (homeEnvelopes.find((e) => e.assigned === 0) ?? homeEnvelopes[0])?.category
   const showGetStarted =
     getStartedSkipped === false &&
     !!user?.getStartedAt &&
-    !(incomeDone && user.manualTransactionCompletedAt && user.guidedTourCompletedAt)
+    !(incomeDone && fundDone && user.manualTransactionCompletedAt && user.guidedTourCompletedAt)
 
   function handleEditAmount(category: string) {
     router.push({ pathname: '/modals/edit-assigned-amount', params: { category } })
@@ -194,7 +200,8 @@ export default function HomeScreen() {
   }
 
   const isLoading = !FORCE_EMPTY_STATE_PREVIEW && (budgetsQ.isLoading || expensesQ.isLoading || categoriesQ.isLoading || groupsQ.isLoading)
-  const hasError = !FORCE_EMPTY_STATE_PREVIEW && (budgetsQ.error || expensesQ.error || categoriesQ.error || groupsQ.error)
+  // A failed refresh keeps the last good data, so only a query with nothing to show is an error.
+  const hasError = !FORCE_EMPTY_STATE_PREVIEW && [budgetsQ, expensesQ, categoriesQ, groupsQ].some((q) => q.error && q.data === undefined)
 
   if (isLoading) {
     return (
@@ -204,9 +211,9 @@ export default function HomeScreen() {
     )
   }
 
-  // Offline blocks the whole screen, not just this one query error — a single
-  // gate instead of six per-screen error branches (see OfflineScreen).
-  if (!online) return <OfflineScreen />
+  // Saved data stays on screen offline (the root OfflineBanner says so); the
+  // full offline screen is only for when there's nothing to show.
+  if (hasError && !online) return <OfflineScreen />
 
   if (hasError) {
     return (
@@ -269,6 +276,23 @@ export default function HomeScreen() {
           <Text style={{ color: tokens.text2, fontSize: type.caption, fontFamily: fontFamily.bodyMedium }}>
             {monthLabel(month)} · {daysLeftInMonth() === 0 ? 'Less than 24 hrs' : `${daysLeftInMonth()} days left`}
           </Text>
+          {/* The hero tap is invisible, so this pill names where the number
+              comes from. With no income yet it goes straight to setting it. */}
+          <Pressable
+            accessibilityRole="button"
+            onPress={() =>
+              envelopeState.income === 0
+                ? router.push({ pathname: '/modals/edit-month-income', params: { month, initial: String(envelopeState.incomeBase) } })
+                : setIncomeSheetOpen(true)
+            }
+            hitSlop={8}
+            style={[styles.incomePill, { backgroundColor: envelopeState.income === 0 ? tokens.accentSoft : tokens.inputBg, borderRadius: radius.full }]}
+          >
+            <Text style={{ color: envelopeState.income === 0 ? tokens.accentInk : tokens.text, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>
+              {envelopeState.income === 0 ? 'Set your income' : `Income · ${formatCurrency(envelopeState.income, hideAmounts)}`}
+            </Text>
+            <Icon icon={ChevronRight} size={14} color={envelopeState.income === 0 ? tokens.accentInk : tokens.text2} />
+          </Pressable>
         </View>
 
         {/* The lasting record lives in Insights' "Where it went" card (any
@@ -317,11 +341,14 @@ export default function HomeScreen() {
           >
             <GetStartedCard
               incomeDone={incomeDone}
+              fundDone={fundDone}
               manualTransactionDone={!!user.manualTransactionCompletedAt}
               guidedTourDone={!!user.guidedTourCompletedAt}
               onAddIncome={() =>
                 router.push({ pathname: '/modals/edit-month-income', params: { month, initial: String(envelopeState.incomeBase) } })
               }
+              fundHint={incomeDone ? `${formatCurrency(envelopeState.readyToAssign, hideAmounts)} still to assign` : undefined}
+              onFund={() => (nextToFund ? handleEditAmount(nextToFund) : router.navigate('/(tabs)/envelopes'))}
               onAddTransaction={() => router.push('/modals/log-expense')}
               onTakeTour={() => router.push('/account/guided-tour')}
               onSkip={() => {
@@ -341,24 +368,16 @@ export default function HomeScreen() {
         <Reanimated.View layout={LinearTransition.springify().damping(64).stiffness(900)}>
           <Card elevated={false} style={envelopesEmpty && styles.emptyEnvelopesCard}>
             <View style={styles.cardHeadRow}>
-              <View style={[styles.headerLinks, { gap: space.xs }]}>
-                <Text style={[styles.cardTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: type.bodyLg }]}>
-                  Envelopes
-                </Text>
-                <IconButton
-                  icon={ChevronsDownUp}
-                  accessibilityLabel={allGroupsCollapsed ? 'Expand all' : 'Collapse all'}
-                  onPress={toggleCollapseAll}
-                  size={28}
-                  color={tokens.text3}
-                  background="transparent"
-                />
-              </View>
-              <View style={styles.headerLinks}>
-                <Pressable onPress={() => router.navigate('/(tabs)/envelopes')} hitSlop={8}>
-                  <Text style={{ color: tokens.accentInk, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>Manage</Text>
+              <Text style={[styles.cardTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: type.bodyLg }]}>
+                Envelopes
+              </Text>
+              {!envelopesEmpty && (
+                <Pressable onPress={toggleCollapseAll} accessibilityRole="button" hitSlop={8}>
+                  <Text style={{ color: tokens.accentInk, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>
+                    {allGroupsCollapsed ? 'Expand all' : 'Collapse all'}
+                  </Text>
                 </Pressable>
-              </View>
+              )}
             </View>
             <View style={[{ marginTop: space.xs }, envelopesEmpty && styles.emptyEnvelopesBody]}>
               {envelopesEmpty ? (
@@ -448,6 +467,7 @@ const styles = StyleSheet.create({
   appIconButton: { width: 56, height: 56 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   hero: { alignItems: 'center', gap: 6 },
+  incomePill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 6, marginTop: 4 },
   sheetTitle: { fontSize: 16, marginBottom: 8 },
   sheetBtn: { paddingVertical: 12 },
   sheetBtnText: { fontSize: 14 },
@@ -455,7 +475,6 @@ const styles = StyleSheet.create({
   rolloverCard: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   cardHeadRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   cardTitle: {},
-  headerLinks: { flexDirection: 'row', alignItems: 'center' },
   emptyEnvelopesCard: { minHeight: 360 },
   emptyEnvelopesBody: { flex: 1, justifyContent: 'center' },
   insightsLink: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: 14 },

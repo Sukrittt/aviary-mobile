@@ -42,7 +42,7 @@ it('selects currency before income, preserves it on back, and saves it with onbo
   fireEvent.press(getByText('$50,000'))
   expect(Haptics.selectionAsync).toHaveBeenCalledTimes(1)
   jest.mocked(Haptics.selectionAsync).mockClear()
-  fireEvent.press(getByText('Pick my own groups and categories'))
+  fireEvent.press(getByText('Build my own budget'))
   expect(getByText('Add your own group')).toHaveStyle({ fontFamily: fontFamily.bodyBold })
   fireEvent.press(getByText('Continue'))
   expect(getByText('Default alerts: 50% · 90% · 100%')).toBeTruthy()

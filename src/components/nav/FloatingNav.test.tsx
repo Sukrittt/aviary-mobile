@@ -9,6 +9,8 @@ import {
   slotProximity,
   addSlotShift,
   navStateFor,
+  nextNavCover,
+  type NavCover,
 } from './FloatingNav'
 
 jest.mock('expo-haptics', () => ({
@@ -194,5 +196,31 @@ describe('FloatingNav', () => {
     expect(getByTestId('nav-add-success')).toBeTruthy()
     expect(getByTestId('success-confetti').props.pointerEvents).toBe('none')
     expect(getAllByTestId(/^success-particle-/)).toHaveLength(8)
+  })
+})
+
+describe('nextNavCover', () => {
+  const walk = (paths: string[]) =>
+    paths.reduce<NavCover>((s, p) => nextNavCover(s, p, p === '/modals/log-expense'), { path: paths[0], tab: 'index', covered: false, arriving: false })
+
+  it('covers the tabs when a nav-less screen is pushed over them, keeping the last tab', () => {
+    expect(walk(['/', '/more', '/account/archive'])).toEqual({ path: '/account/archive', tab: 'more', covered: true, arriving: false })
+  })
+
+  it('stays covered through a deeper push', () => {
+    expect(walk(['/more', '/account/recurring', '/account/recurring-suggestions']).covered).toBe(true)
+  })
+
+  it('marks the pop back onto a tab as arriving, so the overlay waits for the slide to finish', () => {
+    expect(walk(['/more', '/insights', '/more'])).toEqual({ path: '/more', tab: 'more', covered: false, arriving: true })
+  })
+
+  it('never covers for log-expense, whose nav morphs in place', () => {
+    const s = walk(['/', '/modals/log-expense', '/'])
+    expect(s.covered || s.arriving).toBe(false)
+  })
+
+  it('leaves a nav-less screen opened from log-expense to the overlay', () => {
+    expect(walk(['/', '/modals/log-expense', '/modals/scan-bill']).covered).toBe(false)
   })
 })

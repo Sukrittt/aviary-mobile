@@ -29,7 +29,7 @@ jest.mock('expo-secure-store', () => ({ getItemAsync: jest.fn(async () => null),
 
 beforeEach(() => jest.clearAllMocks())
 
-const PICK_OWN = 'Pick my own groups and categories'
+const PICK_OWN = 'Build my own budget'
 // What each envelope was assigned, keyed by its category label.
 const assigned = (): Record<string, number> =>
   Object.fromEntries(
@@ -67,7 +67,7 @@ it('skips income and still sets up the starter envelopes, all at zero', async ()
   fireEvent.press(getByText('Continue')) // currency
   expect(getByText('You can add it from Home any time')).toBeTruthy()
   fireEvent.press(getByText('Skip for now'))
-  expect(await findByText('Add it later', {}, { timeout: 3000 })).toBeTruthy()
+  expect(await findByText('Not set yet', {}, { timeout: 3000 })).toBeTruthy()
 
   const rows = assigned()
   expect(Object.keys(rows)).toHaveLength(5)

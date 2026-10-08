@@ -32,7 +32,7 @@ function walkToFinish() {
   const { getByText, getByLabelText } = screen
   fireEvent.press(getByText('Continue')) // currency
   fireEvent.press(getByText('₹50,000'))
-  fireEvent.press(getByText('Pick my own groups and categories')) // income
+  fireEvent.press(getByText('Build my own budget')) // income
   fireEvent.press(getByLabelText('Go back'))
   fireEvent.press(getByText('Continue')) // income, again
   fireEvent.press(getByText('Continue')) // groups

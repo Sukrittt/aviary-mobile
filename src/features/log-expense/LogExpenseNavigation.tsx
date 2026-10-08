@@ -21,6 +21,9 @@ export function LogExpenseNavigation() {
   const addDisabled = submitState.saving || submitState.success
   // Cache-only read: this nav mounts before sign-in, so it must never fetch the profile itself.
   const user = useCachedUser()
+  // First expense ever, form ready: point at + as the save button, which
+  // otherwise only reads as "go to log expense". Gone once the save lands.
+  const addHint = addActive && !addInvalid && !addDisabled && !!user && !user.manualTransactionCompletedAt
 
   return (
     <TabBar visible={visible} overrideContent={
@@ -31,6 +34,7 @@ export function LogExpenseNavigation() {
         addSuccess={addActive && submitState.success}
         addInvalid={addActive && addInvalid}
         addDisabled={addActive && addDisabled}
+        addHint={addHint}
         onSelect={(name) => (addActive ? router.replace(NAV_HREF[name]) : router.navigate(NAV_HREF[name]))}
         onAdd={() => (addActive ? submitState.submit() : router.push(LOG_EXPENSE_PATH))}
         onAddInvalid={submitState.onInvalid}

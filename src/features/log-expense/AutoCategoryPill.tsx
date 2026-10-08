@@ -109,7 +109,7 @@ export function AutoCategoryPill({ selected, thinking, auto, highlighted, rollEm
 
   const busy = phase !== 'idle'
   const pool = rollEmojis.length > 0 ? rollEmojis : FALLBACK_EMOJIS
-  const label = busy ? PICKING_LABEL : selected?.name ?? 'Category'
+  const label = busy ? PICKING_LABEL : selected?.name ?? 'Pick a category'
   const pickedForYou = auto && !!selected && !busy
 
   const labelIn = useSharedValue(1)

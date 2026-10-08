@@ -96,6 +96,7 @@ module.exports = {
   FlatList: RN.FlatList,
   createAnimatedComponent,
   useSharedValue,
+  makeMutable: (initial) => ({ value: initial }),
   useAnimatedStyle,
   useAnimatedProps,
   useDerivedValue,

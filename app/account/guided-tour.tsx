@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { BackHandler, View, Text, Pressable, ScrollView, StyleSheet } from 'react-native'
+import * as Haptics from 'expo-haptics'
 import { useFocusEffect, useRouter, type Href } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Reanimated, { FadeIn } from 'react-native-reanimated'
@@ -108,7 +109,11 @@ export default function GuidedTourScreen() {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={view === 'chapter' ? 'Back to chapters' : 'Close'}
-          onPress={() => (view === 'chapter' ? setView('hub') : exitTour())}
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+            if (view === 'chapter') setView('hub')
+            else exitTour()
+          }}
           hitSlop={12}
           style={[styles.backButton, { backgroundColor: tokens.cardSolid, borderColor: tokens.border }]}
         >
@@ -123,7 +128,11 @@ export default function GuidedTourScreen() {
           </Text>
         </View>
         {view !== 'done' && (
-          <Pressable accessibilityRole="button" onPress={exitTour} hitSlop={12}>
+          <Pressable accessibilityRole="button" onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+              exitTour()
+            }}
+            hitSlop={12}>
             <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodyExtraBold, fontSize: type.caption }}>Skip</Text>
           </Pressable>
         )}
@@ -180,7 +189,10 @@ export default function GuidedTourScreen() {
             {!isLast && (
               <Pressable
                 accessibilityRole="button"
-                onPress={() => openReal(current.href)}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+                  openReal(current.href)
+                }}
                 style={[
                   styles.tryReal,
                   { backgroundColor: tokens.cardSolid, borderColor: tokens.border, borderRadius: radius.md, padding: space.md, gap: space.md },
@@ -214,7 +226,10 @@ export default function GuidedTourScreen() {
                   active={chapter === i}
                   activeColor={tokens.accent}
                   inactiveColor={done.has(i) ? tokens.accentSoft : tokens.borderStrong}
-                  onPress={() => setChapter(i)}
+                  onPress={() => {
+                    Haptics.selectionAsync().catch(() => {})
+                    setChapter(i)
+                  }}
                   accessibilityLabel={`Chapter ${i + 1}`}
                 />
               ))}
@@ -228,7 +243,11 @@ export default function GuidedTourScreen() {
                 } else setChapter(chapter + 1)
               }}
             />
-            <Pressable accessibilityRole="button" onPress={() => setView('hub')} hitSlop={8} style={styles.centerLink}>
+            <Pressable accessibilityRole="button" onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+                setView('hub')
+              }}
+              hitSlop={8} style={styles.centerLink}>
               <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodyExtraBold, fontSize: type.caption }}>All chapters</Text>
             </Pressable>
           </View>
@@ -314,7 +333,10 @@ function Hub({
             <PopIn key={c.title} play delay={i * 40}>
               <Pressable
                 accessibilityRole="button"
-                onPress={() => onOpen(i)}
+                onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+                  onOpen(i)
+                }}
                 style={[
                   styles.hubRow,
                   {
@@ -332,9 +354,11 @@ function Hub({
                     { backgroundColor: isDone ? tokens.accentSoft : tokens.inputBg, borderColor: isDone ? tokens.accent : tokens.border, borderRadius: radius.sm },
                   ]}
                 >
-                  <Text style={{ color: isDone ? tokens.accentInk : tokens.text2, fontFamily: fontFamily.displaySemiBold, fontSize: type.body }}>
-                    {isDone ? '✓' : String(i + 1)}
-                  </Text>
+                  {isDone ? (
+                    <Icon icon={Check} size={16} color={tokens.accentInk} strokeWidth={3} />
+                  ) : (
+                    <Text style={{ color: tokens.text2, fontFamily: fontFamily.displaySemiBold, fontSize: type.body }}>{i + 1}</Text>
+                  )}
                 </View>
                 <View style={styles.headerText}>
                   <Text style={{ color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: type.body }}>{c.title}</Text>
@@ -420,7 +444,11 @@ function Done({
               <Text numberOfLines={1} style={{ flex: 1, color: tokens.text, fontFamily: fontFamily.bodyBold, fontSize: type.caption }}>
                 {c.title}
               </Text>
-              <Pressable accessibilityRole="button" onPress={() => onOpen(i)} hitSlop={8}>
+              <Pressable accessibilityRole="button" onPress={() => {
+                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+                  onOpen(i)
+                }}
+                hitSlop={8}>
                 <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodyExtraBold, fontSize: type.micro }}>
                   {done.has(i) ? 'Revisit' : 'Try it'}
                 </Text>
@@ -432,7 +460,11 @@ function Done({
 
       <PopIn play delay={160 + CHAPTERS.length * 60} style={{ width: '100%', gap: space.sm }}>
         <Button label="Back to my money" onPress={onFinish} />
-        <Pressable accessibilityRole="button" onPress={onStartOver} hitSlop={8} style={styles.centerLink}>
+        <Pressable accessibilityRole="button" onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+            onStartOver()
+          }}
+          hitSlop={8} style={styles.centerLink}>
           <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodyExtraBold, fontSize: type.caption }}>Start over</Text>
         </Pressable>
       </PopIn>

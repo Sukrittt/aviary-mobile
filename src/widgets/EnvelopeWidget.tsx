@@ -48,9 +48,10 @@ export function EnvelopeWidget({
         trend?.dir === "up" ? tokens.coral : trend?.dir === "down" ? tokens.mint : tokens.text,
     },
   ];
-  // Bird hangs off the top-left corner (the surface clips it); the number
-  // and pills take the rest of the band to its right.
-  const bird = 96;
+  // Bird hangs off the top-left corner (the surface clips it) with the
+  // number to its right; the pills run the full width underneath so a long
+  // amount still fits in them.
+  const bird = 100;
   const birdW = bird - 14;
   const bandHeight = layout.pills ? 122 : 86;
 
@@ -142,13 +143,23 @@ export function EnvelopeWidget({
               />
             </FlexWidget>
           </FlexWidget>
-          {layout.pills && (
+        </FlexWidget>
+        {layout.pills && (
+          <FlexWidget
+            style={{
+              width: "match_parent",
+              height: "match_parent",
+              flexDirection: "column",
+              justifyContent: "flex-end",
+              paddingHorizontal: 16,
+              paddingBottom: 10,
+            }}
+          >
             <FlexWidget
               style={{
                 width: "match_parent",
                 flexDirection: "row",
                 flexGap: 6,
-                marginTop: 10,
               }}
             >
               {pills.map((pill) => (
@@ -189,8 +200,8 @@ export function EnvelopeWidget({
                 </FlexWidget>
               ))}
             </FlexWidget>
-          )}
-        </FlexWidget>
+          </FlexWidget>
+        )}
       </OverlapWidget>
 
       <FlexWidget

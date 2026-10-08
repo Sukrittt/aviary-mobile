@@ -1,6 +1,7 @@
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { useEffect, useState } from 'react'
 import { View, Text, Pressable, StyleSheet } from 'react-native'
+import * as Haptics from 'expo-haptics'
 import Reanimated, { Easing, FadeIn, useAnimatedStyle, useSharedValue, withSequence, withTiming } from 'react-native-reanimated'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
@@ -85,6 +86,7 @@ export function RolloverDemo({ onComplete }: { onComplete: () => void }) {
               accessibilityRole="button"
               accessibilityState={{ selected: active }}
               onPress={() => {
+                Haptics.selectionAsync().catch(() => {})
                 setMonth(tab.key)
                 if (tab.key === 'oct') onComplete()
               }}
@@ -181,7 +183,10 @@ function QuizOption({ label, good, bad, onPress }: { label: string; good: boolea
     <Reanimated.View style={style}>
       <Pressable
         accessibilityRole="button"
-        onPress={onPress}
+        onPress={() => {
+          Haptics.selectionAsync().catch(() => {})
+          onPress()
+        }}
         style={[
           styles.option,
           {

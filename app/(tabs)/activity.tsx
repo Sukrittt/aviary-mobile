@@ -445,9 +445,10 @@ export default function ActivityScreen() {
   }
 
   const isLoading = !FORCE_EMPTY_STATE_PREVIEW && (anchorQuery.isLoading || expensesQ.isLoading || categoriesQ.isLoading);
-  const hasError = !FORCE_EMPTY_STATE_PREVIEW && (expensesQ.error || categoriesQ.error);
+  // A failed refresh keeps the last good data: only an error with no transactions to show replaces the list.
+  const hasError = !FORCE_EMPTY_STATE_PREVIEW && !!(expensesQ.error || categoriesQ.error) && expensesQ.data === undefined;
 
-  if (!online) return <OfflineScreen />;
+  if (hasError && !online) return <OfflineScreen />;
 
   if (isLoading) {
     return (
