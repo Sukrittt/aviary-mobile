@@ -1,5 +1,6 @@
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
+import { usePressSpring } from '@/src/components/ui/Button'
 import { CategoryPickerSheet } from '@/src/components/shared/CategoryPickerSheet'
 import { BudgetConflictReview } from '@/src/features/budgets/BudgetConflictReview'
 import { AmountText } from '@/src/components/ui/AmountText'
@@ -24,6 +25,8 @@ import { ChevronDown, X } from 'lucide-react-native'
 import { useEffect,useState } from 'react'
 import { ActivityIndicator,Animated,Pressable,ScrollView,StyleSheet,Text,View } from 'react-native'
 import Reanimated,{ FadeIn } from 'react-native-reanimated'
+
+const AnimatedPressable = Reanimated.createAnimatedComponent(Pressable)
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import * as Haptics from 'expo-haptics'
 
@@ -385,16 +388,23 @@ function EnvelopeCard({
   type: Record<string, number>
 }) {
   const { formatCurrency } = useCurrency()
+  const press = usePressSpring(0.97)
 
   return (
-    <Pressable
-      onPress={onPress}
+    <AnimatedPressable
+      onPress={() => {
+        Haptics.selectionAsync().catch(() => {})
+        onPress()
+      }}
+      onPressIn={press.onPressIn}
+      onPressOut={press.onPressOut}
       disabled={disabled}
       accessibilityRole="button"
       accessibilityLabel={`Editing ${name}. Switch envelope`}
-      style={({ pressed }) => [
+      style={[
         styles.destCard,
-        { backgroundColor: tokens.card, borderColor: tokens.border, borderRadius: radius.lg, padding: space.md, gap: space.md, opacity: pressed ? 0.7 : 1 },
+        { backgroundColor: tokens.card, borderColor: tokens.border, borderRadius: radius.lg, padding: space.md, gap: space.md },
+        press.style,
       ]}
     >
       <View style={[styles.destIcon, { backgroundColor: tokens.accentSoft, borderRadius: radius.md }]}>
@@ -407,8 +417,8 @@ function EnvelopeCard({
           {formatCurrency(spent, hideAmounts)} spent · {formatCurrency(currentAssigned, hideAmounts)} assigned
         </Text>
       </View>
-      <ChevronDown size={18} color={tokens.text3} />
-    </Pressable>
+      <ChevronDown size={18} color={tokens.text3} style={{ marginRight: space.sm }} />
+    </AnimatedPressable>
   )
 }
 
