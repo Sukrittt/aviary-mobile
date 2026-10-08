@@ -119,3 +119,58 @@ it('opens on Home when it is declared ahead of log-expense', async () => {
   expect(screen.queryByText('log expense')).toBeNull()
   expect(testRouter.canGoBack()).toBe(false)
 })
+
+// Signing in from (auth)/email pushes /code on top. The handoff dismisses both
+// before replacing, so finishing setup never empties the stack onto them.
+it('never shows the sign-in screens again once setup finishes', async () => {
+  function SignInLayout() {
+    const [signedIn, setSignedIn] = useState(false)
+    const [onboarded, setOnboarded] = useState(false)
+    const router = useRouter()
+    useEffect(() => onOnboarded(() => setOnboarded(true)), [])
+    useEffect(() => {
+      if (!signedIn) return
+      if (router.canDismiss()) router.dismissAll()
+      router.replace('/setup')
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [signedIn])
+    return (
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Protected guard={signedIn && !onboarded}>
+          <Stack.Screen name="setup" />
+        </Stack.Protected>
+        <Stack.Protected guard={signedIn && onboarded}>
+          <Stack.Screen name="account/trial-notice" />
+          <Stack.Screen name="index" />
+        </Stack.Protected>
+        <Stack.Screen name="email" />
+        <Stack.Screen name="code" />
+        {/* Sign-in flips this from the code screen. */}
+        <Stack.Screen name="signin" listeners={{ focus: () => setSignedIn(true) }} />
+      </Stack>
+    )
+  }
+  renderRouter({
+    _layout: SignInLayout,
+    email: function Email() {
+      const router = useRouter()
+      return <Button title="Send code" onPress={() => router.push('/code')} />
+    },
+    code: function Code() {
+      const router = useRouter()
+      return <Button title="Verify" onPress={() => router.push('/signin')} />
+    },
+    signin: () => <Text>signing in</Text>,
+    setup: () => <Button title="Continue" onPress={signalOnboarded} />,
+    'account/trial-notice': () => <Text>trial notice</Text>,
+    index: () => <Text>home</Text>,
+  }, { initialUrl: '/email' })
+
+  fireEvent.press(screen.getByText('Send code'))
+  fireEvent.press(await screen.findByText('Verify'))
+  fireEvent.press(await screen.findByText('Continue'))
+
+  await waitFor(() => expect(screen.getByText('trial notice')).toBeTruthy())
+  expect(screen.queryByText('Send code')).toBeNull()
+  expect(testRouter.canGoBack()).toBe(false)
+})

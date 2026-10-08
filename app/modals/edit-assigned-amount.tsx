@@ -25,10 +25,10 @@ import { ChevronDown, X } from 'lucide-react-native'
 import { useEffect,useState } from 'react'
 import { ActivityIndicator,Animated,Pressable,ScrollView,StyleSheet,Text,View } from 'react-native'
 import Reanimated,{ FadeIn } from 'react-native-reanimated'
-
-const AnimatedPressable = Reanimated.createAnimatedComponent(Pressable)
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import * as Haptics from 'expo-haptics'
+
+const AnimatedPressable = Reanimated.createAnimatedComponent(Pressable)
 
 const QUICK_PICKS = [500, 1000, 2500]
 

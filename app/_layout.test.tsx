@@ -67,7 +67,7 @@ jest.mock('expo-router', () => {
   }
   return {
     Stack,
-    useRouter: () => ({ replace: mockReplace, push: mockPush, back: jest.fn(), navigate: jest.fn() }),
+    useRouter: () => ({ replace: mockReplace, push: mockPush, back: jest.fn(), navigate: jest.fn(), canDismiss: () => false, dismissAll: jest.fn() }),
     useSegments: () => mockSegments,
     usePathname: () => mockPathname,
     useGlobalSearchParams: () => mockGlobalParams,

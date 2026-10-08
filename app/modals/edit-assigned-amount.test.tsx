@@ -22,6 +22,7 @@ jest.mock('@/src/api/groups', () => ({ getGroups: jest.fn() }))
 // The real sheet is covered by its own tests; this stub lists the two
 // envelopes the switching tests pick between.
 jest.mock('@/src/components/shared/CategoryPickerSheet', () => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- jest.mock factories can't use imports
   const { Pressable, Text } = require('react-native')
   return {
     CategoryPickerSheet: ({ visible, onSelect, onClose }: { visible: boolean; onSelect: (c: string) => void; onClose: () => void }) =>

@@ -280,12 +280,14 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
   // from those screens removes nothing and leaves the user sitting on them.
   // Safe as an imperative call now — the Stack is mounted from the first render,
   // and the destination's guard is computed in this same render.
-  // The sign-in pushes also leave (auth)/email under /setup, so finishing setup
-  // doesn't empty the stack onto the trial notice. It surfaces the auth screen
-  // instead, and this effect has to finish the onboarding handoff explicitly.
+  // The sign-in pushes ((auth)/email, then /code) are dismissed first rather
+  // than left under the destination. Left there, finishing setup emptied the
+  // stack onto (auth)/email, which slid into view for a moment before this
+  // effect replaced it with the trial notice.
   useEffect(() => {
     if (resolving || !hasSession) return
     if (segments[0] !== '(auth)' || authScreenMode === 'change-email') return
+    if (router.canDismiss()) router.dismissAll()
     router.replace((!onboarded ? '/setup' : justOnboarded ? '/account/trial-notice' : landOnHome ? '/(tabs)' : LOG_EXPENSE_PATH) as Href)
   }, [resolving, hasSession, onboarded, justOnboarded, landOnHome, segments, authScreenMode, router])
 
