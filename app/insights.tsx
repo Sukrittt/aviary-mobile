@@ -510,7 +510,8 @@ export default function InsightsScreen() {
     ? `Daily spend · ${selectedBreakdownRow.label}`
     : "Daily spend";
 
-  if (!online) return <OfflineScreen />;
+  // Saved data stays on screen offline; the full offline screen is only for when there's nothing to show.
+  if (!online && [budgetsQuery, expensesQuery, categoriesQuery, groupsQuery].some((q) => q.data === undefined)) return <OfflineScreen />;
 
   return (
     <Screen
