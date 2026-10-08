@@ -538,3 +538,9 @@ it('moves the tip aside once a blocked save shows its toast in the same spot', (
   expect(utils.queryByLabelText('Try logging several at once')).toBeNull()
   mockTip.reason = null
 })
+
+it('shows an edited expense category even when the loaded list no longer has it', async () => {
+  const utils = setup({ id: 'srv1', version: '0', timestamp: 'ts', item: 'Chips', amountInr: '40', category: 'Old Snacks', date: '2026-09-18' })
+  expect(await utils.findByText('Old Snacks')).toBeTruthy()
+  expect(utils.queryByText('Pick a category')).toBeNull()
+})
