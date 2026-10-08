@@ -128,7 +128,16 @@ describe('expense analytics', () => {
     const { result } = renderHook(() => useAddExpense(), { wrapper: wrapper(client()) })
     result.current.mutate({ item: 'Therapy', amount_inr: '2500', category: '🧠 Therapy', payment_method: 'bank', notes: ' ' })
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
-    expect(trackFirst).toHaveBeenCalledWith('expense_logged', 'first_expense_at', { payment_method: 'bank', has_notes: false })
+    // Named after its category: what a blank "Name (optional)" saves as.
+    expect(trackFirst).toHaveBeenCalledWith('expense_logged', 'first_expense_at', { payment_method: 'bank', has_notes: false, named: false })
+  })
+
+  it('flags an expense the user named', async () => {
+    ;(postExpensePayload as jest.Mock).mockResolvedValue({ id: 'row-2', timestamp: '2026-01-01T10:00:00+05:30' })
+    const { result } = renderHook(() => useAddExpense(), { wrapper: wrapper(client()) })
+    result.current.mutate({ item: 'Uber home', amount_inr: '300', category: '🚕 Transport', payment_method: 'bank', notes: '' })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(trackFirst).toHaveBeenCalledWith('expense_logged', 'first_expense_at', expect.objectContaining({ named: true }))
   })
 
   it('names the edited fields and flags a category change', async () => {

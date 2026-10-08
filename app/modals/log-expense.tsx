@@ -611,7 +611,7 @@ export default function LogExpenseScreen() {
           <TextInput
             value={item}
             onChangeText={handleItemChange}
-            placeholder="What was it for?"
+            placeholder="Name (optional)"
             placeholderTextColor={onAccentDim}
             style={[
               styles.itemInput,
@@ -642,7 +642,9 @@ export default function LogExpenseScreen() {
             }
             thinking={suggesting}
             auto={autoPicked}
-            highlighted={flag("category")}
+            // Empty and not mid-pick, the pill is the field to fill: it wears
+            // the white "look here" style, not just after a blocked save.
+            highlighted={flag("category") || (!selectedCategory && !suggesting)}
             rollEmojis={rollEmojis}
             onPress={() => setPickerOpen(true)}
           />

@@ -20,6 +20,7 @@ import { enqueue } from '@/src/lib/pendingExpenses'
 import { budgetsKey } from '@/src/hooks/useBudgets'
 import { track, trackFirst } from '@/src/lib/analytics'
 import { userKey } from '@/src/hooks/useUser'
+import { splitEmoji } from '@/src/lib/emoji'
 
 const key = ['expenses'] as const
 // Ask Aviary's brief is computed from expenses too, but keyed separately —
@@ -119,6 +120,9 @@ export function useAddExpense() {
       trackFirst('expense_logged', 'first_expense_at', {
         payment_method: row.payment_method ?? 'unknown',
         has_notes: !!row.notes?.trim(),
+        // A blank name saves under the category's (see log-expense), so this
+        // says how often people skip naming. A yes/no only, never the text.
+        named: row.item.trim() !== splitEmoji(row.category).text,
       })
       qc.invalidateQueries({ queryKey: key })
       qc.invalidateQueries({ queryKey: briefKey })

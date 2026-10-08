@@ -28,7 +28,7 @@ function renderPill(props: Props) {
 
 it('shows the placeholder with no category', () => {
   const { getByText } = renderPill({ ...base, selected: null, thinking: false, auto: false })
-  expect(getByText('Category')).toBeTruthy()
+  expect(getByText('Pick a category')).toBeTruthy()
 })
 
 it('says it is picking while thinking, then settles on the auto-picked category', () => {
@@ -70,7 +70,7 @@ it('goes back to what it showed when the AI finds nothing', () => {
   const { getByText, queryByText, rerender } = renderPill({ ...base, selected: null, thinking: true, auto: false })
   rerender({ selected: null, thinking: false, auto: false })
   expect(queryByText(PICKING_LABEL)).toBeNull()
-  expect(getByText('Category')).toBeTruthy()
+  expect(getByText('Pick a category')).toBeTruthy()
 })
 
 it("doesn't say picked for you about a category the user picked by hand", () => {
