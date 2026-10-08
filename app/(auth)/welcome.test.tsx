@@ -47,6 +47,14 @@ it('locks both buttons while Google sign-in is in flight', () => {
   expect(mockPush).not.toHaveBeenCalled()
 })
 
+it('dims the Google button while sign-in is in flight', () => {
+  mockSignInState = { pending: true, done: false, error: null }
+  const { getByRole } = renderWithProviders(<WelcomeScreen />)
+  const google = getByRole('button', { name: /Signing in…/ })
+  expect(google).toBeDisabled()
+  expect(google).toHaveStyle({ opacity: 0.6 })
+})
+
 it('shows the sign-in error', () => {
   mockSignInState = { pending: false, done: false, error: "Google sign-in didn't work. Try again." }
   const { getByText } = renderWithProviders(<WelcomeScreen />)

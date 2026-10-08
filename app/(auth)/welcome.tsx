@@ -108,6 +108,7 @@ export default function WelcomeScreen() {
               signIn();
             }}
             accessibilityRole="button"
+            accessibilityState={{ disabled: pending || done, busy: pending }}
             disabled={pending || done}
             style={[
               styles.googleButton,
@@ -115,6 +116,8 @@ export default function WelcomeScreen() {
                 backgroundColor: tokens.card,
                 borderColor: tokens.borderStrong,
               },
+              // Mirrors web's .auth-btn[aria-disabled="true"].
+              pending && { opacity: 0.6 },
             ]}
           >
             {done ? (
