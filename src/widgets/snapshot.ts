@@ -42,6 +42,7 @@ export async function readSnapshot(): Promise<WidgetData | null> {
       rows: (parsed.rows ?? []).map(r => backfillRow(r, resolveCurrency(parsed.currencyCode))),
       chips: parsed.chips ?? [],
       today: parsed.today ?? [],
+      todayTotal: parsed.todayTotal ?? '',
       weeklyTrend: parsed.weeklyTrend ?? null,
       // Pace fields arrived with the bird-and-ring redesign. Without them the
       // ring draws empty and the bird stays content until the app reopens.

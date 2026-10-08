@@ -27,8 +27,28 @@ export function moodColor(mood: WidgetMood, tokens: ThemeTokens): string {
   }
 }
 
+/** The hero number's color: the mood's color, except "ok" stays plain text
+ *  (a green balance reads as income) and stale goes quiet with the bird. */
+export function heroTint(mood: WidgetMood, tokens: ThemeTokens): string {
+  return mood === "ok" ? tokens.text : moodColor(mood, tokens);
+}
+
+/** The surface wash tinted by mood, in place of the fixed peach heroA. */
+export function moodWash(mood: WidgetMood, tokens: ThemeTokens): string {
+  switch (mood) {
+    case "ok":
+      return tokens.heroA;
+    case "tight":
+      return tokens.warnSoft;
+    case "over":
+      return tokens.coralSoft;
+    case "stale":
+      return tokens.heroB;
+  }
+}
+
 /** The bird alone, in its own 512-unit artboard. */
-function birdBody(
+export function birdBody(
   mood: WidgetMood,
   tokens: ThemeTokens,
   scheme: "light" | "dark",
@@ -59,11 +79,13 @@ function birdBody(
       : "";
 
   let extra = "";
+  // Sweat sits on the temple, kissing the head's contour (centre ~250,238,
+  // r 110), not floating off it — detached, it read as a stray watermark.
   if (mood === "tight" || mood === "over") {
-    extra += `<path d="M 402 110 Q 388 142 402 154 Q 416 142 402 110 Z" fill="${tokens.blue}"/>`;
+    extra += `<path d="M 340 124 Q 325 158 340 171 Q 355 158 340 124 Z" fill="${tokens.blue}"/>`;
   }
   if (mood === "over") {
-    extra += `<path d="M 436 152 Q 428 172 436 180 Q 444 172 436 152 Z" fill="${tokens.blue}" fill-opacity="0.7"/>`;
+    extra += `<path d="M 374 160 Q 365 181 374 189 Q 383 181 374 160 Z" fill="${tokens.blue}" fill-opacity="0.7"/>`;
   }
   if (mood === "stale") {
     // Two z's, drawn as strokes: AndroidSVG's <text> would need the font.
@@ -94,27 +116,43 @@ type BirdRingArgs = {
   blink?: boolean;
 };
 
-export function birdRingSvg({
-  mood,
-  leftPct,
-  tokens,
-  scheme,
-  blink,
-}: BirdRingArgs): string {
-  const R = 45;
-  const STROKE = 7;
+/** The ring gauge alone as a 100x100 SVG, with `inner` drawn inside it. */
+export function ringSvg(
+  { mood, leftPct, tokens }: Omit<BirdRingArgs, "scheme" | "blink">,
+  inner = "",
+  stroke = 7,
+): string {
+  const R = 50 - stroke / 2;
   const circumference = 2 * Math.PI * R;
   const pct = Math.max(0, Math.min(1, leftPct ?? 0));
   // A zero-length dash with a round cap still draws a dot at 12 o'clock,
   // which reads as "a little left" when there's nothing left.
   const arc =
     pct > 0
-      ? `<circle cx="50" cy="50" r="${R}" fill="none" stroke="${moodColor(mood, tokens)}" stroke-width="${STROKE}" stroke-linecap="round" stroke-dasharray="${(circumference * pct).toFixed(2)} ${circumference.toFixed(2)}" transform="rotate(-90 50 50)"/>`
+      ? `<circle cx="50" cy="50" r="${R}" fill="none" stroke="${moodColor(mood, tokens)}" stroke-width="${stroke}" stroke-linecap="round" stroke-dasharray="${(circumference * pct).toFixed(2)} ${circumference.toFixed(2)}" transform="rotate(-90 50 50)"/>`
       : "";
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="${R}" fill="none" stroke="${tokens.text}" stroke-opacity="0.09" stroke-width="${stroke}"/>${arc}${inner}</svg>`;
+}
+
+export function birdRingSvg(args: BirdRingArgs): string {
+  const { mood, tokens, scheme, blink } = args;
   // The bird's artboard (x 86..444, y 64..386 with its extras) scaled into
   // the ring's inner circle, centred slightly low so the head clears the arc.
   const bird = `<g transform="translate(50 53) scale(0.165) translate(-262 -240)">${birdBody(mood, tokens, scheme, blink)}</g>`;
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="${R}" fill="none" stroke="${tokens.text}" stroke-opacity="0.09" stroke-width="${STROKE}"/>${arc}${bird}</svg>`;
+  return ringSvg(args, bird);
+}
+
+/** The bird alone, no ring: a 400x340 artboard (x 60..460, y 60..400)
+ *  tight around the body plus its extras. For the oversized, bleeding
+ *  mascot on the widget cards. */
+export function birdSvg({ mood, tokens, scheme, blink }: Omit<BirdRingArgs, "leftPct">): string {
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="60 60 400 340">${birdBody(mood, tokens, scheme, blink)}</svg>`;
+}
+
+export function birdFrames(args: Omit<BirdRingArgs, "leftPct" | "blink">): string[] | undefined {
+  if (args.mood === "stale") return undefined;
+  const open = birdSvg(args);
+  return [...Array<string>(OPEN_FRAMES).fill(open), birdSvg({ ...args, blink: true })];
 }
 
 /** Frames shown FRAME_MS apart: eyes open for ~3s, shut for one frame. A

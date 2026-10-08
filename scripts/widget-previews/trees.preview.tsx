@@ -40,6 +40,7 @@ const sample: WidgetData = {
     { item: "Coffee", amount: "₹180" },
     { item: "Auto to office", amount: "₹120" },
   ],
+  todayTotal: "₹300",
   weeklyTrend: null,
   leftPct: 0.48,
   monthPct: 0.42,
