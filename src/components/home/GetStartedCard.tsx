@@ -8,8 +8,10 @@ import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 
 type Props = {
+  incomeDone: boolean
   manualTransactionDone: boolean
   guidedTourDone: boolean
+  onAddIncome: () => void
   onAddTransaction: () => void
   onTakeTour: () => void
   onSkip: () => void
@@ -19,14 +21,32 @@ type Step = { key: string; icon: LucideIcon; label: string; hint: string; done: 
 
 /**
  * A short, finite runway into the product. Setup is complete before Home is
- * reachable; the other two milestones are server-owned and survive devices.
- * Skipping is a per-device choice, owned by the caller.
+ * reachable, but it can skip income, so the first step stays open until the
+ * envelopes have money to hold. The other two milestones are server-owned and
+ * survive devices. Skipping is a per-device choice, owned by the caller.
  */
-export function GetStartedCard({ manualTransactionDone, guidedTourDone, onAddTransaction, onTakeTour, onSkip }: Props) {
+export function GetStartedCard({
+  incomeDone,
+  manualTransactionDone,
+  guidedTourDone,
+  onAddIncome,
+  onAddTransaction,
+  onTakeTour,
+  onSkip,
+}: Props) {
   const { tokens, radius, space, type } = useTheme()
 
   const steps: Step[] = [
-    { key: 'budget', icon: WalletCards, label: 'Set up your budget', hint: 'Your envelopes are ready', done: true },
+    incomeDone
+      ? { key: 'budget', icon: WalletCards, label: 'Set up your budget', hint: 'Your envelopes are ready', done: true }
+      : {
+          key: 'budget',
+          icon: WalletCards,
+          label: 'Add your income',
+          hint: 'Give your envelopes money to hold',
+          done: false,
+          onPress: onAddIncome,
+        },
     {
       key: 'transaction',
       icon: CirclePlus,
