@@ -98,7 +98,7 @@ export function useUpdateCategory() {
     mutationFn: (params: { name: string; updates: { newName?: string; group?: string; alertPcts?: number[] | null } }) =>
       updateCategory(params.name, params.updates),
     onSuccess: async (_data, { name, updates }) => {
-      const newName = updates.newName?.trim()
+      const newName = updates.newName
       if (!newName || newName === name) {
         await qc.invalidateQueries({ queryKey: key })
         return
@@ -111,7 +111,14 @@ export function useUpdateCategory() {
       await Promise.all(prefixes.map((queryKey) => qc.cancelQueries({ queryKey })))
       notifyManager.batch(() => {
         qc.setQueriesData<CategoryRow[]>({ queryKey: key }, (rows) =>
-          rows?.map((row) => row.name === name ? { ...row, name: newName } : row),
+          rows?.map((row) => row.name === name ? {
+            ...row,
+            name: newName,
+            ...(updates.group !== undefined ? { group: updates.group } : {}),
+            ...(updates.alertPcts !== undefined ? {
+              alertPcts: updates.alertPcts === null ? undefined : [...updates.alertPcts].sort((a, b) => a - b),
+            } : {}),
+          } : row),
         )
         for (const queryKey of prefixes.slice(1, -1)) {
           qc.setQueriesData({ queryKey }, (data: unknown) => renameCategoryReferences(data, name, newName))

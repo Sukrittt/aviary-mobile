@@ -4,7 +4,7 @@ import { act, renderHook, waitFor } from '@testing-library/react-native'
 import { addCategory, getCategories, moveCategory, updateCategory } from '@/src/api/categories'
 import { readCategoryCache, writeCategoryCache } from '@/src/lib/categoryCache'
 import { computeEnvelopeState } from '@/src/lib/envelope'
-import type { CategoryRow } from '@/src/types'
+import type { BudgetRow, ExpenseRow, CategoryRow } from '@/src/types'
 import { useAddCategory, useCategories, useMoveCategory, useUpdateCategory } from './useCategories'
 
 jest.mock('@/src/api/categories', () => ({
@@ -176,8 +176,8 @@ describe('category rename reconciliation', () => {
     act(() => hook.result.current.mutate({ name: 'Groceries', updates: { newName: 'Food shopping' } }))
 
     await waitFor(() => expect(qc.getQueryData<CategoryRow[]>(['categories'])?.[0].name).toBe('Food shopping'))
-    const recent = qc.getQueryData<{ rows: unknown[]; lastSpent: Record<string, string> }>(['expenses', 'recent', '2026-07-01'])!
-    const state = computeEnvelopeState(qc.getQueryData(['budgets']), recent.rows, '2026-10', qc.getQueryData(['categories']), ['Food'], recent.lastSpent)
+    const recent = qc.getQueryData<{ rows: ExpenseRow[]; lastSpent: Record<string, string> }>(['expenses', 'recent', '2026-07-01'])!
+    const state = computeEnvelopeState(qc.getQueryData<BudgetRow[]>(['budgets'])!, recent.rows, '2026-10', qc.getQueryData<CategoryRow[]>(['categories'])!, ['Food'], recent.lastSpent)
     expect(state.readyToAssign).toBe(5000)
     expect(state.envelopes[0]).toMatchObject({ category: 'Food shopping', assigned: 5000, spent: 1200, available: 3800, lastSpentDate: '2026-10-08' })
     for (const [queryKey] of fixtures) expect(qc.getQueryState(queryKey)?.isInvalidated).toBe(true)
@@ -216,4 +216,19 @@ describe('category rename reconciliation', () => {
     expect(qc.getQueryData(['categories'])).toEqual(rows)
     qc.clear()
   })
+})
+
+
+it.each([{ alertPcts: [90, 60] }, { alertPcts: null }])('persists group and alerts when they change with a rename (%j)', async ({ alertPcts }) => {
+  jest.clearAllMocks()
+  const qc = new QueryClient({ defaultOptions: { mutations: { gcTime: Infinity } } })
+  qc.setQueryData(['categories'], [{ name: 'Groceries', group: 'Food', alertPcts: [80] }])
+  ;(updateCategory as jest.Mock).mockResolvedValue(undefined)
+  const hook = renderHook(() => useUpdateCategory(), { wrapper: wrapper(qc) })
+  await act(async () => { await hook.result.current.mutateAsync({ name: 'Groceries', updates: { newName: 'Food shopping', group: 'Essentials', alertPcts } }) })
+  await waitFor(() => expect(hook.result.current.isSuccess).toBe(true))
+  const expected = [{ name: 'Food shopping', group: 'Essentials', alertPcts: alertPcts === null ? undefined : [60, 90] }]
+  expect(qc.getQueryData(['categories'])).toEqual(expected)
+  expect(writeCategoryCache).toHaveBeenCalledWith(expected)
+  qc.clear()
 })
