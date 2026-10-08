@@ -1,10 +1,9 @@
 import { View, Text, ScrollView, StyleSheet } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { Sparkles } from 'lucide-react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
-import { Icon } from '@/src/components/shared/Icon'
+import { BirdLandingMark } from '@/src/components/splash/BirdLandingMark'
 import { Button } from '@/src/components/ui/Button'
 import { PopIn } from '@/src/components/shared/PopIn'
 import { useBillingStatus } from '@/src/hooks/useBillingStatus'
@@ -39,7 +38,7 @@ export default function TrialNoticeScreen() {
       >
         <PopIn play delay={0}>
           <View style={[styles.badge, { backgroundColor: tokens.accentSoft }]}>
-            <Icon icon={Sparkles} size={28} color={tokens.accentInk} strokeWidth={2.2} />
+            <BirdLandingMark size={52} color={tokens.accentInk} autoplay perched />
           </View>
         </PopIn>
 
