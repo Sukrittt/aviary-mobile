@@ -165,6 +165,30 @@ describe('HomeScreen · Ready to Assign', () => {
     expect(queryByText('Get started')).toBeNull()
   })
 
+  // Setup can skip income, so Get started keeps asking until there's some.
+  it('asks for income first when setup skipped it, opening the income editor', async () => {
+    mockBudgets = [{ month: MONTH, category: 'Food', assigned: '0', rolled_over: '0' }]
+    const { findByText, queryByText } = renderHome()
+    expect(await findByText('0/3')).toBeTruthy()
+    expect(queryByText('Set up your budget')).toBeNull()
+
+    fireEvent.press(await findByText('Add your income'))
+    expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/modals/edit-month-income', params: { month: MONTH, initial: '0' } })
+  })
+
+  it('keeps Get started up without income, even with both other milestones done', async () => {
+    mockBudgets = []
+    mockUser = {
+      onboardedAt: '2026-10-01T00:00:00.000Z',
+      getStartedAt: '2026-10-01T00:00:00.000Z',
+      manualTransactionCompletedAt: '2026-10-01T01:00:00.000Z',
+      guidedTourCompletedAt: '2026-10-01T02:00:00.000Z',
+    }
+    const { findByText } = renderHome()
+    expect(await findByText('2/3')).toBeTruthy()
+    expect(await findByText('Add your income')).toBeTruthy()
+  })
+
   it('shows a retryable error screen instead of raw error text when a query fails', () => {
     mockBudgetsError = new Error('network error')
     const { getByText, queryByText } = renderHome()
