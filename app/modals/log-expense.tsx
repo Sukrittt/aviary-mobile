@@ -470,11 +470,12 @@ export default function LogExpenseScreen() {
         )}
       </View>
 
-      {!isEdit && captureTip.reason && (
+      {!isEdit && captureTip.reason && nudge === 0 && unusualNudge === 0 && (
         // The moment it would help (src/lib/captureTip.ts): logging a few by
         // hand, or back after a couple of days with a backlog. A bubble off
         // the header icon, so it teaches where the feature lives and floats
-        // over the screen instead of pushing the amount around.
+        // over the screen instead of pushing the amount around. Steps aside
+        // for good once a save toast needs the same spot.
         <View style={[styles.tipBubble, { top: insets.top + space.xs + 36 + 10, left: space.lg, right: space.lg }]}>
           <View style={[styles.tipCaret, { backgroundColor: tokens.onAccent }]} />
           <View style={[styles.tipCard, { backgroundColor: tokens.onAccent, borderRadius: radius.md, padding: space.md, gap: space.sm }]}>

@@ -508,3 +508,14 @@ it('points at logging several at once when the tip says now is the moment', () =
   expect(mockPush).toHaveBeenCalledWith({ pathname: '/modals/money-brain', params: { capture: '1' } })
   mockTip.reason = null
 })
+
+it('moves the tip aside once a blocked save shows its toast in the same spot', () => {
+  mockTip.reason = 'batch'
+  const utils = setup()
+  expect(utils.getByLabelText('Try logging several at once')).toBeTruthy()
+  act(() => {
+    ;(globalThis as any).__onInvalid()
+  })
+  expect(utils.queryByLabelText('Try logging several at once')).toBeNull()
+  mockTip.reason = null
+})
