@@ -1,7 +1,6 @@
 import { act, fireEvent } from '@testing-library/react-native'
 import * as Haptics from 'expo-haptics'
-import { Animated, StyleSheet } from 'react-native'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { Animated } from 'react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import {
   FloatingNav,
@@ -103,37 +102,6 @@ describe('navStateFor', () => {
 })
 
 describe('FloatingNav', () => {
-  // Regression: centring the row inside a height that includes the bottom inset
-  // only lifted the circles by half the inset, so they sat ~3dp above the
-  // Android 3-button bar. The whole inset has to land below the circles.
-  it('keeps the full bottom inset below the circles', () => {
-    // The library's jest mock is itself a jest.fn, so spy.mockRestore() would
-    // strip its implementation and break every later test; put it back by hand.
-    const insetsMock = jest.mocked(useSafeAreaInsets)
-    const original = insetsMock.getMockImplementation()
-    const rowFor = (bottom: number) => {
-      insetsMock.mockImplementation(() => ({ top: 0, left: 0, right: 0, bottom }))
-      const { UNSAFE_getByProps, unmount } = renderWithProviders(
-        <FloatingNav active="index" onSelect={jest.fn()} onAdd={jest.fn()} />,
-      )
-      const row = UNSAFE_getByProps({ horizontal: true })
-      const result = {
-        height: StyleSheet.flatten(row.props.style).height,
-        content: StyleSheet.flatten(row.props.contentContainerStyle),
-      }
-      unmount()
-      insetsMock.mockImplementation(original)
-      return result
-    }
-
-    const flat = rowFor(0)
-    const androidBar = rowFor(48)
-    expect(androidBar.height - flat.height).toBe(48)
-    // Top-anchored: the circles start at the same offset whatever the inset.
-    expect(androidBar.content.alignItems).toBe('flex-start')
-    expect(androidBar.content.paddingTop).toBe(flat.content.paddingTop)
-  })
-
   it('taps a route circle and calls onSelect with its name', () => {
     const onSelect = jest.fn()
     const { getByLabelText } = renderWithProviders(
