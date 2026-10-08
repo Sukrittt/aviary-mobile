@@ -3,7 +3,7 @@ import { useMemo, useRef, useState } from 'react'
 import { View, Text, Pressable, RefreshControl, StyleSheet, Linking, Platform } from 'react-native'
 import { useQuery } from '@tanstack/react-query'
 import { useRouter, useIsFocused } from 'expo-router'
-import { ChevronRight, ChevronsDownUp, LineChart } from 'lucide-react-native'
+import { ChevronRight, LineChart } from 'lucide-react-native'
 import Reanimated, { FadeInDown, FadeOut, LinearTransition } from 'react-native-reanimated'
 import * as Haptics from 'expo-haptics'
 import { AnimatedTabContent } from '@/src/components/nav/AnimatedTabContent'
@@ -342,19 +342,16 @@ export default function HomeScreen() {
         <Reanimated.View layout={LinearTransition.springify().damping(64).stiffness(900)}>
           <Card elevated={false} style={envelopesEmpty && styles.emptyEnvelopesCard}>
             <View style={styles.cardHeadRow}>
-              <View style={[styles.headerLinks, { gap: space.xs }]}>
-                <Text style={[styles.cardTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: type.bodyLg }]}>
-                  Envelopes
-                </Text>
-                <IconButton
-                  icon={ChevronsDownUp}
-                  accessibilityLabel={allGroupsCollapsed ? 'Expand all' : 'Collapse all'}
-                  onPress={toggleCollapseAll}
-                  size={28}
-                  color={tokens.text3}
-                  background="transparent"
-                />
-              </View>
+              <Text style={[styles.cardTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: type.bodyLg }]}>
+                Envelopes
+              </Text>
+              {!envelopesEmpty && (
+                <Pressable onPress={toggleCollapseAll} accessibilityRole="button" hitSlop={8}>
+                  <Text style={{ color: tokens.accentInk, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>
+                    {allGroupsCollapsed ? 'Expand all' : 'Collapse all'}
+                  </Text>
+                </Pressable>
+              )}
             </View>
             <View style={[{ marginTop: space.xs }, envelopesEmpty && styles.emptyEnvelopesBody]}>
               {envelopesEmpty ? (
@@ -451,7 +448,6 @@ const styles = StyleSheet.create({
   rolloverCard: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   cardHeadRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   cardTitle: {},
-  headerLinks: { flexDirection: 'row', alignItems: 'center' },
   emptyEnvelopesCard: { minHeight: 360 },
   emptyEnvelopesBody: { flex: 1, justifyContent: 'center' },
   insightsLink: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: 14 },
