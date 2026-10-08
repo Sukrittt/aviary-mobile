@@ -177,18 +177,37 @@ it('offers logging several at once only for a new expense, not an edit', () => {
 
 it('names what is still missing when an incomplete submit is blocked', async () => {
   const utils = setup()
-  const { getByLabelText, getByPlaceholderText, queryByText, findByText } = utils
-  expect(queryByText('Add an amount, item and category')).toBeNull()
+  const { getByLabelText, queryByText, findByText } = utils
+  expect(queryByText('Add an amount and category')).toBeNull()
 
-  fireEvent.press(getByLabelText('4'))
   act(() => {
     ;(globalThis as any).__onInvalid()
   })
-  expect(await findByText('Add an item and category')).toBeTruthy()
+  expect(await findByText('Add an amount and category')).toBeTruthy()
 
   // The copy tracks the form live while the toast is up.
-  fireEvent.changeText(getByPlaceholderText('What was it for?'), 'Milk')
+  fireEvent.press(getByLabelText('4'))
   expect(await findByText('Pick a category')).toBeTruthy()
+})
+
+it('saves a blank "What was it for?" under the category name', async () => {
+  ;(postExpensePayload as jest.Mock).mockResolvedValue({ id: 'srv1', timestamp: '2026-09-04T01:24:00' })
+  const utils = setup()
+  fireEvent.press(utils.getByLabelText('4'))
+  fireEvent.press(utils.getByText('Category'))
+  fireEvent.press(await utils.findByText(/Groceries/))
+
+  await act(async () => {
+    ;(globalThis as any).__submit()
+    await Promise.resolve()
+    await Promise.resolve()
+  })
+  await act(async () => {
+    jest.advanceTimersByTime(950)
+  })
+
+  expect(postExpensePayload).toHaveBeenCalledWith(expect.objectContaining({ item: 'Groceries', category: 'Groceries' }), 0)
+  expect(mockReplace).toHaveBeenCalledWith(expect.objectContaining({ params: expect.objectContaining({ item: 'Groceries' }) }))
 })
 
 

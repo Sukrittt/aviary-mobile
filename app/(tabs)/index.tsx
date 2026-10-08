@@ -347,11 +347,6 @@ export default function HomeScreen() {
                   background="transparent"
                 />
               </View>
-              <View style={styles.headerLinks}>
-                <Pressable onPress={() => router.navigate('/(tabs)/envelopes')} hitSlop={8}>
-                  <Text style={{ color: tokens.accentInk, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>Manage</Text>
-                </Pressable>
-              </View>
             </View>
             <View style={[{ marginTop: space.xs }, envelopesEmpty && styles.emptyEnvelopesBody]}>
               {envelopesEmpty ? (

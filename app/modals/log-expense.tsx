@@ -42,7 +42,7 @@ import { useTheme } from "@/src/theme/ThemeProvider";
 import { fontFamily } from "@/src/theme/fonts";
 import { NAV_HEIGHT } from "@/src/theme/scale";
 import { useLocalSearchParams,useRouter } from "expo-router";
-import { ChevronDown, MessageSquareText, PencilLine, Plus, Tag, TriangleAlert, WalletMinimal } from "lucide-react-native";
+import { ChevronDown, MessageSquareText, Plus, Tag, TriangleAlert, WalletMinimal } from "lucide-react-native";
 import { useCaptureTip } from "@/src/hooks/useCaptureTip";
 import { noteManualLog, type CaptureTipReason } from "@/src/lib/captureTip";
 import { CaptureTipBubble } from "@/src/features/log-expense/CaptureTipBubble";
@@ -270,7 +270,9 @@ export default function LogExpenseScreen() {
     ?? (createdCategory?.name === category ? createdCategory : undefined);
 
   const parsedAmount = Number(amount);
-  const missing = missingFields({ amount, item, category });
+  const missing = missingFields({ amount, category });
+  // "What was it for?" is optional: left blank, the row is named after its category.
+  const savedItem = item.trim() || splitEmoji(category).text;
   const canSubmit = missing.length === 0 && !conflict && !deleted;
   const flag = (f: (typeof missing)[number]) => nudge > 0 && missing.includes(f);
   const saving = addExpense.isPending || updateExpense.isPending;
@@ -305,7 +307,7 @@ export default function LogExpenseScreen() {
       return;
     }
     if (isEdit) {
-      const updates = expenseChanges(base, { item, amount, date, category });
+      const updates = expenseChanges(base, { item: savedItem, amount, date, category });
       if (!Object.keys(updates).length) { setLogSuccess(true); return; }
       updateMutate(
         {
@@ -339,7 +341,7 @@ export default function LogExpenseScreen() {
       if (suggestedBy.current) track("ai_category_suggested", { accepted: autoPicked, source: suggestedBy.current });
       addMutate(
         {
-          item: item.trim(),
+          item: savedItem,
           amount_inr: String(parsedAmount),
           category,
           date,
@@ -367,7 +369,7 @@ export default function LogExpenseScreen() {
                 // Display fallback for servers that return no timestamp — the
                 // success screen's stamp line would otherwise be blank.
                 loggedAt: new Date().toISOString(),
-                item: item.trim(),
+                item: savedItem,
                 amount: String(parsedAmount),
                 // The server's category, not the picked one: a name chosen from
                 // a list loaded before a rename is mapped forward server-side,
@@ -401,7 +403,7 @@ export default function LogExpenseScreen() {
         },
       );
     }
-  }, [canSubmit, unusual, unusualWarnedFor, base, amount, expectedVersion, isEdit, origId, origTimestamp, origItem, origAmountInr, item, parsedAmount, date, category, notes, paymentMethod, router, addMutate, updateMutate, autoPicked]);
+  }, [canSubmit, unusual, unusualWarnedFor, base, amount, expectedVersion, isEdit, origId, origTimestamp, origItem, origAmountInr, item, savedItem, parsedAmount, date, category, notes, paymentMethod, router, addMutate, updateMutate, autoPicked]);
 
   // Publish only when the action or its visible state changes.
   useEffect(() => {
@@ -501,7 +503,7 @@ export default function LogExpenseScreen() {
       <Toast
         trigger={nudge}
         message={missingFieldsMessage(missing)}
-        icon={missing[0] === "amount" ? WalletMinimal : missing[0] === "item" ? PencilLine : Tag}
+        icon={missing[0] === "amount" ? WalletMinimal : Tag}
         // Clear of the header title with room to breathe.
         style={{ top: insets.top + space.xxxl + space.xl }}
       />
@@ -606,7 +608,6 @@ export default function LogExpenseScreen() {
         )}
 
         <View style={styles.itemRow}>
-          <Nudge trigger={nudge} active={missing.includes("item")}>
           <TextInput
             value={item}
             onChangeText={handleItemChange}
@@ -616,16 +617,15 @@ export default function LogExpenseScreen() {
               styles.itemInput,
               styles.itemInputWithPill,
               {
-                backgroundColor: flag("item") ? "rgba(88, 26, 8, 0.22)" : fieldBg,
+                backgroundColor: fieldBg,
                 borderRadius: radius.lg,
-                borderColor: flag("item") ? "rgba(255, 224, 194, 0.3)" : "transparent",
+                borderColor: "transparent",
                 color: "#ffffff",
                 fontFamily: fontFamily.bodySemiBold,
                 fontSize: type.bodyLg,
               },
             ]}
           />
-          </Nudge>
           <Nudge
             trigger={nudge}
             active={missing.includes("category")}
