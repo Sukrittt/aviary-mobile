@@ -11,6 +11,9 @@ import {
   Platform,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import * as Haptics from 'expo-haptics'
+import Reanimated from 'react-native-reanimated'
+import { useBounce } from '@/src/hooks/useBounce'
 import { ArrowLeft, ArrowRight, ArrowUp, Check, Clock, Plus } from 'lucide-react-native'
 import { Alert } from '@/src/components/ui/AlertHost'
 import { useTheme } from '@/src/theme/ThemeProvider'
@@ -37,6 +40,7 @@ import { PopIn } from '@/src/components/shared/PopIn'
 import { EmptyState } from '@/src/components/shared/EmptyState'
 import { streamChat, getChatSession, updateProposalStatus, CAPTURE_FAILED_MESSAGE, type ChatMessage } from '@/src/api/ai'
 import { CaptureReview } from '@/src/components/brain/CaptureReview'
+import { pickAck } from '@/src/lib/captureAck'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { startTimer, track } from '@/src/lib/analytics'
 import { OfflineScreen } from '@/src/components/shared/OfflineScreen'
@@ -56,13 +60,10 @@ const ITEM_STAGGER_CAP_INDEX = 6
 /** A chat turn as this screen holds it: `captureFailed` marks a reply that offers manual entry instead. */
 type BrainMessage = ChatMessage & { captureFailed?: boolean }
 
-type PendingSettle = { proposalId: string; status: 'submitted' | 'dismissed'; expenseIds: string[] }
+type PendingSettle = { proposalId: string; status: 'submitted' | 'dismissed'; expenseIds: string[]; reply?: string }
 
 /** Tappable examples on the empty capture screen; each one teaches a bit of the grammar. */
 const CAPTURE_EXAMPLES = ['auto 240', 'lunch 150, coffee 80', 'turf 1200 split 6']
-
-/** Said when the server's reply to logged rows never arrives. */
-const LOGGED_FALLBACK = 'All set, your books are up to date.'
 
 /** The line over Ask Aviary's reply to logged rows; a reopened chat may not know the count. */
 function loggedLabel(count: number | undefined) {
@@ -75,18 +76,58 @@ function loggedLabel(count: number | undefined) {
  * land before the proposal exists. A few spaced retries cover that; after them
  * it's best effort, since client_ids already stop a second log.
  */
-function persistSettle(
-  sessionId: string,
-  settle: PendingSettle,
-  onReply: (proposalId: string, reply: string | null) => void,
-  attempt = 0,
-) {
-  updateProposalStatus(sessionId, settle.proposalId, settle.status, settle.expenseIds)
-    .then((reply) => onReply(settle.proposalId, reply))
-    .catch(() => {
-      if (attempt < 3) setTimeout(() => persistSettle(sessionId, settle, onReply, attempt + 1), 600 * (attempt + 1))
-      else onReply(settle.proposalId, null)
-    })
+function persistSettle(sessionId: string, settle: PendingSettle, attempt = 0) {
+  updateProposalStatus(sessionId, settle.proposalId, settle.status, settle.expenseIds, settle.reply).catch(() => {
+    if (attempt < 3) setTimeout(() => persistSettle(sessionId, settle, attempt + 1), 600 * (attempt + 1))
+  })
+}
+
+/** An example on the empty capture screen. A tap drops it into the composer, so it ticks and dips toward it. */
+function ExampleChip({ label, onPress }: { label: string; onPress: () => void }) {
+  const { tokens } = useTheme()
+  const bounce = useBounce(6)
+  return (
+    <Reanimated.View style={bounce.style}>
+      <Pressable
+        onPressIn={bounce.onPressIn}
+        onPressOut={bounce.onPressOut}
+        onPress={() => {
+          Haptics.selectionAsync().catch(() => {})
+          bounce.kick()
+          onPress()
+        }}
+        accessibilityLabel={`Try "${label}"`}
+        style={[styles.chip, { backgroundColor: tokens.pillBg, borderColor: tokens.border }]}
+      >
+        <Text style={[styles.chipText, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>{label}</Text>
+      </Pressable>
+    </Reanimated.View>
+  )
+}
+
+/** Send, with a light tap and a little hop upward as the message goes. */
+function SendButton({ disabled, onPress }: { disabled: boolean; onPress: () => void }) {
+  const { tokens } = useTheme()
+  const bounce = useBounce(-5)
+  return (
+    <Reanimated.View style={bounce.style}>
+      <Pressable
+        onPressIn={bounce.onPressIn}
+        onPressOut={bounce.onPressOut}
+        onPress={() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+          bounce.kick()
+          onPress()
+        }}
+        disabled={disabled}
+        accessibilityRole="button"
+        accessibilityLabel="Send"
+        style={[styles.sendButton, { backgroundColor: tokens.accent, opacity: disabled ? 0.5 : 1 }]}
+      >
+        <Icon icon={ArrowUp} size={18} color={tokens.onAccent} />
+      </Pressable>
+    </Reanimated.View>
+  )
 }
 
 export default function MoneyBrainModal() {
@@ -151,7 +192,6 @@ export default function MoneyBrainModal() {
   const streamingRef = useRef(false)
   const pendingSettles = useRef<PendingSettle[]>([])
   // Proposals whose rows were just logged, waiting on Ask Aviary's reply to them.
-  const [acking, setAcking] = useState<ReadonlySet<string>>(new Set())
 
   // True until the async brief load first finishes — gates the reveal to
   // genuinely-first content, not refetches or later re-renders of this same
@@ -233,7 +273,7 @@ export default function MoneyBrainModal() {
         answered(true)
         setSessionId(resolvedSessionId)
         streamingRef.current = false
-        if (resolvedSessionId) for (const p of pendingSettles.current.splice(0)) persistSettle(resolvedSessionId, p, onSettleReply)
+        if (resolvedSessionId) for (const p of pendingSettles.current.splice(0)) persistSettle(resolvedSessionId, p)
       })
       .catch((err) => {
         const captureFailed = err instanceof Error && err.message === CAPTURE_FAILED_MESSAGE
@@ -258,37 +298,29 @@ export default function MoneyBrainModal() {
         if (abortRef.current !== controller) return
         streamingRef.current = false
         setSending(false)
-        // Cards logged mid-stream whose stream then failed: record them on the chat
-        // they came from, or, with no saved chat, just stop waiting on a reply.
-        for (const p of pendingSettles.current.splice(0)) {
-          if (sessionId) persistSettle(sessionId, p, onSettleReply)
-          else onSettleReply(p.proposalId, null)
-        }
+        // Cards logged mid-stream whose stream then failed: record them on the chat they came from, if it was saved.
+        for (const p of pendingSettles.current.splice(0)) if (sessionId) persistSettle(sessionId, p)
       })
   }
 
-  /** Records a proposal's outcome on the chat, so reopening it shows the card read-only. */
+  /**
+   * Records a proposal's outcome on the chat, so reopening it shows the card
+   * read-only. Logged rows get Ask Aviary's line right under the card at once
+   * (src/lib/captureAck.ts); the server saves the same line. Dismissals get none.
+   */
   function settleProposal(proposalId: string, status: 'submitted' | 'dismissed', expenseIds: string[]) {
-    setMessages((prev) => prev.map((m) => (m.proposal?.id === proposalId ? { ...m, proposal: { ...m.proposal, status, expenseIds } } : m)))
-    if (status === 'submitted') setAcking((prev) => new Set(prev).add(proposalId))
-    const settle = { proposalId, status, expenseIds }
-    if (sessionId && !streamingRef.current) persistSettle(sessionId, settle, onSettleReply)
-    else pendingSettles.current.push(settle)
-  }
-
-  /** Puts Ask Aviary's reply to logged rows right under their card. Dismissals get none. */
-  function onSettleReply(proposalId: string, reply: string | null) {
-    setAcking((prev) => {
-      if (!prev.has(proposalId)) return prev
-      const next = new Set(prev)
-      next.delete(proposalId)
-      return next
-    })
+    const reply = status === 'submitted' ? pickAck() : undefined
     setMessages((prev) => {
       const at = prev.findIndex((m) => m.proposal?.id === proposalId)
-      if (at < 0 || prev[at].proposal?.status !== 'submitted' || prev[at + 1]?.ack) return prev
-      return [...prev.slice(0, at + 1), { role: 'model', text: reply ?? LOGGED_FALLBACK, ack: true }, ...prev.slice(at + 1)]
+      if (at < 0) return prev
+      const next = [...prev]
+      next[at] = { ...next[at], proposal: { ...next[at].proposal!, status, expenseIds } }
+      if (reply && !next[at + 1]?.ack) next.splice(at + 1, 0, { role: 'model', text: reply, ack: true })
+      return next
     })
+    const settle = { proposalId, status, expenseIds, reply }
+    if (sessionId && !streamingRef.current) persistSettle(sessionId, settle)
+    else pendingSettles.current.push(settle)
   }
 
   function startNewChat() {
@@ -296,9 +328,8 @@ export default function MoneyBrainModal() {
     abortRef.current = null
     streamingRef.current = false
     // Outcomes still waiting on the old chat go to it, not to the next one.
-    for (const p of pendingSettles.current.splice(0)) if (sessionId) persistSettle(sessionId, p, () => {})
+    for (const p of pendingSettles.current.splice(0)) if (sessionId) persistSettle(sessionId, p)
     setSending(false)
-    setAcking(new Set())
     setMessages([])
     setSessionId(null)
     setInput('')
@@ -433,13 +464,7 @@ export default function MoneyBrainModal() {
             <View style={styles.exampleRow}>
               {CAPTURE_EXAMPLES.map((example, i) => (
                 <PopIn key={example} play delay={MOUNT_START_DELAY_MS + BLOCK_STAGGER_MS + i * ITEM_STAGGER_MS}>
-                  <Pressable
-                    onPress={() => setInput(example)}
-                    accessibilityLabel={`Try "${example}"`}
-                    style={[styles.chip, { backgroundColor: tokens.pillBg, borderColor: tokens.border }]}
-                  >
-                    <Text style={[styles.chipText, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>{example}</Text>
-                  </Pressable>
+                  <ExampleChip label={example} onPress={() => setInput(example)} />
                 </PopIn>
               ))}
             </View>
@@ -583,7 +608,6 @@ export default function MoneyBrainModal() {
                     }}
                   />
                 )}
-                {m.proposal && acking.has(m.proposal.id) && <BrainThinking color={tokens.accent} />}
                 {m.captureFailed && (
                   <Pressable
                     onPress={() => router.push('/modals/log-expense')}
@@ -614,13 +638,7 @@ export default function MoneyBrainModal() {
           submitBehavior="submit"
           editable={!sending}
         />
-        <Pressable
-          onPress={() => send(input, 'typed')}
-          disabled={sending || input.trim() === ''}
-          style={[styles.sendButton, { backgroundColor: tokens.accent, opacity: sending || input.trim() === '' ? 0.5 : 1 }]}
-        >
-          <Icon icon={ArrowUp} size={18} color={tokens.onAccent} />
-        </Pressable>
+        <SendButton disabled={sending || input.trim() === ''} onPress={() => send(input, 'typed')} />
       </View>
     </KeyboardAvoidingView>
   )

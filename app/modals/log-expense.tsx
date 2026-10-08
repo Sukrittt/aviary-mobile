@@ -46,6 +46,9 @@ import { ChevronDown, MessageSquareText, PencilLine, Plus, Tag, TriangleAlert, W
 import { useCaptureTip } from "@/src/hooks/useCaptureTip";
 import { noteManualLog, type CaptureTipReason } from "@/src/lib/captureTip";
 import { CaptureTipBubble } from "@/src/features/log-expense/CaptureTipBubble";
+import { useBounce } from "@/src/hooks/useBounce";
+import * as Haptics from "expo-haptics";
+import Reanimated from "react-native-reanimated";
 import { useCallback,useEffect,useMemo,useRef,useState } from "react";
 import {
 Animated,
@@ -120,6 +123,7 @@ export default function LogExpenseScreen() {
   const origTimestamp = str(params.timestamp);
   const isEdit = origTimestamp !== "";
   const captureTip = useCaptureTip(!isEdit && online);
+  const severalBounce = useBounce(-3);
   const origItem = str(params.item);
   const origAmountInr = Number(params.amountInr) || 0;
 
@@ -456,18 +460,24 @@ export default function LogExpenseScreen() {
           // Several spends at once go through the money brain: type them,
           // review the list it reads out, log them together. Kept as a quiet
           // header icon; the capture tip points at it at the right moment.
-          <Pressable
-            onPress={() => {
-              captureTip.close("try");
-              router.push({ pathname: "/modals/money-brain", params: { capture: "1" } });
-            }}
-            style={[styles.severalButton, { left: space.lg, top: insets.top + space.xs, backgroundColor: fieldBg }]}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel="Log several spends at once"
-          >
-            <MessageSquareText size={18} color="#ffffff" />
-          </Pressable>
+          <Reanimated.View style={[styles.severalButton, { left: space.lg, top: insets.top + space.xs }, severalBounce.style]}>
+            <Pressable
+              onPressIn={severalBounce.onPressIn}
+              onPressOut={severalBounce.onPressOut}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+                severalBounce.kick();
+                captureTip.close("try");
+                router.push({ pathname: "/modals/money-brain", params: { capture: "1" } });
+              }}
+              style={[styles.severalIcon, { backgroundColor: fieldBg }]}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Log several spends at once"
+            >
+              <MessageSquareText size={18} color="#ffffff" />
+            </Pressable>
+          </Reanimated.View>
         )}
       </View>
 
@@ -769,7 +779,8 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   headerTitle: {},
-  severalButton: { position: "absolute", width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
+  severalButton: { position: "absolute" },
+  severalIcon: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
   scroll: { flex: 1 },
   body: { paddingTop: 8 },
   footer: {},

@@ -1,5 +1,7 @@
+import * as Haptics from 'expo-haptics'
 import { useEffect, useRef, useState } from 'react'
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
+import Reanimated, { FadeInDown, FadeOutLeft, LinearTransition } from 'react-native-reanimated'
 import { ChevronDown, TriangleAlert, X } from 'lucide-react-native'
 import type { CaptureProposal, ProposalStatus } from '@/src/api/ai'
 import { CategoryPickerSheet } from '@/src/components/shared/CategoryPickerSheet'
@@ -132,6 +134,7 @@ export function CaptureReview({ proposal, onSettled, origin = CAPTURE_ORIGIN, lo
 
   async function submit() {
     if (!ready || busy) return
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
     setPhase('saving')
     setError('')
     const toLog = kept
@@ -209,9 +212,10 @@ export function CaptureReview({ proposal, onSettled, origin = CAPTURE_ORIGIN, lo
   const picking = rows.find((r) => r.id === pickingFor)
 
   return (
-    <View
+    <Reanimated.View
       testID="capture-review"
-      style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border, borderRadius: radius.lg, paddingHorizontal: space.md, paddingVertical: space.sm, gap: space.xs }]}
+      entering={CARD_ENTER}
+      style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border, borderRadius: radius.lg, paddingHorizontal: space.md, paddingTop: space.sm, paddingBottom: space.md, gap: space.xs }]}
     >
       {kept.map((row, i) => {
         const total = rowTotal(row)
@@ -222,9 +226,12 @@ export function CaptureReview({ proposal, onSettled, origin = CAPTURE_ORIGIN, lo
         const { icon, text: envelope } = splitEmoji(row.category)
         const incomplete = rowIncomplete(row)
         return (
-          <View
+          <Reanimated.View
             key={row.id}
             testID={`capture-row-${row.id}`}
+            entering={rowEnter(i)}
+            exiting={ROW_EXIT}
+            layout={ROW_LAYOUT}
             style={[styles.row, { gap: space.sm, borderTopColor: tokens.border, borderTopWidth: i === 0 ? 0 : StyleSheet.hairlineWidth }]}
           >
             <View style={[styles.iconTile, { backgroundColor: incomplete ? tokens.warnSoft : tokens.inputBg, borderRadius: radius.md }]}>
@@ -293,15 +300,22 @@ export function CaptureReview({ proposal, onSettled, origin = CAPTURE_ORIGIN, lo
             </View>
 
             <Pressable
-              onPress={() => update(row.id, { removed: true })}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+                update(row.id, { removed: true })
+                // Removing the last one means none of these are wanted: settle as Not now once
+                // it has slid out, rather than leave an empty card that can only say "Nothing to log".
+                if (kept.length === 1) setTimeout(dismiss, ROW_EXIT_MS)
+              }}
               disabled={busy || locked}
               hitSlop={10}
               accessibilityLabel={`Remove ${row.item || 'this spend'}`}
-              style={styles.remove}
+              // A filled circle so it reads as a button with room round it, not a stray glyph.
+              style={[styles.remove, { backgroundColor: tokens.inputBg }]}
             >
-              <Icon icon={X} size={16} color={tokens.text3} />
+              <Icon icon={X} size={13} color={tokens.text2} />
             </Pressable>
-          </View>
+          </Reanimated.View>
         )
       })}
 
@@ -313,9 +327,9 @@ export function CaptureReview({ proposal, onSettled, origin = CAPTURE_ORIGIN, lo
         <Text style={{ color: tokens.coral, fontFamily: fontFamily.bodyMedium, fontSize: type.caption }}>{error}</Text>
       )}
 
-      <View style={[styles.actions, { gap: space.sm }]}>
+      <Reanimated.View layout={ROW_LAYOUT} style={[styles.actions, { gap: space.sm }]}>
         <Pressable onPress={dismiss} disabled={busy} hitSlop={8} style={styles.secondary}>
-          <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodySemiBold, fontSize: type.body }}>Not now</Text>
+          <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodySemiBold, fontSize: type.body - 1 }}>Not now</Text>
         </Pressable>
         <Pressable
           onPress={submit}
@@ -326,19 +340,20 @@ export function CaptureReview({ proposal, onSettled, origin = CAPTURE_ORIGIN, lo
             {
               backgroundColor: phase === 'success' ? tokens.mint : tokens.accent,
               borderRadius: radius.full,
-              opacity: !ready && phase === 'idle' ? 0.5 : 1,
+              // Dimmed while it's logging too, so a second tap clearly won't do anything.
+              opacity: phase === 'saving' || (!ready && phase === 'idle') ? 0.5 : 1,
             },
           ]}
         >
           {phase === 'success' ? (
             <CheckIcon color={tokens.onAccent} />
           ) : (
-            <Text style={{ color: tokens.onAccent, fontFamily: fontFamily.bodyBold, fontSize: type.body }}>
+            <Text style={{ color: tokens.onAccent, fontFamily: fontFamily.bodyBold, fontSize: type.body - 1 }}>
               {phase === 'saving' ? 'Logging…' : kept.length ? `Log ${spendsLabel(kept.length)}` : 'Nothing to log'}
             </Text>
           )}
         </Pressable>
-      </View>
+      </Reanimated.View>
 
       <CategoryPickerSheet
         visible={picking !== undefined}
@@ -351,9 +366,17 @@ export function CaptureReview({ proposal, onSettled, origin = CAPTURE_ORIGIN, lo
         title="Envelope"
         noneLabel="No envelope"
       />
-    </View>
+    </Reanimated.View>
   )
 }
+
+// A removed spend slides off to the left; the rest close the gap with a quick ease, no bounce.
+// The card rises in under the reply, then its rows follow one after another.
+const CARD_ENTER = FadeInDown.duration(160)
+const rowEnter = (i: number) => FadeInDown.delay(40 + i * 30).duration(140)
+const ROW_EXIT_MS = 120
+const ROW_EXIT = FadeOutLeft.duration(ROW_EXIT_MS)
+const ROW_LAYOUT = LinearTransition.duration(140)
 
 const styles = StyleSheet.create({
   card: { borderWidth: 1, alignSelf: 'stretch' },
@@ -366,10 +389,10 @@ const styles = StyleSheet.create({
   money: { alignItems: 'flex-end' },
   amountWrap: { flexDirection: 'row', alignItems: 'center', gap: 2 },
   amountInput: { minWidth: 12, maxWidth: 110, paddingVertical: 0, paddingHorizontal: 0, textAlign: 'right' },
-  remove: { paddingTop: 3 },
+  remove: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   chip: { flexDirection: 'row', alignItems: 'center', gap: 3, alignSelf: 'flex-start', maxWidth: '100%', paddingLeft: 8, paddingRight: 6, paddingVertical: 2 },
   actions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end' },
-  secondary: { paddingHorizontal: 12, paddingVertical: 8 },
-  primary: { minWidth: 120, height: 40, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center' },
+  secondary: { paddingHorizontal: 10, paddingVertical: 6 },
+  primary: { minWidth: 104, height: 36, paddingHorizontal: 14, alignItems: 'center', justifyContent: 'center' },
   summary: { alignSelf: 'flex-start', paddingVertical: 8 },
 })
