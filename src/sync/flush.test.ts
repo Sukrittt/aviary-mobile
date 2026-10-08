@@ -249,3 +249,17 @@ describe('mounted-query refresh after replay', () => {
     try { await flush(); expect(pending.remove).toHaveBeenCalledWith('c1', 'user_1') } finally { stop() }
   })
 })
+
+
+it('coalesces a successful batch into one completion signal', async () => {
+  const listener = jest.fn()
+  const unsubscribe = onExpenseSynced(listener)
+  ;(pending.list as jest.Mock).mockResolvedValue(Array.from({ length: 20 }, (_, i) => entry(`c${i}`)))
+  ;(postExpensePayload as jest.Mock).mockResolvedValue({ id: 'saved' })
+  try {
+    await flush()
+    expect(pending.remove).toHaveBeenCalledTimes(20)
+    expect(listener).toHaveBeenCalledTimes(1)
+    expect(listener).toHaveBeenCalledWith({ owner: 'user_1', generation: 1 })
+  } finally { unsubscribe() }
+})
