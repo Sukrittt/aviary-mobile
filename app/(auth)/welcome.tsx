@@ -8,6 +8,7 @@ import {
   StyleSheet,
 } from "react-native";
 import { useRouter } from "expo-router";
+import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { fontFamily } from "@/src/theme/fonts";
@@ -28,6 +29,8 @@ export default function WelcomeScreen() {
   const router = useRouter();
   const { signIn, pending, done, error } = useSignIn();
   const shake = useRef(new Animated.Value(0)).current;
+  const tap = () =>
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
 
   // Mirrors web's @keyframes auth-shake: 0.4s, 10 steps of 40ms.
   const triggerShake = () => {
@@ -100,7 +103,10 @@ export default function WelcomeScreen() {
           )}
 
           <Pressable
-            onPress={signIn}
+            onPress={() => {
+              tap();
+              signIn();
+            }}
             accessibilityRole="button"
             disabled={pending || done}
             style={[
@@ -149,7 +155,10 @@ export default function WelcomeScreen() {
           </Pressable>
 
           <Pressable
-            onPress={() => router.push("/(auth)/email")}
+            onPress={() => {
+              tap();
+              router.push("/(auth)/email");
+            }}
             disabled={pending || done}
             style={[styles.emailButton, { backgroundColor: tokens.accent }]}
           >

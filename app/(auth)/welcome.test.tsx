@@ -1,6 +1,12 @@
 import { fireEvent } from '@testing-library/react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
+import * as Haptics from 'expo-haptics'
 import WelcomeScreen from './welcome'
+
+jest.mock('expo-haptics', () => ({
+  impactAsync: jest.fn(() => Promise.resolve()),
+  ImpactFeedbackStyle: { Light: 'light' },
+}))
 
 const mockPush = jest.fn()
 jest.mock('expo-router', () => ({
@@ -16,6 +22,7 @@ jest.mock('@/src/api/useSignIn', () => ({
 beforeEach(() => {
   mockPush.mockClear()
   mockSignIn.mockClear()
+  ;(Haptics.impactAsync as jest.Mock).mockClear()
   mockSignInState = { pending: false, done: false, error: null }
 })
 
@@ -44,4 +51,11 @@ it('shows the sign-in error', () => {
   mockSignInState = { pending: false, done: false, error: "Google sign-in didn't work. Try again." }
   const { getByText } = renderWithProviders(<WelcomeScreen />)
   expect(getByText("Google sign-in didn't work. Try again.")).toBeTruthy()
+})
+
+it('taps a light haptic on both sign-in buttons', () => {
+  const { getByText } = renderWithProviders(<WelcomeScreen />)
+  fireEvent.press(getByText('Continue with Google'))
+  fireEvent.press(getByText('Continue with email'))
+  expect(Haptics.impactAsync).toHaveBeenCalledTimes(2)
 })
