@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import Reanimated, { FadeInDown, useAnimatedStyle, useSharedValue, withDelay, withSpring } from 'react-native-reanimated'
-import { Check, ChevronRight, CirclePlus, Compass, WalletCards, type LucideIcon } from 'lucide-react-native'
+import { Check, ChevronRight, CirclePlus, Compass, Mail, WalletCards, type LucideIcon } from 'lucide-react-native'
 import { Card } from '@/src/components/ui/Card'
 import { Icon } from '@/src/components/shared/Icon'
 import { useTheme } from '@/src/theme/ThemeProvider'
@@ -9,9 +9,11 @@ import { fontFamily } from '@/src/theme/fonts'
 
 type Props = {
   incomeDone: boolean
+  fundDone: boolean
   manualTransactionDone: boolean
   guidedTourDone: boolean
   onAddIncome: () => void
+  onFund: () => void
   onAddTransaction: () => void
   onTakeTour: () => void
   onSkip: () => void
@@ -22,14 +24,16 @@ type Step = { key: string; icon: LucideIcon; label: string; hint: string; done: 
 /**
  * A short, finite runway into the product. Setup is complete before Home is
  * reachable, but it can skip income, so the first step stays open until the
- * envelopes have money to hold. The other two milestones are server-owned and
- * survive devices. Skipping is a per-device choice, owned by the caller.
+ * envelopes have money to hold, and the second until some of it is assigned.
+ * The last two milestones are server-owned and survive devices. Skipping is a per-device choice, owned by the caller.
  */
 export function GetStartedCard({
   incomeDone,
+  fundDone,
   manualTransactionDone,
   guidedTourDone,
   onAddIncome,
+  onFund,
   onAddTransaction,
   onTakeTour,
   onSkip,
@@ -47,6 +51,14 @@ export function GetStartedCard({
           done: false,
           onPress: onAddIncome,
         },
+    {
+      key: 'fund',
+      icon: Mail,
+      label: 'Fund your envelopes',
+      hint: 'Tap an envelope to give it some of your income',
+      done: fundDone,
+      onPress: onFund,
+    },
     {
       key: 'transaction',
       icon: CirclePlus,
@@ -73,7 +85,7 @@ export function GetStartedCard({
         <View style={{ flex: 1, gap: 2 }}>
           <Text style={{ color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: type.bodyLg }}>Get started</Text>
           <Text style={{ color: tokens.text3, fontFamily: fontFamily.bodySemiBold, fontSize: type.micro }}>
-            Three small steps, then this card gets out of your way.
+            Four small steps, then this card gets out of your way.
           </Text>
         </View>
         <Pressable
@@ -113,7 +125,7 @@ export function GetStartedCard({
   )
 }
 
-/** One third of the progress track; fills with a spring, staggered on reveal. */
+/** One segment of the progress track; fills with a spring, staggered on reveal. */
 function Segment({ filled, index, track, fill }: { filled: boolean; index: number; track: string; fill: string }) {
   const progress = useSharedValue(0)
 

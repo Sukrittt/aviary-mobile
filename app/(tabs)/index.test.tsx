@@ -84,6 +84,21 @@ describe('HomeScreen · Ready to Assign', () => {
     expect(mockPush).toHaveBeenLastCalledWith('/modals/edit-ready-to-assign')
   })
 
+  it('shows an income pill that opens the income options', () => {
+    const { getByText } = renderHome()
+
+    fireEvent.press(getByText('Income · ₹20,000'))
+    expect(getByText('Change income')).toBeTruthy()
+  })
+
+  it('sends the pill straight to setting income when there is none', () => {
+    mockBudgets = []
+    const { getByText } = renderHome()
+
+    fireEvent.press(getByText('Set your income'))
+    expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/modals/edit-month-income', params: { month: MONTH, initial: '0' } })
+  })
+
   it('uses the app icon as the home header brand', () => {
     const { getByLabelText, queryByText, UNSAFE_getAllByType } = renderHome()
 
@@ -126,8 +141,9 @@ describe('HomeScreen · Ready to Assign', () => {
   it('shows DB-backed getting-started progress and opens each unfinished step', async () => {
     const { getByText, findByText } = renderHome()
 
-    expect(await findByText('1/3')).toBeTruthy()
+    expect(await findByText('2/4')).toBeTruthy()
     expect(getByText('Set up your budget')).toBeTruthy()
+    expect(getByText('Fund your envelopes')).toBeTruthy()
     fireEvent.press(getByText('Add a manual transaction'))
     expect(mockPush).toHaveBeenLastCalledWith('/modals/log-expense')
     fireEvent.press(getByText('Take a guided tour'))
@@ -169,7 +185,7 @@ describe('HomeScreen · Ready to Assign', () => {
   it('asks for income first when setup skipped it, opening the income editor', async () => {
     mockBudgets = [{ month: MONTH, category: 'Food', assigned: '0', rolled_over: '0' }]
     const { findByText, queryByText } = renderHome()
-    expect(await findByText('0/3')).toBeTruthy()
+    expect(await findByText('0/4')).toBeTruthy()
     expect(queryByText('Set up your budget')).toBeNull()
 
     fireEvent.press(await findByText('Add your income'))
@@ -185,8 +201,21 @@ describe('HomeScreen · Ready to Assign', () => {
       guidedTourCompletedAt: '2026-10-01T02:00:00.000Z',
     }
     const { findByText } = renderHome()
-    expect(await findByText('2/3')).toBeTruthy()
+    expect(await findByText('2/4')).toBeTruthy()
     expect(await findByText('Add your income')).toBeTruthy()
+  })
+
+  // Income alone leaves every envelope at zero, so the next step is assigning it.
+  it('asks to fund envelopes once income is in, opening the first envelope', async () => {
+    mockBudgets = [
+      { month: MONTH, category: '__income__', assigned: '50000', rolled_over: '0' },
+      { month: MONTH, category: 'Food', assigned: '0', rolled_over: '0' },
+    ]
+    const { findByText } = renderHome()
+    expect(await findByText('1/4')).toBeTruthy()
+
+    fireEvent.press(await findByText('Fund your envelopes'))
+    expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/modals/edit-assigned-amount', params: { category: 'Food' } })
   })
 
   it('shows a retryable error screen instead of raw error text when a query fails', () => {

@@ -172,10 +172,13 @@ export default function HomeScreen() {
 
   const showRolloverBanner = rolloverDismissed === false && prevMonthLeftover > 0
   const incomeDone = envelopeState.income > 0
+  const fundDone = envelopeState.totalAssigned > 0
+  // The first envelope on screen, so "Fund your envelopes" opens somewhere real.
+  const firstEnvelope = groupedEnvelopes[0]?.envelopes[0]?.category
   const showGetStarted =
     getStartedSkipped === false &&
     !!user?.getStartedAt &&
-    !(incomeDone && user.manualTransactionCompletedAt && user.guidedTourCompletedAt)
+    !(incomeDone && fundDone && user.manualTransactionCompletedAt && user.guidedTourCompletedAt)
 
   function handleEditAmount(category: string) {
     router.push({ pathname: '/modals/edit-assigned-amount', params: { category } })
@@ -270,6 +273,23 @@ export default function HomeScreen() {
           <Text style={{ color: tokens.text2, fontSize: type.caption, fontFamily: fontFamily.bodyMedium }}>
             {monthLabel(month)} · {daysLeftInMonth() === 0 ? 'Less than 24 hrs' : `${daysLeftInMonth()} days left`}
           </Text>
+          {/* The hero tap is invisible, so this pill names where the number
+              comes from. With no income yet it goes straight to setting it. */}
+          <Pressable
+            accessibilityRole="button"
+            onPress={() =>
+              envelopeState.income === 0
+                ? router.push({ pathname: '/modals/edit-month-income', params: { month, initial: String(envelopeState.incomeBase) } })
+                : setIncomeSheetOpen(true)
+            }
+            hitSlop={8}
+            style={[styles.incomePill, { backgroundColor: envelopeState.income === 0 ? tokens.accentSoft : tokens.inputBg, borderRadius: radius.full }]}
+          >
+            <Text style={{ color: envelopeState.income === 0 ? tokens.accentInk : tokens.text, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>
+              {envelopeState.income === 0 ? 'Set your income' : `Income · ${formatCurrency(envelopeState.income, hideAmounts)}`}
+            </Text>
+            <Icon icon={ChevronRight} size={14} color={envelopeState.income === 0 ? tokens.accentInk : tokens.text2} />
+          </Pressable>
         </View>
 
         {/* The lasting record lives in Insights' "Where it went" card (any
@@ -318,11 +338,13 @@ export default function HomeScreen() {
           >
             <GetStartedCard
               incomeDone={incomeDone}
+              fundDone={fundDone}
               manualTransactionDone={!!user.manualTransactionCompletedAt}
               guidedTourDone={!!user.guidedTourCompletedAt}
               onAddIncome={() =>
                 router.push({ pathname: '/modals/edit-month-income', params: { month, initial: String(envelopeState.incomeBase) } })
               }
+              onFund={() => (firstEnvelope ? handleEditAmount(firstEnvelope) : router.navigate('/(tabs)/envelopes'))}
               onAddTransaction={() => router.push('/modals/log-expense')}
               onTakeTour={() => router.push('/account/guided-tour')}
               onSkip={() => {
@@ -441,6 +463,7 @@ const styles = StyleSheet.create({
   appIconButton: { width: 56, height: 56 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   hero: { alignItems: 'center', gap: 6 },
+  incomePill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 6, marginTop: 4 },
   sheetTitle: { fontSize: 16, marginBottom: 8 },
   sheetBtn: { paddingVertical: 12 },
   sheetBtnText: { fontSize: 14 },
