@@ -190,7 +190,9 @@ describe('HomeScreen · Ready to Assign', () => {
   })
 
   it('shows a retryable error screen instead of raw error text when a query fails', () => {
+    // First load failed, so there's nothing saved to fall back on.
     mockBudgetsError = new Error('network error')
+    mockBudgets = undefined as unknown as typeof mockBudgets
     const { getByText, queryByText } = renderHome()
 
     expect(getByText("Couldn't load your budget")).toBeTruthy()
@@ -198,6 +200,12 @@ describe('HomeScreen · Ready to Assign', () => {
 
     fireEvent.press(getByText('Try again'))
     expect(mockRefetch).toHaveBeenCalled()
+  })
+
+  it('keeps the budget on screen when a refresh fails', () => {
+    mockBudgetsError = new Error('network error')
+    const { queryByText } = renderHome()
+    expect(queryByText("Couldn't load your budget")).toBeNull()
   })
 })
 

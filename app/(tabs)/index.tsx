@@ -194,7 +194,8 @@ export default function HomeScreen() {
   }
 
   const isLoading = !FORCE_EMPTY_STATE_PREVIEW && (budgetsQ.isLoading || expensesQ.isLoading || categoriesQ.isLoading || groupsQ.isLoading)
-  const hasError = !FORCE_EMPTY_STATE_PREVIEW && (budgetsQ.error || expensesQ.error || categoriesQ.error || groupsQ.error)
+  // A failed refresh keeps the last good data, so only a query with nothing to show is an error.
+  const hasError = !FORCE_EMPTY_STATE_PREVIEW && [budgetsQ, expensesQ, categoriesQ, groupsQ].some((q) => q.error && q.data === undefined)
 
   if (isLoading) {
     return (
@@ -204,9 +205,9 @@ export default function HomeScreen() {
     )
   }
 
-  // Offline blocks the whole screen, not just this one query error — a single
-  // gate instead of six per-screen error branches (see OfflineScreen).
-  if (!online) return <OfflineScreen />
+  // Saved data stays on screen offline (the root OfflineBanner says so); the
+  // full offline screen is only for when there's nothing to show.
+  if (hasError && !online) return <OfflineScreen />
 
   if (hasError) {
     return (

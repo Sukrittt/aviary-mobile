@@ -9,6 +9,7 @@ import { subscribeExchanging } from '@/src/api/useSignIn'
 import { AlertHost } from '@/src/components/ui/AlertHost'
 import { PrivacyProvider } from '@/src/context/PrivacyContext'
 import { MaintenanceBanner } from '@/src/components/shared/MaintenanceBanner'
+import { OfflineBanner } from '@/src/components/shared/OfflineBanner'
 import { LogExpenseNavigation } from '@/src/features/log-expense/LogExpenseNavigation'
 import { clearLogExpenseDraft } from '@/src/features/log-expense/draft'
 import { LOG_EXPENSE_PATH,LogExpenseSubmitProvider } from '@/src/features/log-expense/SubmitContext'
@@ -392,6 +393,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
       </Stack>
       <LogExpenseNavigation />
       {splashUp ? null : <MaintenanceBanner />}
+      {splashUp || !signedIn ? null : <OfflineBanner />}
       {splashUp || resolving || exchanging ? <View style={StyleSheet.absoluteFill}><BirdLandingSplash /></View> : null}
       <AlertHost />
       {/* Same gate as the (tabs) Stack.Protected block above: fires the same
