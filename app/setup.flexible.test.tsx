@@ -106,14 +106,17 @@ it('lets the assign step finish with money left over', async () => {
   unmount()
 })
 
-it('goes back to the starter path when leaving the groups step', () => {
-  const { getByText, getByLabelText, unmount } = renderWithProviders(<SetupScreen />)
+// Edits made on the custom path stay, so going back can't finish them
+// through the starter path and report them as not customized.
+it('stays on the custom path after going back from the groups step', () => {
+  const { getByText, queryByText, getByLabelText, unmount } = renderWithProviders(<SetupScreen />)
   fireEvent.press(getByText('Continue')) // currency
   fireEvent.press(getByText('₹50,000'))
   fireEvent.press(getByText(PICK_OWN))
   expect(getByText('Group your money')).toBeTruthy()
   fireEvent.press(getByLabelText('Go back'))
-  expect(getByText('Finish setup')).toBeTruthy()
-  expect(getByText(PICK_OWN)).toBeTruthy()
+  expect(queryByText(PICK_OWN)).toBeNull()
+  fireEvent.press(getByText('Continue'))
+  expect(getByText('Group your money')).toBeTruthy()
   unmount()
 })

@@ -541,7 +541,6 @@ function CurrencyWizard({
         step_name: STEP_NAMES[step],
       });
     setError("");
-    if (step === 2) setCustom(false);
     setStep((s) => Math.max(0, s - 1));
   };
 

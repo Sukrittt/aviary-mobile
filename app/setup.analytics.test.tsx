@@ -34,7 +34,7 @@ function walkToFinish() {
   fireEvent.press(getByText('₹50,000'))
   fireEvent.press(getByText('Pick my own groups and categories')) // income
   fireEvent.press(getByLabelText('Go back'))
-  fireEvent.press(getByText('Pick my own groups and categories')) // income, again
+  fireEvent.press(getByText('Continue')) // income, again
   fireEvent.press(getByText('Continue')) // groups
   fireEvent.press(getByText('Continue')) // categories
   fireEvent.press(getByText('Finish setup'))
