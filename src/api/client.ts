@@ -34,6 +34,7 @@ export async function apiFetch(path: string, init?: RequestInit, expectedGenerat
     throw err
   }
   if (expectedGeneration !== sessionGeneration()) throw new SessionChangedError()
+  const tokenMs = Date.now() - startedAt
   let resp: Response
   try {
     resp = await fetch(`${BASE_URL}${path}`, {
@@ -56,6 +57,16 @@ export async function apiFetch(path: string, init?: RequestInit, expectedGenerat
     setOnline(false)
     throw err
   }
+  // Every answered request, for latency percentiles and error rates per
+  // endpoint. Timed to the response headers, not the body download.
+  track('api_request', {
+    path: metricPath(path),
+    method: init?.method ?? 'GET',
+    status: resp.status,
+    ok: resp.ok,
+    duration_ms: Date.now() - startedAt,
+    token_ms: tokenMs,
+  })
 
   if (expectedGeneration !== sessionGeneration()) throw new SessionChangedError()
 
@@ -81,10 +92,15 @@ export async function apiFetch(path: string, init?: RequestInit, expectedGenerat
 function reportRequestFailure(phase: 'token_refresh' | 'fetch', path: string, err: unknown, startedAt: number): void {
   track('request_failed', {
     phase,
-    path: path.split('?')[0].replace(/[0-9a-f]{24}|[0-9a-f]{8}-[0-9a-f-]{27}/gi, ':id'),
+    path: metricPath(path),
     error: err instanceof Error ? err.name : 'unknown',
     elapsed_ms: Date.now() - startedAt,
   })
+}
+
+/** Query string dropped and ids collapsed, so one endpoint groups as one path. */
+function metricPath(path: string): string {
+  return path.split('?')[0].replace(/[0-9a-f]{24}|[0-9a-f]{8}-[0-9a-f-]{27}/gi, ':id')
 }
 
 /** Thrown by an API wrapper on a non-ok response, carrying the HTTP status so

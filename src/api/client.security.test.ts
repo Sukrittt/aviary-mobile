@@ -37,3 +37,13 @@ it('reports a request that got no response', async () => {
   expect(track).toHaveBeenCalledWith('request_failed', expect.objectContaining({ phase: 'fetch', path: '/api/archive', error: 'TypeError' }))
   fetch.mockRestore()
 })
+it('records the timing and status of every answered request', async () => {
+  ;(getValidToken as jest.Mock).mockResolvedValue('t')
+  const fetch = jest.spyOn(global, 'fetch').mockResolvedValueOnce(new Response('{}', { status: 503 }))
+  await apiFetch('/api/expenses/6ac79f588f42153bdc36f9b8?x=1', { method: 'PATCH' })
+  expect(track).toHaveBeenCalledWith('api_request', expect.objectContaining({
+    path: '/api/expenses/:id', method: 'PATCH', status: 503, ok: false,
+    duration_ms: expect.any(Number), token_ms: expect.any(Number),
+  }))
+  fetch.mockRestore()
+})
