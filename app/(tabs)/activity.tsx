@@ -14,7 +14,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter, useLocalSearchParams, useFocusEffect, type Href } from "expo-router";
 import * as Haptics from "expo-haptics";
-import { Check, ChevronLeft, ChevronRight, SlidersHorizontal, Trash2, X } from "lucide-react-native";
+import { ChevronLeft, ChevronRight, SlidersHorizontal, Trash2, X } from "lucide-react-native";
 import Reanimated, { FadeIn, FadeOut, LinearTransition } from "react-native-reanimated";
 import type { ThemeTokens } from "@/src/theme/tokens";
 import { AnimatedTabContent } from "@/src/components/nav/AnimatedTabContent";
@@ -39,6 +39,7 @@ import { BottomSheet } from "@/src/components/shared/Modal";
 import { DatePicker, type DateRange } from "@/src/components/shared/DatePicker";
 import { useRefresh } from "@/src/hooks/useRefresh";
 import { SwipeableRow } from "@/src/components/activity/SwipeableRow";
+import { SelectCheck, SelectTint } from "@/src/components/shared/SelectCheck";
 import { DeletingRow } from "@/src/components/activity/DeletingRow";
 import { LoadingCaption } from "@/src/components/shared/LoadingCaption";
 import { OfflineScreen } from "@/src/components/shared/OfflineScreen";
@@ -54,6 +55,7 @@ type PeriodKey = "all" | "week" | "month" | "custom";
 
 const CHIP_TRANSITION = LinearTransition.springify().damping(64).stiffness(700);
 const PAGE_SIZE = 30;
+const ROW_GAP = 12;
 
 // Mirrors Web's TransactionsView.tsx INCOME_CATEGORIES set — colors/signs these
 // as income instead of spend.
@@ -624,24 +626,14 @@ export default function ActivityScreen() {
                   }}
                   disabled={selectionLocked}
                   accessibilityState={selecting ? { selected: isSelected } : undefined}
-                  style={[
-                    styles.row,
-                    { backgroundColor: isSelected ? tokens.accentSoft : tokens.bg },
-                  ]}
+                  style={[styles.row, { backgroundColor: tokens.bg }]}
                 >
-                  <View
-                    style={[
-                      styles.icon,
-                      { backgroundColor: isSelected ? tokens.accent : avatarBg },
-                    ]}
-                  >
-                    {isSelected ? (
-                      <Icon icon={Check} size={18} color={tokens.onAccent} />
-                    ) : (
-                      <Text style={{ fontSize: 15 }}>
-                        {categoryEmoji(txn.category)}
-                      </Text>
-                    )}
+                  <SelectTint selected={isSelected} style={styles.rowTint} />
+                  <SelectCheck selecting={selecting} selected={isSelected} gap={ROW_GAP} />
+                  <View style={[styles.icon, { backgroundColor: avatarBg }]}>
+                    <Text style={{ fontSize: 15 }}>
+                      {categoryEmoji(txn.category)}
+                    </Text>
                   </View>
                   <View style={{ flex: 1, minWidth: 0 }}>
                     <Text
@@ -699,10 +691,8 @@ export default function ActivityScreen() {
                     if (pendingDelete) runDelete(pendingDelete);
                   }}
                 >
-                  {selecting ? (
-                    content
-                  ) : (
-                    <SwipeableRow
+                  <SwipeableRow
+                      enabled={!selecting}
                       rowKey={keyOf(txn)}
                       onDelete={() => confirmDelete(txn)}
                       onEdit={() => openEdit(txn)}
@@ -718,7 +708,6 @@ export default function ActivityScreen() {
                     >
                       {content}
                     </SwipeableRow>
-                  )}
                 </DeletingRow>
               );
             })}
@@ -1139,9 +1128,10 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: ROW_GAP,
     paddingVertical: 11,
   },
+  rowTint: { borderRadius: 14 },
   icon: {
     width: 40,
     height: 40,
