@@ -54,7 +54,10 @@ export async function apiFetch(path: string, init?: RequestInit, expectedGenerat
     // fetch() itself threw (TypeError, or AbortError from the timeout above)
     // — no response at all, so this is a transport failure, not a rejection.
     reportRequestFailure('fetch', path, err, startedAt)
-    setOnline(false)
+    // A timeout or abort means the server was slow (or the caller gave up, like
+    // the 5s AI category suggestion), not that the device lost its connection.
+    // Counting those flipped the whole app to the offline screen while online.
+    if (!isAbort(err)) setOnline(false)
     throw err
   }
   // Every answered request, for latency percentiles and error rates per
@@ -96,6 +99,10 @@ function reportRequestFailure(phase: 'token_refresh' | 'fetch', path: string, er
     error: err instanceof Error ? err.name : 'unknown',
     elapsed_ms: Date.now() - startedAt,
   })
+}
+
+function isAbort(err: unknown): boolean {
+  return err instanceof Error && (err.name === 'AbortError' || err.name === 'TimeoutError')
 }
 
 /** Query string dropped and ids collapsed, so one endpoint groups as one path. */

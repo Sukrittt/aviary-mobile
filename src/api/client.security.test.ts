@@ -1,6 +1,7 @@
 import { apiFetch } from './client'
 import { getValidToken, sessionGeneration } from './accessMode'
 import { track } from '@/src/lib/analytics'
+import { setOnline } from '@/src/lib/netStatus'
 jest.mock('./accessMode', () => ({
   getValidToken: jest.fn(), sessionGeneration: jest.fn(() => 1),
   SessionChangedError: class extends Error {}, currentAccessToken: jest.fn(), clearAccess: jest.fn(),
@@ -45,5 +46,22 @@ it('records the timing and status of every answered request', async () => {
     path: '/api/expenses/:id', method: 'PATCH', status: 503, ok: false,
     duration_ms: expect.any(Number), token_ms: expect.any(Number),
   }))
+  fetch.mockRestore()
+})
+it('does not call a timed-out or aborted request a lost connection', async () => {
+  ;(getValidToken as jest.Mock).mockResolvedValue('t')
+  const fetch = jest.spyOn(global, 'fetch')
+    .mockRejectedValueOnce(Object.assign(new Error('Aborted'), { name: 'AbortError' }))
+    .mockRejectedValueOnce(Object.assign(new Error('signal timed out'), { name: 'TimeoutError' }))
+  await expect(apiFetch('/api/category-map/suggest')).rejects.toThrow()
+  await expect(apiFetch('/api/category-map/suggest')).rejects.toThrow()
+  expect(setOnline).not.toHaveBeenCalledWith(false)
+  fetch.mockRestore()
+})
+it('treats a request that could not reach the network as offline', async () => {
+  ;(getValidToken as jest.Mock).mockResolvedValue('t')
+  const fetch = jest.spyOn(global, 'fetch').mockRejectedValueOnce(new TypeError('Network request failed'))
+  await expect(apiFetch('/api/expenses')).rejects.toThrow()
+  expect(setOnline).toHaveBeenCalledWith(false)
   fetch.mockRestore()
 })
