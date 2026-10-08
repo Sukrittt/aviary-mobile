@@ -14,10 +14,12 @@ it('shows the claimed release and closes on Got it', () => {
     id: 'r1', platform: 'mobile', title: 'Log faster', version: 'v2.6.0', highlights: ['Quick capture', 'Smarter categories'],
     body: 'The full notes.', publishedAt: '2026-10-08T00:00:00.000Z',
   })
-  const { getByText } = renderWithProviders(<WhatsNewScreen />)
+  const { getByText, queryByText } = renderWithProviders(<WhatsNewScreen />)
   expect(getByText('Log faster')).toBeTruthy()
   expect(getByText('v2.6.0 · Oct 8, 2026')).toBeTruthy()
   expect(getByText('Smarter categories')).toBeTruthy()
+  expect(queryByText('The full notes.')).toBeNull()
+  fireEvent.press(getByText('Read the full notes'))
   expect(getByText('The full notes.')).toBeTruthy()
   fireEvent.press(getByText('Got it'))
   expect(mockBack).toHaveBeenCalled()

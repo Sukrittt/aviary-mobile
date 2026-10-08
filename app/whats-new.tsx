@@ -2,10 +2,9 @@ import { useEffect, useState } from 'react'
 import { View, Text, ScrollView, StyleSheet } from 'react-native'
 import { router } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { Sparkles } from 'lucide-react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
-import { Icon } from '@/src/components/shared/Icon'
+import { BirdLandingMark } from '@/src/components/splash/BirdLandingMark'
 import { Button } from '@/src/components/ui/Button'
 import { PopIn } from '@/src/components/shared/PopIn'
 import { shownRelease } from '@/src/features/changelog/useChangelogGate'
@@ -20,6 +19,8 @@ export default function WhatsNewScreen() {
   const { tokens, radius, space, type } = useTheme()
   const insets = useSafeAreaInsets()
   const [release] = useState(shownRelease)
+  // Highlights carry the screen; the long notes wait behind a tap.
+  const [notesOpen, setNotesOpen] = useState(false)
 
   // Restored from a cold start with nothing claimed: nothing to show.
   useEffect(() => {
@@ -47,7 +48,7 @@ export default function WhatsNewScreen() {
       >
         <PopIn play delay={0}>
           <View style={[styles.badge, { backgroundColor: tokens.accentSoft }]}>
-            <Icon icon={Sparkles} size={28} color={tokens.accentInk} strokeWidth={2.2} />
+            <BirdLandingMark size={52} color={tokens.accentInk} autoplay perched />
           </View>
         </PopIn>
 
@@ -57,18 +58,20 @@ export default function WhatsNewScreen() {
           {!!meta && <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodySemiBold, fontSize: type.caption }}>{meta}</Text>}
         </PopIn>
 
-        <PopIn play delay={160} style={{ width: '100%' }}>
-          <View style={[styles.card, { backgroundColor: tokens.cardSolid, borderColor: tokens.border, borderRadius: radius.md, padding: space.md, gap: space.sm }]}>
+        <PopIn play delay={160} style={{ width: '100%', gap: space.sm }}>
+          <View style={[styles.card, { backgroundColor: tokens.cardSolid, borderColor: tokens.border, borderRadius: radius.md, padding: space.md, gap: space.md }]}>
             {release.highlights.map((line, i) => (
-              <View key={i} style={{ flexDirection: 'row', gap: space.sm }}>
-                <Text style={{ color: tokens.accentInk, fontFamily: fontFamily.bodyExtraBold, fontSize: type.caption, lineHeight: 20 }}>•</Text>
-                <Text style={{ flex: 1, color: tokens.text, fontFamily: fontFamily.bodySemiBold, fontSize: type.caption, lineHeight: 20 }}>{line}</Text>
+              <View key={i} style={{ flexDirection: 'row', gap: space.sm, alignItems: 'flex-start' }}>
+                <View style={[styles.dot, { backgroundColor: tokens.accent }]} />
+                <Text style={{ flex: 1, color: tokens.text, fontFamily: fontFamily.bodySemiBold, fontSize: type.body, lineHeight: 22 }}>{line}</Text>
               </View>
             ))}
-            {!!release.body && (
-              <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodyMedium, fontSize: type.caption, lineHeight: 20, marginTop: space.xs }}>{release.body}</Text>
-            )}
           </View>
+          {!!release.body && (notesOpen ? (
+            <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodyMedium, fontSize: type.caption, lineHeight: 20, paddingHorizontal: space.xs }}>{release.body}</Text>
+          ) : (
+            <Button label="Read the full notes" variant="ghost" size="small" onPress={() => setNotesOpen(true)} />
+          ))}
         </PopIn>
       </ScrollView>
 
@@ -80,6 +83,7 @@ export default function WhatsNewScreen() {
 }
 
 const styles = StyleSheet.create({
-  badge: { width: 60, height: 60, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  badge: { width: 76, height: 76, borderRadius: 26, alignItems: 'center', justifyContent: 'center' },
+  dot: { width: 8, height: 8, borderRadius: 4, marginTop: 7 },
   card: { borderWidth: 1 },
 })
