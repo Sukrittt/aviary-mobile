@@ -10,6 +10,7 @@ jest.mock('@/src/api/holdings', () => ({
   updateHolding: jest.fn(),
   deleteHolding: jest.fn(),
   performHoldingAction: jest.fn(),
+  predictHoldingType: jest.fn(() => Promise.resolve(null)),
 }))
 
 let mockParams: Record<string, string> = {}
