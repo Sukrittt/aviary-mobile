@@ -698,9 +698,6 @@ export default function ArchiveScreen() {
                       {formatDateShort(item.deletedAt)}
                     </Text>
                   </View>
-                </View>
-
-                <View style={styles.cardBottom}>
                   <View style={[styles.daysPill, { backgroundColor: daysTone.bg }]}>
                     <Text
                       style={[
@@ -711,9 +708,10 @@ export default function ArchiveScreen() {
                       {days === 1 ? "1 day left" : `${days} days left`}
                     </Text>
                   </View>
-                  <View style={{ flex: 1 }} />
-                  {selecting ? null : (
-                  <>
+                </View>
+
+                {selecting ? null : (
+                <View style={styles.cardBottom}>
                   <Pressable
                     onPress={() => setPurgeTarget(item)}
                     disabled={isPending}
@@ -752,9 +750,8 @@ export default function ArchiveScreen() {
                       </Text>
                     )}
                   </Pressable>
-                  </>
-                  )}
                 </View>
+                )}
               </Pressable>
             </Animated.View>
           );
@@ -1044,8 +1041,8 @@ const styles = StyleSheet.create({
   itemName: { flex: 1, fontSize: 14.5 },
   itemAmount: { fontSize: 13.5 },
   itemContext: { fontSize: 11.5, marginTop: 2 },
-  cardBottom: { flexDirection: "row", alignItems: "center", gap: 8 },
-  daysPill: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999 },
+  cardBottom: { flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 8 },
+  daysPill: { alignSelf: "flex-start", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999 },
   daysText: { fontSize: 12 },
   purgeButton: {
     width: 30,
