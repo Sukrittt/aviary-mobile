@@ -29,7 +29,7 @@ jest.mock('expo-secure-store', () => ({ getItemAsync: jest.fn(async () => null),
 
 beforeEach(() => jest.clearAllMocks())
 
-const PICK_OWN = 'Pick my own groups and categories'
+const PICK_OWN = 'Build my own budget'
 // What each envelope was assigned, keyed by its category label.
 const assigned = (): Record<string, number> =>
   Object.fromEntries(

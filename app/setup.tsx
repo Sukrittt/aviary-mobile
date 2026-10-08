@@ -12,7 +12,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
-import { ArrowLeft, CopyX, Pencil, Plus } from "lucide-react-native";
+import { ArrowLeft, CopyX, LayoutGrid, Pencil, Plus } from "lucide-react-native";
 import { Toast } from "@/src/components/ui/Toast";
 import Animated, {
   useSharedValue,
@@ -947,6 +947,24 @@ function CurrencyWizard({
               />
             ))}
           </View>
+          {!custom && (
+            <Pressable
+              onPress={pickOwn}
+              disabled={pending}
+              accessibilityRole="button"
+              style={[styles.pickOwn, { borderColor: tokens.borderStrong }]}
+            >
+              <LayoutGrid size={15} color={tokens.accentInk} strokeWidth={2.2} />
+              <Text
+                style={[
+                  styles.pickOwnLabel,
+                  { color: tokens.accentInk, fontFamily: fontFamily.bodyBold },
+                ]}
+              >
+                Build my own budget
+              </Text>
+            </Pressable>
+          )}
           <View style={{ flex: 1, minHeight: 10 }} />
           <View style={{ marginBottom: 14 }}>
             <Numpad
@@ -1264,24 +1282,6 @@ function CurrencyWizard({
       </Pressable>
       {error === "" && hint !== "" && (
         <Text style={[styles.ctaHint, { color: tokens.text3 }]}>{hint}</Text>
-      )}
-      {step === 1 && !custom && (
-        <Pressable
-          onPress={pickOwn}
-          disabled={pending}
-          accessibilityRole="button"
-          hitSlop={8}
-          style={styles.pickOwn}
-        >
-          <Text
-            style={[
-              styles.pickOwnLabel,
-              { color: tokens.accentInk, fontFamily: fontFamily.bodyBold },
-            ]}
-          >
-            Pick my own groups and categories
-          </Text>
-        </Pressable>
       )}
 
       <BottomSheet visible={!!activeKey} onClose={closeRow}>
@@ -1691,7 +1691,17 @@ const styles = StyleSheet.create({
   },
   ctaPhrase: { textAlign: "center" },
   ctaHint: { fontSize: 11, textAlign: "center", marginTop: 8, minHeight: 15 },
-  pickOwn: { alignSelf: "center", marginTop: 6, paddingVertical: 4 },
+  pickOwn: {
+    alignSelf: "center",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 999,
+    borderWidth: 1.5,
+  },
   pickOwnLabel: { fontSize: 13 },
 
   remChip: {
