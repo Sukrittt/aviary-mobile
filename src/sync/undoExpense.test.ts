@@ -84,6 +84,27 @@ it('cancels a known-unsent expense locally without needing a request', async () 
   expect(rows.size).toBe(0)
 })
 
+it.each([1, 3])('cancels a known-unsent expense locally after %s definitive rejections', async (attempts) => {
+  await pending.enqueue(payload())
+  jest.mocked(apiFetch).mockResolvedValue(response(400, { error: 'Invalid expense' }))
+  for (let i = 0; i < attempts; i++) await flush()
+  expect(posts()).toHaveLength(attempts)
+  await undoPendingExpense('c1', 'user-a', 1)
+  expect(posts()).toHaveLength(attempts)
+  expect(deletes()).toHaveLength(0)
+  expect(await pending.list()).toEqual([])
+  expect(await pending.listFailed()).toEqual([])
+})
+
+it('does not erase an earlier uncertain submission when a replay receives a definitive rejection', async () => {
+  await pending.enqueue(payload(), 'user-a', true)
+  jest.mocked(apiFetch).mockResolvedValue(response(400, { error: 'Invalid expense' }))
+  await flush()
+  expect((await pending.list())[0].submitted).toBe(true)
+  await expect(undoPendingExpense('c1', 'user-a', 1)).rejects.toThrow('Failed to add expense: 400')
+  expect(await pending.list()).toHaveLength(1)
+})
+
 it('does not submit an undone entry held in the drain’s batch snapshot', async () => {
   await pending.enqueue(payload('first'))
   await pending.enqueue(payload('second'))

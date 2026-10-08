@@ -54,9 +54,18 @@ async function drain(): Promise<void> {
           return
         }
         if (generation !== sessionGeneration()) return
-        await pending.markSubmitted(entry.payload.client_id, owner)
+        await pending.setSubmitted(entry.payload.client_id, true, owner)
         if (generation !== sessionGeneration()) return
-        const result = await postExpensePayload(current.payload, generation)
+        const result = await postExpensePayload(current.payload, generation).catch(async (err) => {
+          // A definitive rejection proves this attempt did not create a row,
+          // but cannot disprove a commit from an earlier ambiguous attempt.
+          if (current.submitted === false && generation === sessionGeneration() &&
+              err instanceof HttpError && err.status >= 400 && err.status < 500 &&
+              ![408, 429].includes(err.status)) {
+            await pending.setSubmitted(entry.payload.client_id, false, owner)
+          }
+          throw err
+        })
         if (generation !== sessionGeneration()) return
         await pending.saveSyncReceipt({
           clientId: current.payload.client_id, ...result,

@@ -29,7 +29,7 @@ jest.mock('@/src/lib/pendingExpenses', () => ({
   list: jest.fn(),
   remove: jest.fn(),
   bumpAttempts: jest.fn(),
-  markSubmitted: jest.fn(),
+  setSubmitted: jest.fn(),
   syncReceipt: jest.fn(),
   saveSyncReceipt: jest.fn(),
 }))

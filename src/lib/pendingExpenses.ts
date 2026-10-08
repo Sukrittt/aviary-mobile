@@ -56,14 +56,14 @@ export function enqueue(payload: ExpensePayload, owner = currentUserId(), submit
   })
 }
 
-/** Persist before POST: a lost response must never turn into a local-only Undo. */
-export function markSubmitted(clientId: string, owner: string): Promise<void> {
+/** Persist before POST; reset only if a known-unsent entry was definitively rejected. */
+export function setSubmitted(clientId: string, submitted: boolean, owner: string): Promise<void> {
   return serialize(async () => {
     const k = key(owner)!
     const entries = await read(k)
     const entry = entries.find(e => e.payload.client_id === clientId)
     if (!entry) throw new Error('This queued expense is no longer available.')
-    entry.submitted = true
+    entry.submitted = submitted
     await write(k, entries)
   })
 }
