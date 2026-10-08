@@ -59,6 +59,27 @@ export function navStateFor(pathname: string, addActive = false): { active: NavR
   return { active, addActive, visible: addActive || active !== null }
 }
 
+/**
+ * Whether the (tabs) screen should draw its own nav copy instead of the root
+ * overlay. `covered`: a nav-less screen was pushed straight over the tabs, so
+ * the copy slides out with them. `arriving`: popped back onto a tab, so the
+ * copy slides in with them until the transition ends (cleared by the caller).
+ * Log-expense keeps the overlay throughout, since its nav morphs in place.
+ */
+export type NavCover = { path: string; tab: NavRoute; covered: boolean; arriving: boolean }
+
+export function nextNavCover(prev: NavCover, pathname: string, onLogExpense: boolean): NavCover {
+  if (prev.path === pathname) return prev
+  const tab = activeRouteFor(pathname)
+  const wasTab = activeRouteFor(prev.path) !== null
+  return {
+    path: pathname,
+    tab: tab ?? prev.tab,
+    covered: !tab && !onLogExpense && (wasTab || prev.covered),
+    arriving: tab !== null && (prev.covered || prev.arriving),
+  }
+}
+
 type NavSlot = { kind: 'route'; name: NavRoute; glyph: NavIconComponent; label: string } | { kind: 'add' }
 
 /** Slot order matches NAV_ROUTES, with the add action inserted at the centre. */
