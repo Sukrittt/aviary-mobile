@@ -451,6 +451,23 @@ export default function LogExpenseScreen() {
         >
           {isEdit ? "Edit expense" : "Log expense"}
         </Text>
+        {!isEdit && (
+          // Several spends at once go through the money brain: type them,
+          // review the list it reads out, log them together. Kept as a quiet
+          // header icon; the capture tip below explains it at the right moment.
+          <Pressable
+            onPress={() => {
+              captureTip.close("try");
+              router.push({ pathname: "/modals/money-brain", params: { capture: "1" } });
+            }}
+            style={[styles.severalButton, { left: space.lg, top: insets.top + space.xs, backgroundColor: fieldBg }]}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Log several spends at once"
+          >
+            <MessageSquareText size={18} color="#ffffff" />
+          </Pressable>
+        )}
       </View>
 
       <Toast
@@ -561,33 +578,6 @@ export default function LogExpenseScreen() {
             </View>
           )}
 
-          {!isEdit && (
-            // Several spends at once go through the money brain: type them,
-            // review the list it reads out, log them together.
-            <Pressable
-              onPress={() => {
-                captureTip.close("try");
-                router.push({ pathname: "/modals/money-brain", params: { capture: "1" } });
-              }}
-              style={[styles.moreToggle, { gap: space.xs }]}
-              hitSlop={8}
-              accessibilityLabel="Log several spends at once"
-            >
-              <MessageSquareText size={14} color={onAccentDim} />
-              <Text
-                style={[
-                  styles.moreLabel,
-                  {
-                    color: onAccentDim,
-                    fontFamily: fontFamily.bodySemiBold,
-                    fontSize: type.caption,
-                  },
-                ]}
-              >
-                Log several at once
-              </Text>
-            </Pressable>
-          )}
         </View>
       </ScrollView>
 
@@ -786,6 +776,7 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   headerTitle: {},
+  severalButton: { position: "absolute", width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
   scroll: { flex: 1 },
   body: { paddingTop: 8 },
   footer: {},
