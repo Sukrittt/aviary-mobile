@@ -108,7 +108,7 @@ export function SetupDone({
           numberOfLines={1}
           style={[styles.promiseText, { color: tokens.accentInk, fontFamily: fontFamily.bodyBold }]}
         >
-          Log 7 days to unlock your first recap
+          Your first-week recap lands in 7 days
         </Text>
       </Animated.View>
 
