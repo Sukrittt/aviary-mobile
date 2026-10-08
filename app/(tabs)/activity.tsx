@@ -445,8 +445,8 @@ export default function ActivityScreen() {
   }
 
   const isLoading = !FORCE_EMPTY_STATE_PREVIEW && (anchorQuery.isLoading || expensesQ.isLoading || categoriesQ.isLoading);
-  // A failed refresh keeps the last good data, so only a query with nothing to show is an error.
-  const hasError = !FORCE_EMPTY_STATE_PREVIEW && [expensesQ, categoriesQ].some((q) => q.error && q.data === undefined);
+  // A failed refresh keeps the last good data: only an error with no transactions to show replaces the list.
+  const hasError = !FORCE_EMPTY_STATE_PREVIEW && !!(expensesQ.error || categoriesQ.error) && expensesQ.data === undefined;
 
   if (hasError && !online) return <OfflineScreen />;
 

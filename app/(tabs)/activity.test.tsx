@@ -23,8 +23,9 @@ jest.mock('@/src/hooks/useExpenses', () => ({
   useRecentExpenses: () => ({ data: [], isLoading: false, error: null }),
 }))
 
+let mockCategories: { data: unknown; isLoading: boolean; error: Error | null } = { data: [], isLoading: false, error: null }
 jest.mock('@/src/hooks/useCategories', () => ({
-  useCategories: () => ({ data: [], isLoading: false, error: null }),
+  useCategories: () => mockCategories,
 }))
 
 jest.mock('@/src/hooks/useGroups', () => ({
@@ -95,6 +96,7 @@ beforeEach(() => {
   mockPush.mockReset()
   mockDuplicates = []
   mockOnline = true
+  mockCategories = { data: [], isLoading: false, error: null }
 })
 
 it('shows duplicate review as a compact header action', () => {
@@ -322,4 +324,12 @@ it('shows the offline screen only when there is nothing saved to show', async ()
   mockUseExpensesPage.mockReturnValue({ data: undefined, isLoading: false, error: new Error('Network request failed') })
   const { findByText } = renderWithProviders(<ActivityScreen />)
   expect(await findByText("You're offline")).toBeTruthy()
+})
+
+it('keeps saved transactions offline even when categories never loaded', () => {
+  mockOnline = false
+  mockCategories = { data: undefined, isLoading: false, error: new Error('Network request failed') }
+  mockUseExpensesPage.mockReturnValue({ data: pageResult({}), isLoading: false, error: null })
+  const { getByText } = renderWithProviders(<ActivityScreen />)
+  expect(getByText('Item 1')).toBeTruthy()
 })
