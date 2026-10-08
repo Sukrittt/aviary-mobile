@@ -19,6 +19,21 @@ jest.mock('@/src/api/budgets', () => ({
 }))
 jest.mock('@/src/api/categories', () => ({ getCategories: jest.fn() }))
 jest.mock('@/src/api/groups', () => ({ getGroups: jest.fn() }))
+// The real sheet is covered by its own tests; this stub lists the two
+// envelopes the switching tests pick between.
+jest.mock('@/src/components/shared/CategoryPickerSheet', () => {
+  const { Pressable, Text } = require('react-native')
+  return {
+    CategoryPickerSheet: ({ visible, onSelect, onClose }: { visible: boolean; onSelect: (c: string) => void; onClose: () => void }) =>
+      visible
+        ? ['Food', 'Rent'].map((c) => (
+            <Pressable key={c} onPress={() => { onSelect(c); onClose() }}>
+              <Text>{`Pick ${c}`}</Text>
+            </Pressable>
+          ))
+        : null,
+  }
+})
 
 const mockBack = jest.fn()
 let mockParams: Record<string, string> = {}
@@ -144,4 +159,61 @@ it('gives selection haptics when a quick pick is tapped', async () => {
   fireEvent.press(getByText('₹2,500'))
   expect(selection).toHaveBeenCalledTimes(1)
   expect(getByLabelText('₹2,500')).toBeTruthy()
+})
+
+describe('switching envelopes in place', () => {
+  function setupTwo(budgets: object[]) {
+    ;(getCategories as jest.Mock).mockResolvedValue([
+      { name: 'Food', group: 'Everyday' },
+      { name: 'Rent', group: 'Everyday' },
+    ])
+    mockParams = { category: 'Food' }
+    ;(getExpenses as jest.Mock).mockResolvedValue([])
+    ;(getBudgets as jest.Mock).mockResolvedValue(budgets)
+    ;(getGroups as jest.Mock).mockResolvedValue(['Everyday'])
+    return renderWithProviders(<EditAssignedAmountModal />)
+  }
+
+  it('saves the unsaved draft, then loads the picked envelope', async () => {
+    ;(updateBudget as jest.Mock).mockResolvedValue({})
+    const budgets = [
+      { month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0', version: 2 },
+      { month: MONTH, category: 'Food', assigned: '0', rolled_over: '0', version: 1 },
+      { month: MONTH, category: 'Rent', assigned: '6000', rolled_over: '0', version: 3 },
+    ]
+    const { getByLabelText, findByText, getByText, findByLabelText } = setupTwo(budgets)
+    await findByText('₹14,000 left in Ready to Assign')
+
+    await enterAmount(getByLabelText, '4000')
+    expect(getByText('₹10,000 left to assign')).toBeTruthy()
+    ;(getBudgets as jest.Mock).mockResolvedValue(
+      budgets.map((b) => (b.category === 'Food' ? { ...b, assigned: '4000', version: 2 } : b)),
+    )
+
+    fireEvent.press(getByLabelText('Editing Food. Switch envelope'))
+    await act(async () => {
+      fireEvent.press(await findByText('Pick Rent'))
+    })
+
+    await waitFor(() => expect(updateBudget).toHaveBeenCalledWith(MONTH, 'Food', { assigned: '4000' }, 1))
+    expect(await findByLabelText('Editing Rent. Switch envelope')).toBeTruthy()
+    expect(await findByText('₹6,000 already assigned this month')).toBeTruthy()
+    expect(mockBack).not.toHaveBeenCalled()
+  })
+
+  it('switches without saving when nothing changed', async () => {
+    const { getByLabelText, findByText, findByLabelText } = setupTwo([
+      { month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0', version: 2 },
+      { month: MONTH, category: 'Food', assigned: '5000', rolled_over: '0', version: 1 },
+    ])
+    await findByText('₹5,000 already assigned this month')
+
+    fireEvent.press(getByLabelText('Editing Food. Switch envelope'))
+    await act(async () => {
+      fireEvent.press(await findByText('Pick Rent'))
+    })
+
+    expect(await findByLabelText('Editing Rent. Switch envelope')).toBeTruthy()
+    expect(updateBudget).not.toHaveBeenCalled()
+  })
 })
