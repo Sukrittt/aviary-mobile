@@ -26,13 +26,22 @@ function TabsNavStandIn() {
   const [cover, setCover] = useState<NavCover>(() => ({ path: pathname, tab: activeRouteFor(pathname) ?? 'index', covered: false, arriving: false }))
   const next = nextNavCover(cover, pathname, pathname === LOG_EXPENSE_PATH)
   if (next !== cover) setCover(next)
-  const shown = next.covered || next.arriving
+  // Signing out flips the pathname to /welcome just like a push would, but the
+  // guards drop the tabs from the stack, and this screen animates out on top
+  // of welcome. Only stand in while the tabs are still in the stack.
+  const inStack = navigation.getState()?.routes.some((r) => r.name === '(tabs)') ?? false
+  const shown = inStack && (next.covered || next.arriving)
 
   // Layout effect, not a passive one: the overlay has to drop out in the same
   // frame this copy appears, or both show (or neither) for a frame.
   useLayoutEffect(() => {
     tabsNavCover.value = shown ? 1 : 0
   }, [shown])
+  // Unmounting while covered (signed out from a pushed screen) must not leave
+  // the overlay masked for the next session.
+  useLayoutEffect(() => () => {
+    tabsNavCover.value = 0
+  }, [])
 
   useEffect(() => {
     if (!next.arriving) return
