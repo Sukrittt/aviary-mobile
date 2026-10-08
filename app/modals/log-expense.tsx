@@ -611,7 +611,7 @@ export default function LogExpenseScreen() {
           <TextInput
             value={item}
             onChangeText={handleItemChange}
-            placeholder="What was it for?"
+            placeholder="Name (optional)"
             placeholderTextColor={onAccentDim}
             style={[
               styles.itemInput,
@@ -633,16 +633,20 @@ export default function LogExpenseScreen() {
           >
           <AutoCategoryPill
             selected={
-              selectedCategory
+              category
                 ? {
-                    emoji: categoryEmoji(selectedCategory.name, selectedCategory.group),
-                    name: splitEmoji(selectedCategory.name).text,
+                    // An edit can carry a category the loaded list lacks
+                    // (renamed or deleted since); it still saves, so show it.
+                    emoji: categoryEmoji(category, selectedCategory?.group ?? ""),
+                    name: splitEmoji(category).text,
                   }
                 : null
             }
             thinking={suggesting}
             auto={autoPicked}
-            highlighted={flag("category")}
+            // Empty and not mid-pick, the pill is the field to fill: it wears
+            // the white "look here" style, not just after a blocked save.
+            highlighted={flag("category") || (!category && !suggesting)}
             rollEmojis={rollEmojis}
             onPress={() => setPickerOpen(true)}
           />

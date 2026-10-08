@@ -4,6 +4,7 @@ import {
   Animated,
   Pressable,
   StyleSheet,
+  Text,
   useWindowDimensions,
   type NativeSyntheticEvent,
   type NativeScrollEvent,
@@ -19,10 +20,15 @@ import Reanimated, {
   withTiming,
   interpolateColor,
   runOnJS,
+  withRepeat,
+  cancelAnimation,
+  useReducedMotion,
+  Easing,
   type SharedValue,
 } from 'react-native-reanimated'
 import * as Haptics from 'expo-haptics'
 import { useTheme } from '@/src/theme/ThemeProvider'
+import { fontFamily } from '@/src/theme/fonts'
 import { useInvalidFeedback } from '@/src/components/ui/useInvalidFeedback'
 import { AddCircleLoad, AddCircleDone } from './AddCircleAnim'
 import { HomeGlyph, ActivityGlyph, EnvelopeGlyph, ProfileGlyph, PlusGlyph, type NavIconComponent } from './NavIcons'
@@ -184,6 +190,7 @@ export function FloatingNav({
   addSuccess = false,
   addInvalid = false,
   addDisabled = false,
+  addHint = false,
   children,
 }: {
   active: NavRoute | null
@@ -203,6 +210,8 @@ export function FloatingNav({
   addInvalid?: boolean
   /** Meaningful only when addActive: blocks the tap while saving or after success. */
   addDisabled?: boolean
+  /** Meaningful only when addActive: a first-timer's form is ready, so pulse the add slot and say it saves. */
+  addHint?: boolean
   children?: React.ReactNode
 }) {
   const { tokens, elevation } = useTheme()
@@ -301,6 +310,14 @@ export function FloatingNav({
       style={[styles.wrap, { paddingBottom: NAV_BOTTOM_GAP }]}
     >
       {children}
+      {addActive && addHint && (
+        <View
+          pointerEvents="none"
+          style={[styles.hint, { bottom: NAV_BOTTOM_GAP + (ROW_HEIGHT + insets.bottom + RING_SIZE) / 2 + 6 }]}
+        >
+          <Text style={[styles.hintText, { color: tokens.onAccent, fontFamily: fontFamily.bodySemiBold }]}>Tap + to save</Text>
+        </View>
+      )}
       <Reanimated.ScrollView
         ref={scrollRef}
         horizontal
@@ -328,6 +345,7 @@ export function FloatingNav({
                 ],
               }}
             >
+              {addActive && addHint && <AddHalo color={tokens.onAccent} />}
               <NavCircle
                 glyph={PlusGlyph}
                 label="Log expense"
@@ -375,6 +393,22 @@ export function FloatingNav({
       </Reanimated.ScrollView>
     </View>
   )
+}
+
+/** A soft ring breathing out from the add circle. Reduced motion keeps it still. */
+function AddHalo({ color }: { color: string }) {
+  const reduceMotion = useReducedMotion()
+  const t = useSharedValue(0)
+  useEffect(() => {
+    if (reduceMotion) return
+    t.value = withRepeat(withTiming(1, { duration: 1400, easing: Easing.out(Easing.quad) }), -1, false)
+    return () => cancelAnimation(t)
+  }, [reduceMotion, t])
+  const style = useAnimatedStyle(() => ({
+    opacity: reduceMotion ? 0.3 : 0.45 * (1 - t.value),
+    transform: [{ scale: reduceMotion ? 1.2 : 1 + 0.45 * t.value }],
+  }))
+  return <Reanimated.View testID="nav-add-hint" pointerEvents="none" style={[styles.halo, { backgroundColor: color }, style]} />
 }
 
 /**
@@ -600,4 +634,21 @@ const styles = StyleSheet.create({
   },
   circle: { alignItems: 'center', justifyContent: 'center' },
   disabled: { opacity: 0.5 },
+  halo: {
+    position: 'absolute',
+    left: (SLOT - CIRCLE) / 2,
+    top: (RING_SIZE - CIRCLE) / 2,
+    width: CIRCLE,
+    height: CIRCLE,
+    borderRadius: CIRCLE / 2,
+  },
+  hint: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
+  hintText: {
+    fontSize: 13,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 999,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(0, 0, 0, 0.22)',
+  },
 })
