@@ -219,7 +219,11 @@ export default function MoneyBrainModal() {
   const historyCountQuery = useChatSessionsCount()
 
   useEffect(() => {
-    return () => abortRef.current?.abort()
+    return () => {
+      const controller = abortRef.current
+      abortRef.current = null
+      controller?.abort()
+    }
   }, [])
 
   /**
@@ -243,6 +247,8 @@ export default function MoneyBrainModal() {
 
     const controller = new AbortController()
     abortRef.current = controller
+    const ownsRequest = () => abortRef.current === controller && !controller.signal.aborted
+    const replyIndex = history.length
     streamingRef.current = true
     const elapsed = startTimer()
     const answered = (ok: boolean, reason?: string) =>
@@ -252,36 +258,43 @@ export default function MoneyBrainModal() {
       sessionId,
       history,
       (delta) => {
+        if (!ownsRequest()) return
         setMessages((prev) => {
+          if (!ownsRequest()) return prev
           const copy = [...prev]
-          const last = copy[copy.length - 1]
-          copy[copy.length - 1] = { ...last, text: last.text + delta }
+          const reply = copy[replyIndex]
+          copy[replyIndex] = { ...reply, text: reply.text + delta }
           return copy
         })
       },
       controller.signal,
       (proposal) => {
+        if (!ownsRequest()) return
         track('capture_proposed', { rows: proposal.items.length })
         setMessages((prev) => {
+          if (!ownsRequest()) return prev
           const copy = [...prev]
-          copy[copy.length - 1] = { ...copy[copy.length - 1], proposal }
+          copy[replyIndex] = { ...copy[replyIndex], proposal }
           return copy
         })
       },
     )
       .then((resolvedSessionId) => {
+        if (!ownsRequest()) return
         answered(true)
         setSessionId(resolvedSessionId)
         streamingRef.current = false
         if (resolvedSessionId) for (const p of pendingSettles.current.splice(0)) persistSettle(resolvedSessionId, p)
       })
       .catch((err) => {
+        if (!ownsRequest()) return
         const captureFailed = err instanceof Error && err.message === CAPTURE_FAILED_MESSAGE
         // A new chat aborts the old stream on purpose; that's not a failed answer.
-        if (!controller.signal.aborted) answered(false, captureFailed ? 'capture_failed' : isAiAllowanceError(err) ? 'ai_allowance' : 'error')
+        answered(false, captureFailed ? 'capture_failed' : isAiAllowanceError(err) ? 'ai_allowance' : 'error')
         setMessages((prev) => {
+          if (!ownsRequest()) return prev
           const copy = [...prev]
-          copy[copy.length - 1] = {
+          copy[replyIndex] = {
             role: 'model',
             text: captureFailed
               ? "Couldn't read that one. Add it by hand?"
@@ -295,7 +308,7 @@ export default function MoneyBrainModal() {
       })
       .finally(() => {
         // A new chat aborted this stream and owns the screen now; leave its lock and queue alone.
-        if (abortRef.current !== controller) return
+        if (!ownsRequest()) return
         streamingRef.current = false
         setSending(false)
         // Cards logged mid-stream whose stream then failed: record them on the chat they came from, if it was saved.
@@ -323,13 +336,18 @@ export default function MoneyBrainModal() {
     else pendingSettles.current.push(settle)
   }
 
-  function startNewChat() {
-    abortRef.current?.abort()
+  function stopCurrentRequest() {
+    const controller = abortRef.current
     abortRef.current = null
+    controller?.abort()
     streamingRef.current = false
     // Outcomes still waiting on the old chat go to it, not to the next one.
     for (const p of pendingSettles.current.splice(0)) if (sessionId) persistSettle(sessionId, p)
     setSending(false)
+  }
+
+  function startNewChat() {
+    stopCurrentRequest()
     setMessages([])
     setSessionId(null)
     setInput('')
@@ -339,12 +357,18 @@ export default function MoneyBrainModal() {
   }
 
   async function openSession(id: string) {
+    stopCurrentRequest()
+    const controller = new AbortController()
+    abortRef.current = controller
+    const ownsRequest = () => abortRef.current === controller && !controller.signal.aborted
     try {
       const detail = await getChatSession(id)
+      if (!ownsRequest()) return
       setMessages(detail.messages)
       setSessionId(detail.id)
       setView('chat')
     } catch {
+      if (!ownsRequest()) return
       Alert.alert('Could not load chat', 'Check your connection and try again.')
     }
   }
