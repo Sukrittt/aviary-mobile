@@ -102,8 +102,8 @@ function suggestCategory(
  * starts on the existing amount and backspaces from there.
  */
 const CAPTURE_TIP_COPY: Record<CaptureTipReason, { title: string; body: string }> = {
-  batch: { title: "Logging a few?", body: "Type them all in Ask Aviary at once, like “auto 240, lunch 150”. Tap to try." },
-  gap: { title: "Been a couple of days?", body: "Type whatever you remember in Ask Aviary, like “auto 240, lunch 150”. Tap to try." },
+  batch: { title: "Logging a few?", body: "Type them all at once in Ask Aviary, like “auto 240, lunch 150”." },
+  gap: { title: "Been a couple of days?", body: "Type whatever you remember in Ask Aviary, like “auto 240, lunch 150”." },
 };
 
 export default function LogExpenseScreen() {
@@ -454,7 +454,7 @@ export default function LogExpenseScreen() {
         {!isEdit && (
           // Several spends at once go through the money brain: type them,
           // review the list it reads out, log them together. Kept as a quiet
-          // header icon; the capture tip below explains it at the right moment.
+          // header icon; the capture tip points at it at the right moment.
           <Pressable
             onPress={() => {
               captureTip.close("try");
@@ -469,6 +469,40 @@ export default function LogExpenseScreen() {
           </Pressable>
         )}
       </View>
+
+      {!isEdit && captureTip.reason && (
+        // The moment it would help (src/lib/captureTip.ts): logging a few by
+        // hand, or back after a couple of days with a backlog. A bubble off
+        // the header icon, so it teaches where the feature lives and floats
+        // over the screen instead of pushing the amount around.
+        <View style={[styles.tipBubble, { top: insets.top + space.xs + 36 + 10, left: space.lg, right: space.lg }]}>
+          <View style={[styles.tipCaret, { backgroundColor: tokens.onAccent }]} />
+          <View style={[styles.tipCard, { backgroundColor: tokens.onAccent, borderRadius: radius.md, padding: space.md, gap: space.sm }]}>
+            <Pressable
+              style={{ flex: 1 }}
+              onPress={() => {
+                captureTip.close("try");
+                router.push({ pathname: "/modals/money-brain", params: { capture: "1" } });
+              }}
+              accessibilityRole="button"
+              accessibilityLabel="Try logging several at once"
+            >
+              <Text style={{ color: tokens.accent, fontFamily: fontFamily.bodyBold, fontSize: type.body }}>
+                {CAPTURE_TIP_COPY[captureTip.reason].title}
+              </Text>
+              <Text style={{ color: tokens.accent, opacity: 0.8, fontFamily: fontFamily.bodyMedium, fontSize: type.caption, marginTop: 2 }}>
+                {CAPTURE_TIP_COPY[captureTip.reason].body}
+              </Text>
+              <Text style={{ color: tokens.accent, fontFamily: fontFamily.bodyBold, fontSize: type.caption, marginTop: space.sm }}>
+                Try it
+              </Text>
+            </Pressable>
+            <Pressable onPress={() => captureTip.close("dismiss")} hitSlop={10} accessibilityLabel="Dismiss tip">
+              <X size={16} color={tokens.accent} />
+            </Pressable>
+          </View>
+        </View>
+      )}
 
       <Toast
         trigger={nudge}
@@ -552,31 +586,6 @@ export default function LogExpenseScreen() {
             <ChevronDown size={16} color={onAccentDim} />
           </Pressable>
 
-          {!isEdit && captureTip.reason && (
-            // The moment it would help (src/lib/captureTip.ts): logging a few by
-            // hand, or back after a couple of days with a backlog.
-            <View style={[styles.captureTip, { backgroundColor: fieldBg, borderRadius: radius.md, padding: space.sm, gap: space.sm }]}>
-              <Pressable
-                style={{ flex: 1 }}
-                onPress={() => {
-                  captureTip.close("try");
-                  router.push({ pathname: "/modals/money-brain", params: { capture: "1" } });
-                }}
-                accessibilityRole="button"
-                accessibilityLabel="Try logging several at once"
-              >
-                <Text style={{ color: tokens.onAccent, fontFamily: fontFamily.bodyBold, fontSize: type.caption }}>
-                  {CAPTURE_TIP_COPY[captureTip.reason].title}
-                </Text>
-                <Text style={{ color: onAccentDim, fontFamily: fontFamily.bodyMedium, fontSize: type.caption, marginTop: 2 }}>
-                  {CAPTURE_TIP_COPY[captureTip.reason].body}
-                </Text>
-              </Pressable>
-              <Pressable onPress={() => captureTip.close("dismiss")} hitSlop={10} accessibilityLabel="Dismiss tip">
-                <X size={16} color={onAccentDim} />
-              </Pressable>
-            </View>
-          )}
 
         </View>
       </ScrollView>
@@ -794,12 +803,9 @@ const styles = StyleSheet.create({
   categoryPill: { position: "absolute", right: 6, maxWidth: PILL_MAX_WIDTH },
   fieldLabel: { fontSize: 12 },
   error: { fontSize: 12, textAlign: "center" },
-  captureTip: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    width: "100%",
-    maxWidth: 360,
-  },
+  tipBubble: { position: "absolute", zIndex: 10, alignItems: "flex-start" },
+  tipCaret: { width: 14, height: 14, marginLeft: 11, marginBottom: -7, transform: [{ rotate: "45deg" }] },
+  tipCard: { flexDirection: "row", alignItems: "flex-start", alignSelf: "stretch", shadowColor: "#000", shadowOpacity: 0.15, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 6 },
   moreToggle: {
     flexDirection: "row",
     alignItems: "center",
