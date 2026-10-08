@@ -1,9 +1,11 @@
+import ExpenseAddedScreen from './expense-added'
+import { enqueue, remove } from '@/src/lib/pendingExpenses'
 import { act, fireEvent, waitFor } from '@testing-library/react-native'
 import { useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { getCategories } from '@/src/api/categories'
 import { getGroups } from '@/src/api/groups'
-import { getExpenses, mintExpensePayload, postExpensePayload } from '@/src/api/expenses'
+import { getExpenses, mintExpensePayload, postExpensePayload, deleteExpense } from '@/src/api/expenses'
 import { scanBill } from '@/src/api/scan'
 import { saveBillScan } from '@/src/api/bills'
 import { setPendingScanImage, takePendingScanImage } from '@/src/lib/pendingScanImage'
@@ -24,6 +26,7 @@ jest.mock('@/src/api/groups', () => ({
 }))
 jest.mock('@/src/api/expenses', () => ({
   getExpenses: jest.fn(),
+  getRecentExpenses: jest.fn(async () => ({ rows: [], lastSpent: {} })),
   mintExpensePayload: jest.fn((row) => ({ ...row, client_id: 'client-1' })),
   postExpensePayload: jest.fn(),
   updateExpense: jest.fn(),
@@ -31,12 +34,17 @@ jest.mock('@/src/api/expenses', () => ({
 }))
 jest.mock('@/src/api/scan', () => ({ scanBill: jest.fn() }))
 jest.mock('@/src/api/bills', () => ({ saveBillScan: jest.fn() }))
-jest.mock('@/src/lib/pendingExpenses', () => ({ enqueue: jest.fn() }))
+jest.mock('@/src/lib/pendingExpenses', () => ({ enqueue: jest.fn(), remove: jest.fn(async () => {}) }))
+jest.mock('@/src/api/budgets', () => ({ getBudgets: jest.fn(async () => []) }))
+jest.mock('expo-audio', () => ({ useAudioPlayer: () => ({ play: jest.fn(), pause: jest.fn() }) }))
+jest.mock('@/src/lib/reviewPrompt', () => ({ recordLogAndMaybeAsk: jest.fn(async () => false) }))
 
+let mockParams: Record<string, string> = {}
 const mockBack = jest.fn()
 const mockReplace = jest.fn()
 jest.mock('expo-router', () => ({
   useRouter: () => ({ back: mockBack, replace: mockReplace, push: jest.fn(), navigate: jest.fn() }),
+  useLocalSearchParams: () => mockParams,
 }))
 
 const CATEGORIES = [{ name: 'Groceries', group: 'Essentials' }]
@@ -260,4 +268,47 @@ describe('ScanBillScreen', () => {
     fireEvent.press(getByText('Enter manually'))
     expect(mockReplace).toHaveBeenCalledWith('/modals/log-expense')
   })
+})
+
+
+it.each([false, true])('preserves scan create metadata and supports Undo (offline=%s)', async (offline) => {
+  ;(scanBill as jest.Mock).mockResolvedValue(SCAN_RESULT)
+  ;(postExpensePayload as jest.Mock)[offline ? 'mockRejectedValue' : 'mockResolvedValue'](
+    offline ? new TypeError('Network request failed') : { id: 'scan-row', version: 7, category: 'Food shopping', timestamp: '2026-10-08T10:00:00' },
+  )
+  ;(deleteExpense as jest.Mock).mockResolvedValue(undefined)
+  const screen = renderWithProviders(<ScanBillScreen />)
+  await flushCategories()
+  await waitFor(() => expect(screen.getByText('Review ₹880 →')).toBeTruthy())
+  fireEvent.press(screen.getByText('Review ₹880 →'))
+  fireEvent.press(screen.getByText('Log ₹880 to Groceries'))
+  await waitFor(() => expect(mockReplace).toHaveBeenCalled())
+  mockParams = mockReplace.mock.calls[0][0].params
+  expect(mockParams).toMatchObject({
+    id: offline ? '' : 'scan-row', version: offline ? '' : '7',
+    clientId: 'client-1', pending: offline ? '1' : '',
+    category: offline ? 'Groceries' : 'Food shopping', amount: '880',
+  })
+  if (offline) {
+    expect(enqueue).toHaveBeenCalled()
+    expect(saveBillScan).not.toHaveBeenCalled()
+  } else {
+    await waitFor(() => expect(saveBillScan).toHaveBeenCalled())
+    expect((saveBillScan as jest.Mock).mock.calls[0][0].category).toBe('Food shopping')
+  }
+  screen.unmount()
+  mockReplace.mockClear()
+  const success = renderWithProviders(<ExpenseAddedScreen />)
+  if (offline) {
+    expect(success.getByText(/Logged offline/)).toBeTruthy()
+    expect(success.queryByText(/left of/)).toBeNull()
+  }
+  fireEvent.press(success.getByText('Undo'))
+  await waitFor(() => expect(mockReplace).toHaveBeenCalled())
+  if (offline) {
+    expect(remove).toHaveBeenCalledWith('client-1')
+    expect(deleteExpense).not.toHaveBeenCalled()
+  } else {
+    expect(deleteExpense).toHaveBeenCalledWith('scan-row', '2026-10-08T10:00:00', 'Blinkit', 880, 7)
+  }
 })

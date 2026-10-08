@@ -1,19 +1,25 @@
+import ExpenseAddedScreen from './expense-added'
+import { enqueue, remove } from '@/src/lib/pendingExpenses'
 import { fireEvent, waitFor } from '@testing-library/react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
-import { mintExpensePayload, postExpensePayload } from '@/src/api/expenses'
+import { mintExpensePayload, postExpensePayload, deleteExpense } from '@/src/api/expenses'
 import { HttpError } from '@/src/api/client'
 import ExpenseFailedScreen from './expense-failed'
 import { getLogExpenseDraft, setLogExpenseDraft } from '@/src/features/log-expense/draft'
 
 jest.mock('@/src/api/expenses', () => ({
   getExpenses: jest.fn(),
+  getRecentExpenses: jest.fn(async () => ({ rows: [], lastSpent: {} })),
   mintExpensePayload: jest.fn((row) => ({ ...row, client_id: 'client-1' })),
   postExpensePayload: jest.fn(),
   updateExpense: jest.fn(),
   deleteExpense: jest.fn(),
 }))
 
-jest.mock('@/src/lib/pendingExpenses', () => ({ enqueue: jest.fn() }))
+jest.mock('@/src/lib/pendingExpenses', () => ({ enqueue: jest.fn(), remove: jest.fn(async () => {}) }))
+jest.mock('@/src/api/budgets', () => ({ getBudgets: jest.fn(async () => []) }))
+jest.mock('expo-audio', () => ({ useAudioPlayer: () => ({ play: jest.fn(), pause: jest.fn() }) }))
+jest.mock('@/src/lib/reviewPrompt', () => ({ recordLogAndMaybeAsk: jest.fn(async () => false) }))
 
 // `mock`-prefixed so Jest's out-of-scope guard allows the factory to close over them.
 const mockReplace = jest.fn()
@@ -131,4 +137,37 @@ it('reopens a prefilled entry screen on dismiss', () => {
     pathname: '/modals/log-expense',
     params: { item: 'Milk', amountInr: '450', category: '🛒 Groceries', date: '2026-08-15', notes: '', paymentMethod: 'bank' },
   })
+})
+
+
+it.each([false, true])('preserves Retry create metadata and supports Undo (offline=%s)', async (offline) => {
+  ;(postExpensePayload as jest.Mock)[offline ? 'mockRejectedValue' : 'mockResolvedValue'](
+    offline ? new TypeError('Network request failed') : { id: 'retry-row', version: 7, category: 'Food shopping', timestamp: '2026-10-08T10:00:00' },
+  )
+  ;(deleteExpense as jest.Mock).mockResolvedValue(undefined)
+  const failed = setup()
+  fireEvent.press(failed.getByText('Retry'))
+  await waitFor(() => expect(mockReplace).toHaveBeenCalled())
+  mockParams = mockReplace.mock.calls[0][0].params
+  expect(mockParams).toMatchObject({
+    id: offline ? '' : 'retry-row', version: offline ? '' : '7',
+    clientId: 'client-1', pending: offline ? '1' : '',
+    category: offline ? '🛒 Groceries' : 'Food shopping', amount: '450',
+  })
+  failed.unmount()
+  mockReplace.mockClear()
+  const success = renderWithProviders(<ExpenseAddedScreen />)
+  if (offline) {
+    expect(enqueue).toHaveBeenCalled()
+    expect(success.getByText(/Logged offline/)).toBeTruthy()
+    expect(success.queryByText(/left of/)).toBeNull()
+  }
+  fireEvent.press(success.getByText('Undo'))
+  await waitFor(() => expect(mockReplace).toHaveBeenCalled())
+  if (offline) {
+    expect(remove).toHaveBeenCalledWith('client-1')
+    expect(deleteExpense).not.toHaveBeenCalled()
+  } else {
+    expect(deleteExpense).toHaveBeenCalledWith('retry-row', '2026-10-08T10:00:00', 'Milk', 450, 7)
+  }
 })
