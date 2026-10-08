@@ -211,7 +211,7 @@ export function CaptureReview({ proposal, onSettled, origin = CAPTURE_ORIGIN, lo
   return (
     <View
       testID="capture-review"
-      style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border, borderRadius: radius.lg, padding: space.md, gap: space.sm }]}
+      style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border, borderRadius: radius.lg, paddingHorizontal: space.md, paddingVertical: space.sm, gap: space.xs }]}
     >
       {kept.map((row, i) => {
         const total = rowTotal(row)
@@ -231,7 +231,7 @@ export function CaptureReview({ proposal, onSettled, origin = CAPTURE_ORIGIN, lo
               <Text style={styles.iconText}>{row.category ? icon || categoryEmoji(row.category) : '❔'}</Text>
             </View>
 
-            <View style={[styles.main, { gap: 4 }]}>
+            <View style={[styles.main, { gap: 3 }]}>
               <TextInput
                 value={row.item}
                 onChangeText={(item) => update(row.id, { item })}
@@ -357,19 +357,19 @@ export function CaptureReview({ proposal, onSettled, origin = CAPTURE_ORIGIN, lo
 
 const styles = StyleSheet.create({
   card: { borderWidth: 1, alignSelf: 'stretch' },
-  row: { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 10 },
-  iconTile: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  iconText: { fontSize: 18 },
+  row: { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 8 },
+  iconTile: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center' },
+  iconText: { fontSize: 16 },
   main: { flex: 1, minWidth: 0 },
   meta: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' },
-  itemInput: { paddingVertical: 2, paddingHorizontal: 0 },
-  money: { alignItems: 'flex-end', paddingTop: 2 },
+  itemInput: { paddingVertical: 0, paddingHorizontal: 0 },
+  money: { alignItems: 'flex-end' },
   amountWrap: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  amountInput: { minWidth: 24, maxWidth: 110, paddingVertical: 2, paddingHorizontal: 0, textAlign: 'right' },
-  remove: { paddingTop: 6 },
-  chip: { flexDirection: 'row', alignItems: 'center', gap: 3, alignSelf: 'flex-start', maxWidth: '100%', paddingLeft: 10, paddingRight: 7, paddingVertical: 4 },
-  actions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', marginTop: 4 },
-  secondary: { paddingHorizontal: 12, paddingVertical: 10 },
-  primary: { minWidth: 140, height: 44, paddingHorizontal: 18, alignItems: 'center', justifyContent: 'center' },
+  amountInput: { minWidth: 12, maxWidth: 110, paddingVertical: 0, paddingHorizontal: 0, textAlign: 'right' },
+  remove: { paddingTop: 3 },
+  chip: { flexDirection: 'row', alignItems: 'center', gap: 3, alignSelf: 'flex-start', maxWidth: '100%', paddingLeft: 8, paddingRight: 6, paddingVertical: 2 },
+  actions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end' },
+  secondary: { paddingHorizontal: 12, paddingVertical: 8 },
+  primary: { minWidth: 120, height: 40, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center' },
   summary: { alignSelf: 'flex-start', paddingVertical: 8 },
 })
