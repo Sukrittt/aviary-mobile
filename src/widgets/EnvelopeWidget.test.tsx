@@ -263,6 +263,11 @@ describe("the large widget's pill row", () => {
     expect(tree(200)).not.toContain('"text":"per day"');
   });
 
+  it("hides a stale snapshot's per-day allowance", () => {
+    const stale = JSON.stringify(buildWidgetTree(<EnvelopeWidget {...data} updatedAt={Date.now() - 3 * DAY} tokens={lightTokens} scheme="light" width={250} height={300} />));
+    expect(stale).not.toContain('"text":"₹3,280"');
+  });
+
   it("shows the placeholder glyph for a snapshot without today's total", () => {
     const old = JSON.stringify(buildWidgetTree(<EnvelopeWidget {...data} todayTotal="" weeklyTrend={null} tokens={lightTokens} scheme="light" width={250} height={300} />));
     expect(old).toContain(JSON.stringify({ text: "\u2014" }).slice(1, -1));

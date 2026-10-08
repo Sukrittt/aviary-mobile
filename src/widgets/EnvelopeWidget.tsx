@@ -38,7 +38,8 @@ export function EnvelopeWidget({
 
   const trend = data.weeklyTrend;
   const pills: { label: string; value: string; tint: string }[] = [
-    { label: "per day", value: data.perDay || "—", tint: tokens.text },
+    // A stale snapshot's allowance is yesterday's (same call as withPerDay).
+    { label: "per day", value: mood === "stale" ? "—" : data.perDay || "—", tint: tokens.text },
     { label: "today", value: data.todayTotal || "—", tint: tokens.text },
     {
       label: "week",
