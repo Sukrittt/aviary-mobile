@@ -11,7 +11,7 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated'
 import * as Haptics from 'expo-haptics'
-import { Check, FolderOpen, Tags, WalletCards, type LucideIcon } from 'lucide-react-native'
+import { Check, FolderOpen, Sparkles, Tags, WalletCards, type LucideIcon } from 'lucide-react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import type { ThemeTokens } from '@/src/theme/tokens'
 import { fontFamily } from '@/src/theme/fonts'
@@ -103,8 +103,12 @@ export function SetupDone({
       </Animated.Text>
       {/* Sets up the first-week recap from day 0. */}
       <Animated.View entering={FadeIn.delay(170).duration(350)} style={[styles.promise, { backgroundColor: tokens.accentSoft }]}>
-        <Text style={[styles.promiseText, { color: tokens.text, fontFamily: fontFamily.bodyExtraBold }]}>
-          {"Log for 7 days and we'll show you what we learned about you."}
+        <Sparkles size={13} color={tokens.accentInk} strokeWidth={2.4} />
+        <Text
+          numberOfLines={1}
+          style={[styles.promiseText, { color: tokens.accentInk, fontFamily: fontFamily.bodyBold }]}
+        >
+          Your first-week recap lands in 7 days
         </Text>
       </Animated.View>
 
@@ -139,8 +143,8 @@ export function SetupDone({
 }
 
 const styles = StyleSheet.create({
-  promise: { alignSelf: 'flex-start', marginTop: 14, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999 },
-  promiseText: { fontSize: 14, lineHeight: 19 },
+  promise: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12, paddingHorizontal: 11, paddingVertical: 5, borderRadius: 999 },
+  promiseText: { flexShrink: 1, fontSize: 12.5, lineHeight: 17 },
   confettiField: { position: 'absolute', top: 0, left: 0, right: 0, height: 340, overflow: 'hidden' },
   badge: { width: 60, height: 60, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   title: { fontSize: 32, fontWeight: '600', lineHeight: 37, marginTop: 12, letterSpacing: -0.3 },

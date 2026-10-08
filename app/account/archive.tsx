@@ -19,7 +19,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import {
   ArrowLeft,
-  Check,
   RotateCcw,
   X,
   Receipt,
@@ -36,10 +35,12 @@ import { Alert } from "@/src/components/ui/AlertHost";
 import { OfflineScreen } from "@/src/components/shared/OfflineScreen";
 import { useOnline } from "@/src/lib/netStatus";
 import { useTheme } from "@/src/theme/ThemeProvider";
+import type { ThemeTokens } from "@/src/theme/tokens";
 import { fontFamily } from "@/src/theme/fonts";
 import { Icon } from "@/src/components/shared/Icon";
 import { IconButton } from "@/src/components/ui/Button";
 import { CheckIcon } from "@/src/components/shared/CheckIcon";
+import { SelectCheck, SelectTint } from "@/src/components/shared/SelectCheck";
 import { BottomSheet } from "@/src/components/shared/Modal";
 import { LoadingPhrase } from "@/src/components/shared/LoadingPhrase";
 import { useRefresh } from "@/src/hooks/useRefresh";
@@ -91,6 +92,16 @@ const KIND_ICONS: Record<ArchivableCollection, LucideIcon> = {
   holdings: TrendingUp,
 };
 
+// Web's .archive-kind tiles: each kind gets its own soft tint.
+const KIND_TONES: Record<ArchivableCollection, (t: ThemeTokens) => { bg: string; fg: string }> = {
+  expenses: (t) => ({ bg: t.accentSoft, fg: t.accentInk }),
+  budgets: (t) => ({ bg: t.mintSoft, fg: t.mint }),
+  categories: (t) => ({ bg: t.violetSoft, fg: t.violet }),
+  groups: (t) => ({ bg: t.blueSoft, fg: t.blue }),
+  subscriptions: (t) => ({ bg: t.warnSoft, fg: t.warnInk }),
+  holdings: (t) => ({ bg: t.coralSoft, fg: t.coral }),
+};
+
 type Filter = "all" | ArchivableCollection;
 type Band = "Gone tomorrow" | "Going this week" | "Later this week";
 
@@ -117,6 +128,7 @@ const LOADING_PHRASES = [
 ];
 const LIST_TRANSITION = LinearTransition.springify().damping(90).stiffness(900);
 const PAGE_SIZE = 10;
+const CARD_TOP_GAP = 14;
 
 export default function ArchiveScreen() {
   const { formatCurrency } = useCurrency()
@@ -578,19 +590,19 @@ export default function ArchiveScreen() {
           />
         ) : null}
 
+        <View>
         {pageItems.map((item, idx) => {
           const days = daysUntil(item.purgesAt);
           const band = bandFor(days);
           const showBand = band !== lastBand;
           lastBand = band;
-          const color = urgencyColor(days, tokens);
-          const clockTextColor =
+          const daysTone =
             days <= 1
-              ? tokens.coral
+              ? { bg: tokens.coralSoft, fg: tokens.coral }
               : days <= 3
-                ? tokens.warnInk
-                : tokens.text2;
-          const pct = Math.max(6, Math.round((days / 7) * 100));
+                ? { bg: tokens.warnSoft, fg: tokens.warnInk }
+                : { bg: tokens.inputBg, fg: tokens.text2 };
+          const kindTone = KIND_TONES[item.collection](tokens);
           const isPending = pending?.id === item.id;
           const isSuccess = success?.id === item.id;
           const isSelected = selectedIds.has(item.id);
@@ -605,19 +617,20 @@ export default function ArchiveScreen() {
                   : FadeOut.duration(120)
               }
               layout={LIST_TRANSITION}
-              style={styles.rowWrap}
             >
               {showBand ? (
                 <Text
                   style={[
                     styles.bandLabel,
                     {
-                      color: days <= 1 ? tokens.coral : tokens.text3,
-                      fontFamily: fontFamily.bodyBold,
+                      color: days <= 1 ? tokens.coral : tokens.text,
+                      paddingTop: idx === 0 ? 4 : 20,
+                      borderBottomColor: tokens.borderStrong,
+                      fontFamily: fontFamily.displaySemiBold,
                     },
                   ]}
                 >
-                  {band.toUpperCase()}
+                  {band}
                 </Text>
               ) : null}
               <Pressable
@@ -632,34 +645,22 @@ export default function ArchiveScreen() {
                 style={[
                   styles.card,
                   {
-                    backgroundColor: isSelected ? tokens.accentSoft : tokens.card,
-                    borderColor: isSelected
-                      ? tokens.accent
-                      : days <= 1
-                        ? tokens.coral + "48"
-                        : tokens.border,
+                    borderBottomColor: tokens.border,
+                    borderBottomWidth: idx === pageItems.length - 1 ? 0 : StyleSheet.hairlineWidth,
                   },
                 ]}
               >
+                <SelectTint selected={isSelected} style={styles.cardTint} />
                 <View style={styles.cardTop}>
+                  <SelectCheck selecting={selecting} selected={isSelected} gap={CARD_TOP_GAP} />
                   <View
-                    style={[
-                      styles.iconBadge,
-                      {
-                        backgroundColor: isSelected ? tokens.accent : tokens.inputBg,
-                        borderColor: isSelected ? tokens.accent : tokens.border,
-                      },
-                    ]}
+                    style={[styles.iconBadge, { backgroundColor: kindTone.bg }]}
                   >
-                    {isSelected ? (
-                      <Icon icon={Check} size={18} color={tokens.onAccent} />
-                    ) : (
-                      <Icon
-                        icon={KIND_ICONS[item.collection]}
-                        size={17}
-                        color={tokens.text2}
-                      />
-                    )}
+                    <Icon
+                      icon={KIND_ICONS[item.collection]}
+                      size={20}
+                      color={kindTone.fg}
+                    />
                   </View>
                   <View style={{ flex: 1, minWidth: 0 }}>
                     <View style={styles.nameRow}>
@@ -700,30 +701,17 @@ export default function ArchiveScreen() {
                 </View>
 
                 <View style={styles.cardBottom}>
-                  <Text
-                    style={[
-                      styles.clockLabel,
-                      {
-                        color: clockTextColor,
-                        fontFamily: fontFamily.bodySemiBold,
-                      },
-                    ]}
-                  >
-                    {days === 1 ? "1 day left" : `${days} days left`}
-                  </Text>
-                  <View
-                    style={[
-                      styles.barTrack,
-                      { backgroundColor: tokens.border },
-                    ]}
-                  >
-                    <View
+                  <View style={[styles.daysPill, { backgroundColor: daysTone.bg }]}>
+                    <Text
                       style={[
-                        styles.barFill,
-                        { width: `${pct}%`, backgroundColor: color },
+                        styles.daysText,
+                        { color: daysTone.fg, fontFamily: fontFamily.bodyBold },
                       ]}
-                    />
+                    >
+                      {days === 1 ? "1 day left" : `${days} days left`}
+                    </Text>
                   </View>
+                  <View style={{ flex: 1 }} />
                   {selecting ? null : (
                   <>
                   <Pressable
@@ -771,6 +759,7 @@ export default function ArchiveScreen() {
             </Animated.View>
           );
         })}
+        </View>
 
         {shown.length > PAGE_SIZE ? (
           <View style={styles.pagination}>
@@ -1033,20 +1022,21 @@ const styles = StyleSheet.create({
   },
   nextClockNum: { fontSize: 20 },
   nextClockUnit: { fontSize: 9, fontWeight: "800", letterSpacing: 0.6 },
-  rowWrap: { gap: 5 },
+  // Web's .archive-band / .archive-row: a flat divided list, not cards.
   bandLabel: {
-    fontSize: 10.5,
-    letterSpacing: 0.8,
-    paddingTop: 6,
-    paddingHorizontal: 4,
+    fontSize: 14,
+    paddingTop: 20,
+    paddingBottom: 10,
+    paddingHorizontal: 6,
+    borderBottomWidth: 1,
   },
-  card: { borderWidth: 1, borderRadius: 16, padding: 13, gap: 10 },
-  cardTop: { flexDirection: "row", alignItems: "flex-start", gap: 11 },
+  card: { paddingVertical: 13, paddingHorizontal: 6, gap: 10 },
+  cardTop: { flexDirection: "row", alignItems: "center", gap: CARD_TOP_GAP },
+  cardTint: { borderRadius: 14 },
   iconBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: 11,
-    borderWidth: 1,
+    width: 44,
+    height: 44,
+    borderRadius: 15,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1055,9 +1045,8 @@ const styles = StyleSheet.create({
   itemAmount: { fontSize: 13.5 },
   itemContext: { fontSize: 11.5, marginTop: 2 },
   cardBottom: { flexDirection: "row", alignItems: "center", gap: 8 },
-  clockLabel: { fontSize: 11.5, flexShrink: 0 },
-  barTrack: { flex: 1, height: 3, borderRadius: 100, overflow: "hidden" },
-  barFill: { height: "100%", borderRadius: 100 },
+  daysPill: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999 },
+  daysText: { fontSize: 12 },
   purgeButton: {
     width: 30,
     height: 30,
