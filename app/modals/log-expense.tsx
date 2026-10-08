@@ -42,9 +42,10 @@ import { useTheme } from "@/src/theme/ThemeProvider";
 import { fontFamily } from "@/src/theme/fonts";
 import { NAV_HEIGHT } from "@/src/theme/scale";
 import { useLocalSearchParams,useRouter } from "expo-router";
-import { ChevronDown, MessageSquareText, PencilLine, Plus, Tag, TriangleAlert, WalletMinimal, X } from "lucide-react-native";
+import { ChevronDown, MessageSquareText, PencilLine, Plus, Tag, TriangleAlert, WalletMinimal } from "lucide-react-native";
 import { useCaptureTip } from "@/src/hooks/useCaptureTip";
 import { noteManualLog, type CaptureTipReason } from "@/src/lib/captureTip";
+import { CaptureTipBubble } from "@/src/features/log-expense/CaptureTipBubble";
 import { useCallback,useEffect,useMemo,useRef,useState } from "react";
 import {
 Animated,
@@ -472,37 +473,19 @@ export default function LogExpenseScreen() {
 
       {!isEdit && captureTip.reason && nudge === 0 && unusualNudge === 0 && (
         // The moment it would help (src/lib/captureTip.ts): logging a few by
-        // hand, or back after a couple of days with a backlog. A bubble off
-        // the header icon, so it teaches where the feature lives and floats
-        // over the screen instead of pushing the amount around. Steps aside
-        // for good once a save toast needs the same spot.
-        <View style={[styles.tipBubble, { top: insets.top + space.xs + 36 + 10, left: space.lg, right: space.lg }]}>
-          <View style={[styles.tipCaret, { backgroundColor: tokens.onAccent }]} />
-          <View style={[styles.tipCard, { backgroundColor: tokens.onAccent, borderRadius: radius.md, padding: space.md, gap: space.sm }]}>
-            <Pressable
-              style={{ flex: 1 }}
-              onPress={() => {
-                captureTip.close("try");
-                router.push({ pathname: "/modals/money-brain", params: { capture: "1" } });
-              }}
-              accessibilityRole="button"
-              accessibilityLabel="Try logging several at once"
-            >
-              <Text style={{ color: tokens.accent, fontFamily: fontFamily.bodyBold, fontSize: type.body }}>
-                {CAPTURE_TIP_COPY[captureTip.reason].title}
-              </Text>
-              <Text style={{ color: tokens.accent, opacity: 0.8, fontFamily: fontFamily.bodyMedium, fontSize: type.caption, marginTop: 2 }}>
-                {CAPTURE_TIP_COPY[captureTip.reason].body}
-              </Text>
-              <Text style={{ color: tokens.accent, fontFamily: fontFamily.bodyBold, fontSize: type.caption, marginTop: space.sm }}>
-                Try it
-              </Text>
-            </Pressable>
-            <Pressable onPress={() => captureTip.close("dismiss")} hitSlop={10} accessibilityLabel="Dismiss tip">
-              <X size={16} color={tokens.accent} />
-            </Pressable>
-          </View>
-        </View>
+        // hand, or back after a couple of days with a backlog. Pops out of the
+        // header icon so it teaches where the feature lives. Steps aside for
+        // good once a save toast needs the same spot.
+        <CaptureTipBubble
+          anchor={{ top: insets.top + space.xs, left: space.lg, size: 36 }}
+          title={CAPTURE_TIP_COPY[captureTip.reason].title}
+          body={CAPTURE_TIP_COPY[captureTip.reason].body}
+          onTry={() => {
+            captureTip.close("try");
+            router.push({ pathname: "/modals/money-brain", params: { capture: "1" } });
+          }}
+          onDismiss={() => captureTip.close("dismiss")}
+        />
       )}
 
       <Toast
@@ -804,9 +787,6 @@ const styles = StyleSheet.create({
   categoryPill: { position: "absolute", right: 6, maxWidth: PILL_MAX_WIDTH },
   fieldLabel: { fontSize: 12 },
   error: { fontSize: 12, textAlign: "center" },
-  tipBubble: { position: "absolute", zIndex: 10, alignItems: "flex-start" },
-  tipCaret: { width: 14, height: 14, marginLeft: 11, marginBottom: -7, transform: [{ rotate: "45deg" }] },
-  tipCard: { flexDirection: "row", alignItems: "flex-start", alignSelf: "stretch", shadowColor: "#000", shadowOpacity: 0.15, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 6 },
   moreToggle: {
     flexDirection: "row",
     alignItems: "center",
