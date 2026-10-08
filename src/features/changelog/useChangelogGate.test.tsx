@@ -89,3 +89,13 @@ it('opens nothing when there is no unseen release', async () => {
   await settled(client)
   expect(claimChangelog).not.toHaveBeenCalled()
 })
+
+it('retries a failed claim on the next refetch, even when the release is unchanged', async () => {
+  ;(claimChangelog as jest.Mock).mockRejectedValueOnce(new Error('offline'))
+  const { client } = renderGate()
+  await waitFor(() => expect(claimChangelog).toHaveBeenCalledTimes(1))
+  await act(async () => {})
+  await act(() => client.refetchQueries({ queryKey: changelogKey }))
+  await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/whats-new'))
+  expect(claimChangelog).toHaveBeenCalledTimes(2)
+})

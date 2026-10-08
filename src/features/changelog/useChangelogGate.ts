@@ -30,7 +30,7 @@ const attempted = new Set<string>()
 export function useChangelogGate(): void {
   const qc = useQueryClient()
   const recap = useWeekRecap()
-  const { data: release, refetch } = useQuery({ queryKey: changelogKey, queryFn: getLatestChangelog, staleTime: Infinity, retry: false })
+  const { data: release, dataUpdatedAt, refetch } = useQuery({ queryKey: changelogKey, queryFn: getLatestChangelog, staleTime: Infinity, retry: false })
 
   useEffect(() => {
     const sub = AppState.addEventListener('change', (state) => {
@@ -55,5 +55,7 @@ export function useChangelogGate(): void {
       })
       // Not seen yet: the next app foreground retries.
       .catch(() => attempted.delete(key))
-  }, [release, recapBusy, qc])
+    // dataUpdatedAt: a refetch returning the same release keeps its reference,
+    // so without it a failed claim would never be retried.
+  }, [release, dataUpdatedAt, recapBusy, qc])
 }
