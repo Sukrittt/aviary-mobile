@@ -34,6 +34,7 @@ import { ChatMarkdown } from '@/src/components/brain/ChatMarkdown'
 import { BrainThinking } from '@/src/components/brain/BrainThinking'
 import { BirdLandingMark } from '@/src/components/splash/BirdLandingMark'
 import { PopIn } from '@/src/components/shared/PopIn'
+import { EmptyState } from '@/src/components/shared/EmptyState'
 import { streamChat, getChatSession, updateProposalStatus, CAPTURE_FAILED_MESSAGE, type ChatMessage } from '@/src/api/ai'
 import { CaptureReview } from '@/src/components/brain/CaptureReview'
 import { useLocalSearchParams, useRouter } from 'expo-router'
@@ -56,6 +57,9 @@ const ITEM_STAGGER_CAP_INDEX = 6
 type BrainMessage = ChatMessage & { captureFailed?: boolean }
 
 type PendingSettle = { proposalId: string; status: 'submitted' | 'dismissed'; expenseIds: string[] }
+
+/** Tappable examples on the empty capture screen; each one teaches a bit of the grammar. */
+const CAPTURE_EXAMPLES = ['auto 240', 'lunch 150, coffee 80', 'turf 1200 split 6']
 
 /** Said when the server's reply to logged rows never arrives. */
 const LOGGED_FALLBACK = 'All set, your books are up to date.'
@@ -379,13 +383,16 @@ export default function MoneyBrainModal() {
           </View>
           <View style={{ flex: 1 }}>
             <Text style={[styles.title, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
-              Ask Aviary
+              {captureMode ? 'Log a few spends' : 'Ask Aviary'}
             </Text>
             <Text numberOfLines={1} style={[styles.subtitle, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
-              {brief ? `Reading ${brief.meta.txnCountThisMonth} transactions` : 'Reading your budget…'}
+              {captureMode
+                ? "Type them, I'll sort them"
+                : brief ? `Reading ${brief.meta.txnCountThisMonth} transactions` : 'Reading your budget…'}
             </Text>
           </View>
         </View>
+        {!captureMode && (
         <View style={[styles.headerActions, { backgroundColor: tokens.inputBg, borderColor: tokens.border }]}>
           <Pressable onPress={() => setView('history')} hitSlop={6} style={styles.pillButton}>
             <Icon icon={Clock} size={15} color={tokens.text2} />
@@ -406,6 +413,7 @@ export default function MoneyBrainModal() {
             </Text>
           </Pressable>
         </View>
+        )}
       </View>
 
       <ScrollView
@@ -415,14 +423,27 @@ export default function MoneyBrainModal() {
         onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
       >
         {captureMode && messages.length === 0 && (
-          <PopIn play delay={MOUNT_START_DELAY_MS} style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
-            <Text style={[styles.cardValue, { marginTop: 0, color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
-              Log a few spends
-            </Text>
-            <Text style={[styles.narrative, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
-              Type what you spent, like: auto 240, lunch 150, turf 1200 split 6. You&apos;ll see the list before anything&apos;s logged.
-            </Text>
-          </PopIn>
+          <View style={{ flexGrow: 1, justifyContent: 'center', gap: 16 }}>
+            <EmptyState
+              subject="expenses"
+              title="Dump your spends here"
+              description="An amount and a word is enough. You'll check the list before anything's logged."
+              style={{ paddingVertical: 0 }}
+            />
+            <View style={styles.exampleRow}>
+              {CAPTURE_EXAMPLES.map((example, i) => (
+                <PopIn key={example} play delay={MOUNT_START_DELAY_MS + BLOCK_STAGGER_MS + i * ITEM_STAGGER_MS}>
+                  <Pressable
+                    onPress={() => setInput(example)}
+                    accessibilityLabel={`Try "${example}"`}
+                    style={[styles.chip, { backgroundColor: tokens.pillBg, borderColor: tokens.border }]}
+                  >
+                    <Text style={[styles.chipText, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>{example}</Text>
+                  </Pressable>
+                </PopIn>
+              ))}
+            </View>
+          </View>
         )}
 
         {!captureMode && !(messages.length === 0 && briefQ.isLoading) && (
@@ -633,6 +654,7 @@ const styles = StyleSheet.create({
   errorRow: { flexDirection: 'row', alignItems: 'center', marginTop: 12, gap: 12 },
   sectionLabel: { fontSize: 11, letterSpacing: 0.6 },
   chipRow: { flexDirection: 'row', gap: 8, paddingRight: 4 },
+  exampleRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8 },
   chip: { borderWidth: 1, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 10 },
   chipText: { fontSize: 13 },
   bubble: { maxWidth: '85%', borderRadius: 16, paddingHorizontal: 14, paddingVertical: 10 },

@@ -64,8 +64,15 @@ it('opens as a focused composer in capture mode, without the brief', async () =>
   const utils = renderWithProviders(<MoneyBrainModal />)
 
   expect(await utils.findByText('Log a few spends')).toBeTruthy()
+  expect(utils.getByText('Dump your spends here')).toBeTruthy()
   expect(utils.getByPlaceholderText('What did you spend?')).toBeTruthy()
   expect(utils.queryByText('THIS MONTH SO FAR')).toBeNull()
+  expect(utils.queryByText('New')).toBeNull()
+
+  // An example chip fills the composer so the grammar can be read before it's sent.
+  fireEvent.press(utils.getByText('turf 1200 split 6'))
+  expect(utils.getByPlaceholderText('What did you spend?').props.value).toBe('turf 1200 split 6')
+  expect(mockStreamChat).not.toHaveBeenCalled()
 })
 
 it('still lets a user over the AI allowance log spends in capture mode', async () => {
