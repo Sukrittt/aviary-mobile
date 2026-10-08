@@ -81,3 +81,41 @@ it('replaces setup with the trial notice, then exits to Home without returning t
   await waitFor(() => expect(screen.getByText('home')).toBeTruthy())
   expect(testRouter.canGoBack()).toBe(false)
 })
+
+// New users (no manual expense yet) get (tabs) declared ahead of log-expense,
+// so the same rebuild rule opens them on Home instead.
+it('opens on Home when it is declared ahead of log-expense', async () => {
+  function NewUserLayout() {
+    const [resolving, setResolving] = useState(true)
+    const landOnHome = true
+    useEffect(() => {
+      const id = setTimeout(() => setResolving(false), 0)
+      return () => clearTimeout(id)
+    }, [])
+    return (
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Protected guard={resolving}>
+          <Stack.Screen name="loading" />
+        </Stack.Protected>
+        <Stack.Protected guard={!resolving}>
+          {landOnHome && <Stack.Screen name="index" />}
+          <Stack.Screen name="modals/log-expense" />
+          {!landOnHome && <Stack.Screen name="index" />}
+        </Stack.Protected>
+      </Stack>
+    )
+  }
+  renderRouter(
+    {
+      _layout: NewUserLayout,
+      loading: () => <Text>loading</Text>,
+      'modals/log-expense': () => <Text>log expense</Text>,
+      index: () => <Text>home</Text>,
+    },
+    { initialUrl: '/' }
+  )
+
+  await waitFor(() => expect(screen.getByText('home')).toBeTruthy())
+  expect(screen.queryByText('log expense')).toBeNull()
+  expect(testRouter.canGoBack()).toBe(false)
+})

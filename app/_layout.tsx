@@ -93,6 +93,11 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
   const [onboarded, setOnboarded] = useState<boolean | null>(null)
   // Only the setup completion CTA enables this; restoring a session never does.
   const [justOnboarded, setJustOnboarded] = useState(false)
+  // New users open on Home, where Get started points the way, until they've
+  // logged an expense by hand. A blank Log expense with no budget behind it
+  // leaves them asking where to go. Read once per sign-in, so the stack's
+  // first screen doesn't shift mid-session.
+  const [landOnHome, setLandOnHome] = useState(false)
 
   useEffect(() => {
     // initAccessMode notifies the subscriber below when it restores the saved
@@ -128,6 +133,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
     const unsubscribeLogout = accessMode.subscribeLogout(async (token) => {
       setHasSession(false)
       setJustOnboarded(false)
+      setLandOnHome(false)
       queryClient.clear()
       clearLogExpenseDraft()
       // Otherwise the next account signed into on this device inherits the
@@ -158,6 +164,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
         if (cancelled) return
         queryClient.setQueryData(['user'], u)
         setOnboarded(!!u.onboardedAt)
+        setLandOnHome(!!u.getStartedAt && !u.manualTransactionCompletedAt)
         // Piggybacks on the fetch this effect already makes, rather than
         // costing analytics its own request. Best effort: the id was already
         // attached the moment the session appeared, so a failure here just
@@ -178,6 +185,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
     () =>
       onOnboarded(() => {
         setJustOnboarded(true)
+        setLandOnHome(true)
         setOnboarded(true)
       }),
     []
@@ -278,8 +286,8 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
   useEffect(() => {
     if (resolving || !hasSession) return
     if (segments[0] !== '(auth)' || authScreenMode === 'change-email') return
-    router.replace((!onboarded ? '/setup' : justOnboarded ? '/account/trial-notice' : LOG_EXPENSE_PATH) as Href)
-  }, [resolving, hasSession, onboarded, justOnboarded, segments, authScreenMode, router])
+    router.replace((!onboarded ? '/setup' : justOnboarded ? '/account/trial-notice' : landOnHome ? '/(tabs)' : LOG_EXPENSE_PATH) as Href)
+  }, [resolving, hasSession, onboarded, justOnboarded, landOnHome, segments, authScreenMode, router])
 
   // The Activity deep link only exists once the signed-in screens do, so a
   // notification that launched the app from killed has to wait for them.
@@ -335,15 +343,16 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
           {/* Fresh setup lands on the trial notice, then Home. The tour now lives
               in Home's Get Started card so it happens on the user's schedule. */}
           {justOnboarded && <Stack.Screen name="account/trial-notice" options={{ presentation: 'card', animation: 'slide_from_right' }} />}
-          {/* First for returning users: logging an expense is the app's primary verb, so
+          {/* First for returning users (new ones get (tabs) first, see landOnHome): logging an expense is the app's primary verb, so
               it's where the app opens. Declared first, it's the route the stack
               rebuilds itself from when the loading screen unregisters, so the
               app lands on it directly with nothing underneath and Android back
               exits.
               card (not fullScreenModal): a real native modal presentation covers
               the whole window on iOS, hiding the persistent nav below it. */}
+          {landOnHome && <Stack.Screen name="(tabs)" />}
           <Stack.Screen name="modals/log-expense" options={{ presentation: 'card', animation: logExpenseAnimation, contentStyle: { backgroundColor: tokens.accent } }} />
-          <Stack.Screen name="(tabs)" />
+          {!landOnHome && <Stack.Screen name="(tabs)" />}
           <Stack.Screen name="investments" options={{ presentation: 'card', animation: 'slide_from_right' }} />
           <Stack.Screen name="account/notifications" options={{ presentation: 'card', animation: 'slide_from_right' }} />
           <Stack.Screen name="account/features" options={{ presentation: 'card', animation: 'slide_from_right' }} />
