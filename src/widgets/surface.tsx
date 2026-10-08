@@ -9,6 +9,8 @@
 import { FlexWidget, OverlapWidget } from "react-native-android-widget";
 import type { ColorProp, FlexWidgetStyle } from "react-native-android-widget";
 import type { ThemeTokens } from "@/src/theme/tokens";
+import type { WidgetMood } from "./data";
+import { moodWash } from "./bird";
 
 export function color(c: string): ColorProp {
   return c as ColorProp;
@@ -23,12 +25,16 @@ const RADIUS = 28;
 export function WidgetSurface({
   tokens,
   scheme,
+  mood,
   height,
   style,
   children,
 }: {
   tokens: ThemeTokens;
   scheme: "light" | "dark";
+  /** Tints the wash by mood (yellow when tight, coral when over). Without
+   *  it the wash is Home's fixed peach. */
+  mood?: WidgetMood;
   /** Fixed card height in dp. Without it the card fills whatever cell the
    *  launcher hands out, and a "2x2" cell is not square — on a Pixel-class
    *  grid it is ~132dp wide by ~188dp tall, which is what made the mini
@@ -42,7 +48,7 @@ export function WidgetSurface({
   style?: FlexWidgetStyle;
   children?: React.ReactNode;
 }) {
-  const heroFrom = color(tokens.heroA);
+  const heroFrom = color(mood ? moodWash(mood, tokens) : tokens.heroA);
   const heroTo = color(
     scheme === "dark" ? "rgba(0, 0, 0, 0)" : "rgba(255, 255, 255, 0)",
   );

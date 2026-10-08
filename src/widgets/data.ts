@@ -39,6 +39,9 @@ export interface WidgetData {
   rows: WidgetRow[];
   chips: WidgetChip[];
   today: WidgetToday[];
+  /** Everything spent today, formatted. Empty in a snapshot written before
+   *  this field existed. */
+  todayTotal: string;
   weeklyTrend: WeeklyTrend | null;
   /** Share of this month's budget still unspent, 0..1. Null when nothing is
    *  budgeted, so there's no pace to measure against. */
@@ -116,6 +119,17 @@ export function selectToday(
     }));
 }
 
+export function todayTotal(
+  expenses: ExpenseRow[],
+  todayDate: string,
+  currencyCode = 'INR',
+): string {
+  const sum = expenses
+    .filter((e) => e.date === todayDate)
+    .reduce((acc, e) => acc + (Number(e.amount_inr) || 0), 0);
+  return formatMoney(Math.round(sum), currencyCode);
+}
+
 const DAY_MS = 86_400_000;
 
 /** "N days left" while the snapshot is fresh, matching Home's "12 days left";
@@ -182,6 +196,8 @@ export function heroFontSize(text: string, base: number): number {
 export interface WidgetLayout {
   rows: number;
   today: number;
+  /** The per-day / today / week pill row under the hero. */
+  pills: boolean;
   buttons: number;
   actionHeight: number;
 }
@@ -191,7 +207,9 @@ export interface WidgetLayout {
  *  can observe. Bar/Mini don't resize, so they don't call this.
  *
  *  Row height grew when rows picked up an icon + colored amount + a real 5dp
- *  bar (was a hairline), so these bands sit higher than before. 48dp is
+ *  bar (was a hairline), so these bands sit higher than before. The header
+ *  then grew again with the oversized bird (+18dp) and, from the 260 band up,
+ *  the pill row (+50dp): each band gave up a row or today lines for it. 48dp is
  *  Material's touch-target minimum for the action row; 40dp at the two
  *  shortest bands is a deliberate concession — the widget itself is only
  *  165-210dp tall there, and 48 would eat a quarter of it. */
@@ -200,19 +218,19 @@ export function layoutFor(width: number, height: number): WidgetLayout {
   let today: number;
   let actionHeight: number;
   if (height >= 320) {
-    rows = 5;
-    today = 3;
+    rows = 4;
+    today = 1;
     actionHeight = 48;
   } else if (height >= 260) {
-    rows = 4;
-    today = 2;
+    rows = 3;
+    today = 0;
     actionHeight = 48;
   } else if (height >= 210) {
-    rows = 3;
+    rows = 2;
     today = 0;
     actionHeight = 40;
   } else if (height >= 165) {
-    rows = 2;
+    rows = 1;
     today = 0;
     actionHeight = 40;
   } else {
@@ -220,7 +238,7 @@ export function layoutFor(width: number, height: number): WidgetLayout {
     today = 0;
     actionHeight = 40;
   }
-  return { rows, today, buttons: width < 200 ? 2 : 3, actionHeight };
+  return { rows, today, pills: height >= 260, buttons: width < 200 ? 2 : 3, actionHeight };
 }
 
 /** Past this, the number stops carrying information and starts breaking the
@@ -281,6 +299,7 @@ export function toWidgetData(
     rows: selectRows(state, currencyCode),
     chips: selectChips(state),
     today: selectToday(expenses, todayDate, currencyCode),
+    todayTotal: todayTotal(expenses, todayDate, currencyCode),
     weeklyTrend: weeklyTrend(expenses, todayDate),
     leftPct:
       budgeted > 0 ? Math.max(0, Math.min(1, totalLeft / budgeted)) : null,

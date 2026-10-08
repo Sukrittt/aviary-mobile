@@ -3,12 +3,13 @@
 // (WidgetSync, live data) and the headless widget-task-handler (last
 // snapshot), so it must not touch hooks, storage, or navigation itself; only
 // clickAction/clickActionData for taps.
-import { FlexWidget, TextWidget, SvgWidget } from "react-native-android-widget";
+import { FlexWidget, OverlapWidget, TextWidget, SvgWidget } from "react-native-android-widget";
 import { fillColor } from "@/src/components/envelope/ProgressBar";
 import type { ThemeTokens } from "@/src/theme/tokens";
 import { fontFamily } from "@/src/theme/fonts";
 import { heroFontSize, layoutFor, widgetMood, withPerDay, type WidgetData } from "./data";
-import { birdRingFrames, birdRingSvg, FRAME_MS } from "./bird";
+import { birdFrames, birdSvg, FRAME_MS, heroTint, ringSvg } from "./bird";
+import { doodlesSvg } from "./doodles";
 import { WidgetSurface, color } from "./surface";
 import { plusSvg } from "./icons";
 
@@ -33,33 +34,72 @@ export function EnvelopeWidget({
   const prefix = data.totalLeft.match(/^[^0-9]+/)?.[0] ?? '';
   const amount = data.totalLeft.slice(prefix.length);
   const mood = widgetMood(data);
-  const heroColor = data.overspent ? tokens.coral : tokens.text;
+  const heroColor = heroTint(mood, tokens);
+
+  const trend = data.weeklyTrend;
+  const pills: { label: string; value: string; tint: string }[] = [
+    { label: "per day", value: data.perDay || "—", tint: tokens.text },
+    { label: "today", value: data.todayTotal || "—", tint: tokens.text },
+    {
+      label: "week",
+      value: trend === null ? "—" : `${trend.pct > 0 ? "+" : ""}${trend.pct}%`,
+      tint:
+        trend?.dir === "up" ? tokens.coral : trend?.dir === "down" ? tokens.mint : tokens.text,
+    },
+  ];
+  // Bird hangs off the top-left corner (the surface clips it); the number
+  // and pills take the rest of the band to its right.
+  const bird = 96;
+  const birdW = bird - 14;
+  const bandHeight = layout.pills ? 122 : 86;
 
   return (
     <WidgetSurface
       tokens={tokens}
       scheme={scheme}
-      style={{ padding: 16, paddingVertical: 14 }}
+      mood={mood}
+      style={{ padding: 0 }}
     >
-      <FlexWidget
-        style={{
-          width: "match_parent",
-          flexDirection: "row",
-          alignItems: "center",
-        }}
-      >
+      <OverlapWidget style={{ width: "match_parent", height: bandHeight }}>
         <SvgWidget
-          svg={birdRingSvg({ mood, leftPct: data.leftPct, tokens, scheme })}
-          frames={birdRingFrames({ mood, leftPct: data.leftPct, tokens, scheme })}
-          frameInterval={FRAME_MS}
-          style={{ width: 56, height: 56, marginRight: 12 }}
+          svg={doodlesSvg(width, bandHeight, tokens, scheme)}
+          style={{ width: "match_parent", height: "match_parent" }}
         />
-        <FlexWidget style={{ flex: 1, flexDirection: "column" }}>
-          <FlexWidget style={{ flexDirection: "row", alignItems: "flex-end" }}>
+        <FlexWidget
+          style={{
+            width: "match_parent",
+            height: "match_parent",
+            flexDirection: "column",
+            alignItems: "flex-start",
+          }}
+        >
+          <SvgWidget
+            svg={birdSvg({ mood, tokens, scheme })}
+            frames={birdFrames({ mood, tokens, scheme })}
+            frameInterval={FRAME_MS}
+            style={{
+              width: bird,
+              height: Math.round(bird * 0.85),
+              marginLeft: -14,
+              marginTop: -10,
+            }}
+          />
+        </FlexWidget>
+        <FlexWidget
+          style={{
+            width: "match_parent",
+            height: "match_parent",
+            flexDirection: "column",
+            paddingLeft: birdW + 8,
+            paddingRight: 16,
+            paddingTop: 14,
+          }}
+        >
+          <FlexWidget style={{ width: "match_parent", flexDirection: "row", alignItems: "flex-end" }}>
             <TextWidget
               text={prefix}
               style={{
-                fontSize: 20,
+                fontSize: 18,
                 fontFamily: fontFamily.displayBold,
                 color: color(heroColor),
                 marginBottom: 3,
@@ -70,25 +110,87 @@ export function EnvelopeWidget({
               truncate="END"
               maxLines={1}
               style={{
-                fontSize: heroFontSize(amount, 34),
+                fontSize: heroFontSize(amount, 30),
                 fontFamily: fontFamily.displayBold,
                 color: color(heroColor),
               }}
             />
           </FlexWidget>
-          <TextWidget
-            text={withPerDay(data)}
-            truncate="END"
-            maxLines={1}
+          <FlexWidget
             style={{
-              fontSize: 11,
-              fontFamily: fontFamily.bodyMedium,
-              color: color(tokens.text2),
+              width: "match_parent",
+              flexDirection: "row",
+              alignItems: "center",
               marginTop: 2,
             }}
-          />
+          >
+            <SvgWidget
+              svg={ringSvg({ mood, leftPct: data.leftPct, tokens }, "", 14)}
+              style={{ width: 16, height: 16, marginRight: 6 }}
+            />
+            <FlexWidget style={{ flex: 1 }}>
+              <TextWidget
+                text={withPerDay(data)}
+                truncate="END"
+                maxLines={1}
+                style={{
+                  fontSize: 11,
+                  fontFamily: fontFamily.bodySemiBold,
+                  color: color(tokens.text2),
+                }}
+              />
+            </FlexWidget>
+          </FlexWidget>
+          {layout.pills && (
+            <FlexWidget
+              style={{
+                width: "match_parent",
+                flexDirection: "row",
+                flexGap: 6,
+                marginTop: 10,
+              }}
+            >
+              {pills.map((pill) => (
+                <FlexWidget
+                  key={pill.label}
+                  style={{
+                    flex: 1,
+                    flexDirection: "column",
+                    alignItems: "center",
+                    paddingVertical: 5,
+                    paddingHorizontal: 4,
+                    borderRadius: 12,
+                    backgroundColor: color(
+                      scheme === "dark" ? "rgba(255, 255, 255, 0.07)" : tokens.pillBg,
+                    ),
+                    borderWidth: 1,
+                    borderColor: color(tokens.border),
+                  }}
+                >
+                  <TextWidget
+                    text={pill.value}
+                    truncate="END"
+                    maxLines={1}
+                    style={{
+                      fontSize: 12,
+                      fontFamily: fontFamily.displayBold,
+                      color: color(pill.tint),
+                    }}
+                  />
+                  <TextWidget
+                    text={pill.label}
+                    style={{
+                      fontSize: 9,
+                      fontFamily: fontFamily.bodySemiBold,
+                      color: color(tokens.text3),
+                    }}
+                  />
+                </FlexWidget>
+              ))}
+            </FlexWidget>
+          )}
         </FlexWidget>
-      </FlexWidget>
+      </OverlapWidget>
 
       <FlexWidget
         style={{
@@ -96,7 +198,8 @@ export function EnvelopeWidget({
           flex: 1,
           flexDirection: "column",
           justifyContent: "space-between",
-          marginTop: 16,
+          marginTop: 10,
+          paddingHorizontal: 16,
         }}
       >
         {rows.length > 0 && (
@@ -253,6 +356,8 @@ export function EnvelopeWidget({
           flexDirection: "row",
           flexGap: 6,
           marginTop: 12,
+          paddingHorizontal: 16,
+          paddingBottom: 14,
         }}
       >
         {chips.map((chip) => (
