@@ -4,6 +4,7 @@ import { renderHook, waitFor } from '@testing-library/react-native'
 import { getExpenses, mintExpensePayload, postExpensePayload, updateExpense } from '@/src/api/expenses'
 import { HttpError } from '@/src/api/client'
 import { enqueue } from '@/src/lib/pendingExpenses'
+import { isOnline } from '@/src/lib/netStatus'
 import { track, trackFirst } from '@/src/lib/analytics'
 import { useExpenses, useAddExpense, useUpdateExpense, useDeleteExpense } from './useExpenses'
 
@@ -30,6 +31,11 @@ jest.mock('@/src/lib/pendingExpenses', () => ({
 }))
 
 jest.mock('@/src/lib/analytics', () => ({ track: jest.fn(), trackFirst: jest.fn() }))
+jest.mock('@/src/lib/netStatus', () => ({ isOnline: jest.fn(() => true) }))
+jest.mock('@/src/api/accessMode', () => ({
+  ...jest.requireActual('@/src/api/accessMode'),
+  currentUserId: jest.fn(() => null),
+}))
 
 function wrapper(queryClient: QueryClient) {
   function QueryWrapper({ children }: { children: ReactNode }) {
@@ -61,7 +67,23 @@ it('useAddExpense invalidates both the expenses and ai-brief queries on success'
 })
 
 describe('useAddExpense offline (offline sync §5/§7)', () => {
-  beforeEach(() => jest.clearAllMocks())
+  beforeEach(() => {
+    jest.clearAllMocks()
+    jest.mocked(isOnline).mockReturnValue(true)
+  })
+
+  it('queues a known-unsent create while already offline without attempting a POST', async () => {
+    const { currentUserId } = jest.requireMock('@/src/api/accessMode')
+    currentUserId.mockReturnValueOnce('offline-user')
+    jest.mocked(isOnline).mockReturnValueOnce(false)
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { gcTime: Infinity } } })
+    const { result } = renderHook(() => useAddExpense(), { wrapper: wrapper(queryClient) })
+    result.current.mutate({ item: 'Milk', amount_inr: '450', category: 'Food' })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(postExpensePayload).not.toHaveBeenCalled()
+    expect(enqueue).toHaveBeenCalledWith(expect.objectContaining({ client_id: expect.any(String) }), 'offline-user')
+    expect(result.current.data?.pending).toBe(true)
+  })
 
   it('resolves successfully and enqueues on a transport failure', async () => {
     ;(mintExpensePayload as jest.Mock).mockReturnValue({
@@ -81,7 +103,7 @@ describe('useAddExpense offline (offline sync §5/§7)', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
     expect(result.current.data).toMatchObject({ clientId: 'client-offline-1', pending: true })
     expect(enqueue).toHaveBeenCalledWith(
-      expect.objectContaining({ client_id: 'client-offline-1' }), null,
+      expect.objectContaining({ client_id: 'client-offline-1' }), null, true,
     )
   })
 

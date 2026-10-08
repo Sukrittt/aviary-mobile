@@ -21,6 +21,8 @@ import { budgetsKey } from '@/src/hooks/useBudgets'
 import { track, trackFirst } from '@/src/lib/analytics'
 import { userKey } from '@/src/hooks/useUser'
 import { splitEmoji } from '@/src/lib/emoji'
+import { isOnline } from '@/src/lib/netStatus'
+import { undoPendingExpense } from '@/src/sync/undoExpense'
 
 const key = ['expenses'] as const
 // Ask Aviary's brief is computed from expenses too, but keyed separately —
@@ -100,14 +102,22 @@ export function useAddExpense() {
       const owner = currentUserId()
       const generation = sessionGeneration()
       const payload = mintExpensePayload(row)
+      // A create deliberately not sent yet can be cancelled entirely offline.
+      if (owner && !isOnline()) {
+        await enqueue(payload, owner)
+        if (generation !== sessionGeneration()) throw new SessionChangedError()
+        return { timestamp: payload.timestamp, clientId: payload.client_id, pending: true }
+      }
       try {
         const result = await postExpensePayload(payload, generation)
+        if (generation !== sessionGeneration()) throw new SessionChangedError()
         return { id: result.id, timestamp: result.timestamp, version: result.version, category: result.category, clientId: payload.client_id, pending: false }
       } catch (err) {
         // A real rejection (bad request, auth) must still fail loudly — only a
         // transport failure (offline) gets queued for later.
         if (err instanceof HttpError || err instanceof SessionChangedError || generation !== sessionGeneration()) throw err
-        await enqueue(payload, owner)
+        await enqueue(payload, owner, true)
+        if (generation !== sessionGeneration()) throw new SessionChangedError()
         return { timestamp: payload.timestamp, clientId: payload.client_id, pending: true }
       }
     },
@@ -134,6 +144,24 @@ export function useAddExpense() {
       // A manual create also completes a server-backed Get Started step.
       // Refetch the profile so Home updates as soon as the success flow returns.
       qc.invalidateQueries({ queryKey: userKey })
+    },
+  })
+}
+
+export function useUndoPendingExpense() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (params: { clientId: string; owner: string | null; generation: number }) =>
+      undoPendingExpense(params.clientId, params.owner, params.generation),
+    onSuccess: (_data, params) => {
+      if (params.generation === sessionGeneration()) track('expense_deleted')
+    },
+    onSettled: (_data, _error, params) => {
+      if (params.generation !== sessionGeneration()) return
+      qc.invalidateQueries({ queryKey: key })
+      qc.invalidateQueries({ queryKey: briefKey })
+      qc.invalidateQueries({ queryKey: budgetsKey })
+      qc.invalidateQueries({ queryKey: categoryMapKey })
     },
   })
 }

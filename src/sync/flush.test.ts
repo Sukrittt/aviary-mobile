@@ -29,6 +29,9 @@ jest.mock('@/src/lib/pendingExpenses', () => ({
   list: jest.fn(),
   remove: jest.fn(),
   bumpAttempts: jest.fn(),
+  markSubmitted: jest.fn(),
+  syncReceipt: jest.fn(),
+  saveSyncReceipt: jest.fn(),
 }))
 
 function entry(clientId: string) {
@@ -104,7 +107,8 @@ it('two concurrent flush() calls make only one round of requests', async () => {
   resolveList([entry('c1')])
   await Promise.all([first, second])
 
-  expect(pending.list).toHaveBeenCalledTimes(1)
+  // One batch snapshot and one ownership check per entry, shared by both calls.
+  expect(pending.list).toHaveBeenCalledTimes(2)
   expect(postExpensePayload).toHaveBeenCalledTimes(1)
 })
 

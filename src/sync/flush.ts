@@ -5,6 +5,7 @@ import { postExpensePayload } from '@/src/api/expenses'
 import * as pending from '@/src/lib/pendingExpenses'
 import { onOnlineTransition } from '@/src/lib/netStatus'
 import { SUBSCRIPTION_REQUIRED_STATUS } from '@/src/lib/accessGate'
+import { withExpenseLock } from './expenseLock'
 
 /** An entry that has failed this many times will never succeed on its own — move it aside and stop retrying it. */
 const MAX_ATTEMPTS = 3
@@ -40,9 +41,31 @@ async function drain(): Promise<void> {
   for (const entry of entries) {
     if (generation !== sessionGeneration()) return
     try {
-      await postExpensePayload(entry.payload, generation)
-      if (generation !== sessionGeneration()) return
-      await pending.remove(entry.payload.client_id, owner)
+      await withExpenseLock(owner, entry.payload.client_id, async () => {
+        if (generation !== sessionGeneration()) return
+        // Undo may have cancelled an entry already held by this batch's snapshot.
+        const current = (await pending.list(owner)).find(e => e.payload.client_id === entry.payload.client_id)
+        if (!current || generation !== sessionGeneration()) return
+        // A failed Undo can leave a receipt beside the queue. Never replay that
+        // create: it may have been deleted already, with cleanup still pending.
+        const receipt = await pending.syncReceipt(entry.payload.client_id, owner)
+        if (receipt) {
+          if (generation === sessionGeneration()) await pending.remove(entry.payload.client_id, owner)
+          return
+        }
+        if (generation !== sessionGeneration()) return
+        await pending.markSubmitted(entry.payload.client_id, owner)
+        if (generation !== sessionGeneration()) return
+        const result = await postExpensePayload(current.payload, generation)
+        if (generation !== sessionGeneration()) return
+        await pending.saveSyncReceipt({
+          clientId: current.payload.client_id, ...result,
+          timestamp: result.timestamp ?? current.payload.timestamp,
+          item: current.payload.item, amountInr: Number(current.payload.amount_inr),
+        }, owner)
+        if (generation !== sessionGeneration()) return
+        await pending.remove(current.payload.client_id, owner)
+      })
     } catch (err) {
       if (generation !== sessionGeneration()) return
       if (err instanceof HttpError) {

@@ -11,7 +11,7 @@ import { useTheme } from "@/src/theme/ThemeProvider";
 import { fontFamily } from "@/src/theme/fonts";
 import { useBudgets } from "@/src/hooks/useBudgets";
 import { useCategories } from "@/src/hooks/useCategories";
-import { useDeleteExpense, useRecentExpenses } from "@/src/hooks/useExpenses";
+import { useDeleteExpense, useRecentExpenses, useUndoPendingExpense } from "@/src/hooks/useExpenses";
 import { noticedLine, weeklyRepeat } from "@/src/lib/noticed";
 import { useGroups } from "@/src/hooks/useGroups";
 import {
@@ -19,7 +19,7 @@ import {
   currentMonthKey,
   daysLeftInMonth,
 } from "@/src/lib/envelope";
-import { remove as removePendingExpense } from "@/src/lib/pendingExpenses";
+import { currentUserId, sessionGeneration } from "@/src/api/accessMode";
 import { recordLogAndMaybeAsk } from "@/src/lib/reviewPrompt";
 import { categoryEmoji, splitEmoji } from "@/src/lib/emoji";
 import { formatDateTimeLong } from "@/src/lib/format";
@@ -197,9 +197,8 @@ export default function ExpenseAddedScreen() {
   const id = str(params.id);
   const clientId = str(params.clientId);
   // Set by log-expense when useAddExpense caught a transport failure and
-  // queued this create instead of a real POST — no server row exists yet, so
-  // the envelope phase (computed from server data) and the id-addressed Undo
-  // both stand down in favor of the offline-specific versions below.
+  // queued this create. The route is a capture-time hint, not its current
+  // sync state: Undo reconciles with the drain rather than trusting this flag.
   const pending = str(params.pending) === "1";
   const timestamp = str(params.timestamp);
   const item = str(params.item);
@@ -218,6 +217,14 @@ export default function ExpenseAddedScreen() {
   const categoriesQ = useCategories();
   const groupsQ = useGroups();
   const deleteExpense = useDeleteExpense();
+  const undoPendingExpense = useUndoPendingExpense();
+  const undoSession = useRef({ owner: currentUserId(), generation: sessionGeneration() }).current;
+  const undoStarted = useRef(false);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
 
   const [undoError, setUndoError] = useState("");
 
@@ -308,48 +315,36 @@ export default function ExpenseAddedScreen() {
     [expensesQ.data, id, timestamp, item, date, amount, formatMoney],
   );
 
-  const [undoingPending, setUndoingPending] = useState(false);
+  const undoingPending = undoPendingExpense.isPending;
+
+  function reopenDraft() {
+    if (!mounted.current || undoSession.generation !== sessionGeneration()) return;
+    router.replace({
+      pathname: LOG_EXPENSE_PATH,
+      params: { item, amountInr: String(amount), category, date, notes, paymentMethod },
+    });
+  }
+
+  function undoFailed(err: unknown) {
+    undoStarted.current = false;
+    if (!mounted.current || undoSession.generation !== sessionGeneration()) return;
+    setUndoError(err instanceof Error ? err.message : "Could not undo. The expense is still saved.");
+  }
 
   function handleUndo() {
+    if (undoStarted.current) return;
+    undoStarted.current = true;
     setUndoError("");
-    // A queued create has no server row to DELETE — dropping it from the
-    // local queue is the entire undo.
     if (pending) {
-      if (undoingPending) return;
-      setUndoingPending(true);
-      removePendingExpense(clientId).then(() =>
-        router.replace({
-          pathname: LOG_EXPENSE_PATH,
-          params: {
-            item,
-            amountInr: String(amount),
-            category,
-            date,
-            notes,
-            paymentMethod,
-          },
-        }),
-      );
+      undoPendingExpense.mutate({ clientId, ...undoSession }, { onSuccess: reopenDraft, onError: undoFailed });
       return;
     }
     if (deleteExpense.isPending) return;
     deleteExpense.mutate(
       { id: id || undefined, version: str(params.version) === "" ? undefined : Number(str(params.version)), timestamp, item, amountInr: amount },
       {
-        onSuccess: () =>
-          router.replace({
-            pathname: LOG_EXPENSE_PATH,
-            params: {
-              item,
-              amountInr: String(amount),
-              category,
-              date,
-              notes,
-              paymentMethod,
-            },
-          }),
-        onError: (err) =>
-          setUndoError(err instanceof Error ? err.message : "Could not undo. The expense is still saved."),
+        onSuccess: reopenDraft,
+        onError: undoFailed,
       },
     );
   }
@@ -588,6 +583,7 @@ export default function ExpenseAddedScreen() {
           )}
           <Button
             label="Done"
+            disabled={deleteExpense.isPending || undoingPending}
             onPress={() => {
               // Done is the calm end of a saved log, so it's where the log is
               // counted and the review sheet may appear, over home. An undone
