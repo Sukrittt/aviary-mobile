@@ -1,4 +1,8 @@
-import { getValidToken, sessionGeneration } from '@/src/api/accessMode'
+import { QueryClient, QueryObserver } from '@tanstack/react-query'
+import { waitFor } from '@testing-library/react-native'
+import { subscribeExpenseQuerySync } from './querySync'
+import { onExpenseSynced, emitExpenseSynced } from './events'
+import { getValidToken, sessionGeneration, currentUserId } from '@/src/api/accessMode'
 import { HttpError } from '@/src/api/client'
 import { postExpensePayload } from '@/src/api/expenses'
 import * as pending from '@/src/lib/pendingExpenses'
@@ -7,7 +11,7 @@ import type { ExpensePayload } from '@/src/api/expenses'
 
 jest.mock('@/src/api/accessMode', () => ({
   getValidToken: jest.fn(),
-  currentUserId: () => 'user_1',
+  currentUserId: jest.fn(() => 'user_1'),
   sessionGeneration: jest.fn(() => 1),
 }))
 
@@ -50,6 +54,7 @@ function entry(clientId: string) {
 
 beforeEach(() => {
   jest.clearAllMocks()
+  ;(currentUserId as jest.Mock).mockReturnValue('user_1')
   ;(getValidToken as jest.Mock).mockResolvedValue('token')
   ;(sessionGeneration as jest.Mock).mockReturnValue(1)
 })
@@ -163,4 +168,84 @@ it('stops an already-loaded batch when the account changes', async () => {
   await flush()
   expect(postExpensePayload).toHaveBeenCalledTimes(1)
   expect(pending.remove).not.toHaveBeenCalled()
+})
+
+
+describe('mounted-query refresh after replay', () => {
+  it.each(['bank', 'credit_card'])('refreshes Activity, Home/widget budgets, and create dependents for %s', async (payment_method) => {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } })
+    let saved = false
+    const activityKey = ['expenses', 'page', { page: 1 }]
+    const recentKey = ['expenses', 'recent', '2026-07-01']
+    const serverExpense = { id: 'row-1', category: 'Food', amount_inr: '150', payment_method }
+    const reads = [
+      { queryKey: activityKey, initialData: { rows: [] as unknown[] }, queryFn: jest.fn(async () => ({ rows: saved ? [serverExpense] : [] })) },
+      { queryKey: recentKey, initialData: { rows: [] as unknown[] }, queryFn: jest.fn(async () => ({ rows: saved ? [serverExpense] : [] })) },
+      { queryKey: ['budgets'], initialData: { cardAssigned: 0 }, queryFn: jest.fn(async () => ({ cardAssigned: saved && payment_method === 'credit_card' ? 150 : 0 })) },
+      ...['ai-brief', 'category-map', 'user'].map((prefix) => ({ queryKey: [prefix], initialData: { saved: false }, queryFn: jest.fn(async () => ({ saved })) })),
+    ]
+    const stops = reads.map((options) => new QueryObserver<unknown>(qc, { ...options, staleTime: Infinity }).subscribe(() => {}))
+    const unsubscribe = subscribeExpenseQuerySync(qc)
+    const queued = entry('c1')
+    queued.payload.payment_method = payment_method
+    ;(pending.list as jest.Mock).mockResolvedValue([queued])
+    ;(postExpensePayload as jest.Mock).mockImplementationOnce(async () => { saved = true; return { id: 'row-1' } })
+    try {
+      await flush()
+      await waitFor(() => expect(qc.getQueryData(activityKey)).toEqual({ rows: [serverExpense] }))
+      expect(qc.getQueryData(recentKey)).toEqual({ rows: [serverExpense] })
+      expect(qc.getQueryData(['budgets'])).toEqual({ cardAssigned: payment_method === 'credit_card' ? 150 : 0 })
+      for (const read of reads) expect(read.queryFn).toHaveBeenCalledTimes(1)
+      for (const prefix of ['ai-brief', 'category-map', 'user']) expect(qc.getQueryData([prefix])).toEqual({ saved: true })
+      expect(pending.remove).toHaveBeenCalledWith('c1', 'user_1')
+    } finally {
+      unsubscribe()
+      stops.forEach((stop) => stop())
+      qc.clear()
+    }
+  })
+
+  it('refreshes a successful write even when a later entry fails', async () => {
+    const qc = new QueryClient()
+    qc.setQueryData(['expenses'], [])
+    const unsubscribe = subscribeExpenseQuerySync(qc)
+    ;(pending.list as jest.Mock).mockResolvedValue([entry('c1'), entry('c2')])
+    ;(postExpensePayload as jest.Mock).mockResolvedValueOnce({ id: 'row-1' }).mockRejectedValueOnce(new TypeError('offline again'))
+    try {
+      await flush()
+      expect(qc.getQueryState(['expenses'])?.isInvalidated).toBe(true)
+      expect(pending.remove).toHaveBeenCalledTimes(1)
+      expect(pending.remove).toHaveBeenCalledWith('c1', 'user_1')
+    } finally { unsubscribe(); qc.clear() }
+  })
+
+  it('does not notify queries when a pending POST belongs to an old session', async () => {
+    const listener = jest.fn()
+    const unsubscribe = onExpenseSynced(listener)
+    ;(pending.list as jest.Mock).mockResolvedValue([entry('c1')])
+    ;(postExpensePayload as jest.Mock).mockImplementationOnce(async () => {
+      ;(sessionGeneration as jest.Mock).mockReturnValue(2)
+      return { id: 'old-session-row' }
+    })
+    try { await flush(); expect(listener).not.toHaveBeenCalled() } finally { unsubscribe() }
+  })
+
+  it.each([{ owner: 'user_2', generation: 1 }, { owner: 'user_1', generation: 0 }])('ignores a completion from another account/session %j', (event) => {
+    const qc = new QueryClient()
+    qc.setQueryData(['expenses'], [])
+    const unsubscribe = subscribeExpenseQuerySync(qc)
+    emitExpenseSynced(event)
+    expect(qc.getQueryState(['expenses'])?.isInvalidated).toBe(false)
+    unsubscribe()
+    emitExpenseSynced({ owner: 'user_1', generation: 1 })
+    expect(qc.getQueryState(['expenses'])?.isInvalidated).toBe(false)
+    qc.clear()
+  })
+
+  it('still removes a successful entry when a completion listener throws', async () => {
+    const stop = onExpenseSynced(() => { throw new Error('observer failed') })
+    ;(pending.list as jest.Mock).mockResolvedValue([entry('c1')])
+    ;(postExpensePayload as jest.Mock).mockResolvedValueOnce({ id: 'row-1' })
+    try { await flush(); expect(pending.remove).toHaveBeenCalledWith('c1', 'user_1') } finally { stop() }
+  })
 })

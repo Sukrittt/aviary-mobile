@@ -1,3 +1,4 @@
+import { emitExpenseSynced } from './events'
 import { AppState } from 'react-native'
 import { getValidToken, currentUserId, sessionGeneration } from '@/src/api/accessMode'
 import { HttpError } from '@/src/api/client'
@@ -67,6 +68,7 @@ async function drain(): Promise<void> {
           throw err
         })
         if (generation !== sessionGeneration()) return
+        emitExpenseSynced({ owner, generation })
         await pending.saveSyncReceipt({
           clientId: current.payload.client_id, ...result,
           timestamp: result.timestamp ?? current.payload.timestamp,
