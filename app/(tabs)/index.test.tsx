@@ -218,7 +218,6 @@ describe('HomeScreen · Ready to Assign', () => {
     const { findByText, getByText } = renderHome()
     expect(await findByText('1/4')).toBeTruthy()
     expect(getByText('₹50,000 still to assign')).toBeTruthy()
-    expect(getByText('Tap an envelope below to give this a job')).toBeTruthy()
 
     fireEvent.press(getByText('Assign all your income'))
     expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/modals/edit-assigned-amount', params: { category: 'Food' } })
@@ -229,9 +228,8 @@ describe('HomeScreen · Ready to Assign', () => {
       { month: MONTH, category: '__income__', assigned: '50000', rolled_over: '0' },
       { month: MONTH, category: 'Food', assigned: '50000', rolled_over: '0' },
     ]
-    const { findByText, queryByText } = renderHome()
+    const { findByText } = renderHome()
     expect(await findByText('2/4')).toBeTruthy()
-    expect(queryByText('Tap an envelope below to give this a job')).toBeNull()
   })
 
   it('shows a retryable error screen instead of raw error text when a query fails', () => {

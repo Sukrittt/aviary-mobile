@@ -273,11 +273,6 @@ export default function HomeScreen() {
               id="ready-to-assign"
             />
           </Pressable>
-          {incomeDone && envelopeState.readyToAssign > 0 && (
-            <Text style={{ color: tokens.accentInk, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>
-              Tap an envelope below to give this a job
-            </Text>
-          )}
           <Text style={{ color: tokens.text2, fontSize: type.caption, fontFamily: fontFamily.bodyMedium }}>
             {monthLabel(month)} · {daysLeftInMonth() === 0 ? 'Less than 24 hrs' : `${daysLeftInMonth()} days left`}
           </Text>
