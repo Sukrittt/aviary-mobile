@@ -93,7 +93,7 @@ jest.mock('@/src/components/nav/TabBar', () => ({ TabBar: () => null }))
 
 jest.mock('@/src/api/accessMode', () => ({
   accessMode: {
-    subscribe: () => () => {},
+    subscribe: jest.fn(() => () => {}),
     subscribeLogout: jest.fn(() => () => {}),
   },
   initAccessMode: jest.fn(),
@@ -135,6 +135,25 @@ it('does not retain cache timers after the layout is cleaned up', async () => {
 })
 
 describe('RootLayout', () => {
+  it('keeps the cache restored from disk when the saved session is restored, and clears it on a new sign-in', async () => {
+    const notifySignIn = () => (accessMode.subscribe as jest.Mock).mock.calls.forEach(([fn]) => fn('real'))
+    mockInitAccessMode.mockImplementation(async () => {
+      await Promise.resolve()
+      notifySignIn() // the boot-time restore's notification
+      return 'real'
+    })
+    mockGetUser.mockReturnValue(new Promise(() => {}))
+    const client = testClients[0]
+    client.setQueryData(['budgets'], ['saved'])
+
+    render(<RootLayout />)
+    await act(async () => {})
+    expect(client.getQueryData(['budgets'])).toEqual(['saved'])
+
+    act(() => notifySignIn())
+    expect(client.getQueryData(['budgets'])).toBeUndefined()
+  })
+
   it('keeps queued offline expenses on sign-out so the same account can sync them later', async () => {
     mockInitAccessMode.mockReturnValue(new Promise(() => {}))
     mockGetUser.mockReturnValue(new Promise(() => {}))
