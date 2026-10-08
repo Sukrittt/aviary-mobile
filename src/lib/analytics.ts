@@ -111,6 +111,9 @@ export type AppEvent =
   | 'habit_nudge_logged'
   | 'habit_nudge_skipped'
   | 'habit_nudges_toggled'
+  // An API request that got no response. `phase` says whether the token
+  // refresh or the request itself failed. Error name and id-free path only.
+  | 'request_failed'
   // Account
   | 'data_exported'
   | 'account_deleted'

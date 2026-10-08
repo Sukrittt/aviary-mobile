@@ -3,6 +3,7 @@
 import { clearAccess, currentAccessToken, getValidToken, sessionGeneration, SessionChangedError } from './accessMode'
 import { setOnline, markSynced } from '@/src/lib/netStatus'
 import { markAccessBlocked, SUBSCRIPTION_REQUIRED_STATUS } from '@/src/lib/accessGate'
+import { track } from '@/src/lib/analytics'
 
 // A dev build with no API URL set would otherwise silently point at
 // production data (see the fallback below) with no warning — fail loudly
@@ -24,7 +25,14 @@ const REQUEST_TIMEOUT_MS = 15_000
  */
 export async function apiFetch(path: string, init?: RequestInit, expectedGeneration = sessionGeneration()): Promise<Response> {
   if (expectedGeneration !== sessionGeneration()) throw new SessionChangedError()
-  const token = await getValidToken()
+  const startedAt = Date.now()
+  let token: string | null
+  try {
+    token = await getValidToken()
+  } catch (err) {
+    if (!(err instanceof SessionChangedError)) reportRequestFailure('token_refresh', path, err, startedAt)
+    throw err
+  }
   if (expectedGeneration !== sessionGeneration()) throw new SessionChangedError()
   let resp: Response
   try {
@@ -44,6 +52,7 @@ export async function apiFetch(path: string, init?: RequestInit, expectedGenerat
   } catch (err) {
     // fetch() itself threw (TypeError, or AbortError from the timeout above)
     // — no response at all, so this is a transport failure, not a rejection.
+    reportRequestFailure('fetch', path, err, startedAt)
     setOnline(false)
     throw err
   }
@@ -61,6 +70,21 @@ export async function apiFetch(path: string, init?: RequestInit, expectedGenerat
   // must never end the session: the sign-in is fine, the subscription is not.
   if (resp.status === SUBSCRIPTION_REQUIRED_STATUS) markAccessBlocked()
   return resp
+}
+
+/**
+ * Diagnostics for requests that never got an answer: did the token refresh
+ * stall, or the request itself? Error name only, never the message, and ids
+ * stripped from the path. Sent before setOnline(false), so the first failure
+ * of a run still goes out even though track() skips while offline.
+ */
+function reportRequestFailure(phase: 'token_refresh' | 'fetch', path: string, err: unknown, startedAt: number): void {
+  track('request_failed', {
+    phase,
+    path: path.split('?')[0].replace(/[0-9a-f]{24}|[0-9a-f]{8}-[0-9a-f-]{27}/gi, ':id'),
+    error: err instanceof Error ? err.name : 'unknown',
+    elapsed_ms: Date.now() - startedAt,
+  })
 }
 
 /** Thrown by an API wrapper on a non-ok response, carrying the HTTP status so
