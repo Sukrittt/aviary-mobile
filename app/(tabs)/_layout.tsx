@@ -5,11 +5,13 @@ import { NavBackdrop } from '@/src/components/nav/FloatingNav'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { useHabitNudges } from '@/src/hooks/useHabitNudges'
 import { useWeekRecapGate } from '@/src/features/week-recap/useWeekRecap'
+import { useChangelogGate } from '@/src/features/changelog/useChangelogGate'
 
 export default function TabsLayout() {
   const { tokens } = useTheme()
   useHabitNudges()
   useWeekRecapGate()
+  useChangelogGate()
 
   return (
     <View style={{ flex: 1 }}>
