@@ -31,14 +31,13 @@ const SQUARE: Spot[] = [
   { glyph: "stripes", x: 0.55, y: 0.6, size: 14, rotate: 0 },
 ];
 
-/** The large widget's header band: bird top-left, ring + number top-right,
- *  pills along the bottom right. */
+/** The large widget's header band: bird top-left, number and label to its
+ *  right, pills across the full width underneath. Only the strip above and
+ *  beside the number is free, so the band gets fewer glyphs than the card. */
 const WIDE: Spot[] = [
   { glyph: "star", x: 0.93, y: 0.12, size: 20, rotate: -14 },
-  { glyph: "arc", x: 0.34, y: 0.56, size: 18, rotate: 32 },
+  { glyph: "arc", x: 0.76, y: 0.2, size: 18, rotate: 32 },
   { glyph: "ring", x: 0.97, y: 0.48, size: 14, rotate: 0 },
-  { glyph: "triangle", x: 0.1, y: 0.9, size: 14, rotate: -28 },
-  { glyph: "zigzag", x: 0.28, y: 0.92, size: 20, rotate: 12 },
   { glyph: "stripes", x: 0.34, y: 0.08, size: 14, rotate: 0 },
 ];
 
