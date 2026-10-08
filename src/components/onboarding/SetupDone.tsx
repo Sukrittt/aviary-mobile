@@ -73,7 +73,7 @@ export function SetupDone({
   const confetti = useMemo(() => Array.from({ length: 18 }, (_, i) => i), [])
 
   const summary: { icon: LucideIcon; label: string; value: string }[] = [
-    { icon: WalletCards, label: 'Monthly income', value: formatMoney(income) },
+    { icon: WalletCards, label: 'Monthly income', value: income > 0 ? formatMoney(income) : 'Add it later' },
     { icon: FolderOpen, label: 'Groups', value: String(groupCount) },
     { icon: Tags, label: 'Categories', value: String(categoryCount) },
   ]

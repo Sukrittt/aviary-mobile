@@ -25,10 +25,10 @@ category names, notification text or raw error messages in any property.
 |---|---|
 | `onboarding_started` | |
 | `onboarding_step_viewed` | `step` 0 to 4, `step_name`: currency, income, groups, categories, assign |
-| `onboarding_step_completed` | `step`, `step_name`, `seconds_on_step`, plus one of: `currency`; `used_quick_pick`; `groups_selected`, `groups_added`, `groups_renamed`; `categories_selected`; `edited_split` |
+| `onboarding_step_completed` | `step`, `step_name`, `seconds_on_step`, plus one of: `currency`; `used_quick_pick`, `skipped_income`, `customized`; `groups_selected`, `groups_added`, `groups_renamed`; `categories_selected`; `edited_split` |
 | `onboarding_back_tapped` | `from_step`, `step_name` |
 | `onboarding_failed` | `reason`: save_failed |
-| `onboarding_completed` | `total_seconds`, `groups_count`, `categories_count`, `currency`. Fires when the save lands, not on the celebration CTA |
+| `onboarding_completed` | `total_seconds`, `groups_count`, `categories_count`, `currency`, `customized` (picked their own groups and categories), `skipped_income`. Fires when the save lands, not on the celebration CTA |
 | `tour_started` / `tour_completed` | `fresh` (straight after setup) |
 | `tour_step_viewed` | `chapter` |
 | `tour_skipped` | `fresh`, `chapters_done` |

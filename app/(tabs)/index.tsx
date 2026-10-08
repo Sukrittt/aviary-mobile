@@ -171,8 +171,11 @@ export default function HomeScreen() {
   }
 
   const showRolloverBanner = rolloverDismissed === false && prevMonthLeftover > 0
+  const incomeDone = envelopeState.income > 0
   const showGetStarted =
-    getStartedSkipped === false && !!user?.getStartedAt && !(user.manualTransactionCompletedAt && user.guidedTourCompletedAt)
+    getStartedSkipped === false &&
+    !!user?.getStartedAt &&
+    !(incomeDone && user.manualTransactionCompletedAt && user.guidedTourCompletedAt)
 
   function handleEditAmount(category: string) {
     router.push({ pathname: '/modals/edit-assigned-amount', params: { category } })
@@ -313,8 +316,12 @@ export default function HomeScreen() {
             layout={LinearTransition.springify().damping(44).stiffness(400)}
           >
             <GetStartedCard
+              incomeDone={incomeDone}
               manualTransactionDone={!!user.manualTransactionCompletedAt}
               guidedTourDone={!!user.guidedTourCompletedAt}
+              onAddIncome={() =>
+                router.push({ pathname: '/modals/edit-month-income', params: { month, initial: String(envelopeState.incomeBase) } })
+              }
               onAddTransaction={() => router.push('/modals/log-expense')}
               onTakeTour={() => router.push('/account/guided-tour')}
               onSkip={() => {
