@@ -19,7 +19,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import {
   ArrowLeft,
-  Check,
   RotateCcw,
   X,
   Receipt,
@@ -40,6 +39,7 @@ import { fontFamily } from "@/src/theme/fonts";
 import { Icon } from "@/src/components/shared/Icon";
 import { IconButton } from "@/src/components/ui/Button";
 import { CheckIcon } from "@/src/components/shared/CheckIcon";
+import { SelectCheck, SelectTint } from "@/src/components/shared/SelectCheck";
 import { BottomSheet } from "@/src/components/shared/Modal";
 import { LoadingPhrase } from "@/src/components/shared/LoadingPhrase";
 import { useRefresh } from "@/src/hooks/useRefresh";
@@ -117,6 +117,7 @@ const LOADING_PHRASES = [
 ];
 const LIST_TRANSITION = LinearTransition.springify().damping(90).stiffness(900);
 const PAGE_SIZE = 10;
+const CARD_TOP_GAP = 11;
 
 export default function ArchiveScreen() {
   const { formatCurrency } = useCurrency()
@@ -632,34 +633,28 @@ export default function ArchiveScreen() {
                 style={[
                   styles.card,
                   {
-                    backgroundColor: isSelected ? tokens.accentSoft : tokens.card,
-                    borderColor: isSelected
-                      ? tokens.accent
-                      : days <= 1
-                        ? tokens.coral + "48"
-                        : tokens.border,
+                    backgroundColor: tokens.card,
+                    borderColor: days <= 1 ? tokens.coral + "48" : tokens.border,
                   },
                 ]}
               >
+                <SelectTint
+                  selected={isSelected}
+                  style={[styles.cardTint, { borderColor: tokens.accent }]}
+                />
                 <View style={styles.cardTop}>
+                  <SelectCheck selecting={selecting} selected={isSelected} gap={CARD_TOP_GAP} />
                   <View
                     style={[
                       styles.iconBadge,
-                      {
-                        backgroundColor: isSelected ? tokens.accent : tokens.inputBg,
-                        borderColor: isSelected ? tokens.accent : tokens.border,
-                      },
+                      { backgroundColor: tokens.inputBg, borderColor: tokens.border },
                     ]}
                   >
-                    {isSelected ? (
-                      <Icon icon={Check} size={18} color={tokens.onAccent} />
-                    ) : (
-                      <Icon
-                        icon={KIND_ICONS[item.collection]}
-                        size={17}
-                        color={tokens.text2}
-                      />
-                    )}
+                    <Icon
+                      icon={KIND_ICONS[item.collection]}
+                      size={17}
+                      color={tokens.text2}
+                    />
                   </View>
                   <View style={{ flex: 1, minWidth: 0 }}>
                     <View style={styles.nameRow}>
@@ -1041,7 +1036,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   card: { borderWidth: 1, borderRadius: 16, padding: 13, gap: 10 },
-  cardTop: { flexDirection: "row", alignItems: "flex-start", gap: 11 },
+  cardTop: { flexDirection: "row", alignItems: "center", gap: CARD_TOP_GAP },
+  // Covers the card's 1px border so the picked outline replaces it.
+  cardTint: { top: -1, left: -1, right: -1, bottom: -1, borderRadius: 16, borderWidth: 1 },
   iconBadge: {
     width: 36,
     height: 36,
