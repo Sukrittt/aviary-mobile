@@ -259,6 +259,21 @@ it('keeps current deltas on the reply when a mid-stream capture settlement appen
   expect(mockUpdateProposalStatus).toHaveBeenCalledWith('s1', 'p1', 'submitted', ['e1', 'e2'], ack)
 })
 
+it('keeps deltas on the current reply when an older card settles mid-stream above it', async () => {
+  const calls = holdStreams()
+  const utils = renderWithProviders(<MoneyBrainModal />)
+  await sendQuestion(utils, 'Log lunch')
+  await act(async () => { calls[0].proposal(proposal); calls[0].resolve('s1') })
+  await sendQuestion(utils, 'How am I doing?')
+  await act(async () => { calls[1].delta('Part one') })
+  fireEvent.press(utils.getByText('Review card: 2 rows'))
+  const ack = ACK_PHRASES.find((text) => utils.queryByText(text))!
+  expect(ack).toBeDefined()
+  await act(async () => { calls[1].delta(' and part two'); calls[1].resolve('s1') })
+  expect(utils.getByText('Part one and part two')).toBeTruthy()
+  expect(utils.getByText(ack)).toBeTruthy()
+})
+
 it('revokes stream ownership on unmount', async () => {
   const calls = holdStreams()
   const utils = renderWithProviders(<MoneyBrainModal />)
