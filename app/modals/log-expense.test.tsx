@@ -609,6 +609,19 @@ describe('photo', () => {
     expect(utils.getByLabelText('Remove photo')).toBeTruthy()
   })
 
+  it('rejects a photo type the server cannot take instead of relabeling it', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {})
+    const utils = setup()
+    await openMore(utils)
+    mockLaunchLibrary.mockResolvedValue({ canceled: false, assets: [{ ...asset, mimeType: 'image/heic' }] })
+    await act(async () => {
+      fireEvent.press(utils.getByLabelText('Choose photo'))
+    })
+    expect(alert).toHaveBeenCalledWith("That photo type isn't supported", 'Try a JPEG or PNG.')
+    expect(utils.queryByLabelText('View photo')).toBeNull()
+    alert.mockRestore()
+  })
+
   it('saves the expense, then uploads the photo to its server id', async () => {
     ;(postExpensePayload as jest.Mock).mockResolvedValue({ id: 'srv1', timestamp: '2026-09-04T01:24:00' })
     ;(uploadExpensePhoto as jest.Mock).mockResolvedValue('https://signed/url')

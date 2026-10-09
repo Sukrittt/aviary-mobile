@@ -792,7 +792,8 @@ export default function LogExpenseScreen() {
             <ExpensePhotoField
               uri={photoUri}
               loading={showSavedPhoto && !photo && savedPhotoQ.isLoading}
-              disabled={!online}
+              offline={!online}
+              busy={saving || logSuccess}
               onPicked={(p) => { setPhoto(p); setPhotoRemoved(false); }}
               onRemove={() => { setPhoto(null); if (hasSavedPhoto) setPhotoRemoved(true); }}
             />

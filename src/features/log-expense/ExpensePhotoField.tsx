@@ -16,15 +16,18 @@ const MIME_TYPES: PhotoMimeType[] = ['image/jpeg', 'image/png', 'image/webp']
  * the bill scan in More (same options), and only hands the photo up: the
  * screen decides when it uploads.
  */
-export function ExpensePhotoField({ uri, loading, disabled, onPicked, onRemove }: {
+export function ExpensePhotoField({ uri, loading, offline, busy, onPicked, onRemove }: {
   uri: string | null
   loading?: boolean
-  disabled: boolean
+  offline: boolean
+  // While the expense saves, the selection is already captured for upload.
+  busy?: boolean
   onPicked: (photo: PickedPhoto) => void
   onRemove: () => void
 }) {
   const { tokens, space, radius } = useTheme()
   const [viewing, setViewing] = useState(false)
+  const disabled = offline || !!busy
 
   async function pick(source: 'camera' | 'library') {
     Haptics.selectionAsync().catch(() => {})
@@ -43,7 +46,13 @@ export function ExpensePhotoField({ uri, loading, disabled, onPicked, onRemove }
       Alert.alert("Couldn't read that photo", 'Try another one.')
       return
     }
-    const mimeType = MIME_TYPES.find((m) => m === asset.mimeType) ?? 'image/jpeg'
+    // An unknown type (e.g. HEIC) can't be relabeled: the bytes stay HEIC.
+    // A missing type is the picker's JPEG re-encode.
+    const mimeType = asset.mimeType ? MIME_TYPES.find((m) => m === asset.mimeType) : 'image/jpeg'
+    if (!mimeType) {
+      Alert.alert("That photo type isn't supported", 'Try a JPEG or PNG.')
+      return
+    }
     onPicked({ uri: asset.uri, base64: asset.base64, mimeType })
   }
 
@@ -87,7 +96,7 @@ export function ExpensePhotoField({ uri, loading, disabled, onPicked, onRemove }
           <Text style={buttonText}>{uri ? 'Choose another' : 'Choose photo'}</Text>
         </Pressable>
       </View>
-      {disabled && <Text style={{ color: tokens.text3 }}>You can add a photo once you&apos;re back online.</Text>}
+      {offline && <Text style={{ color: tokens.text3 }}>You can add a photo once you&apos;re back online.</Text>}
       <Modal visible={viewing && !!uri} transparent animationType="fade" onRequestClose={() => setViewing(false)}>
         <Pressable onPress={() => setViewing(false)} accessibilityRole="button" accessibilityLabel="Close photo"
           style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.92)', padding: space.lg }}>
