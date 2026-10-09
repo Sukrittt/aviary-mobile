@@ -90,7 +90,7 @@ export function EnvelopeMiniWidget({
                 height: 40,
                 alignItems: "center",
                 justifyContent: "center",
-                borderRadius: 100,
+                borderRadius: 20,
                 backgroundColor: color(tokens.accent),
               }}
             >

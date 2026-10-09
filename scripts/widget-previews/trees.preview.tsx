@@ -69,7 +69,7 @@ function tree(name: keyof typeof WIDGETS, data: WidgetData, scheme: "light" | "d
     case "envelope":
       return buildWidgetTree(<EnvelopeWidget {...data} tokens={tokens} scheme={scheme} width={width} height={height} />);
     case "envelopebar":
-      return buildWidgetTree(<EnvelopeBarWidget {...data} tokens={tokens} scheme={scheme} height={height} />);
+      return buildWidgetTree(<EnvelopeBarWidget {...data} tokens={tokens} scheme={scheme} width={width} height={height} />);
     case "envelopemini":
       return buildWidgetTree(<EnvelopeMiniWidget {...data} tokens={tokens} scheme={scheme} width={width} />);
   }

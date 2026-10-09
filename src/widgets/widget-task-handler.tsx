@@ -42,6 +42,7 @@ export async function widgetTaskHandler(props: WidgetTaskHandlerProps) {
                 {...data}
                 tokens={tokens}
                 scheme={scheme}
+                width={width}
                 height={height}
               />
             )),

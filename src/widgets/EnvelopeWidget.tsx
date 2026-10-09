@@ -372,6 +372,8 @@ export function EnvelopeWidget({
           paddingBottom: 14,
         }}
       >
+        {/* Half the height, not "big": Android's GradientDrawable doesn't clamp a
+            corner radius past that, it draws oval ends. */}
         {chips.map((chip) => (
           <FlexWidget
             key={chip.category}
@@ -383,7 +385,7 @@ export function EnvelopeWidget({
               height: layout.actionHeight,
               alignItems: "center",
               justifyContent: "center",
-              borderRadius: 100,
+              borderRadius: layout.actionHeight / 2,
               backgroundColor: color(tokens.chipActiveBg),
             }}
           >
@@ -408,7 +410,7 @@ export function EnvelopeWidget({
             height: layout.actionHeight,
             alignItems: "center",
             justifyContent: "center",
-            borderRadius: 100,
+            borderRadius: layout.actionHeight / 2,
             backgroundColor: color(tokens.accent),
           }}
         >

@@ -3,7 +3,7 @@
 // under the hero number, drawn in the text color at a whisper of opacity.
 //
 // Glyph coordinates are in a 100x100 box; `place` scales each one onto the
-// card so a wide card and a square one share the same set.
+// card so a wide card and a square one can share a glyph.
 import type { ThemeTokens } from "@/src/theme/tokens";
 
 const GLYPH = {
@@ -33,12 +33,21 @@ const SQUARE: Spot[] = [
 
 /** The large widget's header band: bird top-left, number and label to its
  *  right, pills across the full width underneath. Only the strip above and
- *  beside the number is free, so the band gets fewer glyphs than the card. */
+ *  beside the number is free, so the band gets fewer, bigger glyphs. */
 const WIDE: Spot[] = [
-  { glyph: "star", x: 0.93, y: 0.12, size: 20, rotate: -14 },
-  { glyph: "arc", x: 0.76, y: 0.2, size: 18, rotate: 32 },
-  { glyph: "ring", x: 0.97, y: 0.48, size: 14, rotate: 0 },
-  { glyph: "stripes", x: 0.34, y: 0.08, size: 14, rotate: 0 },
+  { glyph: "star", x: 0.92, y: 0.14, size: 26, rotate: -14 },
+  { glyph: "arc", x: 0.74, y: 0.18, size: 24, rotate: 32 },
+  { glyph: "ring", x: 0.96, y: 0.5, size: 18, rotate: 0 },
+  { glyph: "stripes", x: 0.33, y: 0.09, size: 18, rotate: 0 },
+];
+
+/** The bar: bird off the left edge, number and label in the middle, + at
+ *  the right. The glyphs sit in the gap between the label and the +. */
+const STRIP: Spot[] = [
+  { glyph: "star", x: 0.68, y: 0.2, size: 20, rotate: -14 },
+  { glyph: "ring", x: 0.79, y: 0.3, size: 12, rotate: 0 },
+  { glyph: "arc", x: 0.79, y: 0.76, size: 18, rotate: 32 },
+  { glyph: "stripes", x: 0.33, y: 0.12, size: 16, rotate: 0 },
 ];
 
 export function doodlesSvg(
@@ -47,9 +56,10 @@ export function doodlesSvg(
   tokens: ThemeTokens,
   scheme: "light" | "dark",
 ): string {
-  const spots = width > height * 1.4 ? WIDE : SQUARE;
+  const spots = width > height * 3 ? STRIP : width > height * 1.4 ? WIDE : SQUARE;
   // Dark surfaces swallow a hairline; light ones show it at half the strength.
-  const opacity = scheme === "dark" ? 0.2 : 0.14;
+  // The square card's whisper vanished on the wider cards, so those go bolder.
+  const opacity = (scheme === "dark" ? 0.2 : 0.14) * (spots === SQUARE ? 1 : 1.6);
   const glyphs = spots
     .map(({ glyph, x, y, size, rotate }) => {
       const s = size / 100;
