@@ -63,7 +63,6 @@ export function ExpensePhotoField({ uri, loading, offline, busy, onPicked, onRem
     backgroundColor: tokens.inputBg, opacity: disabled ? 0.5 : 1,
   }
   const buttonText = { color: tokens.accentInk, fontFamily: fontFamily.bodySemiBold }
-  const link = { color: tokens.text2, fontFamily: fontFamily.bodySemiBold, fontSize: 13 }
 
   return (
     <View style={{ gap: space.sm }}>
@@ -87,17 +86,6 @@ export function ExpensePhotoField({ uri, loading, offline, busy, onPicked, onRem
           ) : (
             <View style={{ width: 72, height: 72, borderRadius: radius.md, backgroundColor: tokens.inputBg, alignItems: 'center', justifyContent: 'center' }}>
               <ActivityIndicator color={tokens.text3} />
-            </View>
-          )}
-          {uri && (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.xs, opacity: disabled ? 0.5 : 1 }}>
-              <Pressable onPress={() => void pick('camera')} disabled={disabled} accessibilityRole="button" accessibilityLabel="Take photo" hitSlop={8}>
-                <Text style={link}>Retake</Text>
-              </Pressable>
-              <Text style={{ color: tokens.text3 }}>·</Text>
-              <Pressable onPress={() => void pick('library')} disabled={disabled} accessibilityRole="button" accessibilityLabel="Choose photo" hitSlop={8}>
-                <Text style={link}>Choose another</Text>
-              </Pressable>
             </View>
           )}
         </View>
