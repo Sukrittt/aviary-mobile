@@ -27,31 +27,41 @@ describe('DatePicker (single)', () => {
     const { getByText, queryByText } = renderWithProviders(<DatePicker mode="single" value="2026-08-19" onChange={onChange} />)
     fireEvent.press(getByText('Today'))
     expect(onChange).toHaveBeenCalledWith('2026-08-22')
-    expect(queryByText('Close calendar')).toBeNull()
+    expect(queryByText('Pick a date')).toBeNull()
   })
 
-  it('toggles the calendar via "Another date..." / "Close calendar"', () => {
-    const { getByText, queryByText } = renderWithProviders(<DatePicker mode="single" value="2026-08-19" onChange={jest.fn()} />)
+  it('opens the calendar in a sheet and closes it on pick', () => {
+    const onChange = jest.fn()
+    const { getByText, getAllByText, queryByText } = renderWithProviders(<DatePicker mode="single" value="2026-08-19" onChange={onChange} />)
     expect(queryByText('August 2026')).toBeNull()
-    fireEvent.press(getByText('Another date...'))
+    fireEvent.press(getByText('Another date…'))
+    expect(getByText('Pick a date')).toBeTruthy()
     expect(getByText('August 2026')).toBeTruthy()
-    fireEvent.press(getByText('Close calendar'))
-    expect(queryByText('August 2026')).toBeNull()
+
+    fireEvent.press(getByText('‹')) // July 2026, outside the strip
+    fireEvent.press(getAllByText('3').at(-1)!)
+    expect(onChange).toHaveBeenCalledWith('2026-07-03')
+    expect(queryByText('Pick a date')).toBeNull()
+  })
+
+  it('shows the month next to the date label', () => {
+    const { getByText } = renderWithProviders(<DatePicker mode="single" value="2026-08-19" onChange={jest.fn()} />)
+    expect(getByText('Date · August')).toBeTruthy()
   })
 
   it('allows a later day in the current month but blocks days in a future month', () => {
     const onChange = jest.fn()
     const { getByText, getAllByText } = renderWithProviders(<DatePicker mode="single" value="2026-08-19" onChange={onChange} />)
-    fireEvent.press(getByText('Another date...'))
+    fireEvent.press(getByText('Another date…'))
 
     // 25 Aug is after "today" (22 Aug) but still the current month: pickable.
-    fireEvent.press(getAllByText('25')[0])
+    fireEvent.press(getAllByText('25').at(-1)!)
     expect(onChange).toHaveBeenCalledWith('2026-08-25')
 
     onChange.mockClear()
+    fireEvent.press(getByText('Another date…'))
     fireEvent.press(getByText('›')) // nav to September 2026
     expect(getByText('September 2026')).toBeTruthy()
-    fireEvent.press(getAllByText('5')[0])
-    expect(onChange).not.toHaveBeenCalled()
+    expect(getAllByText('5').at(-1)).toBeDisabled()
   })
 })
