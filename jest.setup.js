@@ -124,3 +124,7 @@ jest.mock('react-native-purchases', () => ({
   PACKAGE_TYPE: { MONTHLY: 'MONTHLY', ANNUAL: 'ANNUAL' },
   PURCHASES_ERROR_CODE: { PURCHASE_CANCELLED_ERROR: '1', PAYMENT_PENDING_ERROR: '20' },
 }))
+
+// Pin the device region to India so onboarding's locale-default currency stays
+// INR in every test; tests that care override it with their own jest.mock.
+jest.mock('expo-localization', () => ({ ...jest.requireActual('expo-localization'), getLocales: () => [{ languageTag: 'en-IN', regionCode: 'IN', currencyCode: 'INR' }] }))

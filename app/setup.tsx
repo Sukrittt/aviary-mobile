@@ -1,5 +1,7 @@
 import { CurrencyPicker } from "@/src/components/CurrencyPicker";
 import { CurrencyScope, useCurrency } from "@/src/context/CurrencyContext";
+import { resolveCurrency } from "@/src/lib/currencies";
+import { getLocales } from "expo-localization";
 import { useEffect, useRef, useState } from "react";
 import {
   View,
@@ -198,8 +200,11 @@ function remainderColors(
 }
 
 export default function SetupScreen() {
-  const current = useCurrency();
-  const [currencyCode, setCurrencyCode] = useState(current.currencyCode);
+  // Start on the device region's currency (US → USD, MX → MXN); the profile's
+  // seeded INR is only a placeholder until this step saves a real choice.
+  const [currencyCode, setCurrencyCode] = useState(() =>
+    resolveCurrency(getLocales()[0]?.currencyCode),
+  );
   return (
     <CurrencyScope code={currencyCode}>
       <CurrencyWizard
