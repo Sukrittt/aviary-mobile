@@ -4,6 +4,7 @@ import type { LayoutChangeEvent } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { ChevronRight, MoreVertical, Plus, Equal } from 'lucide-react-native'
 import * as Haptics from 'expo-haptics'
+import { rippleHaptic } from '@/src/lib/haptics'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Reanimated, {
   measure,
@@ -632,6 +633,7 @@ export default function EnvelopesScreen() {
   const allGroupsCollapsed = allGroupKeys.length > 0 && allGroupKeys.every((k) => collapsedGroups.has(k))
 
   function toggleGroup(key: string) {
+    Haptics.selectionAsync().catch(() => {})
     setCollapsedGroups((prev) => {
       const next = new Set(prev)
       if (next.has(key)) next.delete(key)
@@ -640,6 +642,9 @@ export default function EnvelopesScreen() {
     })
   }
   function toggleCollapseAll() {
+    // Only the groups actually changing state count toward the ripple.
+    const moving = groupedCategories.filter((g) => collapsedGroups.has(g.name || OTHER_LABEL) === allGroupsCollapsed)
+    rippleHaptic(moving.reduce((n, g) => n + g.items.length, 0))
     setCollapsedGroups(allGroupsCollapsed ? new Set() : new Set(allGroupKeys))
   }
 

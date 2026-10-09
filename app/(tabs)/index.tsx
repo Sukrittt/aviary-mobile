@@ -6,6 +6,7 @@ import { useRouter, useIsFocused } from 'expo-router'
 import { ChevronRight, LineChart } from 'lucide-react-native'
 import Reanimated, { FadeInDown, FadeOut, LinearTransition } from 'react-native-reanimated'
 import * as Haptics from 'expo-haptics'
+import { rippleHaptic } from '@/src/lib/haptics'
 import { AnimatedTabContent } from '@/src/components/nav/AnimatedTabContent'
 import { Icon } from '@/src/components/shared/Icon'
 import { BottomSheet } from '@/src/components/shared/Modal'
@@ -158,6 +159,7 @@ export default function HomeScreen() {
   const allGroupsCollapsed = allGroupNames.length > 0 && allGroupNames.every((g) => collapsedGroups.has(g))
 
   function toggleGroup(group: string) {
+    Haptics.selectionAsync().catch(() => {})
     setCollapsedGroups((prev) => {
       const next = new Set(prev)
       if (next.has(group)) next.delete(group)
@@ -167,6 +169,9 @@ export default function HomeScreen() {
   }
 
   function toggleCollapseAll() {
+    // Only the groups actually changing state count toward the ripple.
+    const moving = groupedEnvelopes.filter((g) => collapsedGroups.has(g.group) === allGroupsCollapsed)
+    rippleHaptic(moving.reduce((n, g) => n + g.envelopes.length, 0))
     setCollapsedGroups(allGroupsCollapsed ? new Set() : new Set(allGroupNames))
   }
 
