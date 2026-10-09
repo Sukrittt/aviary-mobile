@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { fireEvent } from '@testing-library/react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { DatePicker } from './DatePicker'
@@ -63,5 +64,66 @@ describe('DatePicker (single)', () => {
     fireEvent.press(getByText('›')) // nav to September 2026
     expect(getByText('September 2026')).toBeTruthy()
     expect(getAllByText('5').at(-1)).toBeDisabled()
+  })
+})
+
+describe('DatePicker (range)', () => {
+  beforeEach(() => {
+    jest.useFakeTimers()
+    jest.setSystemTime(new Date(2026, 7, 22)) // Sat 22 Aug 2026
+  })
+  afterEach(() => {
+    jest.useRealTimers()
+  })
+
+  it('opens the calendar in a sheet and closes it once both ends are picked', () => {
+    const onChange = jest.fn()
+    function Harness() {
+      const [range, setRange] = useState({ from: '', to: '' })
+      return (
+        <DatePicker
+          mode="range"
+          value={range}
+          onChange={(r) => {
+            onChange(r)
+            setRange(r)
+          }}
+        />
+      )
+    }
+    const { getByText, getAllByText, queryByText } = renderWithProviders(<Harness />)
+    expect(queryByText('Tap a start date')).toBeNull()
+    fireEvent.press(getByText('Custom range'))
+    expect(getByText('Tap a start date')).toBeTruthy()
+
+    fireEvent.press(getAllByText('3').at(-1)!)
+    expect(onChange).toHaveBeenLastCalledWith({ from: '2026-08-03', to: '' })
+    expect(getByText('Now tap an end date')).toBeTruthy()
+
+    fireEvent.press(getAllByText('10').at(-1)!)
+    expect(onChange).toHaveBeenLastCalledWith({ from: '2026-08-03', to: '2026-08-10' })
+    expect(queryByText('Now tap an end date')).toBeNull()
+  })
+
+  it('restores the original range on Cancel', () => {
+    const onChange = jest.fn()
+    const value = { from: '2026-08-01', to: '2026-08-05' }
+    const { getByText, getAllByText, queryByText } = renderWithProviders(<DatePicker mode="range" value={value} onChange={onChange} />)
+    fireEvent.press(getByText(/1 Aug/))
+    fireEvent.press(getAllByText('12').at(-1)!)
+    fireEvent.press(getByText('Cancel'))
+    expect(onChange).toHaveBeenLastCalledWith(value)
+    expect(queryByText('5 days selected')).toBeNull()
+  })
+
+  it('treats a backdrop dismiss as Cancel, dropping a half-picked range', () => {
+    const onChange = jest.fn()
+    const value = { from: '2026-08-01', to: '2026-08-05' }
+    const { getByText, getAllByText, getByTestId } = renderWithProviders(<DatePicker mode="range" value={value} onChange={onChange} />)
+    fireEvent.press(getByText(/1 Aug/))
+    fireEvent.press(getAllByText('12').at(-1)!)
+    expect(onChange).toHaveBeenLastCalledWith({ from: '2026-08-12', to: '' })
+    fireEvent.press(getByTestId('bottom-sheet-backdrop'))
+    expect(onChange).toHaveBeenLastCalledWith(value)
   })
 })
