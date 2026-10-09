@@ -4,8 +4,19 @@ import type { ExpensePayload } from '@/src/api/expenses'
 
 const PREFIX = 'mc-pending-expenses'
 const FAILED_PREFIX = 'mc-failed-expenses'
+const RECEIPT_PREFIX = 'mc-expense-sync-receipts'
 
-export type PendingExpense = { payload: ExpensePayload; attempts: number }
+// Missing on legacy entries: conservatively assume a POST may have committed.
+export type PendingExpense = { payload: ExpensePayload; attempts: number; submitted?: boolean }
+export type SyncReceipt = {
+  clientId: string
+  id?: string
+  version?: number
+  timestamp: string
+  item: string
+  amountInr: number
+  undone?: boolean
+}
 
 function key(uid: string | null): string | null {
   return uid ? `${PREFIX}:${uid}` : null
@@ -35,13 +46,41 @@ function serialize<T>(fn: () => Promise<T>): Promise<T> {
 }
 
 /** Queues a create for later sync. No-op when signed out as guest (nothing to namespace it by). */
-export function enqueue(payload: ExpensePayload, owner = currentUserId()): Promise<void> {
+export function enqueue(payload: ExpensePayload, owner = currentUserId(), submitted = false): Promise<void> {
   return serialize(async () => {
     const k = key(owner)
     if (!k) return
     const entries = await read(k)
-    entries.push({ payload, attempts: 0 })
+    entries.push({ payload, attempts: 0, submitted })
     await write(k, entries)
+  })
+}
+
+/** Persist before POST; reset only if a known-unsent entry was definitively rejected. */
+export function setSubmitted(clientId: string, submitted: boolean, owner: string): Promise<void> {
+  return serialize(async () => {
+    const k = key(owner)!
+    const entries = await read(k)
+    const entry = entries.find(e => e.payload.client_id === clientId)
+    if (!entry) throw new Error('This queued expense is no longer available.')
+    entry.submitted = submitted
+    await write(k, entries)
+  })
+}
+
+export function syncReceipt(clientId: string, owner: string): Promise<SyncReceipt | undefined> {
+  return serialize(async () => {
+    const receipts = (await readEncrypted<SyncReceipt[]>(`${RECEIPT_PREFIX}:${owner}`)) ?? []
+    return receipts.find(r => r.clientId === clientId)
+  })
+}
+
+/** Journal identity before removing the queue entry. Retain a bounded encrypted history. */
+export function saveSyncReceipt(receipt: SyncReceipt, owner: string): Promise<void> {
+  return serialize(async () => {
+    const k = `${RECEIPT_PREFIX}:${owner}`
+    const receipts = (await readEncrypted<SyncReceipt[]>(k)) ?? []
+    await writeEncrypted(k, [...receipts.filter(r => r.clientId !== receipt.clientId), receipt].slice(-100))
   })
 }
 

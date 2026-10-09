@@ -86,7 +86,7 @@ describe('deleteExpense', () => {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ id: 'id1', timestamp: 'ts', item: 'Coffee', amount_inr: '150' }),
-    })
+    }, undefined)
   })
 })
 

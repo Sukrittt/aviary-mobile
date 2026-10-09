@@ -21,6 +21,7 @@ import {
 addNotificationResponseListener,addPushTokenListener,checkColdStartNotification,configureNotificationHandler,
 registerForPushNotificationsAsync,unregisterDevicePushToken
 } from '@/src/lib/notifications'
+import { subscribeExpenseQuerySync } from '@/src/sync/querySync'
 import { startAutoFlush } from '@/src/sync/flush'
 import { cancelHabitNudges } from '@/src/lib/habitNudges'
 import { useAppFonts } from '@/src/theme/fonts'
@@ -98,6 +99,8 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
   // leaves them asking where to go. Read once per sign-in, so the stack's
   // first screen doesn't shift mid-session.
   const [landOnHome, setLandOnHome] = useState(false)
+
+  useEffect(() => subscribeExpenseQuerySync(queryClient), [])
 
   useEffect(() => {
     // initAccessMode notifies the subscriber below when it restores the saved

@@ -163,12 +163,13 @@ export async function deleteExpense(
   item: string,
   amountInr: number,
   version?: number,
+  expectedGeneration?: number,
 ): Promise<void> {
   const resp = await apiFetch('/api/expenses', {
     method: 'DELETE',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ id, timestamp, item, amount_inr: String(amountInr), version }),
-  })
+  }, expectedGeneration)
   if (!resp.ok) {
     const detail = await resp.json().catch(() => ({}))
     throw new ExpenseWriteError(resp.status, detail.error ?? `Failed to delete expense: ${resp.status}`, detail.current)

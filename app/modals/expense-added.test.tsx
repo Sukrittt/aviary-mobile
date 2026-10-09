@@ -1,9 +1,12 @@
-import { fireEvent, waitFor } from '@testing-library/react-native'
+import { act, fireEvent, waitFor } from '@testing-library/react-native'
 import { StyleSheet } from 'react-native'
 import * as Haptics from 'expo-haptics'
 import { notifyManager } from '@tanstack/react-query'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
-import { getRecentExpenses, deleteExpense } from '@/src/api/expenses'
+import { getRecentExpenses, deleteExpense, postExpensePayload } from '@/src/api/expenses'
+import AsyncStorage from '@react-native-async-storage/async-storage'
+import * as pendingExpenses from '@/src/lib/pendingExpenses'
+import { flush } from '@/src/sync/flush'
 import { getBudgets } from '@/src/api/budgets'
 import { getCategories } from '@/src/api/categories'
 import { getGroups } from '@/src/api/groups'
@@ -19,6 +22,13 @@ jest.mock('@/src/api/expenses', () => ({
   addExpense: jest.fn(),
   updateExpense: jest.fn(),
   deleteExpense: jest.fn(),
+  postExpensePayload: jest.fn(),
+}))
+jest.mock('@/src/api/accessMode', () => ({
+  ...jest.requireActual('@/src/api/accessMode'),
+  currentUserId: () => 'undo-user',
+  sessionGeneration: () => 1,
+  getValidToken: jest.fn(async () => 'token'),
 }))
 jest.mock('@/src/api/budgets', () => ({
   getBudgets: jest.fn(),
@@ -105,8 +115,11 @@ function setup(
   return renderWithProviders(<ExpenseAddedScreen />)
 }
 
-beforeEach(() => {
+beforeEach(async () => {
+  await AsyncStorage.clear()
   jest.clearAllMocks()
+  jest.mocked(deleteExpense).mockReset()
+  jest.mocked(postExpensePayload).mockReset()
 })
 
 const COUNTDOWN_SLOW = { timeout: DELTA_DELAY + 1500 }
@@ -273,6 +286,80 @@ it('deletes by id and reopens a prefilled entry screen on undo', async () => {
       params: { item: 'Milk', amountInr: '450', category: '🛒 Groceries', date: TODAY, notes: '', paymentMethod: 'bank' },
     }),
   )
+})
+
+it('deletes the committed row when an offline expense syncs while its success screen stays open', async () => {
+  const payload = {
+    client_id: 'offline-undo', item: 'Milk', amount_inr: '450',
+    category: BASE_PARAMS.category, date: TODAY, timestamp: BASE_PARAMS.timestamp,
+  }
+  await pendingExpenses.enqueue(payload)
+  ;(postExpensePayload as jest.Mock).mockResolvedValue({ id: 'synced-row', version: 7, timestamp: payload.timestamp })
+  ;(deleteExpense as jest.Mock).mockResolvedValue(undefined)
+  const { getByText } = setup({ id: '', pending: '1', clientId: payload.client_id } as never)
+  await act(async () => { await flush() })
+  expect(await pendingExpenses.list()).toEqual([])
+
+  fireEvent.press(getByText('Undo'))
+
+  await waitFor(() => expect(deleteExpense).toHaveBeenCalledWith('synced-row', payload.timestamp, 'Milk', 450, 7, 1))
+  await waitFor(() => expect(mockReplace).toHaveBeenCalledWith(expect.objectContaining({ pathname: '/modals/log-expense' })))
+})
+
+it('cancels an unsent expense locally and reopens the draft', async () => {
+  await pendingExpenses.enqueue({
+    client_id: 'unsent', item: 'Milk', amount_inr: '450', category: BASE_PARAMS.category,
+    date: TODAY, timestamp: BASE_PARAMS.timestamp,
+  })
+  const { getByText } = setup({ id: '', pending: '1', clientId: 'unsent' } as never)
+  fireEvent.press(getByText('Undo'))
+  await waitFor(() => expect(mockReplace).toHaveBeenCalledWith(expect.objectContaining({ pathname: '/modals/log-expense' })))
+  expect(await pendingExpenses.list()).toEqual([])
+  expect(deleteExpense).not.toHaveBeenCalled()
+  expect(postExpensePayload).not.toHaveBeenCalled()
+})
+
+it('shows a failed synced Undo without reopening the form and allows retry', async () => {
+  await pendingExpenses.enqueue({
+    client_id: 'retry-undo', item: 'Milk', amount_inr: '450', category: BASE_PARAMS.category,
+    date: TODAY, timestamp: BASE_PARAMS.timestamp,
+  })
+  jest.mocked(postExpensePayload).mockResolvedValue({ id: 'saved', version: 7, timestamp: BASE_PARAMS.timestamp })
+  await flush()
+  jest.mocked(deleteExpense).mockRejectedValueOnce(new Error('Could not delete. Check your connection.'))
+  const { getByText, findByText } = setup({ id: '', pending: '1', clientId: 'retry-undo' } as never)
+  fireEvent.press(getByText('Undo'))
+  await findByText('Could not delete. Check your connection.')
+  expect(mockReplace).not.toHaveBeenCalled()
+  jest.mocked(deleteExpense).mockResolvedValue(undefined)
+  fireEvent.press(getByText('Undo'))
+  await waitFor(() => expect(mockReplace).toHaveBeenCalledTimes(1))
+  expect(postExpensePayload).toHaveBeenCalledTimes(1)
+})
+
+it('prevents repeated Undo and Done while deletion is pending, and does not navigate after unmount', async () => {
+  await pendingExpenses.enqueue({
+    client_id: 'slow-undo', item: 'Milk', amount_inr: '450', category: BASE_PARAMS.category,
+    date: TODAY, timestamp: BASE_PARAMS.timestamp,
+  })
+  jest.mocked(postExpensePayload).mockResolvedValue({ id: 'saved', version: 7, timestamp: BASE_PARAMS.timestamp })
+  await flush()
+  let finish!: () => void
+  jest.mocked(deleteExpense).mockReturnValue(new Promise(resolve => { finish = resolve }))
+  const { getByText, unmount } = setup({ id: '', pending: '1', clientId: 'slow-undo' } as never)
+  const undoButton = getByText('Undo')
+  act(() => {
+    fireEvent.press(undoButton)
+    fireEvent.press(undoButton)
+  })
+  await waitFor(() => expect(getByText('Undoing…')).toBeTruthy())
+  fireEvent.press(getByText('Done'))
+  await waitFor(() => expect(deleteExpense).toHaveBeenCalledTimes(1))
+  expect(mockReplace).not.toHaveBeenCalled()
+  unmount()
+  await act(async () => { finish() })
+  await waitFor(async () => expect(await pendingExpenses.syncReceipt('slow-undo', 'undo-user')).toHaveProperty('undone', true))
+  expect(mockReplace).not.toHaveBeenCalled()
 })
 
 // Without an id the only way to address the row is a timestamp/item/amount
