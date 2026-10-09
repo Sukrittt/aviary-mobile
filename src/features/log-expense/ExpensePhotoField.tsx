@@ -63,39 +63,55 @@ export function ExpensePhotoField({ uri, loading, offline, busy, onPicked, onRem
     backgroundColor: tokens.inputBg, opacity: disabled ? 0.5 : 1,
   }
   const buttonText = { color: tokens.accentInk, fontFamily: fontFamily.bodySemiBold }
+  const link = { color: tokens.text2, fontFamily: fontFamily.bodySemiBold, fontSize: 12, textDecorationLine: 'underline' as const }
 
   return (
     <View style={{ gap: space.sm }}>
       <Text style={label}>Photo (optional)</Text>
-      {(uri || loading) && (
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md }}>
+      {uri || loading ? (
+        <View style={{ alignSelf: 'flex-start', gap: space.sm }}>
           {uri ? (
-            <Pressable onPress={() => setViewing(true)} accessibilityRole="button" accessibilityLabel="View photo">
-              <Image source={{ uri }} style={{ width: 72, height: 72, borderRadius: radius.md }} />
-            </Pressable>
+            <View>
+              <Pressable onPress={() => setViewing(true)} accessibilityRole="button" accessibilityLabel="View photo">
+                <Image source={{ uri }} style={{ width: 72, height: 72, borderRadius: radius.md }} />
+              </Pressable>
+              <Pressable onPress={onRemove} disabled={disabled} accessibilityRole="button" accessibilityLabel="Remove photo" hitSlop={8}
+                style={{
+                  position: 'absolute', top: -6, right: -6, width: 22, height: 22, borderRadius: 11,
+                  alignItems: 'center', justifyContent: 'center', backgroundColor: tokens.inputBg, opacity: disabled ? 0.5 : 1,
+                }}>
+                <X size={12} color={tokens.text} />
+              </Pressable>
+            </View>
           ) : (
             <View style={{ width: 72, height: 72, borderRadius: radius.md, backgroundColor: tokens.inputBg, alignItems: 'center', justifyContent: 'center' }}>
               <ActivityIndicator color={tokens.text3} />
             </View>
           )}
           {uri && (
-            <Pressable onPress={onRemove} disabled={disabled} accessibilityRole="button" accessibilityLabel="Remove photo" style={button}>
-              <X size={16} color={tokens.accentInk} />
-              <Text style={buttonText}>Remove</Text>
-            </Pressable>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.xs, opacity: disabled ? 0.5 : 1 }}>
+              <Pressable onPress={() => void pick('camera')} disabled={disabled} accessibilityRole="button" accessibilityLabel="Take photo" hitSlop={8}>
+                <Text style={link}>Retake</Text>
+              </Pressable>
+              <Text style={{ color: tokens.text3 }}>·</Text>
+              <Pressable onPress={() => void pick('library')} disabled={disabled} accessibilityRole="button" accessibilityLabel="Choose photo" hitSlop={8}>
+                <Text style={link}>Choose another</Text>
+              </Pressable>
+            </View>
           )}
         </View>
+      ) : (
+        <View style={{ flexDirection: 'row', gap: space.sm }}>
+          <Pressable onPress={() => void pick('camera')} disabled={disabled} accessibilityRole="button" accessibilityLabel="Take photo" style={button}>
+            <Camera size={16} color={tokens.accentInk} />
+            <Text style={buttonText}>Take photo</Text>
+          </Pressable>
+          <Pressable onPress={() => void pick('library')} disabled={disabled} accessibilityRole="button" accessibilityLabel="Choose photo" style={button}>
+            <ImageIcon size={16} color={tokens.accentInk} />
+            <Text style={buttonText}>Choose photo</Text>
+          </Pressable>
+        </View>
       )}
-      <View style={{ flexDirection: 'row', gap: space.sm }}>
-        <Pressable onPress={() => void pick('camera')} disabled={disabled} accessibilityRole="button" accessibilityLabel="Take photo" style={button}>
-          <Camera size={16} color={tokens.accentInk} />
-          <Text style={buttonText}>{uri ? 'Retake' : 'Take photo'}</Text>
-        </Pressable>
-        <Pressable onPress={() => void pick('library')} disabled={disabled} accessibilityRole="button" accessibilityLabel="Choose photo" style={button}>
-          <ImageIcon size={16} color={tokens.accentInk} />
-          <Text style={buttonText}>{uri ? 'Choose another' : 'Choose photo'}</Text>
-        </Pressable>
-      </View>
       {offline && <Text style={{ color: tokens.text3 }}>You can add a photo once you&apos;re back online.</Text>}
       <Modal visible={viewing && !!uri} transparent animationType="fade" onRequestClose={() => setViewing(false)}>
         <Pressable onPress={() => setViewing(false)} accessibilityRole="button" accessibilityLabel="Close photo"
