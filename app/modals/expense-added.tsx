@@ -311,8 +311,8 @@ export default function ExpenseAddedScreen() {
   const subtitleIsCategory = !item && !!category;
   // A small "we're learning you" moment: only once the item is a habit this week.
   const noticed = useMemo(
-    () => noticedLine(weeklyRepeat(expensesQ.data ?? [], { id: id || undefined, timestamp: timestamp || undefined, item, date, amount }), formatMoney),
-    [expensesQ.data, id, timestamp, item, date, amount, formatMoney],
+    () => noticedLine(weeklyRepeat(expensesQ.data ?? [], { id: id || undefined, timestamp: timestamp || undefined, item, date, amount }).count),
+    [expensesQ.data, id, timestamp, item, date, amount],
   );
 
   const undoingPending = undoPendingExpense.isPending;
