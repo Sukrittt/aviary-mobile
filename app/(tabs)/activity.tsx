@@ -363,6 +363,7 @@ export default function ActivityScreen() {
         date: t.date,
         notes: t.notes,
         paymentMethod: t.payment_method,
+        hasPhoto: t.has_photo ? "1" : "",
       },
     });
   }
@@ -663,6 +664,7 @@ export default function ActivityScreen() {
                     >
                       {formatShortDate(txn.date)} ·{" "}
                       {splitEmoji(txn.category).text}
+                      {txn.has_photo ? " · Photo" : ""}
                     </Text>
                   </View>
                   <Text
