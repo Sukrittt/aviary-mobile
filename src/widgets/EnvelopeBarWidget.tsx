@@ -8,7 +8,6 @@ import { heroFontSize, widgetMood, withPerDay, type WidgetData } from './data'
 import { WidgetSurface, color } from './surface'
 import { plusSvg } from './icons'
 import { birdFrames, birdSvg, FRAME_MS, heroTint, ringSvg } from './bird'
-import { doodlesSvg } from './doodles'
 
 const LOG_URI = 'envelope://modals/log-expense'
 
@@ -35,7 +34,6 @@ export function EnvelopeBarWidget({
   return (
     <WidgetSurface tokens={tokens} scheme={scheme} mood={mood} style={{ padding: 0 }}>
       <OverlapWidget style={{ width: 'match_parent', height: 'match_parent' }}>
-        <SvgWidget svg={doodlesSvg(width, height, tokens, scheme)} style={{ width: 'match_parent', height: 'match_parent' }} />
         <FlexWidget style={{ width: 'match_parent', height: 'match_parent', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'flex-end' }}>
           <SvgWidget
             svg={birdSvg({ mood, tokens, scheme })}

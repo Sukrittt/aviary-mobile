@@ -6,7 +6,6 @@ import { buildWidgetTree } from "react-native-android-widget/src/api/build-widge
 import { darkTokens, lightTokens } from "@/src/theme/tokens";
 import type { WidgetData } from "./data";
 import { birdFrames, birdRingFrames, birdRingSvg, birdSvg } from "./bird";
-import { doodlesSvg } from "./doodles";
 import { BIRD_EYE } from "@/src/components/splash/birdPath";
 import { EnvelopeWidget } from "./EnvelopeWidget";
 import { EnvelopeBarWidget } from "./EnvelopeBarWidget";
@@ -235,16 +234,6 @@ describe("birdSvg", () => {
     expect(frames.at(-1)).toBe(birdSvg({ ...args, mood: "ok", blink: true }));
     expect(frames.at(-1)).not.toBe(frames[0]);
     expect(birdFrames({ ...args, mood: "stale" })).toBeUndefined();
-  });
-});
-
-describe("doodlesSvg", () => {
-  it("draws hex-only strokes and picks the wide set for a wide band", () => {
-    const square = doodlesSvg(150, 150, lightTokens, "light");
-    const wide = doodlesSvg(300, 120, darkTokens, "dark");
-    expect(square).not.toMatch(/var\(|rgba\(/);
-    expect(square).not.toBe(wide);
-    expect(wide).toContain(`stroke="${darkTokens.text}"`);
   });
 });
 

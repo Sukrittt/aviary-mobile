@@ -14,7 +14,6 @@ import { headerRightLabel, heroFontSize, widgetMood, type WidgetData } from "./d
 import { WidgetSurface, color } from "./surface";
 import { plusSvg } from "./icons";
 import { birdFrames, birdSvg, FRAME_MS, heroTint, ringSvg } from "./bird";
-import { doodlesSvg } from "./doodles";
 
 const LOG_URI = "envelope://modals/log-expense";
 
@@ -42,10 +41,6 @@ export function EnvelopeMiniWidget({
       style={{ padding: 0 }}
     >
       <OverlapWidget style={{ width: "match_parent", height: "match_parent" }}>
-        <SvgWidget
-          svg={doodlesSvg(width, width, tokens, scheme)}
-          style={{ width: "match_parent", height: "match_parent" }}
-        />
         <FlexWidget
           style={{
             width: "match_parent",

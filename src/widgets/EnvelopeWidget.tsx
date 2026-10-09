@@ -9,7 +9,6 @@ import type { ThemeTokens } from "@/src/theme/tokens";
 import { fontFamily } from "@/src/theme/fonts";
 import { heroFontSize, layoutFor, widgetMood, withPerDay, type WidgetData } from "./data";
 import { birdFrames, birdSvg, FRAME_MS, heroTint, ringSvg } from "./bird";
-import { doodlesSvg } from "./doodles";
 import { WidgetSurface, color } from "./surface";
 import { plusSvg } from "./icons";
 
@@ -63,10 +62,6 @@ export function EnvelopeWidget({
       style={{ padding: 0 }}
     >
       <OverlapWidget style={{ width: "match_parent", height: bandHeight }}>
-        <SvgWidget
-          svg={doodlesSvg(width, bandHeight, tokens, scheme)}
-          style={{ width: "match_parent", height: "match_parent" }}
-        />
         <FlexWidget
           style={{
             width: "match_parent",
