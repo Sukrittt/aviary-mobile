@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native'
-import { Calendar, ChevronDown } from 'lucide-react-native'
+import { Calendar, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react-native'
 import * as Haptics from 'expo-haptics'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
-import { Button } from '@/src/components/ui/Button'
+import { AnimatedPressable, Button, usePressSpring } from '@/src/components/ui/Button'
 import { BottomSheet } from '@/src/components/shared/Modal'
 
 const STRIP_CELL_WIDTH = 56
@@ -99,6 +99,27 @@ const RANGE_PRESETS: [string, number, boolean][] = [
   ['Last 30 days', 30, false],
   ['Last 90 days', 90, false],
 ]
+
+function MonthNavButton({ dir, onPress }: { dir: 'prev' | 'next'; onPress: () => void }) {
+  const { tokens } = useTheme()
+  const press = usePressSpring(0.88)
+  const Chevron = dir === 'prev' ? ChevronLeft : ChevronRight
+  return (
+    <AnimatedPressable
+      accessibilityRole="button"
+      accessibilityLabel={dir === 'prev' ? 'Previous month' : 'Next month'}
+      onPress={() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+        onPress()
+      }}
+      onPressIn={press.onPressIn}
+      onPressOut={press.onPressOut}
+      style={[styles.navBtn, styles.navBtnLarge, { backgroundColor: tokens.inputBg, borderColor: tokens.border }, press.style]}
+    >
+      <Chevron size={15} color={tokens.text} strokeWidth={2.5} />
+    </AnimatedPressable>
+  )
+}
 
 export function DatePicker(props: Props) {
   if (props.mode === 'range') return <RangeDatePicker {...props} />
@@ -236,27 +257,11 @@ function RangeDatePicker({ value, onChange, disableFuture = true }: RangeProps) 
           </ScrollView>
 
           <View style={styles.nav}>
-            <Pressable
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
-                setView((v) => new Date(v.getFullYear(), v.getMonth() - 1, 1))
-              }}
-              style={[styles.navBtn, styles.navBtnLarge, { backgroundColor: tokens.inputBg, borderColor: tokens.border }]}
-            >
-              <Text style={[styles.navBtnText, { color: tokens.text }]}>‹</Text>
-            </Pressable>
+            <MonthNavButton dir="prev" onPress={() => setView((v) => new Date(v.getFullYear(), v.getMonth() - 1, 1))} />
             <Text style={[styles.monthLabel, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
               {MONTHS[view.getMonth()]} {view.getFullYear()}
             </Text>
-            <Pressable
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
-                setView((v) => new Date(v.getFullYear(), v.getMonth() + 1, 1))
-              }}
-              style={[styles.navBtn, styles.navBtnLarge, { backgroundColor: tokens.inputBg, borderColor: tokens.border }]}
-            >
-              <Text style={[styles.navBtnText, { color: tokens.text }]}>›</Text>
-            </Pressable>
+            <MonthNavButton dir="next" onPress={() => setView((v) => new Date(v.getFullYear(), v.getMonth() + 1, 1))} />
           </View>
 
           <View style={styles.weekdays}>
@@ -451,29 +456,11 @@ function SingleDatePicker({ value, onChange, disableFuture = true, onAccent = fa
           <Text style={[styles.sheetTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Pick a date</Text>
 
           <View style={styles.nav}>
-            <Pressable
-              accessibilityLabel="Previous month"
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
-                setView((v) => new Date(v.getFullYear(), v.getMonth() - 1, 1))
-              }}
-              style={[styles.navBtn, styles.navBtnLarge, { backgroundColor: tokens.inputBg, borderColor: tokens.border }]}
-            >
-              <Text style={[styles.navBtnText, { color: tokens.text }]}>‹</Text>
-            </Pressable>
+            <MonthNavButton dir="prev" onPress={() => setView((v) => new Date(v.getFullYear(), v.getMonth() - 1, 1))} />
             <Text style={[styles.monthLabel, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
               {MONTHS[view.getMonth()]} {view.getFullYear()}
             </Text>
-            <Pressable
-              accessibilityLabel="Next month"
-              onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
-                setView((v) => new Date(v.getFullYear(), v.getMonth() + 1, 1))
-              }}
-              style={[styles.navBtn, styles.navBtnLarge, { backgroundColor: tokens.inputBg, borderColor: tokens.border }]}
-            >
-              <Text style={[styles.navBtnText, { color: tokens.text }]}>›</Text>
-            </Pressable>
+            <MonthNavButton dir="next" onPress={() => setView((v) => new Date(v.getFullYear(), v.getMonth() + 1, 1))} />
           </View>
 
           <View style={styles.weekdays}>
@@ -532,7 +519,6 @@ const styles = StyleSheet.create({
   nav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   navBtn: { width: 30, height: 30, borderRadius: 15, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   navBtnLarge: { width: 44, height: 44, borderRadius: 22 },
-  navBtnText: { fontSize: 14 },
   monthLabel: { fontSize: 14 },
   weekdays: { flexDirection: 'row' },
   weekday: { flex: 1, textAlign: 'center', fontSize: 10 },
