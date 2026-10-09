@@ -127,13 +127,16 @@ function RangeDatePicker({ value, onChange, disableFuture = true }: RangeProps) 
   // Range as it was when the picker opened, so Cancel can restore it.
   const snapshot = useRef(value)
 
-  function toggle() {
-    if (!open) {
-      snapshot.current = value
-      setView(monthStart(from ?? today))
-    }
+  function openSheet() {
+    snapshot.current = value
+    setView(monthStart(from ?? today))
     setEditingField(null)
-    setOpen((o) => !o)
+    setOpen(true)
+  }
+
+  function close() {
+    setEditingField(null)
+    setOpen(false)
   }
 
   function cancel() {
@@ -193,7 +196,7 @@ function RangeDatePicker({ value, onChange, disableFuture = true }: RangeProps) 
   return (
     <View>
       <Pressable
-        onPress={toggle}
+        onPress={openSheet}
         style={[styles.field, { backgroundColor: tokens.inputBg, borderColor: open ? tokens.accent : tokens.border }]}
       >
         <View style={styles.fieldLeft}>
@@ -205,8 +208,9 @@ function RangeDatePicker({ value, onChange, disableFuture = true }: RangeProps) 
         <ChevronDown size={16} color={tokens.text3} style={{ transform: [{ rotate: open ? '180deg' : '0deg' }] }} />
       </Pressable>
 
-      {open && (
-        <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.borderStrong }]}>
+      <BottomSheet visible={open} onClose={close}>
+        <View style={styles.sheetBody}>
+          <Text style={[styles.sheetTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Custom range</Text>
           <Text style={[styles.statusText, { color: tokens.accentInk, fontFamily: fontFamily.bodySemiBold }]}>{statusText}</Text>
 
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quick}>
@@ -332,10 +336,10 @@ function RangeDatePicker({ value, onChange, disableFuture = true }: RangeProps) 
 
           <View style={styles.rangeFooter}>
             <Button label="Cancel" variant="secondary" style={styles.footerButton} onPress={cancel} />
-            <Button label="Apply" style={styles.footerButton} disabled={!from} onPress={() => setOpen(false)} />
+            <Button label="Apply" style={styles.footerButton} disabled={!from} onPress={close} />
           </View>
         </View>
-      )}
+      </BottomSheet>
     </View>
   )
 }
@@ -521,7 +525,6 @@ const styles = StyleSheet.create({
   fieldLeft: { flexDirection: 'row', alignItems: 'center', gap: 11, flex: 1 },
   iconWrap: { width: 30, height: 30, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
   fieldText: { fontSize: 14 },
-  card: { marginTop: 10, padding: 12, borderRadius: 18, borderWidth: 1, gap: 10 },
   quick: { flexDirection: 'row', gap: 8 },
   chip: { paddingVertical: 8, paddingHorizontal: 13, borderRadius: 100, borderWidth: 1 },
   chipText: { fontSize: 12 },
