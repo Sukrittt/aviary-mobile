@@ -63,13 +63,13 @@ export function ExpensePhotoField({ uri, loading, offline, busy, onPicked, onRem
     backgroundColor: tokens.inputBg, opacity: disabled ? 0.5 : 1,
   }
   const buttonText = { color: tokens.accentInk, fontFamily: fontFamily.bodySemiBold }
-  const link = { color: tokens.text2, fontFamily: fontFamily.bodySemiBold, fontSize: 12, textDecorationLine: 'underline' as const }
+  const link = { color: tokens.text2, fontFamily: fontFamily.bodySemiBold, fontSize: 13 }
 
   return (
     <View style={{ gap: space.sm }}>
       <Text style={label}>Photo (optional)</Text>
       {uri || loading ? (
-        <View style={{ alignSelf: 'flex-start', gap: space.sm }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.md }}>
           {uri ? (
             <View>
               <Pressable onPress={() => setViewing(true)} accessibilityRole="button" accessibilityLabel="View photo">
@@ -78,7 +78,8 @@ export function ExpensePhotoField({ uri, loading, offline, busy, onPicked, onRem
               <Pressable onPress={onRemove} disabled={disabled} accessibilityRole="button" accessibilityLabel="Remove photo" hitSlop={8}
                 style={{
                   position: 'absolute', top: -6, right: -6, width: 22, height: 22, borderRadius: 11,
-                  alignItems: 'center', justifyContent: 'center', backgroundColor: tokens.inputBg, opacity: disabled ? 0.5 : 1,
+                  alignItems: 'center', justifyContent: 'center', backgroundColor: tokens.cardSolid,
+                  borderWidth: 1, borderColor: tokens.borderStrong, opacity: disabled ? 0.5 : 1,
                 }}>
                 <X size={12} color={tokens.text} />
               </Pressable>
