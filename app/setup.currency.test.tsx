@@ -19,11 +19,18 @@ jest.mock('@/src/api/groups', () => ({ addGroup: jest.fn(async () => ({})) }))
 jest.mock('@/src/api/categories', () => ({ addCategory: jest.fn(async () => ({})) }))
 jest.mock('@/src/api/accessMode', () => ({ accessMode: { subscribeLogout: () => () => {} } }))
 jest.mock('expo-secure-store', () => ({ getItemAsync: jest.fn(async () => null), setItemAsync: jest.fn(async () => {}), deleteItemAsync: jest.fn(async () => {}) }))
+jest.mock('expo-localization', () => ({ getLocales: () => [{ currencyCode: 'MXN' }] }))
 jest.mock('expo-haptics', () => ({
   selectionAsync: jest.fn(() => Promise.resolve()),
   impactAsync: jest.fn(() => Promise.resolve()),
   ImpactFeedbackStyle: { Light: 'light' },
 }))
+
+it('defaults to the device region currency', () => {
+  const { getByLabelText, unmount } = renderWithProviders(<SetupScreen />)
+  expect(getByLabelText('Selected currency, Mexican Peso, MXN')).toBeTruthy()
+  unmount()
+})
 
 it('selects currency before income, preserves it on back, and saves it with onboarding', async () => {
   const onFinished = jest.fn()
