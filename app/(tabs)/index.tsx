@@ -38,7 +38,7 @@ import { EnvelopeGroup } from '@/src/components/envelope/EnvelopeGroup'
 import { EnvelopeRow } from '@/src/components/envelope/EnvelopeRow'
 import { Screen } from '@/src/components/ui/Screen'
 import { Card } from '@/src/components/ui/Card'
-import { IconButton } from '@/src/components/ui/Button'
+import { AnimatedPressable, IconButton, usePressSpring } from '@/src/components/ui/Button'
 import { AmountText } from '@/src/components/ui/AmountText'
 import { OfflineScreen } from '@/src/components/shared/OfflineScreen'
 import { ErrorScreen } from '@/src/components/shared/ErrorScreen'
@@ -132,6 +132,8 @@ export default function HomeScreen() {
   // displayed value frozen until Home is actually visible again defers that
   // roll to the moment it can be seen.
   const covered = !isFocused || openSheetCount > 0
+  const heroPress = usePressSpring()
+  const pillPress = usePressSpring()
   const [displayedReadyToAssign, setDisplayedReadyToAssign] = useState(envelopeState.readyToAssign)
   // Adjusting state during render (not in an effect) so the sync happens in
   // the same commit as the value that triggered it, with no extra render.
@@ -262,11 +264,17 @@ export default function HomeScreen() {
             is the hero rather than one tile among four. */}
         <View style={[styles.hero, { paddingVertical: space.xl }]}>
           <Text style={[styles.heroLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>READY TO ASSIGN</Text>
-          <Pressable
+          <AnimatedPressable
             accessibilityRole="button"
             accessibilityLabel="Ready to Assign options"
             accessibilityHint="Change or add income, or set Ready to Assign"
-            onPress={() => setIncomeSheetOpen(true)}
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+              setIncomeSheetOpen(true)
+            }}
+            onPressIn={heroPress.onPressIn}
+            onPressOut={heroPress.onPressOut}
+            style={heroPress.style}
             hitSlop={8}
           >
             <AmountText
@@ -275,29 +283,33 @@ export default function HomeScreen() {
               color={displayedReadyToAssign < 0 ? tokens.coral : tokens.text}
               weight="displayBold"
               animate
+              settle
               id="ready-to-assign"
             />
-          </Pressable>
+          </AnimatedPressable>
           <Text style={{ color: tokens.text2, fontSize: type.caption, fontFamily: fontFamily.bodyMedium }}>
             {monthLabel(month)} · {daysLeftInMonth() === 0 ? 'Less than 24 hrs' : `${daysLeftInMonth()} days left`}
           </Text>
           {/* The hero tap is invisible, so this pill names where the number
               comes from. With no income yet it goes straight to setting it. */}
-          <Pressable
+          <AnimatedPressable
             accessibilityRole="button"
-            onPress={() =>
-              envelopeState.income === 0
-                ? router.push({ pathname: '/modals/edit-month-income', params: { month, initial: String(envelopeState.incomeBase) } })
-                : setIncomeSheetOpen(true)
-            }
+            onPress={() => {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+              if (envelopeState.income === 0) {
+                router.push({ pathname: '/modals/edit-month-income', params: { month, initial: String(envelopeState.incomeBase) } })
+              } else setIncomeSheetOpen(true)
+            }}
+            onPressIn={pillPress.onPressIn}
+            onPressOut={pillPress.onPressOut}
             hitSlop={8}
-            style={[styles.incomePill, { backgroundColor: envelopeState.income === 0 ? tokens.accentSoft : tokens.inputBg, borderRadius: radius.full }]}
+            style={[styles.incomePill, { backgroundColor: envelopeState.income === 0 ? tokens.accentSoft : tokens.inputBg, borderRadius: radius.full }, pillPress.style]}
           >
             <Text style={{ color: envelopeState.income === 0 ? tokens.accentInk : tokens.text, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>
               {envelopeState.income === 0 ? 'Set your income' : `Income · ${formatCurrency(envelopeState.income, hideAmounts)}`}
             </Text>
             <Icon icon={ChevronRight} size={14} color={envelopeState.income === 0 ? tokens.accentInk : tokens.text2} />
-          </Pressable>
+          </AnimatedPressable>
         </View>
 
         {/* The lasting record lives in Insights' "Where it went" card (any

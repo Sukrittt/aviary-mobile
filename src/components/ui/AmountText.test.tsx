@@ -5,7 +5,14 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ThemeProvider } from '@/src/theme/ThemeProvider'
 import { PrivacyProvider, usePrivacy } from '@/src/context/PrivacyContext'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
+import * as Haptics from 'expo-haptics'
 import { AmountText } from './AmountText'
+
+jest.mock('expo-haptics', () => ({
+  selectionAsync: jest.fn(() => Promise.resolve()),
+  impactAsync: jest.fn(() => Promise.resolve()),
+  ImpactFeedbackStyle: { Light: 'light' },
+}))
 
 function wrapWithProviders(ui: ReactElement, queryClient: QueryClient) {
   return (
@@ -156,5 +163,33 @@ describe('AmountText', () => {
       wrapHiddenWithProviders(<AmountText value={1200} size={20} rawText="1200." ignoreHide />, queryClient),
     )
     expect(getByText('1200.')).toBeTruthy()
+  })
+
+  describe('settle', () => {
+    beforeEach(() => {
+      jest.useFakeTimers()
+      jest.clearAllMocks()
+    })
+    afterEach(() => jest.useRealTimers())
+
+    it('ticks once per changed digit, then lands', () => {
+      const queryClient = new QueryClient()
+      const { rerender } = renderWithProviders(<AmountText value={1000} size={40} animate settle />)
+      jest.runAllTimers()
+      expect(Haptics.selectionAsync).not.toHaveBeenCalled()
+
+      rerender(wrapWithProviders(<AmountText value={1250} size={40} animate settle />, queryClient))
+      jest.runAllTimers()
+      expect(Haptics.selectionAsync).toHaveBeenCalledTimes(2)
+      expect(Haptics.impactAsync).toHaveBeenCalledTimes(1)
+    })
+
+    it('stays silent without the prop', () => {
+      const queryClient = new QueryClient()
+      const { rerender } = renderWithProviders(<AmountText value={1000} size={40} animate />)
+      rerender(wrapWithProviders(<AmountText value={1250} size={40} animate />, queryClient))
+      jest.runAllTimers()
+      expect(Haptics.selectionAsync).not.toHaveBeenCalled()
+    })
   })
 })
