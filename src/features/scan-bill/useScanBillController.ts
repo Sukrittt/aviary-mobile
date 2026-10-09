@@ -1,3 +1,4 @@
+import { expenseSuccessParams } from '@/src/lib/expenseSuccessParams';
 import { useBillSplit } from '@/src/features/scan-bill/useBillSplit';
 import { useCategories } from "@/src/hooks/useCategories";
 import { useAddExpense } from "@/src/hooks/useExpenses";
@@ -132,7 +133,7 @@ export function useScanBillController() {
               image: asset.base64,
               mimeType: asset.mimeType,
               merchant: merchant.trim(),
-              category,
+              category: res.category ?? category,
               date,
               total: billTotal,
               my_share: myShare,
@@ -143,17 +144,14 @@ export function useScanBillController() {
           }
           router.replace({
             pathname: "/modals/expense-added",
-            params: {
-              id: res.id ?? "",
-              timestamp: res.timestamp ?? "",
-              loggedAt: new Date().toISOString(),
+            params: expenseSuccessParams(res, {
               item: merchant.trim(),
               amount: String(myShare),
               category,
               date,
               notes: "",
               paymentMethod: "bank",
-            },
+            }),
           });
         },
         onError: () =>

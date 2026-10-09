@@ -1,3 +1,4 @@
+import { expenseSuccessParams } from '@/src/lib/expenseSuccessParams'
 import { ExpenseNoticeScreen } from '@/src/features/log-expense/ExpenseNoticeScreen'
 import { ExpenseConflictReview } from '@/src/features/log-expense/ExpenseConflictReview'
 import { AutoCategoryPill, MIN_SPIN_MS, PILL_MAX_WIDTH } from '@/src/features/log-expense/AutoCategoryPill'
@@ -360,26 +361,14 @@ export default function LogExpenseScreen() {
             noteManualLog();
             pendingAddNavRef.current = {
               pathname: "/modals/expense-added",
-              params: {
-                id: res.id ?? "",
-                version: res.version === undefined ? "" : String(res.version),
-                clientId: res.clientId,
-                pending: res.pending ? "1" : "",
-                timestamp: res.timestamp ?? "",
-                // Display fallback for servers that return no timestamp — the
-                // success screen's stamp line would otherwise be blank.
-                loggedAt: new Date().toISOString(),
+              params: expenseSuccessParams(res, {
                 item: savedItem,
                 amount: String(parsedAmount),
-                // The server's category, not the picked one: a name chosen from
-                // a list loaded before a rename is mapped forward server-side,
-                // and the success screen finds its envelope by name. Falls back
-                // when queued offline, where there's no response to read.
-                category: res.category ?? category,
+                category,
                 date,
                 notes: notes.trim(),
                 paymentMethod,
-              },
+              }),
             };
             setLogSuccess(true);
           },
