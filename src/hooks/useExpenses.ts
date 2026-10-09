@@ -1,15 +1,19 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import {
   deleteExpense,
+  deleteExpensePhoto,
   dismissDuplicate,
   getDuplicates,
+  getExpensePhotoUrl,
   getExpenses,
   getExpensesPage,
   getRecentExpenses,
   mintExpensePayload,
   postExpensePayload,
   updateExpense,
+  uploadExpensePhoto,
   type ExpensesPageParams,
+  type PhotoMimeType,
   type NewExpenseRow,
   type RecentExpenses,
 } from '@/src/api/expenses'
@@ -212,5 +216,26 @@ export function useDismissDuplicate() {
   return useMutation({
     mutationFn: dismissDuplicate,
     onSettled: () => qc.invalidateQueries({ queryKey: [...key, 'duplicates'] }),
+  })
+}
+
+const photoKey = (id: string) => ['expense-photo', id] as const
+
+/** Signed URL for an expense's photo. The URL is short-lived, so it's refetched rather than kept. */
+export function useExpensePhotoUrl(id: string | undefined, enabled: boolean) {
+  return useQuery({ queryKey: photoKey(id ?? ''), queryFn: () => getExpensePhotoUrl(id!), enabled: enabled && !!id, staleTime: 60_000, gcTime: 0 })
+}
+
+/** Attaches (`photo` set) or removes (`photo: null`) an expense's photo. */
+export function useSaveExpensePhoto() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, photo }: { id: string; photo: { base64: string; mimeType: PhotoMimeType } | null }) =>
+      photo ? uploadExpensePhoto(id, photo.base64, photo.mimeType).then(() => undefined) : deleteExpensePhoto(id),
+    onSettled: (_data, _error, { id }) => {
+      // Rows carry `has_photo`; the version doesn't change, so nothing else does.
+      qc.invalidateQueries({ queryKey: key })
+      qc.invalidateQueries({ queryKey: photoKey(id) })
+    },
   })
 }

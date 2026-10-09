@@ -29,6 +29,8 @@ export interface ExpenseRow {
   amount: string
   description: string
   payment_method: string
+  /** Absent from an older server. */
+  has_photo?: boolean
 }
 
 export interface CategoryRow {

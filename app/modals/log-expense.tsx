@@ -1,6 +1,7 @@
 import { expenseSuccessParams } from '@/src/lib/expenseSuccessParams'
 import { ExpenseNoticeScreen } from '@/src/features/log-expense/ExpenseNoticeScreen'
 import { ExpenseConflictReview } from '@/src/features/log-expense/ExpenseConflictReview'
+import { ExpensePhotoField, type PickedPhoto } from '@/src/features/log-expense/ExpensePhotoField'
 import { AutoCategoryPill, MIN_SPIN_MS, PILL_MAX_WIDTH } from '@/src/features/log-expense/AutoCategoryPill'
 import { createThinkingGate, type ThinkingGate } from '@/src/lib/thinkingGate'
 import { ExpenseWriteError, expenseChanges, expenseDraft, rebaseExpenseDraft } from '@/src/lib/expenseConflict'
@@ -31,7 +32,9 @@ import { useCategories } from "@/src/hooks/useCategories";
 import { useCategoryMap } from "@/src/hooks/useCategoryMap";
 import {
 useAddExpense,
+useExpensePhotoUrl,
 useRecentExpenses,
+useSaveExpensePhoto,
 useUpdateExpense,
 } from "@/src/hooks/useExpenses";
 import { unusualAmount } from "@/src/lib/unusualAmount";
@@ -52,6 +55,7 @@ import * as Haptics from "expo-haptics";
 import Reanimated from "react-native-reanimated";
 import { useCallback,useEffect,useMemo,useRef,useState } from "react";
 import {
+Alert,
 Animated,
 Keyboard,
 Pressable,
@@ -102,7 +106,7 @@ function suggestCategory(
  * live behind the "More" disclosure, so the common path stays three inputs.
  *
  * Route-param driven: Activity passes {id, timestamp, item, amountInr, category,
- * date, notes, paymentMethod} of an existing row to enter edit mode. No params →
+ * date, notes, paymentMethod, hasPhoto} of an existing row to enter edit mode. No params →
  * a fresh entry. Edit reuses this screen rather than a second form; the keypad
  * starts on the existing amount and backspaces from there.
  */
@@ -167,6 +171,18 @@ export default function LogExpenseScreen() {
   const [logSuccess, setLogSuccess] = useState(false);
   const [showMore, setShowMore] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
+  // One optional photo, More sheet only. `photo` is newly picked and not yet
+  // uploaded; it goes up after the expense saves (see syncPhoto). Edit mode
+  // needs the row's server id to address the photo at all.
+  const photoAllowed = !isEdit || !!origId;
+  const hasSavedPhoto = isEdit && str(params.hasPhoto) === "1";
+  const [photo, setPhoto] = useState<PickedPhoto | null>(null);
+  const [photoRemoved, setPhotoRemoved] = useState(false);
+  const savedPhotoQ = useExpensePhotoUrl(origId, hasSavedPhoto);
+  const savePhoto = useSaveExpensePhoto();
+  const savePhotoAsync = savePhoto.mutateAsync;
+  const showSavedPhoto = hasSavedPhoto && !photoRemoved;
+  const photoUri = photo?.uri ?? (showSavedPhoto ? savedPhotoQ.data ?? null : null);
   // Bumped each time the nav's add circle is tapped with the form incomplete.
   // 0 = never, so nothing is highlighted before the first blocked submit.
   const [nudge, setNudge] = useState(0);
@@ -276,7 +292,7 @@ export default function LogExpenseScreen() {
   const savedItem = item.trim() || splitEmoji(category).text;
   const canSubmit = missing.length === 0 && !conflict && !deleted;
   const flag = (f: (typeof missing)[number]) => nudge > 0 && missing.includes(f);
-  const saving = addExpense.isPending || updateExpense.isPending;
+  const saving = addExpense.isPending || updateExpense.isPending || savePhoto.isPending;
   const unusual = useMemo(
     () => (isEdit && amount === base.amount ? null : unusualAmount(parsedAmount, category, expensesQ.data ?? [], date)),
     [isEdit, amount, base.amount, parsedAmount, category, expensesQ.data, date],
@@ -298,6 +314,20 @@ export default function LogExpenseScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [logSuccess]);
 
+  // Runs once the expense itself is saved. A photo failure never undoes that
+  // save; it only gets a friendly heads-up. Not queued offline in v1, so a
+  // create that landed in the pending queue (no server id yet) skips it.
+  const syncPhoto = useCallback(async (id: string | undefined, queued: boolean) => {
+    if (!photo && !(hasSavedPhoto && photoRemoved)) return;
+    try {
+      if (!id || queued) throw new Error("no server id");
+      await savePhotoAsync({ id, photo: photo && { base64: photo.base64, mimeType: photo.mimeType } });
+    } catch {
+      if (photo) Alert.alert("Photo didn't upload", "Your expense is saved, but the photo didn't upload. Try adding it again from Activity.");
+      else Alert.alert("Photo's still there", "Your changes are saved, but the photo didn't come off. Try removing it again.");
+    }
+  }, [photo, hasSavedPhoto, photoRemoved, savePhotoAsync]);
+
   const handleSubmit = useCallback(() => {
     if (!canSubmit) return;
     setError("");
@@ -309,7 +339,8 @@ export default function LogExpenseScreen() {
     }
     if (isEdit) {
       const updates = expenseChanges(base, { item: savedItem, amount, date, category });
-      if (!Object.keys(updates).length) { setLogSuccess(true); return; }
+      const finishEdit = async () => { await syncPhoto(origId, false); setLogSuccess(true); };
+      if (!Object.keys(updates).length) { void finishEdit(); return; }
       updateMutate(
         {
           id: origId,
@@ -320,7 +351,7 @@ export default function LogExpenseScreen() {
           updates,
         },
         {
-          onSuccess: () => setLogSuccess(true),
+          onSuccess: () => void finishEdit(),
           onError: (err) => {
             if (err instanceof ExpenseWriteError) {
               if (err.status === 409 && err.current) {
@@ -356,9 +387,10 @@ export default function LogExpenseScreen() {
           // `timestamp` come back from the POST so Undo can address the row.
           // The replace itself is deferred: stash it and flip logSuccess so
           // the nav circle's save animation plays first (see the effect above).
-          onSuccess: (res) => {
+          onSuccess: async (res) => {
             clearLogExpenseDraft();
             noteManualLog();
+            await syncPhoto(res.id, res.pending);
             pendingAddNavRef.current = {
               pathname: "/modals/expense-added",
               params: expenseSuccessParams(res, {
@@ -392,7 +424,7 @@ export default function LogExpenseScreen() {
         },
       );
     }
-  }, [canSubmit, unusual, unusualWarnedFor, base, amount, expectedVersion, isEdit, origId, origTimestamp, origItem, origAmountInr, item, savedItem, parsedAmount, date, category, notes, paymentMethod, router, addMutate, updateMutate, autoPicked]);
+  }, [canSubmit, unusual, unusualWarnedFor, base, amount, expectedVersion, isEdit, origId, origTimestamp, origItem, origAmountInr, item, savedItem, parsedAmount, date, category, notes, paymentMethod, router, addMutate, updateMutate, autoPicked, syncPhoto]);
 
   // Publish only when the action or its visible state changes.
   useEffect(() => {
@@ -755,6 +787,17 @@ export default function LogExpenseScreen() {
               ]}
             />
           </View>
+
+          {photoAllowed && (
+            <ExpensePhotoField
+              uri={photoUri}
+              loading={showSavedPhoto && !photo && savedPhotoQ.isLoading}
+              offline={!online}
+              busy={saving || logSuccess}
+              onPicked={(p) => { setPhoto(p); setPhotoRemoved(false); }}
+              onRemove={() => { setPhoto(null); if (hasSavedPhoto) setPhotoRemoved(true); }}
+            />
+          )}
         </View>
       </BottomSheet>
     </View>

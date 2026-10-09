@@ -1,5 +1,5 @@
 import { apiFetch } from './client'
-import { getExpenses, addExpense, updateExpense, deleteExpense } from './expenses'
+import { getExpenses, addExpense, updateExpense, deleteExpense, uploadExpensePhoto, getExpensePhotoUrl, deleteExpensePhoto } from './expenses'
 
 jest.mock('./client', () => ({
   apiFetch: jest.fn(),
@@ -105,5 +105,37 @@ describe('expense write versions', () => {
     mockedApiFetch.mockResolvedValue({ ok: true })
     await deleteExpense('id1', 'ts', 'Coffee', 150, 7)
     expect(JSON.parse(mockedApiFetch.mock.calls[0][1].body).version).toBe(7)
+  })
+})
+
+describe('expense photo', () => {
+  it('POSTs raw base64 and the mime type, resolving with the url', async () => {
+    mockedApiFetch.mockResolvedValue({ ok: true, json: async () => ({ ok: true, url: 'https://signed/1' }) })
+    await expect(uploadExpensePhoto('e1', 'QUJD', 'image/jpeg')).resolves.toBe('https://signed/1')
+    const [path, init] = mockedApiFetch.mock.calls[0]
+    expect(path).toBe('/api/expenses/e1/photo')
+    expect(init.method).toBe('POST')
+    expect(JSON.parse(init.body)).toEqual({ image: 'QUJD', mimeType: 'image/jpeg' })
+  })
+
+  it('throws an HttpError with the status when the upload is rejected', async () => {
+    mockedApiFetch.mockResolvedValue({ ok: false, status: 413 })
+    await expect(uploadExpensePhoto('e1', 'QUJD', 'image/jpeg')).rejects.toMatchObject({ status: 413 })
+  })
+
+  it('GETs the signed url, or null when there is none', async () => {
+    mockedApiFetch.mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({ url: 'https://signed/2' }) })
+    await expect(getExpensePhotoUrl('e1')).resolves.toBe('https://signed/2')
+    expect(mockedApiFetch).toHaveBeenCalledWith('/api/expenses/e1/photo')
+    mockedApiFetch.mockResolvedValueOnce({ ok: false, status: 404 })
+    await expect(getExpensePhotoUrl('e1')).resolves.toBeNull()
+  })
+
+  it('DELETEs the photo', async () => {
+    mockedApiFetch.mockResolvedValue({ ok: true, json: async () => ({ ok: true }) })
+    await deleteExpensePhoto('e1')
+    expect(mockedApiFetch).toHaveBeenCalledWith('/api/expenses/e1/photo', { method: 'DELETE' })
+    mockedApiFetch.mockResolvedValue({ ok: false, status: 500 })
+    await expect(deleteExpensePhoto('e1')).rejects.toMatchObject({ status: 500 })
   })
 })

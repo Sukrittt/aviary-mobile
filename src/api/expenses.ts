@@ -195,3 +195,33 @@ export async function dismissDuplicate(id: string): Promise<void> {
   })
   if (!resp.ok) throw new HttpError(resp.status, `Failed to dismiss duplicate: ${resp.status}`)
 }
+
+export type PhotoMimeType = 'image/jpeg' | 'image/png' | 'image/webp'
+
+/** `image` is raw base64, no `data:` prefix. Photo writes leave the expense's `version` alone. */
+export async function uploadExpensePhoto(id: string, image: string, mimeType: PhotoMimeType): Promise<string> {
+  const resp = await apiFetch(`/api/expenses/${encodeURIComponent(id)}/photo`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ image, mimeType }),
+    // A photo can take longer than the default 15s to go up on a slow connection.
+    signal: AbortSignal.timeout(60_000),
+  })
+  if (!resp.ok) throw new HttpError(resp.status, `Failed to upload photo: ${resp.status}`)
+  const data: { url: string } = await resp.json()
+  return data.url
+}
+
+/** A short-lived signed URL, or null when the expense has no photo. */
+export async function getExpensePhotoUrl(id: string): Promise<string | null> {
+  const resp = await apiFetch(`/api/expenses/${encodeURIComponent(id)}/photo`)
+  if (resp.status === 404) return null
+  if (!resp.ok) throw new HttpError(resp.status, `Failed to load photo: ${resp.status}`)
+  const data: { url: string } = await resp.json()
+  return data.url
+}
+
+export async function deleteExpensePhoto(id: string): Promise<void> {
+  const resp = await apiFetch(`/api/expenses/${encodeURIComponent(id)}/photo`, { method: 'DELETE' })
+  if (!resp.ok) throw new HttpError(resp.status, `Failed to remove photo: ${resp.status}`)
+}

@@ -1,9 +1,10 @@
 import { ExpenseWriteError } from '@/src/lib/expenseConflict'
 import type { ExpenseRow } from '@/src/types'
-import { Modal } from 'react-native'
+import { Alert, Modal } from 'react-native'
 import { act, fireEvent } from '@testing-library/react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
-import { getRecentExpenses, postExpensePayload, updateExpense } from '@/src/api/expenses'
+import { deleteExpensePhoto, getExpensePhotoUrl, getRecentExpenses, postExpensePayload, updateExpense, uploadExpensePhoto } from '@/src/api/expenses'
+import { setOnline } from '@/src/lib/netStatus'
 import { addCategory, getCategories } from '@/src/api/categories'
 import { getGroups } from '@/src/api/groups'
 import { getCategoryMap, suggestCategoryLLM } from '@/src/api/categoryMap'
@@ -18,6 +19,17 @@ jest.mock('@/src/api/expenses', () => ({
   postExpensePayload: jest.fn(),
   mintExpensePayload: jest.requireActual('@/src/api/expenses').mintExpensePayload,
   updateExpense: jest.fn(),
+  uploadExpensePhoto: jest.fn(),
+  getExpensePhotoUrl: jest.fn(),
+  deleteExpensePhoto: jest.fn(),
+}))
+const mockLaunchCamera = jest.fn()
+const mockLaunchLibrary = jest.fn()
+jest.mock('expo-image-picker', () => ({
+  requestCameraPermissionsAsync: async () => ({ granted: true }),
+  requestMediaLibraryPermissionsAsync: async () => ({ granted: true }),
+  launchCameraAsync: (opts: unknown) => mockLaunchCamera(opts),
+  launchImageLibraryAsync: (opts: unknown) => mockLaunchLibrary(opts),
 }))
 jest.mock('@/src/api/categories', () => ({
   getCategories: jest.fn(),
@@ -543,4 +555,118 @@ it('shows an edited expense category even when the loaded list no longer has it'
   const utils = setup({ id: 'srv1', version: '0', timestamp: 'ts', item: 'Chips', amountInr: '40', category: 'Old Snacks', date: '2026-09-18' })
   expect(await utils.findByText('Old Snacks')).toBeTruthy()
   expect(utils.queryByText('Pick a category')).toBeNull()
+})
+
+describe('photo', () => {
+  const asset = { uri: 'file:///milk.jpg', base64: 'QUJD', mimeType: 'image/jpeg' }
+
+  afterEach(() => act(() => setOnline(true)))
+
+  async function openMore(utils: ReturnType<typeof setup>) {
+    fireEvent.press(utils.getByText('More'))
+    return utils.findByText('Photo (optional)')
+  }
+
+  async function pickFromLibrary(utils: ReturnType<typeof setup>) {
+    mockLaunchLibrary.mockResolvedValue({ canceled: false, assets: [asset] })
+    await act(async () => {
+      fireEvent.press(utils.getByLabelText('Choose photo'))
+    })
+  }
+
+  async function submitAndSettle() {
+    await act(async () => {
+      ;(globalThis as any).__submit()
+      for (let i = 0; i < 10; i++) await Promise.resolve()
+    })
+    await act(async () => {
+      jest.advanceTimersByTime(1100)
+    })
+  }
+
+  it('lives only inside the More sheet', async () => {
+    const utils = setup()
+    expect(utils.queryByText('Photo (optional)')).toBeNull()
+    expect(await openMore(utils)).toBeTruthy()
+  })
+
+  it('is disabled offline, with a note', async () => {
+    setOnline(false)
+    setOnline(false)
+    const utils = setup()
+    await openMore(utils)
+    expect(utils.getByText("You can add a photo once you're back online.")).toBeTruthy()
+    expect(utils.getByLabelText('Take photo')).toBeDisabled()
+    expect(utils.getByLabelText('Choose photo')).toBeDisabled()
+  })
+
+  it('shows a preview once picked, using the bill scan picker options', async () => {
+    const utils = setup()
+    await openMore(utils)
+    await pickFromLibrary(utils)
+    expect(mockLaunchLibrary).toHaveBeenCalledWith(expect.objectContaining({ quality: 0.5, base64: true }))
+    expect(utils.getByLabelText('View photo')).toBeTruthy()
+    expect(utils.getByLabelText('Remove photo')).toBeTruthy()
+  })
+
+  it('rejects a photo type the server cannot take instead of relabeling it', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {})
+    const utils = setup()
+    await openMore(utils)
+    mockLaunchLibrary.mockResolvedValue({ canceled: false, assets: [{ ...asset, mimeType: 'image/heic' }] })
+    await act(async () => {
+      fireEvent.press(utils.getByLabelText('Choose photo'))
+    })
+    expect(alert).toHaveBeenCalledWith("That photo type isn't supported", 'Try a JPEG or PNG.')
+    expect(utils.queryByLabelText('View photo')).toBeNull()
+    alert.mockRestore()
+  })
+
+  it('saves the expense, then uploads the photo to its server id', async () => {
+    ;(postExpensePayload as jest.Mock).mockResolvedValue({ id: 'srv1', timestamp: '2026-09-04T01:24:00' })
+    ;(uploadExpensePhoto as jest.Mock).mockResolvedValue('https://signed/url')
+    const utils = setup()
+    await fillValidForm(utils)
+    await openMore(utils)
+    await pickFromLibrary(utils)
+    await submitAndSettle()
+
+    expect(postExpensePayload).toHaveBeenCalled()
+    expect(uploadExpensePhoto).toHaveBeenCalledWith('srv1', 'QUJD', 'image/jpeg')
+    expect((postExpensePayload as jest.Mock).mock.invocationCallOrder[0]).toBeLessThan((uploadExpensePhoto as jest.Mock).mock.invocationCallOrder[0])
+    expect(mockReplace).toHaveBeenCalledWith(expect.objectContaining({ pathname: '/modals/expense-added' }))
+  })
+
+  it('keeps the expense saved and says so kindly when the upload fails', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {})
+    ;(postExpensePayload as jest.Mock).mockResolvedValue({ id: 'srv1', timestamp: '2026-09-04T01:24:00' })
+    ;(uploadExpensePhoto as jest.Mock).mockRejectedValue(new Error('Failed to upload photo: 413'))
+    const utils = setup()
+    await fillValidForm(utils)
+    await openMore(utils)
+    await pickFromLibrary(utils)
+    await submitAndSettle()
+
+    expect(alert).toHaveBeenCalledWith("Photo didn't upload", "Your expense is saved, but the photo didn't upload. Try adding it again from Activity.")
+    expect(JSON.stringify(alert.mock.calls)).not.toContain('413')
+    expect(mockReplace).toHaveBeenCalledWith(expect.objectContaining({ pathname: '/modals/expense-added', params: expect.objectContaining({ id: 'srv1' }) }))
+    alert.mockRestore()
+  })
+
+  it('shows the saved photo when editing, and removing it deletes on save', async () => {
+    ;(getExpensePhotoUrl as jest.Mock).mockResolvedValue('https://signed/url')
+    ;(deleteExpensePhoto as jest.Mock).mockResolvedValue(undefined)
+    const utils = setup({ id: 'srv1', timestamp: '2026-09-04T01:24:00', item: 'Milk', amountInr: '450', category: 'Groceries', date: '2026-09-04', hasPhoto: '1', version: '1' })
+    await openMore(utils)
+    expect(await utils.findByLabelText('View photo')).toBeTruthy()
+    expect(getExpensePhotoUrl).toHaveBeenCalledWith('srv1')
+
+    fireEvent.press(utils.getByLabelText('Remove photo'))
+    expect(utils.queryByLabelText('View photo')).toBeNull()
+    await submitAndSettle()
+
+    expect(updateExpense).not.toHaveBeenCalled()
+    expect(deleteExpensePhoto).toHaveBeenCalledWith('srv1')
+    expect(mockBack).toHaveBeenCalled()
+  })
 })
