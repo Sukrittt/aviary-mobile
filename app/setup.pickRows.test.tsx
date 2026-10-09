@@ -22,7 +22,7 @@ function toGroupsStep() {
   const utils = renderWithProviders(<SetupScreen />)
   fireEvent.press(utils.getByText('Continue')) // currency
   fireEvent.press(utils.getByText('₹50,000'))
-  fireEvent.press(utils.getByText('Continue')) // income
+  fireEvent.press(utils.getByText('Build my own budget')) // income
   return utils
 }
 

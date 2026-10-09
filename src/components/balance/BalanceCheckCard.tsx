@@ -7,6 +7,9 @@ import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import type { BalanceStatus } from '@/src/api/balanceChecks'
 
+/** Off for now: group splits make the bank balance a poor proxy for spending. Flip to bring the check back. */
+export const BALANCE_CHECK_ENABLED = false
+
 function prompt(status: BalanceStatus): { title: string; body: string } {
   if (!status.anchor) {
     return {

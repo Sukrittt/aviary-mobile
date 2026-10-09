@@ -1,6 +1,7 @@
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { useEffect, useRef, useState } from 'react'
 import { View, Text, Pressable, StyleSheet } from 'react-native'
+import * as Haptics from 'expo-haptics'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 
@@ -88,7 +89,10 @@ export function InsightsDemo({ onComplete }: { onComplete: () => void }) {
             <Pressable
               key={item.q}
               accessibilityRole="button"
-              onPress={() => ask(item.q)}
+              onPress={() => {
+                Haptics.selectionAsync().catch(() => {})
+                ask(item.q)
+              }}
               style={[
                 styles.chip,
                 {

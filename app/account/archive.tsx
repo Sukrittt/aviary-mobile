@@ -1,5 +1,5 @@
 import { useCurrency } from '@/src/context/CurrencyContext'
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -19,6 +19,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import {
   ArrowLeft,
+  RotateCcw,
   X,
   Receipt,
   Wallet,
@@ -34,9 +35,12 @@ import { Alert } from "@/src/components/ui/AlertHost";
 import { OfflineScreen } from "@/src/components/shared/OfflineScreen";
 import { useOnline } from "@/src/lib/netStatus";
 import { useTheme } from "@/src/theme/ThemeProvider";
+import type { ThemeTokens } from "@/src/theme/tokens";
 import { fontFamily } from "@/src/theme/fonts";
 import { Icon } from "@/src/components/shared/Icon";
+import { IconButton } from "@/src/components/ui/Button";
 import { CheckIcon } from "@/src/components/shared/CheckIcon";
+import { SelectCheck, SelectTint } from "@/src/components/shared/SelectCheck";
 import { BottomSheet } from "@/src/components/shared/Modal";
 import { LoadingPhrase } from "@/src/components/shared/LoadingPhrase";
 import { useRefresh } from "@/src/hooks/useRefresh";
@@ -88,6 +92,16 @@ const KIND_ICONS: Record<ArchivableCollection, LucideIcon> = {
   holdings: TrendingUp,
 };
 
+// Web's .archive-kind tiles: each kind gets its own soft tint.
+const KIND_TONES: Record<ArchivableCollection, (t: ThemeTokens) => { bg: string; fg: string }> = {
+  expenses: (t) => ({ bg: t.accentSoft, fg: t.accentInk }),
+  budgets: (t) => ({ bg: t.mintSoft, fg: t.mint }),
+  categories: (t) => ({ bg: t.violetSoft, fg: t.violet }),
+  groups: (t) => ({ bg: t.blueSoft, fg: t.blue }),
+  subscriptions: (t) => ({ bg: t.warnSoft, fg: t.warnInk }),
+  holdings: (t) => ({ bg: t.coralSoft, fg: t.coral }),
+};
+
 type Filter = "all" | ArchivableCollection;
 type Band = "Gone tomorrow" | "Going this week" | "Later this week";
 
@@ -114,6 +128,7 @@ const LOADING_PHRASES = [
 ];
 const LIST_TRANSITION = LinearTransition.springify().damping(90).stiffness(900);
 const PAGE_SIZE = 10;
+const CARD_TOP_GAP = 14;
 
 export default function ArchiveScreen() {
   const { formatCurrency } = useCurrency()
@@ -139,9 +154,13 @@ export default function ArchiveScreen() {
     kind: "restore" | "purge";
   } | null>(null);
   const [purgeTarget, setPurgeTarget] = useState<ArchivedItem | null>(null);
-  const [confirmRestoreAll, setConfirmRestoreAll] = useState(false);
+  // The rows the sheet is about: all of them from "Restore all", or the picked ones.
+  const [confirmRestore, setConfirmRestore] = useState<ArchivedItem[] | null>(null);
   const [restoringAll, setRestoringAll] = useState(false);
   const [restoreAllSuccess, setRestoreAllSuccess] = useState(false);
+  // Multi-select: a long-press starts it, and clearing the last row ends it.
+  const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(() => new Set());
+  const selecting = selectedIds.size > 0;
 
   const items = emptyForPreview(archiveQuery.data ?? []);
   const loading = !FORCE_EMPTY_STATE_PREVIEW && archiveQuery.isLoading;
@@ -171,6 +190,25 @@ export default function ArchiveScreen() {
   >;
   for (const c of SECTION_ORDER)
     counts[c] = items.filter((i) => i.collection === c).length;
+
+  const selectedItems = pageItems.filter((i) => selectedIds.has(i.id));
+  const allSelected =
+    pageItems.length > 0 && selectedItems.length === pageItems.length;
+
+  useEffect(() => {
+    // A selection only means the rows on screen: drop it when they change.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSelectedIds(new Set());
+  }, [filter, currentPage]);
+
+  const toggleSelected = (id: string) => {
+    Haptics.selectionAsync().catch(() => {});
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(id)) next.add(id);
+      return next;
+    });
+  };
 
   const settle = (id: string, kind: "restore" | "purge") => {
     setPending(null);
@@ -215,16 +253,18 @@ export default function ArchiveScreen() {
     }
   };
 
-  const handleRestoreAll = async () => {
+  // One at a time on purpose: two archived rows with the same name would
+  // otherwise race each other past the server's collision check.
+  const handleRestoreMany = async (batch: ArchivedItem[]) => {
     setRestoringAll(true);
     const succeededIds: string[] = [];
-    let skipped = 0;
-    for (const item of sorted) {
+    const failedIds: string[] = [];
+    for (const item of batch) {
       try {
         await restoreArchivedItem(item.collection, item.id);
         succeededIds.push(item.id);
       } catch {
-        skipped++;
+        failedIds.push(item.id);
       }
     }
     qc.setQueryData<ArchivedItem[]>(archiveKey, (old) =>
@@ -241,17 +281,21 @@ export default function ArchiveScreen() {
       },
       120 + succeededIds.length * 55,
     );
+    // Failed rows stay selected, so a retry is one tap away.
+    setSelectedIds(new Set(failedIds));
+    if (failedIds.length > 0) {
+      setConfirmRestore(null);
+      Alert.alert(
+        "Some items couldn't be restored",
+        `${succeededIds.length} restored, ${failedIds.length} skipped because a live item with the same name already exists.`,
+      );
+      return;
+    }
     setRestoreAllSuccess(true);
     setTimeout(() => {
       setRestoreAllSuccess(false);
-      setConfirmRestoreAll(false);
+      setConfirmRestore(null);
     }, 1100);
-    if (skipped > 0) {
-      Alert.alert(
-        "Some items couldn't be restored",
-        `${succeededIds.length} restored, ${skipped} skipped because a live item with the same name already exists.`,
-      );
-    }
   };
 
   let lastBand: Band | null = null;
@@ -267,14 +311,17 @@ export default function ArchiveScreen() {
     >
       <View style={[styles.header, { borderBottomColor: tokens.border }]}>
         <Pressable
-          onPress={() => router.back()}
+          onPress={() => (selecting ? setSelectedIds(new Set()) : router.back())}
+          disabled={restoringAll}
           hitSlop={12}
+          accessibilityRole="button"
+          accessibilityLabel={selecting ? "Cancel selection" : "Back"}
           style={[
             styles.backButton,
             { backgroundColor: tokens.card, borderColor: tokens.border },
           ]}
         >
-          <Icon icon={ArrowLeft} size={20} color={tokens.text} />
+          <Icon icon={selecting ? X : ArrowLeft} size={20} color={tokens.text} />
         </Pressable>
         <View style={{ flex: 1 }}>
           <Text
@@ -283,7 +330,7 @@ export default function ArchiveScreen() {
               { color: tokens.text, fontFamily: fontFamily.displaySemiBold },
             ]}
           >
-            Archive
+            {selecting ? `${selectedItems.length} selected` : "Archive"}
           </Text>
           <Text
             style={[
@@ -291,14 +338,49 @@ export default function ArchiveScreen() {
               { color: tokens.text2, fontFamily: fontFamily.bodySemiBold },
             ]}
           >
-            {items.length === 0
-              ? "Nothing waiting to be purged"
-              : `${items.length} item${items.length === 1 ? "" : "s"} · kept 7 days`}
+            {selecting
+              ? "Tap rows to pick more"
+              : items.length === 0
+                ? "Nothing waiting to be purged"
+                : `${items.length} item${items.length === 1 ? "" : "s"} · kept 7 days`}
           </Text>
         </View>
-        {items.length > 0 ? (
+        {selecting ? (
+          <>
+            <Pressable
+              onPress={() => {
+                if (!restoringAll)
+                  setSelectedIds(
+                    allSelected ? new Set() : new Set(pageItems.map((i) => i.id)),
+                  );
+              }}
+              style={[
+                styles.restoreAllButton,
+                { backgroundColor: tokens.card, borderColor: tokens.borderStrong },
+              ]}
+            >
+              <Text
+                style={[
+                  styles.restoreAllText,
+                  { color: tokens.text2, fontFamily: fontFamily.bodyBold },
+                ]}
+              >
+                {allSelected ? "Clear" : "Select all"}
+              </Text>
+            </Pressable>
+            <IconButton
+              icon={RotateCcw}
+              color={tokens.accent}
+              background={tokens.accentSoft}
+              accessibilityLabel="Restore selected"
+              onPress={() => {
+                if (!restoringAll && selectedItems.length) setConfirmRestore(selectedItems);
+              }}
+            />
+          </>
+        ) : items.length > 0 ? (
           <Pressable
-            onPress={() => setConfirmRestoreAll(true)}
+            onPress={() => setConfirmRestore(sorted)}
             disabled={restoringAll}
             style={[
               styles.restoreAllButton,
@@ -508,21 +590,22 @@ export default function ArchiveScreen() {
           />
         ) : null}
 
+        <View>
         {pageItems.map((item, idx) => {
           const days = daysUntil(item.purgesAt);
           const band = bandFor(days);
           const showBand = band !== lastBand;
           lastBand = band;
-          const color = urgencyColor(days, tokens);
-          const clockTextColor =
+          const daysTone =
             days <= 1
-              ? tokens.coral
+              ? { bg: tokens.coralSoft, fg: tokens.coral }
               : days <= 3
-                ? tokens.warnInk
-                : tokens.text2;
-          const pct = Math.max(6, Math.round((days / 7) * 100));
+                ? { bg: tokens.warnSoft, fg: tokens.warnInk }
+                : { bg: tokens.inputBg, fg: tokens.text2 };
+          const kindTone = KIND_TONES[item.collection](tokens);
           const isPending = pending?.id === item.id;
           const isSuccess = success?.id === item.id;
+          const isSelected = selectedIds.has(item.id);
 
           return (
             <Animated.View
@@ -534,45 +617,49 @@ export default function ArchiveScreen() {
                   : FadeOut.duration(120)
               }
               layout={LIST_TRANSITION}
-              style={styles.rowWrap}
             >
               {showBand ? (
                 <Text
                   style={[
                     styles.bandLabel,
                     {
-                      color: days <= 1 ? tokens.coral : tokens.text3,
-                      fontFamily: fontFamily.bodyBold,
+                      color: days <= 1 ? tokens.coral : tokens.text,
+                      paddingTop: idx === 0 ? 4 : 20,
+                      borderBottomColor: tokens.borderStrong,
+                      fontFamily: fontFamily.displaySemiBold,
                     },
                   ]}
                 >
-                  {band.toUpperCase()}
+                  {band}
                 </Text>
               ) : null}
-              <View
+              <Pressable
+                onPress={() => {
+                  if (selecting) toggleSelected(item.id);
+                }}
+                onLongPress={() => {
+                  if (!selecting) toggleSelected(item.id);
+                }}
+                disabled={restoringAll || isPending}
+                accessibilityState={selecting ? { selected: isSelected } : undefined}
                 style={[
                   styles.card,
                   {
-                    backgroundColor: tokens.card,
-                    borderColor:
-                      days <= 1 ? tokens.coral + "48" : tokens.border,
+                    borderBottomColor: tokens.border,
+                    borderBottomWidth: idx === pageItems.length - 1 ? 0 : StyleSheet.hairlineWidth,
                   },
                 ]}
               >
+                <SelectTint selected={isSelected} style={styles.cardTint} />
                 <View style={styles.cardTop}>
+                  <SelectCheck selecting={selecting} selected={isSelected} gap={CARD_TOP_GAP} />
                   <View
-                    style={[
-                      styles.iconBadge,
-                      {
-                        backgroundColor: tokens.inputBg,
-                        borderColor: tokens.border,
-                      },
-                    ]}
+                    style={[styles.iconBadge, { backgroundColor: kindTone.bg }]}
                   >
                     <Icon
                       icon={KIND_ICONS[item.collection]}
-                      size={17}
-                      color={tokens.text2}
+                      size={20}
+                      color={kindTone.fg}
                     />
                   </View>
                   <View style={{ flex: 1, minWidth: 0 }}>
@@ -614,30 +701,19 @@ export default function ArchiveScreen() {
                 </View>
 
                 <View style={styles.cardBottom}>
-                  <Text
-                    style={[
-                      styles.clockLabel,
-                      {
-                        color: clockTextColor,
-                        fontFamily: fontFamily.bodySemiBold,
-                      },
-                    ]}
-                  >
-                    {days === 1 ? "1 day left" : `${days} days left`}
-                  </Text>
-                  <View
-                    style={[
-                      styles.barTrack,
-                      { backgroundColor: tokens.border },
-                    ]}
-                  >
-                    <View
+                  <View style={[styles.daysPill, { backgroundColor: daysTone.bg }]}>
+                    <Text
                       style={[
-                        styles.barFill,
-                        { width: `${pct}%`, backgroundColor: color },
+                        styles.daysText,
+                        { color: daysTone.fg, fontFamily: fontFamily.bodyBold },
                       ]}
-                    />
+                    >
+                      {days === 1 ? "1 day left" : `${days} days left`}
+                    </Text>
                   </View>
+                  <View style={{ flex: 1 }} />
+                  {selecting ? null : (
+                  <>
                   <Pressable
                     onPress={() => setPurgeTarget(item)}
                     disabled={isPending}
@@ -676,11 +752,14 @@ export default function ArchiveScreen() {
                       </Text>
                     )}
                   </Pressable>
+                  </>
+                  )}
                 </View>
-              </View>
+              </Pressable>
             </Animated.View>
           );
         })}
+        </View>
 
         {shown.length > PAGE_SIZE ? (
           <View style={styles.pagination}>
@@ -756,8 +835,8 @@ export default function ArchiveScreen() {
       </ScrollView>
 
       <BottomSheet
-        visible={confirmRestoreAll}
-        onClose={() => !restoringAll && setConfirmRestoreAll(false)}
+        visible={confirmRestore !== null}
+        onClose={() => !restoringAll && setConfirmRestore(null)}
       >
         <Text
           style={[
@@ -765,12 +844,13 @@ export default function ArchiveScreen() {
             { color: tokens.text, fontFamily: fontFamily.displaySemiBold },
           ]}
         >
-          Restore {items.length} item{items.length === 1 ? "" : "s"} back where
-          they were?
+          {confirmRestore?.length === 1
+            ? `Restore ${confirmRestore[0].label || "this item"} back where it was?`
+            : `Restore ${confirmRestore?.length ?? 0} items back where they were?`}
         </Text>
         <View style={styles.sheetButtonRow}>
           <Pressable
-            onPress={() => setConfirmRestoreAll(false)}
+            onPress={() => setConfirmRestore(null)}
             disabled={restoringAll}
             style={[
               styles.sheetCancelButton,
@@ -787,7 +867,7 @@ export default function ArchiveScreen() {
             </Text>
           </Pressable>
           <Pressable
-            onPress={handleRestoreAll}
+            onPress={() => confirmRestore && void handleRestoreMany(confirmRestore)}
             disabled={restoringAll || restoreAllSuccess}
             style={[
               styles.sheetSaveButton,
@@ -809,7 +889,7 @@ export default function ArchiveScreen() {
                   { color: tokens.onAccent, fontFamily: fontFamily.bodyBold },
                 ]}
               >
-                {restoringAll ? "Restoring…" : "Restore all"}
+                {restoringAll ? "Restoring…" : "Restore"}
               </Text>
             )}
           </Pressable>
@@ -942,20 +1022,21 @@ const styles = StyleSheet.create({
   },
   nextClockNum: { fontSize: 20 },
   nextClockUnit: { fontSize: 9, fontWeight: "800", letterSpacing: 0.6 },
-  rowWrap: { gap: 5 },
+  // Web's .archive-band / .archive-row: a flat divided list, not cards.
   bandLabel: {
-    fontSize: 10.5,
-    letterSpacing: 0.8,
-    paddingTop: 6,
-    paddingHorizontal: 4,
+    fontSize: 14,
+    paddingTop: 20,
+    paddingBottom: 10,
+    paddingHorizontal: 6,
+    borderBottomWidth: 1,
   },
-  card: { borderWidth: 1, borderRadius: 16, padding: 13, gap: 10 },
-  cardTop: { flexDirection: "row", alignItems: "flex-start", gap: 11 },
+  card: { paddingVertical: 13, paddingHorizontal: 6, gap: 10 },
+  cardTop: { flexDirection: "row", alignItems: "center", gap: CARD_TOP_GAP },
+  cardTint: { borderRadius: 14 },
   iconBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: 11,
-    borderWidth: 1,
+    width: 44,
+    height: 44,
+    borderRadius: 15,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -964,9 +1045,8 @@ const styles = StyleSheet.create({
   itemAmount: { fontSize: 13.5 },
   itemContext: { fontSize: 11.5, marginTop: 2 },
   cardBottom: { flexDirection: "row", alignItems: "center", gap: 8 },
-  clockLabel: { fontSize: 11.5, flexShrink: 0 },
-  barTrack: { flex: 1, height: 3, borderRadius: 100, overflow: "hidden" },
-  barFill: { height: "100%", borderRadius: 100 },
+  daysPill: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999 },
+  daysText: { fontSize: 12 },
   purgeButton: {
     width: 30,
     height: 30,

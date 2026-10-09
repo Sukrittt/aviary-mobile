@@ -12,7 +12,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
-import { ArrowLeft, CopyX, Pencil, Plus } from "lucide-react-native";
+import { ArrowLeft, CopyX, LayoutGrid, Pencil, Plus } from "lucide-react-native";
 import { Toast } from "@/src/components/ui/Toast";
 import Animated, {
   useSharedValue,
@@ -55,8 +55,10 @@ import { signalOnboarded } from "@/src/api/onboardingSignal";
 import { DEFAULT_ALERT_PCTS } from "@/src/lib/alerts";
 import { startTimer, track } from "@/src/lib/analytics";
 
-// SetupWizard.dc.html — income → groups → categories → assign → done. Writes
-// land on finish (step 4's CTA), not per-step: groups/categories aren't
+// SetupWizard.dc.html — currency → income → done, on a starter budget (the
+// pre-checked groups and categories, income split across them). "Pick my own"
+// opens groups → categories → assign instead. Writes land on finish, not
+// per-step: groups/categories aren't
 // reorderable or renameable server-side until they exist, so there's nothing
 // worth syncing mid-flow.
 const EMOJI_CHOICES = [
@@ -170,7 +172,7 @@ const TITLES: Record<number, [string, string]> = {
   ],
   1: [
     "What lands each month?",
-    "Your take-home income. This becomes the pot you assign from. You can change it any month.",
+    "Your take-home income. This becomes the pot you assign from. Not sure yet? Skip it and add it from Home later.",
   ],
   2: [
     "Group your money",
@@ -182,7 +184,7 @@ const TITLES: Record<number, [string, string]> = {
   ],
   4: [
     "Assign your money",
-    "We suggested a split based on what each category is for. Tap any amount to change it. The leftover has to reach zero.",
+    "We suggested a split based on what each category is for. Tap any amount to change it. Anything you leave waits in Ready to Assign.",
   ],
 };
 
@@ -224,6 +226,9 @@ function CurrencyWizard({
   const qc = useQueryClient();
 
   const [step, setStep] = useState(0);
+  // Whether the user chose to pick their own groups and categories. Without
+  // it, setup finishes from the income step on the starter budget.
+  const [custom, setCustom] = useState(false);
   const [income, setIncome] = useState("");
   // Drive AmountTicker's roll/flash/delta animation — mirrors SetupWizard.dc.html's
   // tick/dir/delta: `tick` forces a remount (replays the per-character entrance),
@@ -365,20 +370,25 @@ function CurrencyWizard({
     step === 0
       ? true
       : step === 1
-        ? Number(income) > 0
+        ? true
         : step === 2
           ? selectedGroups.length > 0
           : step === 3
             ? selectedCatCount > 0
             : step === 4
-              ? remainder() === 0 && assignedTotal() > 0
+              ? remainder() >= 0
               : true;
 
   // What each step's choice was, as counts and flags. Never the income or the
   // names typed in: those are the sensitive half of this app's data.
   const stepDetails = (): Record<string, string | number | boolean> => {
     if (step === 0) return { currency: currencyCode };
-    if (step === 1) return { used_quick_pick: QUICK_PICKS.includes(income) };
+    if (step === 1)
+      return {
+        used_quick_pick: QUICK_PICKS.includes(income),
+        skipped_income: !(Number(income) > 0),
+        customized: custom,
+      };
     if (step === 2) {
       const defaults = new Map(defaultGroups().map((g) => [g.id, g.name]));
       return {
@@ -393,12 +403,13 @@ function CurrencyWizard({
     return { edited_split: editedSplit.current };
   };
 
-  const trackStepCompleted = () =>
+  const trackStepCompleted = (extra?: Record<string, boolean>) =>
     track("onboarding_step_completed", {
       step,
       step_name: STEP_NAMES[step],
       seconds_on_step: stepTimer.current(),
       ...stepDetails(),
+      ...extra,
     });
 
   const patchGroup = (id: string, patch: Partial<Item>) =>
@@ -583,7 +594,7 @@ function CurrencyWizard({
     setBuf(String(v));
   };
 
-  const commit = async () => {
+  const commit = async (amounts: Record<string, number>) => {
     if (pending) return;
     setPending(true);
     setError("");
@@ -605,6 +616,8 @@ function CurrencyWizard({
         groups_count: selectedGroups.length,
         categories_count: categoryCount,
         currency: currencyCode,
+        customized: custom,
+        skipped_income: incomeValue === 0,
         ...(recoveredAfterError ? { recovered_after_error: true } : {}),
       });
       setResult({
@@ -732,20 +745,39 @@ function CurrencyWizard({
     }
   };
 
+  // The step that saves reports itself once the save lands (see commit), so a
+  // failed save doesn't count as a finished step.
   const next = () => {
     if (!canAdvance || pending) return;
-    // The assign step reports itself once the save lands (see commit), so a
-    // failed save doesn't count as a finished step.
-    if (step < 4) trackStepCompleted();
+    const hasIncome = Number(income) > 0;
+    if (step === 1 && !custom) {
+      // Starter budget: the pre-checked defaults, income split the suggested way.
+      commit(hasIncome ? distribute(true) : {});
+      return;
+    }
+    if (step === 3 && !hasIncome) {
+      // Nothing to assign, so there's no assign step to show.
+      commit({});
+      return;
+    }
+    if (step === 4) {
+      commit(amounts);
+      return;
+    }
+    trackStepCompleted();
     if (step === 3) {
       void tagThenOpenAssign();
       return;
     }
-    if (step === 4) {
-      commit();
-      return;
-    }
     setStep((s) => s + 1);
+  };
+
+  const pickOwn = () => {
+    if (pending) return;
+    Haptics.selectionAsync().catch(() => {});
+    setCustom(true);
+    trackStepCompleted({ customized: true });
+    setStep(2);
   };
 
   const pressPrimaryCta = () => {
@@ -790,9 +822,9 @@ function CurrencyWizard({
     step === 0
       ? ""
       : step === 1
-        ? canAdvance
+        ? Number(income) > 0
           ? ""
-          : "Enter an amount to continue"
+          : "You can add it from Home any time"
         : step === 2
           ? canAdvance
             ? `${selectedGroups.length} groups selected`
@@ -801,11 +833,20 @@ function CurrencyWizard({
             ? canAdvance
               ? `${selectedCatCount} categories across ${selectedGroups.length} groups`
               : "Pick at least one category"
-            : canAdvance
+            : rem === 0
               ? "Everything assigned"
               : rem > 0
-                ? `${formatMoney(rem)} still to assign`
+                ? `${formatMoney(rem)} left. It'll wait in Ready to Assign`
                 : `${formatMoney(-rem)} over your income`;
+
+  const finishesHere =
+    (step === 1 && !custom) || step === 4 || (step === 3 && !(Number(income) > 0));
+  const ctaLabel =
+    step === 1 && !(Number(income) > 0)
+      ? "Skip for now"
+      : finishesHere
+        ? "Finish setup"
+        : "Continue";
 
   const remColors = remainderColors(rem, tokens);
   const remLabel =
@@ -843,7 +884,7 @@ function CurrencyWizard({
           <ArrowLeft size={16} color={tokens.text} />
         </Pressable>
         <View style={styles.dots}>
-          {[0, 1, 2, 3, 4].map((n) => (
+          {(custom ? [0, 1, 2, 3, 4] : [0, 1]).map((n) => (
             <StepDot
               key={n}
               active={n <= step}
@@ -906,6 +947,24 @@ function CurrencyWizard({
               />
             ))}
           </View>
+          {!custom && (
+            <Pressable
+              onPress={pickOwn}
+              disabled={pending}
+              accessibilityRole="button"
+              style={[styles.pickOwn, { borderColor: tokens.borderStrong }]}
+            >
+              <LayoutGrid size={15} color={tokens.accentInk} strokeWidth={2.2} />
+              <Text
+                style={[
+                  styles.pickOwnLabel,
+                  { color: tokens.accentInk, fontFamily: fontFamily.bodyBold },
+                ]}
+              >
+                Build my own budget
+              </Text>
+            </Pressable>
+          )}
           <View style={{ flex: 1, minHeight: 10 }} />
           <View style={{ marginBottom: 14 }}>
             <Numpad
@@ -1217,7 +1276,7 @@ function CurrencyWizard({
               },
             ]}
           >
-            {step === 4 ? "Finish setup" : "Continue"}
+            {ctaLabel}
           </Text>
         )}
       </Pressable>
@@ -1632,6 +1691,18 @@ const styles = StyleSheet.create({
   },
   ctaPhrase: { textAlign: "center" },
   ctaHint: { fontSize: 11, textAlign: "center", marginTop: 8, minHeight: 15 },
+  pickOwn: {
+    alignSelf: "center",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 999,
+    borderWidth: 1.5,
+  },
+  pickOwnLabel: { fontSize: 13 },
 
   remChip: {
     flexDirection: "row",

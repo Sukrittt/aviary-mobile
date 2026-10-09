@@ -44,12 +44,15 @@ export function SwipeableRow({
   onEdit,
   onOpen,
   rowKey,
+  enabled = true,
 }: {
   children: React.ReactNode
   onDelete: () => void
   onEdit: () => void
   onOpen?: (key: string, close: () => void, reset: () => void) => void
   rowKey?: string
+  // Off while multi-selecting; kept mounted so the row's select tick can animate.
+  enabled?: boolean
 }) {
   const { tokens } = useTheme()
   const ref = useRef<SwipeableMethods>(null)
@@ -57,6 +60,7 @@ export function SwipeableRow({
   return (
     <Swipeable
       ref={ref}
+      enabled={enabled}
       friction={2}
       leftThreshold={ACTION_WIDTH / 2}
       rightThreshold={ACTION_WIDTH / 2}

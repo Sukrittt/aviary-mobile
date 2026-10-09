@@ -45,9 +45,13 @@ import { useTheme } from "@/src/theme/ThemeProvider";
 import { fontFamily } from "@/src/theme/fonts";
 import { NAV_HEIGHT } from "@/src/theme/scale";
 import { useLocalSearchParams,useRouter } from "expo-router";
-import { ChevronDown, MessageSquareText, PencilLine, Plus, Tag, TriangleAlert, WalletMinimal, X } from "lucide-react-native";
+import { ChevronDown, MessageSquareText, Plus, Tag, TriangleAlert, WalletMinimal } from "lucide-react-native";
 import { useCaptureTip } from "@/src/hooks/useCaptureTip";
 import { noteManualLog, type CaptureTipReason } from "@/src/lib/captureTip";
+import { CaptureTipBubble } from "@/src/features/log-expense/CaptureTipBubble";
+import { useBounce } from "@/src/hooks/useBounce";
+import * as Haptics from "expo-haptics";
+import Reanimated from "react-native-reanimated";
 import { useCallback,useEffect,useMemo,useRef,useState } from "react";
 import {
 Animated,
@@ -105,8 +109,8 @@ function suggestCategory(
  * starts on the existing amount and backspaces from there.
  */
 const CAPTURE_TIP_COPY: Record<CaptureTipReason, { title: string; body: string }> = {
-  batch: { title: "Logging a few?", body: "Type them all in Ask Aviary at once, like “auto 240, lunch 150”. Tap to try." },
-  gap: { title: "Been a couple of days?", body: "Type whatever you remember in Ask Aviary, like “auto 240, lunch 150”. Tap to try." },
+  batch: { title: "Logging a few?", body: "Type them all at once in Ask Aviary, like “auto 240, lunch 150”." },
+  gap: { title: "Been a couple of days?", body: "Type whatever you remember in Ask Aviary, like “auto 240, lunch 150”." },
 };
 
 export default function LogExpenseScreen() {
@@ -122,6 +126,7 @@ export default function LogExpenseScreen() {
   const origTimestamp = str(params.timestamp);
   const isEdit = origTimestamp !== "";
   const captureTip = useCaptureTip(!isEdit && online);
+  const severalBounce = useBounce(-3);
   const origItem = str(params.item);
   const origAmountInr = Number(params.amountInr) || 0;
 
@@ -276,7 +281,9 @@ export default function LogExpenseScreen() {
     ?? (createdCategory?.name === category ? createdCategory : undefined);
 
   const parsedAmount = Number(amount);
-  const missing = missingFields({ amount, item, category });
+  const missing = missingFields({ amount, category });
+  // "What was it for?" is optional: left blank, the row is named after its category.
+  const savedItem = item.trim() || splitEmoji(category).text;
   // Waits out a cold accounts fetch (one request) so the expense lands on the
   // account it would default to. Never offline: logging must keep working there.
   const accountsPending = online && accountsQ.isLoading;
@@ -315,7 +322,7 @@ export default function LogExpenseScreen() {
     }
     if (isEdit) {
       const updates = {
-        ...expenseChanges(base, { item, amount, date, category }),
+        ...expenseChanges(base, { item: savedItem, amount, date, category }),
         ...(accounts.length > 0 && accountId !== str(params.accountId) ? { new_account_id: accountId } : {}),
       };
       if (!Object.keys(updates).length) { setLogSuccess(true); return; }
@@ -351,7 +358,7 @@ export default function LogExpenseScreen() {
       if (suggestedBy.current) track("ai_category_suggested", { accepted: autoPicked, source: suggestedBy.current });
       addMutate(
         {
-          item: item.trim(),
+          item: savedItem,
           amount_inr: String(parsedAmount),
           category,
           date,
@@ -382,7 +389,7 @@ export default function LogExpenseScreen() {
                 // Display fallback for servers that return no timestamp — the
                 // success screen's stamp line would otherwise be blank.
                 loggedAt: new Date().toISOString(),
-                item: item.trim(),
+                item: savedItem,
                 amount: String(parsedAmount),
                 // The server's category, not the picked one: a name chosen from
                 // a list loaded before a rename is mapped forward server-side,
@@ -418,7 +425,7 @@ export default function LogExpenseScreen() {
         },
       );
     }
-  }, [canSubmit, unusual, unusualWarnedFor, base, amount, expectedVersion, isEdit, origId, origTimestamp, origItem, origAmountInr, item, parsedAmount, date, category, notes, paymentMethod, accountId, accounts.length, params.accountId, router, addMutate, updateMutate, autoPicked]);
+  }, [canSubmit, unusual, unusualWarnedFor, base, amount, expectedVersion, isEdit, origId, origTimestamp, origItem, origAmountInr, item, savedItem, parsedAmount, date, category, notes, paymentMethod, accountId, accounts.length, params.accountId, router, addMutate, updateMutate, autoPicked]);
 
   // Publish only when the action or its visible state changes.
   useEffect(() => {
@@ -473,12 +480,52 @@ export default function LogExpenseScreen() {
         >
           {isEdit ? "Edit expense" : "Log expense"}
         </Text>
+        {!isEdit && (
+          // Several spends at once go through the money brain: type them,
+          // review the list it reads out, log them together. Kept as a quiet
+          // header icon; the capture tip points at it at the right moment.
+          <Reanimated.View style={[styles.severalButton, { left: space.lg, top: insets.top + space.xs }, severalBounce.style]}>
+            <Pressable
+              onPressIn={severalBounce.onPressIn}
+              onPressOut={severalBounce.onPressOut}
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+                severalBounce.kick();
+                captureTip.close("try");
+                router.push({ pathname: "/modals/money-brain", params: { capture: "1" } });
+              }}
+              style={[styles.severalIcon, { backgroundColor: fieldBg }]}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Log several spends at once"
+            >
+              <MessageSquareText size={18} color="#ffffff" />
+            </Pressable>
+          </Reanimated.View>
+        )}
       </View>
+
+      {!isEdit && captureTip.reason && nudge === 0 && unusualNudge === 0 && (
+        // The moment it would help (src/lib/captureTip.ts): logging a few by
+        // hand, or back after a couple of days with a backlog. Pops out of the
+        // header icon so it teaches where the feature lives. Steps aside for
+        // good once a save toast needs the same spot.
+        <CaptureTipBubble
+          anchor={{ top: insets.top + space.xs, left: space.lg, size: 36 }}
+          title={CAPTURE_TIP_COPY[captureTip.reason].title}
+          body={CAPTURE_TIP_COPY[captureTip.reason].body}
+          onTry={() => {
+            captureTip.close("try");
+            router.push({ pathname: "/modals/money-brain", params: { capture: "1" } });
+          }}
+          onDismiss={() => captureTip.close("dismiss")}
+        />
+      )}
 
       <Toast
         trigger={nudge}
         message={missingFieldsMessage(missing)}
-        icon={missing[0] === "amount" ? WalletMinimal : missing[0] === "item" ? PencilLine : Tag}
+        icon={missing[0] === "amount" ? WalletMinimal : Tag}
         // Clear of the header title with room to breathe.
         style={{ top: insets.top + space.xxxl + space.xl }}
       />
@@ -557,59 +604,7 @@ export default function LogExpenseScreen() {
             <ChevronDown size={16} color={onAccentDim} />
           </Pressable>
 
-          {!isEdit && captureTip.reason && (
-            // The moment it would help (src/lib/captureTip.ts): logging a few by
-            // hand, or back after a couple of days with a backlog.
-            <View style={[styles.captureTip, { backgroundColor: fieldBg, borderRadius: radius.md, padding: space.sm, gap: space.sm }]}>
-              <Pressable
-                style={{ flex: 1 }}
-                onPress={() => {
-                  captureTip.close("try");
-                  router.push({ pathname: "/modals/money-brain", params: { capture: "1" } });
-                }}
-                accessibilityRole="button"
-                accessibilityLabel="Try logging several at once"
-              >
-                <Text style={{ color: tokens.onAccent, fontFamily: fontFamily.bodyBold, fontSize: type.caption }}>
-                  {CAPTURE_TIP_COPY[captureTip.reason].title}
-                </Text>
-                <Text style={{ color: onAccentDim, fontFamily: fontFamily.bodyMedium, fontSize: type.caption, marginTop: 2 }}>
-                  {CAPTURE_TIP_COPY[captureTip.reason].body}
-                </Text>
-              </Pressable>
-              <Pressable onPress={() => captureTip.close("dismiss")} hitSlop={10} accessibilityLabel="Dismiss tip">
-                <X size={16} color={onAccentDim} />
-              </Pressable>
-            </View>
-          )}
 
-          {!isEdit && (
-            // Several spends at once go through the money brain: type them,
-            // review the list it reads out, log them together.
-            <Pressable
-              onPress={() => {
-                captureTip.close("try");
-                router.push({ pathname: "/modals/money-brain", params: { capture: "1" } });
-              }}
-              style={[styles.moreToggle, { gap: space.xs }]}
-              hitSlop={8}
-              accessibilityLabel="Log several spends at once"
-            >
-              <MessageSquareText size={14} color={onAccentDim} />
-              <Text
-                style={[
-                  styles.moreLabel,
-                  {
-                    color: onAccentDim,
-                    fontFamily: fontFamily.bodySemiBold,
-                    fontSize: type.caption,
-                  },
-                ]}
-              >
-                Log several at once
-              </Text>
-            </Pressable>
-          )}
         </View>
       </ScrollView>
 
@@ -635,7 +630,6 @@ export default function LogExpenseScreen() {
         )}
 
         <View style={styles.itemRow}>
-          <Nudge trigger={nudge} active={missing.includes("item")}>
           <TextInput
             value={item}
             onChangeText={handleItemChange}
@@ -645,16 +639,15 @@ export default function LogExpenseScreen() {
               styles.itemInput,
               styles.itemInputWithPill,
               {
-                backgroundColor: flag("item") ? "rgba(88, 26, 8, 0.22)" : fieldBg,
+                backgroundColor: fieldBg,
                 borderRadius: radius.lg,
-                borderColor: flag("item") ? "rgba(255, 224, 194, 0.3)" : "transparent",
+                borderColor: "transparent",
                 color: "#ffffff",
                 fontFamily: fontFamily.bodySemiBold,
                 fontSize: type.bodyLg,
               },
             ]}
           />
-          </Nudge>
           <Nudge
             trigger={nudge}
             active={missing.includes("category")}
@@ -662,10 +655,12 @@ export default function LogExpenseScreen() {
           >
           <AutoCategoryPill
             selected={
-              selectedCategory
+              category
                 ? {
-                    emoji: categoryEmoji(selectedCategory.name, selectedCategory.group),
-                    name: splitEmoji(selectedCategory.name).text,
+                    // An edit can carry a category the loaded list lacks
+                    // (renamed or deleted since); it still saves, so show it.
+                    emoji: categoryEmoji(category, selectedCategory?.group ?? ""),
+                    name: splitEmoji(category).text,
                   }
                 : null
             }
@@ -814,6 +809,8 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   headerTitle: {},
+  severalButton: { position: "absolute" },
+  severalIcon: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
   scroll: { flex: 1 },
   body: { paddingTop: 8 },
   footer: {},
@@ -831,12 +828,6 @@ const styles = StyleSheet.create({
   categoryPill: { position: "absolute", right: 6, maxWidth: PILL_MAX_WIDTH },
   fieldLabel: { fontSize: 12 },
   error: { fontSize: 12, textAlign: "center" },
-  captureTip: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    width: "100%",
-    maxWidth: 360,
-  },
   moreToggle: {
     flexDirection: "row",
     alignItems: "center",

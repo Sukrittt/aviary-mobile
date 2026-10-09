@@ -6,6 +6,33 @@ import { accessMode, initAccessMode } from '@/src/api/accessMode'
 import { getUser, type UserProfile } from '@/src/api/account'
 import * as SplashScreen from 'expo-splash-screen'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import { QueryClient } from '@tanstack/react-query'
+
+// Capture the layout's module-level client for cleanup. Disable GC timers too:
+// an in-flight fetch can schedule GC again after the client has been cleared.
+jest.mock('@tanstack/react-query', () => {
+  const actual = jest.requireActual<typeof import('@tanstack/react-query')>('@tanstack/react-query')
+  return {
+    ...actual,
+    QueryClient: jest.fn((options: ConstructorParameters<typeof actual.QueryClient>[0]) => new actual.QueryClient({
+      ...options,
+      defaultOptions: {
+        ...options?.defaultOptions,
+        queries: { ...options?.defaultOptions?.queries, gcTime: Infinity },
+        mutations: { ...options?.defaultOptions?.mutations, gcTime: Infinity },
+      },
+    })),
+  }
+})
+
+const testClients: QueryClient[] = jest.mocked(QueryClient).mock.results.map(({ value }) => value)
+function clearTestClients() {
+  for (const client of testClients) client.clear()
+}
+afterEach(async () => {
+  await act(async () => {})
+  clearTestClients()
+})
 
 // The bug this file guards against: the root layout used to render `null`
 // (fonts loading) and then a splash component (auth resolving) *instead of* the
@@ -40,7 +67,7 @@ jest.mock('expo-router', () => {
   }
   return {
     Stack,
-    useRouter: () => ({ replace: mockReplace, push: mockPush, back: jest.fn(), navigate: jest.fn() }),
+    useRouter: () => ({ replace: mockReplace, push: mockPush, back: jest.fn(), navigate: jest.fn(), canDismiss: () => false, dismissAll: jest.fn() }),
     useSegments: () => mockSegments,
     usePathname: () => mockPathname,
     useGlobalSearchParams: () => mockGlobalParams,
@@ -66,7 +93,7 @@ jest.mock('@/src/components/nav/TabBar', () => ({ TabBar: () => null }))
 
 jest.mock('@/src/api/accessMode', () => ({
   accessMode: {
-    subscribe: () => () => {},
+    subscribe: jest.fn(() => () => {}),
     subscribeLogout: jest.fn(() => () => {}),
   },
   initAccessMode: jest.fn(),
@@ -87,7 +114,46 @@ beforeEach(() => {
   mockGlobalParams = {}
 })
 
+it('does not retain cache timers after the layout is cleaned up', async () => {
+  jest.useFakeTimers()
+  mockFontsLoaded = true
+  mockInitAccessMode.mockResolvedValue('real')
+  mockGetUser.mockResolvedValue({ email: 'a@b.com', emailVerified: true, onboardedAt: '2026-01-01T00:00:00.000Z' })
+  const { getByTestId, unmount } = render(<RootLayout />)
+  try {
+    await waitFor(() => expect(getByTestId('screen:(tabs)')).toBeTruthy())
+    unmount()
+    await act(async () => { jest.advanceTimersByTime(1000) })
+    clearTestClients()
+    jest.runAllTicks()
+    expect(jest.getTimerCount()).toBe(0)
+  } finally {
+    unmount()
+    jest.clearAllTimers()
+    jest.useRealTimers()
+  }
+})
+
 describe('RootLayout', () => {
+  it('keeps the cache restored from disk when the saved session is restored, and clears it on a new sign-in', async () => {
+    const notifySignIn = () => (accessMode.subscribe as jest.Mock).mock.calls.forEach(([fn]) => fn('real'))
+    mockInitAccessMode.mockImplementation(async () => {
+      await Promise.resolve()
+      notifySignIn() // the boot-time restore's notification
+      return 'real'
+    })
+    mockGetUser.mockReturnValue(new Promise(() => {}))
+    const client = testClients[0]
+    client.setQueryData(['budgets'], ['saved'])
+
+    render(<RootLayout />)
+    await act(async () => {})
+    expect(client.getQueryData(['budgets'])).toEqual(['saved'])
+
+    act(() => notifySignIn())
+    expect(client.getQueryData(['budgets'])).toBeUndefined()
+  })
+
   it('keeps queued offline expenses on sign-out so the same account can sync them later', async () => {
     mockInitAccessMode.mockReturnValue(new Promise(() => {}))
     mockGetUser.mockReturnValue(new Promise(() => {}))

@@ -9,6 +9,7 @@ import { subscribeExchanging } from '@/src/api/useSignIn'
 import { AlertHost } from '@/src/components/ui/AlertHost'
 import { PrivacyProvider } from '@/src/context/PrivacyContext'
 import { MaintenanceBanner } from '@/src/components/shared/MaintenanceBanner'
+import { OfflineBanner } from '@/src/components/shared/OfflineBanner'
 import { LogExpenseNavigation } from '@/src/features/log-expense/LogExpenseNavigation'
 import { clearLogExpenseDraft } from '@/src/features/log-expense/draft'
 import { LOG_EXPENSE_PATH,LogExpenseSubmitProvider } from '@/src/features/log-expense/SubmitContext'
@@ -28,7 +29,9 @@ import { clearSnapshot } from '@/src/widgets/snapshot'
 import { WidgetSync, lockWidgets } from '@/src/widgets/WidgetSync'
 import { useAccessAllowed } from '@/src/hooks/useBillingStatus'
 import { onAiAllowanceExceeded } from '@/src/lib/aiAllowance'
-import { QueryClient,QueryClientProvider } from '@tanstack/react-query'
+import { QueryClient } from '@tanstack/react-query'
+import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client'
+import { PERSIST_MAX_AGE, persistOptions, queryPersister } from '@/src/lib/queryPersist'
 import { setAudioModeAsync } from 'expo-audio'
 import { Stack,useGlobalSearchParams,usePathname,useRouter,useSegments,type Href } from 'expo-router'
 import * as SplashScreen from 'expo-splash-screen'
@@ -54,8 +57,10 @@ function isAuthError(error: unknown): boolean {
   return /: 401\b/.test(message) || /: 403\b/.test(message)
 }
 
+// gcTime matches the persisted maxAge: an unused query outliving the 5 min
+// default is what makes going back to a tab instant instead of a spinner.
 const queryClient = new QueryClient({
-  defaultOptions: { queries: { retry: 1 } },
+  defaultOptions: { queries: { retry: 1, gcTime: PERSIST_MAX_AGE } },
 })
 
 /**
@@ -88,15 +93,22 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
   const [onboarded, setOnboarded] = useState<boolean | null>(null)
   // Only the setup completion CTA enables this; restoring a session never does.
   const [justOnboarded, setJustOnboarded] = useState(false)
+  // New users open on Home, where Get started points the way, until they've
+  // logged an expense by hand. A blank Log expense with no budget behind it
+  // leaves them asking where to go. Read once per sign-in, so the stack's
+  // first screen doesn't shift mid-session.
+  const [landOnHome, setLandOnHome] = useState(false)
 
   useEffect(() => {
+    // initAccessMode notifies the subscriber below when it restores the saved
+    // session. That's the same user as the cache restored from disk (logout
+    // wipes both), so that one notification must not clear it.
+    let restoringSession = true
     initAccessMode().then((restored) => {
+      restoringSession = false
       setHasSession(restored !== null)
       setAuthReady(true)
-      // Hydrate the offline category picker instantly from disk, after the
-      // sign-in notification above has already cleared the query cache for
-      // this boot — hydrating any earlier would just get wiped by that clear.
-      // React Query revalidates in the background once online (staleTime
+      // Hydrate the offline category picker instantly from disk. React Query revalidates in the background once online (staleTime
       // already 30s), so this is a fast first paint, not a stale-forever cache.
       if (restored) {
         readCategoryCache().then((cached) => cached && queryClient.setQueryData(['categories'], cached))
@@ -113,7 +125,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
       // keyed without a user id, so switching identity (guest <-> real,
       // or a different account) must drop it all or the new identity sees
       // the previous one's data until staleTime happens to expire.
-      queryClient.clear()
+      if (!restoringSession) queryClient.clear()
       clearLogExpenseDraft()
       // Fire-and-forget: registration failures must never block app usage.
       if (m === 'real') registerForPushNotificationsAsync()
@@ -121,6 +133,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
     const unsubscribeLogout = accessMode.subscribeLogout(async (token) => {
       setHasSession(false)
       setJustOnboarded(false)
+      setLandOnHome(false)
       queryClient.clear()
       clearLogExpenseDraft()
       // Otherwise the next account signed into on this device inherits the
@@ -128,7 +141,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
       // for the same reasoning applied to the hide-amounts preference).
       // Offline expense queues stay: they're keyed by user id, so only that
       // account can sync them when it signs back in.
-      await Promise.allSettled([clearSnapshot(), clearCategoryCache(), clearGroupCache(), unregisterDevicePushToken(token), cancelHabitNudges()])
+      await Promise.allSettled([queryPersister.removeClient(), clearSnapshot(), clearCategoryCache(), clearGroupCache(), unregisterDevicePushToken(token), cancelHabitNudges()])
     })
     return () => {
       unsubscribe()
@@ -151,6 +164,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
         if (cancelled) return
         queryClient.setQueryData(['user'], u)
         setOnboarded(!!u.onboardedAt)
+        setLandOnHome(!!u.getStartedAt && !u.manualTransactionCompletedAt)
         // Piggybacks on the fetch this effect already makes, rather than
         // costing analytics its own request. Best effort: the id was already
         // attached the moment the session appeared, so a failure here just
@@ -171,6 +185,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
     () =>
       onOnboarded(() => {
         setJustOnboarded(true)
+        setLandOnHome(true)
         setOnboarded(true)
       }),
     []
@@ -265,14 +280,16 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
   // from those screens removes nothing and leaves the user sitting on them.
   // Safe as an imperative call now — the Stack is mounted from the first render,
   // and the destination's guard is computed in this same render.
-  // The sign-in pushes also leave (auth)/email under /setup, so finishing setup
-  // doesn't empty the stack onto the trial notice. It surfaces the auth screen
-  // instead, and this effect has to finish the onboarding handoff explicitly.
+  // The sign-in pushes ((auth)/email, then /code) are dismissed first rather
+  // than left under the destination. Left there, finishing setup emptied the
+  // stack onto (auth)/email, which slid into view for a moment before this
+  // effect replaced it with the trial notice.
   useEffect(() => {
     if (resolving || !hasSession) return
     if (segments[0] !== '(auth)' || authScreenMode === 'change-email') return
-    router.replace((!onboarded ? '/setup' : justOnboarded ? '/account/trial-notice' : LOG_EXPENSE_PATH) as Href)
-  }, [resolving, hasSession, onboarded, justOnboarded, segments, authScreenMode, router])
+    if (router.canDismiss()) router.dismissAll()
+    router.replace((!onboarded ? '/setup' : justOnboarded ? '/account/trial-notice' : landOnHome ? '/(tabs)' : LOG_EXPENSE_PATH) as Href)
+  }, [resolving, hasSession, onboarded, justOnboarded, landOnHome, segments, authScreenMode, router])
 
   // The Activity deep link only exists once the signed-in screens do, so a
   // notification that launched the app from killed has to wait for them.
@@ -328,15 +345,16 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
           {/* Fresh setup lands on the trial notice, then Home. The tour now lives
               in Home's Get Started card so it happens on the user's schedule. */}
           {justOnboarded && <Stack.Screen name="account/trial-notice" options={{ presentation: 'card', animation: 'slide_from_right' }} />}
-          {/* First for returning users: logging an expense is the app's primary verb, so
+          {/* First for returning users (new ones get (tabs) first, see landOnHome): logging an expense is the app's primary verb, so
               it's where the app opens. Declared first, it's the route the stack
               rebuilds itself from when the loading screen unregisters, so the
               app lands on it directly with nothing underneath and Android back
               exits.
               card (not fullScreenModal): a real native modal presentation covers
               the whole window on iOS, hiding the persistent nav below it. */}
+          {landOnHome && <Stack.Screen name="(tabs)" />}
           <Stack.Screen name="modals/log-expense" options={{ presentation: 'card', animation: logExpenseAnimation, contentStyle: { backgroundColor: tokens.accent } }} />
-          <Stack.Screen name="(tabs)" />
+          {!landOnHome && <Stack.Screen name="(tabs)" />}
           <Stack.Screen name="investments" options={{ presentation: 'card', animation: 'slide_from_right' }} />
           <Stack.Screen name="account/notifications" options={{ presentation: 'card', animation: 'slide_from_right' }} />
           <Stack.Screen name="account/features" options={{ presentation: 'card', animation: 'slide_from_right' }} />
@@ -351,6 +369,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
           <Stack.Screen name="subscriptions" options={{ presentation: 'card', animation: 'slide_from_right' }} />
           <Stack.Screen name="wrapped" options={{ presentation: 'fullScreenModal', headerShown: false }} />
           <Stack.Screen name="recap" options={{ presentation: 'fullScreenModal', headerShown: false }} />
+          <Stack.Screen name="whats-new" options={{ presentation: 'fullScreenModal', headerShown: false }} />
           <Stack.Screen name="modals/expense-added" options={{ presentation: 'card', animation: 'fade' }} />
           <Stack.Screen name="modals/expense-failed" options={{ presentation: 'card', animation: 'fade' }} />
           <Stack.Screen name="modals/scan-bill" options={{ presentation: 'card', animation: 'fade' }} />
@@ -395,6 +414,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
       </Stack>
       <LogExpenseNavigation />
       {splashUp ? null : <MaintenanceBanner />}
+      {splashUp || !signedIn ? null : <OfflineBanner />}
       {splashUp || resolving || exchanging ? <View style={StyleSheet.absoluteFill}><BirdLandingSplash /></View> : null}
       <AlertHost />
       {/* Same gate as the (tabs) Stack.Protected block above: fires the same
@@ -428,13 +448,13 @@ function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <QueryClientProvider client={queryClient}>
+        <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
           <ThemeProvider>
             <PrivacyProvider><LogExpenseSubmitProvider>
               <RootNavigator fontsLoaded={fontsLoaded} />
             </LogExpenseSubmitProvider></PrivacyProvider>
           </ThemeProvider>
-        </QueryClientProvider>
+        </PersistQueryClientProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   )

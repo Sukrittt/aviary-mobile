@@ -75,6 +75,9 @@ export class WorkOSHttpError extends Error {
 
 async function post(body: Record<string, string>): Promise<WorkOSTokens> {
   const resp = await fetch(DISCOVERY.tokenEndpoint as string, {
+    // Every apiFetch waits on a refresh before its own timeout starts, so a
+    // hung one would stall every API call until the app is relaunched.
+    signal: AbortSignal.timeout(15_000),
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ client_id: CLIENT_ID, user_agent: deviceLabel(), ...body }),

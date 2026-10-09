@@ -95,7 +95,7 @@ async function fillValidForm(utils: ReturnType<typeof setup>) {
   fireEvent.press(getByLabelText('4'))
   fireEvent.press(getByLabelText('5'))
   fireEvent.press(getByLabelText('0'))
-  fireEvent.press(getByText('Category'))
+  fireEvent.press(getByText('Pick a category'))
   fireEvent.press(await findByText(/Groceries/))
 }
 
@@ -189,18 +189,37 @@ it('offers logging several at once only for a new expense, not an edit', () => {
 
 it('names what is still missing when an incomplete submit is blocked', async () => {
   const utils = setup()
-  const { getByLabelText, getByPlaceholderText, queryByText, findByText } = utils
-  expect(queryByText('Add an amount, item and category')).toBeNull()
+  const { getByLabelText, queryByText, findByText } = utils
+  expect(queryByText('Add an amount and category')).toBeNull()
 
-  fireEvent.press(getByLabelText('4'))
   act(() => {
     ;(globalThis as any).__onInvalid()
   })
-  expect(await findByText('Add an item and category')).toBeTruthy()
+  expect(await findByText('Add an amount and category')).toBeTruthy()
 
   // The copy tracks the form live while the toast is up.
-  fireEvent.changeText(getByPlaceholderText('What was it for?'), 'Milk')
+  fireEvent.press(getByLabelText('4'))
   expect(await findByText('Pick a category')).toBeTruthy()
+})
+
+it('saves a blank "What was it for?" under the category name', async () => {
+  ;(postExpensePayload as jest.Mock).mockResolvedValue({ id: 'srv1', timestamp: '2026-09-04T01:24:00' })
+  const utils = setup()
+  fireEvent.press(utils.getByLabelText('4'))
+  fireEvent.press(utils.getByText('Pick a category'))
+  fireEvent.press(await utils.findByText(/Groceries/))
+
+  await act(async () => {
+    ;(globalThis as any).__submit()
+    await Promise.resolve()
+    await Promise.resolve()
+  })
+  await act(async () => {
+    jest.advanceTimersByTime(950)
+  })
+
+  expect(postExpensePayload).toHaveBeenCalledWith(expect.objectContaining({ item: 'Groceries', category: 'Groceries' }), 0)
+  expect(mockReplace).toHaveBeenCalledWith(expect.objectContaining({ params: expect.objectContaining({ item: 'Groceries' }) }))
 })
 
 
@@ -387,7 +406,7 @@ it('adds up an amount on the keypad and saves the total', async () => {
   fireEvent.press(getByLabelText('Calculator'))
   for (const k of ['1', '5', '+', '5', '.', '5', '÷', '2']) fireEvent.press(getByLabelText(k))
   expect(getByText('20.5 ÷ 2')).toBeTruthy()
-  fireEvent.press(getByText('Category'))
+  fireEvent.press(getByText('Pick a category'))
   fireEvent.press(await findByText(/Groceries/))
 
   await act(async () => {
@@ -494,7 +513,7 @@ it('offers category creation when there are no categories yet', async () => {
   ;(addCategory as jest.Mock).mockResolvedValue(undefined)
   const utils = setup({}, [], [])
   await act(async () => {})
-  fireEvent.press(utils.getByText('Category'))
+  fireEvent.press(utils.getByText('Pick a category'))
   fireEvent.press(utils.getByLabelText('Add category in picker'))
   fireEvent.changeText(utils.getByPlaceholderText('New category name'), 'First category')
   await act(async () => { fireEvent.press(utils.getByLabelText('Save category')) })
@@ -593,4 +612,21 @@ describe('accounts', () => {
     })
     expect(updateExpense).toHaveBeenCalledWith('e1', '2026-09-04T10:00:00', 'Milk', 450, { new_account_id: 'cash' }, 0)
   })
+})
+
+it('moves the tip aside once a blocked save shows its toast in the same spot', () => {
+  mockTip.reason = 'batch'
+  const utils = setup()
+  expect(utils.getByLabelText('Try logging several at once')).toBeTruthy()
+  act(() => {
+    ;(globalThis as any).__onInvalid()
+  })
+  expect(utils.queryByLabelText('Try logging several at once')).toBeNull()
+  mockTip.reason = null
+})
+
+it('shows an edited expense category even when the loaded list no longer has it', async () => {
+  const utils = setup({ id: 'srv1', version: '0', timestamp: 'ts', item: 'Chips', amountInr: '40', category: 'Old Snacks', date: '2026-09-18' })
+  expect(await utils.findByText('Old Snacks')).toBeTruthy()
+  expect(utils.queryByText('Pick a category')).toBeNull()
 })

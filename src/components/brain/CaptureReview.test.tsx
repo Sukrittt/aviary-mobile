@@ -174,6 +174,19 @@ it('dismisses without logging anything', () => {
   expect(mockTrack).toHaveBeenCalledWith('capture_dismissed', { source: 'text', rows: 3, logged: 0 })
 })
 
+it('settles as not logged once every row is removed, instead of an empty card', () => {
+  const utils = renderWithProviders(<CaptureReview proposal={proposal} onSettled={mockSettled} />)
+
+  for (const item of ['Auto', 'Turf', 'Sneakers']) fireEvent.press(utils.getByLabelText(`Remove ${item}`))
+  act(() => {
+    jest.advanceTimersByTime(300)
+  })
+
+  expect(utils.getByText('Not logged')).toBeTruthy()
+  expect(utils.queryByText('Nothing to log')).toBeNull()
+  expect(mockSettled).toHaveBeenCalledWith('dismissed', [])
+})
+
 it('shows a proposal from chat history as read only', () => {
   const utils = renderWithProviders(
     <CaptureReview proposal={{ ...proposal, status: 'submitted', expenseIds: ['e1', 'e2'] }} onSettled={mockSettled} />,

@@ -1,6 +1,7 @@
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { useEffect, useState } from 'react'
 import { View, Text, Pressable, StyleSheet } from 'react-native'
+import * as Haptics from 'expo-haptics'
 import Reanimated, { Easing, FadeIn, useAnimatedStyle, useSharedValue, withSequence, withTiming } from 'react-native-reanimated'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
@@ -85,7 +86,11 @@ export function MoveDemo({ onComplete }: { onComplete: () => void }) {
             <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodySemiBold, fontSize: type.micro, lineHeight: 18 }}>
               No money left your bank. Only the plan changed, and that is the whole trick.
             </Text>
-            <Pressable accessibilityRole="button" onPress={() => setMoved(null)} hitSlop={8}>
+            <Pressable accessibilityRole="button" onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+                setMoved(null)
+              }}
+              hitSlop={8}>
               <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodyBold, fontSize: type.caption }}>Undo</Text>
             </Pressable>
           </ResultCard>
@@ -130,7 +135,10 @@ function SourceRow({
     <Reanimated.View style={style}>
       <Pressable
         accessibilityRole="button"
-        onPress={onPress}
+        onPress={() => {
+          Haptics.selectionAsync().catch(() => {})
+          onPress()
+        }}
         style={[
           styles.source,
           {

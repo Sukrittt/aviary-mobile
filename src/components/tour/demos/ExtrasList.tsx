@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { View, Text, Pressable, StyleSheet } from 'react-native'
+import * as Haptics from 'expo-haptics'
 import Reanimated, { FadeIn, FadeOut, LinearTransition, useAnimatedStyle, withSpring } from 'react-native-reanimated'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
@@ -61,7 +62,10 @@ function ExtraRow({
       <Pressable
         accessibilityRole="button"
         accessibilityState={{ expanded: isOpen }}
-        onPress={onPress}
+        onPress={() => {
+          Haptics.selectionAsync().catch(() => {})
+          onPress()
+        }}
         style={[styles.head, { gap: space.md }]}
       >
         <View style={[styles.tile, { backgroundColor: tokens.inputBg, borderRadius: radius.sm }]}>

@@ -113,3 +113,46 @@ it('removes a restored row as soon as it settles, without waiting on the delayed
 
   jest.useRealTimers()
 })
+
+it('long-press picks rows, restores only the picked ones, and keeps failures selected', async () => {
+  mockUseQuery.mockImplementation((...args: Parameters<typeof useQueryActual>) =>
+    useQueryActual(...args),
+  )
+  const items = [archivedItem(1), archivedItem(2), archivedItem(3)]
+  mockGetArchive.mockResolvedValueOnce(items).mockReturnValue(new Promise(() => {}))
+  mockRestoreArchivedItem.mockImplementation(async (_c: string, id: string) => {
+    if (id === 'item-2') throw new Error('A live item with this name already exists.')
+  })
+
+  const screen = renderWithProviders(<ArchiveScreen />)
+  await waitFor(() => expect(screen.queryAllByText('Archived item 1').length).toBe(2))
+
+  // Row text appears in the hero too, so pick the list row (the last match).
+  const row = (label: string) => screen.getAllByText(label).at(-1)!
+  fireEvent(row('Archived item 1'), 'longPress')
+  expect(screen.getByText('1 selected')).toBeTruthy()
+  // Per-row buttons give way to the pick toggle.
+  expect(screen.queryByText('Restore')).toBeNull()
+  fireEvent.press(row('Archived item 2'))
+  expect(screen.getByText('2 selected')).toBeTruthy()
+
+  fireEvent.press(screen.getByLabelText('Restore selected'))
+  expect(screen.getByText('Restore 2 items back where they were?')).toBeTruthy()
+  await act(async () => {
+    fireEvent.press(screen.getByText('Restore'))
+    await Promise.resolve()
+    await Promise.resolve()
+  })
+
+  expect(mockRestoreArchivedItem).toHaveBeenCalledTimes(2)
+  expect(mockRestoreArchivedItem).not.toHaveBeenCalledWith('expenses', 'item-3')
+  await waitFor(() => expect(screen.queryAllByText('Archived item 1').length).toBe(0))
+  expect(screen.getByText('1 selected')).toBeTruthy()
+  expect(row('Archived item 2').parent).toBeTruthy()
+
+  // The header's X is locked until the restore settles (120ms + 55ms per row).
+  await act(() => new Promise((r) => setTimeout(r, 250)))
+  fireEvent.press(screen.getByLabelText('Cancel selection'))
+  expect(screen.queryByText('1 selected')).toBeNull()
+  expect(screen.getAllByText('Restore').length).toBe(2)
+})

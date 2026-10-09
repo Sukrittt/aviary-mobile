@@ -1,5 +1,5 @@
 import { act, fireEvent } from '@testing-library/react-native'
-import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
+import { createTestQueryClient, renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { useEffect } from 'react'
 import { LogExpenseSubmitProvider, useLogExpenseSubmitPublisher, type LogExpenseSubmitSnapshot } from '@/src/features/log-expense/SubmitContext'
 import { LogExpenseNavigation } from '@/src/features/log-expense/LogExpenseNavigation'
@@ -71,5 +71,37 @@ describe('on the log-expense screen', () => {
     await act(async () => {})
 
     expect(getByLabelText('Log expense').props.accessibilityState.disabled).toBe(false)
+  })
+})
+
+describe('first-expense hint', () => {
+  beforeEach(() => {
+    mockPathname = '/modals/log-expense'
+  })
+
+  function renderWithUser(manualTransactionCompletedAt: string | null, canSubmit: boolean) {
+    snapshot = { canSubmit, saving: false, success: false, submit: jest.fn(), onInvalid: jest.fn() }
+    const queryClient = createTestQueryClient()
+    queryClient.setQueryData(['user'], { email: 'a@b.com', manualTransactionCompletedAt })
+    return renderWithProviders(<TabBar />, { queryClient })
+  }
+
+  it('points at + once a first-timer can save', async () => {
+    const { getByText, getByTestId } = renderWithUser(null, true)
+    await act(async () => {})
+    expect(getByText('Tap + to save')).toBeTruthy()
+    expect(getByTestId('nav-add-hint')).toBeTruthy()
+  })
+
+  it('waits for a complete form', async () => {
+    const { queryByText } = renderWithUser(null, false)
+    await act(async () => {})
+    expect(queryByText('Tap + to save')).toBeNull()
+  })
+
+  it('never shows after the first expense', async () => {
+    const { queryByText } = renderWithUser('2026-10-01T10:00:00Z', true)
+    await act(async () => {})
+    expect(queryByText('Tap + to save')).toBeNull()
   })
 })

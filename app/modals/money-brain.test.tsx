@@ -1,4 +1,5 @@
 import { act, fireEvent, waitFor } from '@testing-library/react-native'
+import { ACK_PHRASES } from '@/src/lib/captureAck'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { AiAllowanceError } from '@/src/lib/aiAllowance'
 import type { CaptureProposal } from '@/src/api/ai'
@@ -64,8 +65,15 @@ it('opens as a focused composer in capture mode, without the brief', async () =>
   const utils = renderWithProviders(<MoneyBrainModal />)
 
   expect(await utils.findByText('Log a few spends')).toBeTruthy()
+  expect(utils.getByText('Dump your spends here')).toBeTruthy()
   expect(utils.getByPlaceholderText('What did you spend?')).toBeTruthy()
   expect(utils.queryByText('THIS MONTH SO FAR')).toBeNull()
+  expect(utils.queryByText('New')).toBeNull()
+
+  // An example chip fills the composer so the grammar can be read before it's sent.
+  fireEvent.press(utils.getByText('turf 1200 split 6'))
+  expect(utils.getByPlaceholderText('What did you spend?').props.value).toBe('turf 1200 split 6')
+  expect(mockStreamChat).not.toHaveBeenCalled()
 })
 
 it('still lets a user over the AI allowance log spends in capture mode', async () => {
@@ -93,12 +101,13 @@ it('shows the review card under the reply when the stream sends a proposal', asy
   expect(await utils.findByText("Here's what I got. Check it, then log.")).toBeTruthy()
   await waitFor(() => expect(utils.getByText('Review card: 2 rows')).toBeTruthy())
 
-  // The card reports its outcome; the chat records it against this session's proposal,
-  // and Ask Aviary's reply to the logged rows lands right under the card.
-  mockUpdateProposalStatus.mockResolvedValueOnce('Lunch and an auto, a classic day.')
+  // The card reports its outcome; Ask Aviary's line lands right under it at once,
+  // and the chat records both against this session's proposal.
   fireEvent.press(utils.getByText('Review card: 2 rows'))
-  expect(mockUpdateProposalStatus).toHaveBeenCalledWith('s1', 'p1', 'submitted', ['e1', 'e2'])
-  expect(await utils.findByText('Lunch and an auto, a classic day.')).toBeTruthy()
+  const reply = mockUpdateProposalStatus.mock.calls[0][4]
+  expect(ACK_PHRASES).toContain(reply)
+  expect(mockUpdateProposalStatus).toHaveBeenCalledWith('s1', 'p1', 'submitted', ['e1', 'e2'], reply)
+  expect(utils.getByText(reply)).toBeTruthy()
   expect(utils.getByText('2 spends logged')).toBeTruthy()
   fireEvent.press(utils.getByText('See them in Activity'))
   expect(mockDismissTo).toHaveBeenCalledWith('/(tabs)/activity')
@@ -125,13 +134,14 @@ it('records an outcome picked mid-stream once the chat exists, retrying while th
   await act(async () => {
     finish('s9')
   })
-  expect(mockUpdateProposalStatus).toHaveBeenCalledWith('s9', 'p1', 'submitted', ['e1', 'e2'])
+  const reply = mockUpdateProposalStatus.mock.calls[0][4]
+  expect(mockUpdateProposalStatus).toHaveBeenCalledWith('s9', 'p1', 'submitted', ['e1', 'e2'], reply)
   await act(async () => {
     jest.advanceTimersByTime(700)
   })
   expect(mockUpdateProposalStatus).toHaveBeenCalledTimes(2)
-  // No reply came back, so the plain line stands in.
-  expect(await utils.findByText('All set, your books are up to date.')).toBeTruthy()
+  // The line was already on screen, without waiting on the server.
+  expect(utils.getByText(reply)).toBeTruthy()
   jest.useRealTimers()
 })
 

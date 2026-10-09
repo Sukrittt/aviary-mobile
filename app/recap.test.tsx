@@ -63,15 +63,24 @@ it('drops the cached due flag once seen, without closing the open story', async 
 
 it('plays on its own like Wrapped and stops on the last slide', async () => {
   ;(getWeekRecap as jest.Mock).mockResolvedValue({ due: true, recap })
-  const { findByText } = renderWithProviders(<RecapRoute />)
-  expect(await findByText("Here's what we learned about you")).toBeTruthy()
-
+  // Start and stop every animation on the same clock. Switching clocks after
+  // mount leaves the first frame on a real timer and makes advancement race it.
   jest.useFakeTimers()
+  const queryClient = createTestQueryClient()
+  queryClient.setQueryData(weekRecapKey, { due: true, recap })
+  const { getByText, unmount } = renderWithProviders(<RecapRoute />, { queryClient })
   try {
-    for (let i = 0; i < 8; i++) await act(async () => { jest.advanceTimersByTime(5100) })
-    expect(await findByText("You're off to a great start")).toBeTruthy()
+    expect(getByText("Here's what we learned about you")).toBeTruthy()
+    await act(async () => { jest.advanceTimersByTime(5100) })
+    expect(getByText('Chai, 3 times')).toBeTruthy()
+    for (let i = 0; i < 4; i++) await act(async () => { jest.advanceTimersByTime(5100) })
+    expect(getByText("You're off to a great start")).toBeTruthy()
+    await act(async () => { jest.advanceTimersByTime(10_000) })
+    expect(getByText("You're off to a great start")).toBeTruthy()
     expect(mockBack).not.toHaveBeenCalled()
   } finally {
+    unmount()
+    queryClient.clear()
     jest.useRealTimers()
   }
 })

@@ -1,6 +1,7 @@
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { useState } from 'react'
 import { View, Text, Pressable, StyleSheet } from 'react-native'
+import * as Haptics from 'expo-haptics'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 
@@ -104,6 +105,7 @@ export function LogDemo({ onComplete }: { onComplete: () => void }) {
               accessibilityRole="button"
               disabled={used}
               onPress={() => {
+                Haptics.selectionAsync().catch(() => {})
                 setLogged((prev) => prev.concat([{ ...chip }]))
                 onComplete()
               }}

@@ -1,5 +1,7 @@
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
+import { usePressSpring } from '@/src/components/ui/Button'
+import { CategoryPickerSheet } from '@/src/components/shared/CategoryPickerSheet'
 import { BudgetConflictReview } from '@/src/features/budgets/BudgetConflictReview'
 import { AmountText } from '@/src/components/ui/AmountText'
 import { Numpad } from '@/src/components/ui/Numpad'
@@ -19,12 +21,14 @@ import { fontFamily } from '@/src/theme/fonts'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import type { ThemeTokens } from '@/src/theme/tokens'
 import { useLocalSearchParams,useRouter } from 'expo-router'
-import { X } from 'lucide-react-native'
+import { ChevronDown, X } from 'lucide-react-native'
 import { useEffect,useState } from 'react'
 import { ActivityIndicator,Animated,Pressable,ScrollView,StyleSheet,Text,View } from 'react-native'
 import Reanimated,{ FadeIn } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import * as Haptics from 'expo-haptics'
+
+const AnimatedPressable = Reanimated.createAnimatedComponent(Pressable)
 
 const QUICK_PICKS = [500, 1000, 2500]
 
@@ -37,7 +41,9 @@ function str(v: string | string[] | undefined): string {
 export default function EditAssignedAmountModal() {
   const { tokens } = useTheme()
   const params = useLocalSearchParams()
-  const category = str(params.category)
+  // Switchable in place from the envelope card, so assigning across several
+  // envelopes doesn't mean closing and reopening this screen for each one.
+  const [category, setCategory] = useState(() => str(params.category))
 
   const budgetsQ = useBudgets()
   const expensesQ = useRecentExpenses()
@@ -70,7 +76,14 @@ export default function EditAssignedAmountModal() {
   // seeds correctly from the real envelope instead of a still-loading '0'.
   return (
     <EditAmountBody
+      key={category}
       category={category}
+      onSwitch={async (next) => {
+        // A save just invalidated budgets; wait for fresh rows so the next
+        // envelope starts from the real Ready to Assign, not the old one.
+        await budgetsQ.refetch()
+        setCategory(next)
+      }}
       month={month}
       version={budgets.find((b) => b.month === month && b.category === category)?.version ?? 0}
       currentAssigned={envelope?.assigned ?? 0}
@@ -93,6 +106,7 @@ function EditAmountBody({
   group,
   lastMonthAssigned,
   readyToAssign,
+  onSwitch,
 }: {
   category: string
   month: string
@@ -103,6 +117,7 @@ function EditAmountBody({
   group: string
   lastMonthAssigned: number | undefined
   readyToAssign: number
+  onSwitch: (category: string) => Promise<void>
 }) {
   const { formatCurrency, formatAmountInput, formatMoney } = useCurrency()
 
@@ -123,6 +138,7 @@ function EditAmountBody({
   const [baseReadyToAssign, setBaseReadyToAssign] = useState(readyToAssign)
   const [expectedVersion, setExpectedVersion] = useState(version)
   const [conflict, setConflict] = useState<BudgetRow | null>(null)
+  const [pickerOpen, setPickerOpen] = useState(false)
 
   const value = Number(amountText) || 0
   const delta = value - baseAssigned
@@ -136,23 +152,41 @@ function EditAmountBody({
           ? `Pulls ${formatCurrency(delta, hideAmounts)} from Ready to Assign`
           : `Frees ${formatCurrency(-delta, hideAmounts)} back to Ready to Assign`
 
-  async function submitEdit() {
-    setSaving(true)
+  /** Saves the draft; true when it landed. */
+  async function save(): Promise<boolean> {
     setError('')
     try {
       // A missing row is conceptual version 0. PUT creates it conditionally,
       // so simultaneous first assignments cannot overwrite one another.
       await updateBudget.mutateAsync({ month, category, version: expectedVersion, updates: { assigned: String(value) } })
-      setSuccess(true)
+      return true
     } catch (err) {
       if (err instanceof BudgetWriteError && err.status === 409 && err.current) {
         setConflict(err.current)
       } else {
         setError('Could not save. Check your connection and try again.')
       }
-    } finally {
-      setSaving(false)
+      return false
     }
+  }
+
+  async function submitEdit() {
+    setSaving(true)
+    const ok = await save()
+    setSaving(false)
+    if (ok) setSuccess(true)
+  }
+
+  // An unsaved amount is saved before switching, so moving on never drops it.
+  async function switchTo(next: string) {
+    if (next === category || !next) return
+    setSaving(true)
+    if (delta !== 0 && !(await save())) {
+      setSaving(false)
+      return
+    }
+    Haptics.selectionAsync().catch(() => {})
+    await onSwitch(next)
   }
 
   function reviewLatest(keepDraft: boolean) {
@@ -219,6 +253,8 @@ function EditAmountBody({
           ASSIGNED AMOUNT
         </Text>
         <EnvelopeCard
+          onPress={() => setPickerOpen(true)}
+          disabled={saving || success}
           name={name}
           emoji={emoji}
           spent={spent}
@@ -253,6 +289,11 @@ function EditAmountBody({
             {impactText}
             {value > 0 && projectedRTA < 0 ? ` · ${formatCurrency(-projectedRTA, hideAmounts)} over` : ''}
           </Reanimated.Text>
+          {value > 0 && projectedRTA >= 0 && (
+            <Text style={{ color: tokens.text3, fontSize: type.caption, fontFamily: fontFamily.bodyMedium }}>
+              {formatCurrency(projectedRTA, hideAmounts)} left to assign
+            </Text>
+          )}
         </View>
 
         <View style={styles.quickRow}>
@@ -281,6 +322,15 @@ function EditAmountBody({
 
         {error !== '' && <Text style={{ color: tokens.coral, fontSize: 12 }}>{error}</Text>}
       </ScrollView>
+
+      <CategoryPickerSheet
+        visible={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        value={category}
+        onSelect={switchTo}
+        title="Switch envelope"
+        noneLabel={null}
+      />
 
       <View style={{ paddingHorizontal: space.lg, paddingTop: space.sm, paddingBottom: insets.bottom + space.sm, gap: space.md }}>
         <Numpad
@@ -313,6 +363,8 @@ function EditAmountBody({
 
 /** Mirrors move-money.tsx's DestinationCard, minus the overspend framing (not relevant to editing an assignment). */
 function EnvelopeCard({
+  onPress,
+  disabled,
   name,
   emoji,
   spent,
@@ -323,6 +375,8 @@ function EnvelopeCard({
   radius,
   type,
 }: {
+  onPress: () => void
+  disabled: boolean
   name: string
   emoji: string
   spent: number
@@ -334,9 +388,25 @@ function EnvelopeCard({
   type: Record<string, number>
 }) {
   const { formatCurrency } = useCurrency()
+  const press = usePressSpring(0.97)
 
   return (
-    <View style={[styles.destCard, { backgroundColor: tokens.card, borderColor: tokens.border, borderRadius: radius.lg, padding: space.md, gap: space.md }]}>
+    <AnimatedPressable
+      onPress={() => {
+        Haptics.selectionAsync().catch(() => {})
+        onPress()
+      }}
+      onPressIn={press.onPressIn}
+      onPressOut={press.onPressOut}
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={`Editing ${name}. Switch envelope`}
+      style={[
+        styles.destCard,
+        { backgroundColor: tokens.card, borderColor: tokens.border, borderRadius: radius.lg, padding: space.md, gap: space.md },
+        press.style,
+      ]}
+    >
       <View style={[styles.destIcon, { backgroundColor: tokens.accentSoft, borderRadius: radius.md }]}>
         <Text style={{ fontSize: type.title }}>{emoji}</Text>
       </View>
@@ -347,7 +417,8 @@ function EnvelopeCard({
           {formatCurrency(spent, hideAmounts)} spent · {formatCurrency(currentAssigned, hideAmounts)} assigned
         </Text>
       </View>
-    </View>
+      <ChevronDown size={18} color={tokens.text3} style={{ marginRight: space.sm }} />
+    </AnimatedPressable>
   )
 }
 
