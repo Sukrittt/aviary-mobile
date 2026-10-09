@@ -208,7 +208,8 @@ function RangeDatePicker({ value, onChange, disableFuture = true }: RangeProps) 
         <ChevronDown size={16} color={tokens.text3} style={{ transform: [{ rotate: open ? '180deg' : '0deg' }] }} />
       </Pressable>
 
-      <BottomSheet visible={open} onClose={close}>
+      {/* Dismissing the sheet (backdrop, Android back) is a Cancel; only Apply or a full pick keeps the change. */}
+      <BottomSheet visible={open} onClose={cancel}>
         <View style={styles.sheetBody}>
           <Text style={[styles.sheetTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Custom range</Text>
           <Text style={[styles.statusText, { color: tokens.accentInk, fontFamily: fontFamily.bodySemiBold }]}>{statusText}</Text>

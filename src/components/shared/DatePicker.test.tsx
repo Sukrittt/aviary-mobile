@@ -115,4 +115,15 @@ describe('DatePicker (range)', () => {
     expect(onChange).toHaveBeenLastCalledWith(value)
     expect(queryByText('5 days selected')).toBeNull()
   })
+
+  it('treats a backdrop dismiss as Cancel, dropping a half-picked range', () => {
+    const onChange = jest.fn()
+    const value = { from: '2026-08-01', to: '2026-08-05' }
+    const { getByText, getAllByText, getByTestId } = renderWithProviders(<DatePicker mode="range" value={value} onChange={onChange} />)
+    fireEvent.press(getByText(/1 Aug/))
+    fireEvent.press(getAllByText('12').at(-1)!)
+    expect(onChange).toHaveBeenLastCalledWith({ from: '2026-08-12', to: '' })
+    fireEvent.press(getByTestId('bottom-sheet-backdrop'))
+    expect(onChange).toHaveBeenLastCalledWith(value)
+  })
 })
