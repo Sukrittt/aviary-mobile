@@ -873,7 +873,7 @@ function CurrencyWizard({
         {
           backgroundColor: tokens.bg,
           paddingTop: insets.top + 20,
-          paddingBottom: Math.max(insets.bottom, 12),
+          paddingBottom: insets.bottom + 20,
         },
       ]}
     >
@@ -1155,7 +1155,7 @@ function CurrencyWizard({
             </Pressable>
           )}
           <ScrollView
-            contentContainerStyle={[styles.sectionList, { paddingTop: 22 }]}
+            contentContainerStyle={[styles.sectionList, { paddingTop: 16 }]}
             showsVerticalScrollIndicator={false}
           >
             {selectedGroups.map((g) => {
@@ -1852,7 +1852,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     columnGap: 12,
     rowGap: 4,
-    marginTop: 10,
+    marginTop: 16,
     paddingHorizontal: 2,
   },
   splitKey: { flexDirection: "row", alignItems: "center", gap: 5 },
