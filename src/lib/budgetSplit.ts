@@ -104,6 +104,16 @@ export function summarizeSplit(items: SplitItem[], tags: BucketTags): BucketShar
   return used.map((b) => ({ bucket: b, pct: Math.round((BUCKET_SHARES[b] / total) * 1000) / 10 }))
 }
 
+/** Why the shares aren't 50/30/20 when a bucket has no categories. Null when nothing's missing. */
+export function splitNote(summary: BucketShare[] | null): string | null {
+  if (!summary) return null
+  const lower = (bs: readonly Bucket[]) => bs.map((b) => BUCKET_PLURALS[b].toLowerCase())
+  const used = summary.map((s) => s.bucket)
+  const missing = BUCKETS.filter((b) => !used.includes(b))
+  if (!missing.length) return null
+  return `No ${lower(missing).join(' or ')} yet, so ${lower(used).join(' and ')} ${used.length === 1 ? 'get it all' : 'share it'}.`
+}
+
 export function suggestSplit(income: number, items: SplitItem[], tags: BucketTags): Record<string, number> {
   const buckets = items.map((it) => bucketFor(it, tags))
   const itemWeight = (it: SplitItem) => KNOWN[normName(it.name)]?.weight ?? 1
