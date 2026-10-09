@@ -39,7 +39,7 @@ import { BottomSheet } from "@/src/components/shared/Modal";
 import { DatePicker, type DateRange } from "@/src/components/shared/DatePicker";
 import { useRefresh } from "@/src/hooks/useRefresh";
 import { SwipeableRow } from "@/src/components/activity/SwipeableRow";
-import { SelectCheck, SelectTint } from "@/src/components/shared/SelectCheck";
+import { SelectCheck, SelectInset, SelectTint } from "@/src/components/shared/SelectCheck";
 import { DeletingRow } from "@/src/components/activity/DeletingRow";
 import { LoadingCaption } from "@/src/components/shared/LoadingCaption";
 import { OfflineScreen } from "@/src/components/shared/OfflineScreen";
@@ -56,6 +56,8 @@ type PeriodKey = "all" | "week" | "month" | "custom";
 const CHIP_TRANSITION = LinearTransition.springify().damping(64).stiffness(700);
 const PAGE_SIZE = 30;
 const ROW_GAP = 12;
+// Breathing room inside the select tint, which has no row padding to sit in.
+const SELECT_INSET = 12;
 
 // Mirrors Web's TransactionsView.tsx INCOME_CATEGORIES set — colors/signs these
 // as income instead of spend.
@@ -630,7 +632,7 @@ export default function ActivityScreen() {
                   style={[styles.row, { backgroundColor: tokens.bg }]}
                 >
                   <SelectTint selected={isSelected} style={styles.rowTint} />
-                  <SelectCheck selecting={selecting} selected={isSelected} gap={ROW_GAP} />
+                  <SelectCheck selecting={selecting} selected={isSelected} gap={ROW_GAP} inset={SELECT_INSET} />
                   <View style={[styles.icon, { backgroundColor: avatarBg }]}>
                     <Text style={{ fontSize: 15 }}>
                       {categoryEmoji(txn.category)}
@@ -679,6 +681,7 @@ export default function ActivityScreen() {
                       hideAmounts,
                     )}
                   </Text>
+                  <SelectInset selecting={selecting} gap={ROW_GAP} inset={SELECT_INSET} />
                 </Pressable>
               );
               return (

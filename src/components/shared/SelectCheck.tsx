@@ -24,7 +24,19 @@ const OVERSHOOT = Easing.bezier(0.34, 1.56, 0.64, 1)
 // a zero-width slot beside the avatar grows when select mode starts so the row
 // glides right, the ring scales in, and picking a row pops it accent and draws
 // its tick. `gap` is the row's flex gap, eaten while the slot is closed.
-export function SelectCheck({ selecting, selected, gap }: { selecting: boolean; selected: boolean; gap: number }) {
+// `inset` pads the slot's leading edge in select mode, for unpadded rows whose
+// tint would otherwise hug the tick (pair with SelectInset on the trailing edge).
+export function SelectCheck({
+  selecting,
+  selected,
+  gap,
+  inset = 0,
+}: {
+  selecting: boolean
+  selected: boolean
+  gap: number
+  inset?: number
+}) {
   const { tokens } = useTheme()
   const reduce = useReducedMotion()
   const open = useSharedValue(selecting ? 1 : 0)
@@ -68,6 +80,7 @@ export function SelectCheck({ selecting, selected, gap }: { selecting: boolean; 
 
   const slotStyle = useAnimatedStyle(() => ({
     width: open.value * SIZE,
+    marginLeft: open.value * inset,
     marginRight: (open.value - 1) * gap,
   }))
   const checkStyle = useAnimatedStyle(() => ({
@@ -95,6 +108,21 @@ export function SelectCheck({ selecting, selected, gap }: { selecting: boolean; 
       </Animated.View>
     </Animated.View>
   )
+}
+
+// Trailing twin of SelectCheck's `inset`: grows to `inset` in select mode, and
+// eats the row's flex `gap` while closed so the resting layout is untouched.
+export function SelectInset({ selecting, gap, inset }: { selecting: boolean; gap: number; inset: number }) {
+  const reduce = useReducedMotion()
+  const open = useSharedValue(selecting ? 1 : 0)
+  useEffect(() => {
+    open.value = reduce ? (selecting ? 1 : 0) : withTiming(selecting ? 1 : 0, { duration: 280, easing: SLIDE })
+  }, [selecting, reduce, open])
+  const style = useAnimatedStyle(() => ({
+    width: open.value * Math.max(inset - gap, 0),
+    marginLeft: (open.value - 1) * gap,
+  }))
+  return <Animated.View pointerEvents="none" style={style} />
 }
 
 // The picked-row wash: fades in under the row content instead of snapping,
