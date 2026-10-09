@@ -19,7 +19,7 @@ import { HttpError } from '@/src/api/client'
 import { enqueue } from '@/src/lib/pendingExpenses'
 import { budgetsKey } from '@/src/hooks/useBudgets'
 import { track, trackFirst } from '@/src/lib/analytics'
-import { userKey } from '@/src/hooks/useUser'
+import { invalidateExpenseCreateQueries } from '@/src/lib/expenseQueries'
 import { splitEmoji } from '@/src/lib/emoji'
 import { isOnline } from '@/src/lib/netStatus'
 import { undoPendingExpense } from '@/src/sync/undoExpense'
@@ -134,16 +134,7 @@ export function useAddExpense() {
         // says how often people skip naming. A yes/no only, never the text.
         named: row.item.trim() !== splitEmoji(row.category).text,
       })
-      qc.invalidateQueries({ queryKey: key })
-      qc.invalidateQueries({ queryKey: briefKey })
-      // A credit-card expense add/edit/delete also rebalances the Credit
-      // Card envelope server-side — bust budgets too or Envelopes shows a
-      // stale balance for up to its 30s staleTime.
-      qc.invalidateQueries({ queryKey: budgetsKey })
-      qc.invalidateQueries({ queryKey: categoryMapKey })
-      // A manual create also completes a server-backed Get Started step.
-      // Refetch the profile so Home updates as soon as the success flow returns.
-      qc.invalidateQueries({ queryKey: userKey })
+      void invalidateExpenseCreateQueries(qc)
     },
   })
 }
