@@ -1,20 +1,19 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native'
 import { Calendar, ChevronDown } from 'lucide-react-native'
 import * as Haptics from 'expo-haptics'
-import Reanimated, { FadeIn, FadeOut } from 'react-native-reanimated'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { Button } from '@/src/components/ui/Button'
+import { BottomSheet } from '@/src/components/shared/Modal'
 
 const STRIP_CELL_WIDTH = 56
 const STRIP_GAP = 8
-const STRIP_RADIUS_DAYS = 7 // at least a week either side before falling back to "Another date..."
+const STRIP_RADIUS_DAYS = 7 // at least a week either side before falling back to "Another date…"
 const STRIP_CENTER_INDEX = STRIP_RADIUS_DAYS
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 const SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-const WEEKDAY_SHORT = ['M', 'T', 'W', 'T', 'F', 'S', 'S']
 const WEEKDAY_SHORT2 = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su']
 const WEEKDAY_SHORT3 = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
@@ -70,8 +69,6 @@ function buildCells(view: Date, today: Date, selected: Date | null, disableFutur
   }
   return cells
 }
-
-const QUICK: [string, number][] = [['Today', 0], ['Yesterday', -1], ['A week ago', -7]]
 
 export interface DateRange {
   from: string
@@ -350,16 +347,21 @@ function SingleDatePicker({ value, onChange, disableFuture = true, onAccent = fa
   const selected = parseISO(value)
   const [view, setView] = useState(() => monthStart(selected ?? today))
   const stripRef = useRef<ScrollView>(null)
+  const stripWidth = useRef(0)
 
-  function toggle() {
-    if (!open) setView(monthStart(selected ?? today))
-    setOpen((o) => !o)
+  function openCalendar() {
+    setView(monthStart(selected ?? today))
+    setOpen(true)
   }
 
   function pick(d: Date) {
     Haptics.selectionAsync().catch(() => {})
     onChange(toISO(d))
-    setView(monthStart(d))
+  }
+
+  function pickFromCalendar(d: Date) {
+    pick(d)
+    setOpen(false)
   }
 
   const cells = buildCells(view, today, selected, disableFuture)
@@ -371,10 +373,15 @@ function SingleDatePicker({ value, onChange, disableFuture = true, onAccent = fa
   const stripCenter = selected ?? today
   const stripDays = Array.from({ length: STRIP_RADIUS_DAYS * 2 + 1 }, (_, i) => addDays(stripCenter, i - STRIP_RADIUS_DAYS))
   function centerStrip(viewportWidth: number) {
+    stripWidth.current = viewportWidth
     const stride = STRIP_CELL_WIDTH + STRIP_GAP
     const offset = STRIP_CENTER_INDEX * stride - viewportWidth / 2 + STRIP_CELL_WIDTH / 2
     stripRef.current?.scrollTo({ x: Math.max(0, offset), animated: false })
   }
+  // A calendar pick rebuilds the strip around the new date, so scroll it back to the middle.
+  useEffect(() => {
+    if (stripWidth.current) centerStrip(stripWidth.current)
+  }, [value])
   function stripLabel(d: Date) {
     const k = key(d)
     if (k === kToday) return 'Today'
@@ -391,7 +398,9 @@ function SingleDatePicker({ value, onChange, disableFuture = true, onAccent = fa
   return (
     <View>
       <View style={styles.dateHeader}>
-        <Text style={[styles.dateHeaderLabel, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>Date</Text>
+        <Text style={[styles.dateHeaderLabel, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>
+          Date · {MONTHS[stripCenter.getMonth()]}
+        </Text>
         {!!daysAgoText && <Text style={[styles.daysAgo, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>{daysAgoText}</Text>}
       </View>
 
@@ -425,46 +434,25 @@ function SingleDatePicker({ value, onChange, disableFuture = true, onAccent = fa
         })}
       </ScrollView>
 
-      {!open && (
-        <Pressable onPress={toggle}>
-          <Text style={[styles.link, { color: tokens.accent, fontFamily: fontFamily.bodySemiBold }]}>Another date...</Text>
-        </Pressable>
-      )}
+      <Pressable onPress={openCalendar} style={styles.linkRow} hitSlop={8}>
+        <Calendar size={14} color={onAccent ? tokens.onAccent : tokens.accent} />
+        <Text style={[styles.link, { color: onAccent ? tokens.onAccent : tokens.accent, fontFamily: fontFamily.bodySemiBold }]}>
+          Another date…
+        </Text>
+      </Pressable>
 
-      {open && (
-        <Reanimated.View
-          entering={FadeIn.duration(150)}
-          exiting={FadeOut.duration(120)}
-          style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.borderStrong }]}
-        >
-          <View style={styles.quick}>
-            {QUICK.map(([qLabel, off]) => {
-              const d = addDays(today, off)
-              const active = !!selected && key(selected) === key(d)
-              return (
-                <Pressable
-                  key={qLabel}
-                  onPress={() => pick(d)}
-                  style={[
-                    styles.chip,
-                    { borderColor: active ? 'transparent' : tokens.borderStrong, backgroundColor: active ? tokens.accent : 'transparent' },
-                  ]}
-                >
-                  <Text style={[styles.chipText, { color: active ? tokens.onAccent : tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
-                    {qLabel}
-                  </Text>
-                </Pressable>
-              )
-            })}
-          </View>
+      <BottomSheet visible={open} onClose={() => setOpen(false)}>
+        <View style={styles.sheetBody}>
+          <Text style={[styles.sheetTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Pick a date</Text>
 
           <View style={styles.nav}>
             <Pressable
+              accessibilityLabel="Previous month"
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
                 setView((v) => new Date(v.getFullYear(), v.getMonth() - 1, 1))
               }}
-              style={[styles.navBtn, { backgroundColor: tokens.inputBg, borderColor: tokens.border }]}
+              style={[styles.navBtn, styles.navBtnLarge, { backgroundColor: tokens.inputBg, borderColor: tokens.border }]}
             >
               <Text style={[styles.navBtnText, { color: tokens.text }]}>‹</Text>
             </Pressable>
@@ -472,18 +460,19 @@ function SingleDatePicker({ value, onChange, disableFuture = true, onAccent = fa
               {MONTHS[view.getMonth()]} {view.getFullYear()}
             </Text>
             <Pressable
+              accessibilityLabel="Next month"
               onPress={() => {
                 Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
                 setView((v) => new Date(v.getFullYear(), v.getMonth() + 1, 1))
               }}
-              style={[styles.navBtn, { backgroundColor: tokens.inputBg, borderColor: tokens.border }]}
+              style={[styles.navBtn, styles.navBtnLarge, { backgroundColor: tokens.inputBg, borderColor: tokens.border }]}
             >
               <Text style={[styles.navBtnText, { color: tokens.text }]}>›</Text>
             </Pressable>
           </View>
 
           <View style={styles.weekdays}>
-            {WEEKDAY_SHORT.map((w, i) => (
+            {WEEKDAY_SHORT2.map((w, i) => (
               <Text key={i} style={[styles.weekday, { color: tokens.text3 }]}>
                 {w}
               </Text>
@@ -494,13 +483,13 @@ function SingleDatePicker({ value, onChange, disableFuture = true, onAccent = fa
             {Array.from({ length: Math.ceil(cells.length / 7) }, (_, row) => (
               <View key={row} style={styles.gridRow}>
                 {Array.from({ length: 7 }, (_, i) => cells[row * 7 + i]).map((c, i) => (
-                  <View key={i} style={styles.cellWrap}>
+                  <View key={i} style={styles.cellWrapLarge}>
                     {c?.date && (
                       <Pressable
                         disabled={c.disabled}
-                        onPress={() => pick(c.date!)}
+                        onPress={() => pickFromCalendar(c.date!)}
                         style={[
-                          styles.cell,
+                          styles.cellLarge,
                           { borderColor: c.isToday && !c.isSelected ? tokens.accent : 'transparent' },
                           c.isSelected && { backgroundColor: tokens.accent },
                           c.disabled && { opacity: 0.4 },
@@ -521,14 +510,8 @@ function SingleDatePicker({ value, onChange, disableFuture = true, onAccent = fa
               </View>
             ))}
           </View>
-        </Reanimated.View>
-      )}
-
-      {open && (
-        <Pressable onPress={() => setOpen(false)}>
-          <Text style={[styles.link, { color: tokens.accent, fontFamily: fontFamily.bodySemiBold }]}>Close calendar</Text>
-        </Pressable>
-      )}
+        </View>
+      </BottomSheet>
     </View>
   )
 }
@@ -551,9 +534,7 @@ const styles = StyleSheet.create({
   weekday: { flex: 1, textAlign: 'center', fontSize: 10 },
   grid: { gap: 0 },
   gridRow: { flexDirection: 'row' },
-  cellWrap: { flex: 1, height: 36, alignItems: 'center', justifyContent: 'center' },
   cellWrapLarge: { flex: 1, height: 48, alignItems: 'center', justifyContent: 'center', position: 'relative' },
-  cell: { width: 30, height: 30, borderRadius: 15, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   cellLarge: { width: 44, height: 44, borderRadius: 22, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   cellText: { fontSize: 13 },
   rangeFooter: { flexDirection: 'row', gap: 8 },
@@ -571,5 +552,8 @@ const styles = StyleSheet.create({
   stripCell: { width: STRIP_CELL_WIDTH, alignItems: 'center', justifyContent: 'center', paddingVertical: 9, borderRadius: 14, borderWidth: 1, gap: 2 },
   stripDay: { fontSize: 10 },
   stripNum: { fontSize: 15 },
-  link: { fontSize: 13, marginTop: 10 },
+  linkRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10, alignSelf: 'flex-start' },
+  link: { fontSize: 13 },
+  sheetBody: { gap: 12 },
+  sheetTitle: { fontSize: 17 },
 })
