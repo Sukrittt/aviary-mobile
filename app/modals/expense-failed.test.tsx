@@ -43,6 +43,7 @@ const BASE_PARAMS = {
   date: '2026-08-15',
   notes: '',
   paymentMethod: 'bank',
+  clientId: 'form-1',
 }
 
 const PAYLOAD = {
@@ -52,6 +53,8 @@ const PAYLOAD = {
   date: '2026-08-15',
   notes: '',
   payment_method: 'bank',
+  source: 'manual',
+  client_id: 'form-1',
 }
 
 function setup(overrides: Partial<typeof BASE_PARAMS> = {}) {
@@ -85,7 +88,9 @@ it('shows no raw error text', () => {
   expect(queryByText(/50\d/)).toBeNull()
 })
 
-it('retries with the payload it was handed, so nothing is retyped', async () => {
+// Same client_id as the original attempt: if that POST committed and only its
+// response failed, the server recognizes the retry instead of logging it twice.
+it('retries with the payload it was handed, client_id included, so nothing is retyped or doubled', async () => {
   ;(postExpensePayload as jest.Mock).mockResolvedValue({ id: 'abc123', timestamp: '2026-08-15T01:24:00' })
   const { getByText } = setup()
   fireEvent.press(getByText('Retry'))

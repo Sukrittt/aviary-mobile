@@ -59,6 +59,7 @@ export default function ExpenseFailedScreen() {
   const notes = str(params.notes)
   const paymentMethod = str(params.paymentMethod)
   const amount = Number(str(params.amount)) || 0
+  const clientId = str(params.clientId)
 
   const addExpense = useAddExpense()
   // This screen shows precisely when the network is failing, so the remote
@@ -89,10 +90,9 @@ export default function ExpenseFailedScreen() {
 
   function handleRetry() {
     if (addExpense.isPending) return
-    // ponytail: a retry can double-post if the first request actually reached
-    // the server and only its response was lost. The fix is an idempotency key
-    // on POST /api/expenses, not a client-side guard — a guard here cannot tell
-    // the two failure shapes apart.
+    // Same client_id as the attempt that failed: if that POST committed and only
+    // its response was lost, the server replays the existing row instead of
+    // inserting a second one.
     addExpense.mutate(
       {
         item,
@@ -101,6 +101,8 @@ export default function ExpenseFailedScreen() {
         date,
         notes,
         payment_method: paymentMethod,
+        source: 'manual',
+        client_id: clientId || undefined,
       },
       {
         onSuccess: (res) => {
