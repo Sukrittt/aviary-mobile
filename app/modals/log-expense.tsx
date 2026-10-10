@@ -4,7 +4,7 @@ import { ExpenseConflictReview } from '@/src/features/log-expense/ExpenseConflic
 import { ExpensePhotoField, type PickedPhoto } from '@/src/features/log-expense/ExpensePhotoField'
 import { AutoCategoryPill, MIN_SPIN_MS, PILL_MAX_WIDTH } from '@/src/features/log-expense/AutoCategoryPill'
 import { createThinkingGate, type ThinkingGate } from '@/src/lib/thinkingGate'
-import { ExpenseWriteError, expenseChanges, expenseDraft, rebaseExpenseDraft } from '@/src/lib/expenseConflict'
+import { ExpenseWriteError, expenseChanges, expenseDraft, paymentMethodOf, rebaseExpenseDraft, type ExpenseDraft, type PaymentMethod } from '@/src/lib/expenseConflict'
 import type { CategoryRow, ExpenseRow } from '@/src/types'
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { suggestCategoryLLM } from "@/src/api/categoryMap";
@@ -159,10 +159,10 @@ export default function LogExpenseScreen() {
   );
   const [date, setDate] = useState(draft?.date ?? (str(params.date).slice(0, 10) || todayLocal()));
   const [notes, setNotes] = useState(draft?.notes ?? str(params.notes));
-  const [paymentMethod, setPaymentMethod] = useState<"bank" | "credit_card">(
-    draft?.paymentMethod ?? (str(params.paymentMethod) === "credit_card" ? "credit_card" : "bank"),
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(
+    draft?.paymentMethod ?? paymentMethodOf(str(params.paymentMethod)),
   );
-  const [base, setBase] = useState({ item: origItem, amount: String(origAmountInr), date: str(params.date).slice(0, 10), category: str(params.category) });
+  const [base, setBase] = useState<ExpenseDraft>({ item: origItem, amount: String(origAmountInr), date: str(params.date).slice(0, 10), category: str(params.category), paymentMethod: paymentMethodOf(str(params.paymentMethod)), notes: str(params.notes) });
   const [expectedVersion, setExpectedVersion] = useState(str(params.version) === '' ? undefined : Number(str(params.version)));
   const [conflict, setConflict] = useState<ExpenseRow | null>(null);
   const [deleted, setDeleted] = useState(false);
@@ -338,7 +338,7 @@ export default function LogExpenseScreen() {
       return;
     }
     if (isEdit) {
-      const updates = expenseChanges(base, { item: savedItem, amount, date, category });
+      const updates = expenseChanges(base, { item: savedItem, amount, date, category, paymentMethod, notes });
       const finishEdit = async () => { await syncPhoto(origId, false); setLogSuccess(true); };
       if (!Object.keys(updates).length) { void finishEdit(); return; }
       updateMutate(
@@ -440,10 +440,11 @@ export default function LogExpenseScreen() {
 
   function reviewLatest(keepDraft: boolean) {
     if (!conflict) return;
-    const draft = keepDraft ? rebaseExpenseDraft(base, { item, amount, date, category }, conflict) : expenseDraft(conflict);
+    const draft = keepDraft ? rebaseExpenseDraft(base, { item, amount, date, category, paymentMethod, notes }, conflict) : expenseDraft(conflict);
     setBase(expenseDraft(conflict));
     setExpectedVersion(conflict.version);
     setItem(draft.item); setAmount(draft.amount); setDate(draft.date); setCategory(draft.category);
+    setPaymentMethod(draft.paymentMethod); setNotes(draft.notes);
     setCategoryTouched(true);
     setAutoPicked(false);
     setConflict(null); setError('');
@@ -456,7 +457,7 @@ export default function LogExpenseScreen() {
     <View style={[styles.screen, { backgroundColor: tokens.accent }]}>
       {showDeletedNotice && <ExpenseNoticeScreen status={404} action="edit" onBack={() => setShowDeletedNotice(false)} />}
       {conflict && (
-        <ExpenseConflictReview latest={conflict} original={base} draft={{ item, amount, date, category }}
+        <ExpenseConflictReview latest={conflict} original={base} draft={{ item, amount, date, category, paymentMethod, notes }}
           onChoose={reviewLatest} onClose={() => { setConflict(null); setError(''); }} />
       )}
       <View

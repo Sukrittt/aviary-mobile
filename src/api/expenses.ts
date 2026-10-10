@@ -131,6 +131,7 @@ export async function updateExpense(
     new_amount_inr?: string
     new_date?: string
     new_payment_method?: string
+    new_notes?: string
     category?: string
   },
   version?: number,

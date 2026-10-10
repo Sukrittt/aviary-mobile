@@ -240,6 +240,39 @@ it('preserves an edit draft on conflict and only reapplies changed fields after 
   expect(updateExpense).toHaveBeenLastCalledWith('srv1', 'ts', 'Lunch', 100, { new_item: 'Dinner' }, 1)
 })
 
+it('saves a payment method change on its own when editing', async () => {
+  const utils = setup({ id: 'srv1', version: '0', timestamp: 'ts', item: 'Lunch', amountInr: '100', category: 'Groceries', date: '2026-09-18', paymentMethod: 'bank' })
+  ;(updateExpense as jest.Mock).mockResolvedValueOnce(undefined)
+  fireEvent.press(utils.getByText('More'))
+  fireEvent.press(utils.getByText('Credit Card'))
+  await act(async () => { (globalThis as any).__submit(); await Promise.resolve(); await Promise.resolve() })
+  expect(updateExpense).toHaveBeenLastCalledWith('srv1', 'ts', 'Lunch', 100, { new_payment_method: 'credit_card' }, 0)
+})
+
+it('saves a notes change on its own when editing', async () => {
+  const utils = setup({ id: 'srv1', version: '0', timestamp: 'ts', item: 'Lunch', amountInr: '100', category: 'Groceries', date: '2026-09-18', notes: '' })
+  ;(updateExpense as jest.Mock).mockResolvedValueOnce(undefined)
+  fireEvent.press(utils.getByText('More'))
+  fireEvent.changeText(utils.getByPlaceholderText('Notes'), '  split with Sam ')
+  await act(async () => { (globalThis as any).__submit(); await Promise.resolve(); await Promise.resolve() })
+  expect(updateExpense).toHaveBeenLastCalledWith('srv1', 'ts', 'Lunch', 100, { new_notes: 'split with Sam' }, 0)
+})
+
+it('keeps a conflicting edit to payment method and notes after review', async () => {
+  const utils = setup({ id: 'srv1', version: '0', timestamp: 'ts', item: 'Lunch', amountInr: '100', category: 'Groceries', date: '2026-09-18', paymentMethod: 'bank', notes: '' })
+  ;(updateExpense as jest.Mock).mockRejectedValueOnce(new ExpenseWriteError(409, 'Changed elsewhere', {
+    id: 'srv1', version: 1, item: 'Lunch', amount_inr: '150', date: '2026-09-18', category: 'Groceries', payment_method: 'bank', notes: '',
+  } as ExpenseRow)).mockResolvedValueOnce(undefined)
+  fireEvent.press(utils.getByText('More'))
+  fireEvent.press(utils.getByText('Credit Card'))
+  fireEvent.changeText(utils.getByPlaceholderText('Notes'), 'work trip')
+  await act(async () => { (globalThis as any).__submit(); await Promise.resolve(); await Promise.resolve() })
+  await act(async () => { jest.advanceTimersByTime(1) })
+  fireEvent.press(utils.getByText('Continue with my changes'))
+  await act(async () => { (globalThis as any).__submit(); await Promise.resolve(); await Promise.resolve() })
+  expect(updateExpense).toHaveBeenLastCalledWith('srv1', 'ts', 'Lunch', 100, { new_payment_method: 'credit_card', new_notes: 'work trip' }, 1)
+})
+
 it('keeps the draft and shows a deleted-elsewhere message', async () => {
   const utils = setup({ id: 'srv1', version: '0', timestamp: 'ts', item: 'Lunch', amountInr: '100', category: 'Groceries', date: '2026-09-18' })
   ;(updateExpense as jest.Mock).mockRejectedValueOnce(new ExpenseWriteError(404, 'This transaction was deleted on another device.'))
