@@ -4,6 +4,7 @@ import { AmountText } from "@/src/components/ui/AmountText";
 import { Numpad } from "@/src/components/ui/Numpad";
 import { useAmountEntry } from "@/src/components/ui/useAmountEntry";
 import { useBudgets, useUpdateBudget } from "@/src/hooks/useBudgets";
+import { useCategories } from "@/src/hooks/useCategories";
 import { EMPTY } from "@/src/lib/constants";
 import { BudgetWriteError } from "@/src/lib/budgetConflict";
 import { computeEnvelopeState, currentMonthKey, INCOME_CATEGORY, monthLabel } from "@/src/lib/envelope";
@@ -37,6 +38,7 @@ export default function AddIncomeModal() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const budgets = useBudgets().data ?? EMPTY;
+  const categories = useCategories().data ?? EMPTY;
   const updateBudget = useUpdateBudget();
 
   const {
@@ -51,8 +53,10 @@ export default function AddIncomeModal() {
   const [error, setError] = useState("");
 
   const value = Number(amountText) || 0;
-  // Expenses don't change income or what's assigned, so budgets alone are enough here.
-  const state = computeEnvelopeState(budgets, EMPTY, month, EMPTY, EMPTY);
+  // Expenses and groups don't change income or what's assigned, but the
+  // category list owns envelope membership, so without it nothing counts as
+  // assigned and Ready to Assign collapses to income.
+  const state = computeEnvelopeState(budgets, EMPTY, month, categories, EMPTY);
   const detail =
     state.incomeExtra === 0
       ? `${formatCurrency(state.incomeBase, hideAmounts)} monthly`

@@ -1,6 +1,7 @@
 import { act, fireEvent, waitFor } from '@testing-library/react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { getBudgets, updateBudget } from '@/src/api/budgets'
+import { getCategories } from '@/src/api/categories'
 import AddIncomeModal from './add-income'
 import { BudgetWriteError } from '@/src/lib/budgetConflict'
 import { currentMonthKey } from '@/src/lib/envelope'
@@ -12,6 +13,7 @@ jest.mock('@/src/api/budgets', () => ({
   deleteBudget: jest.fn(),
   transferBudget: jest.fn(),
 }))
+jest.mock('@/src/api/categories', () => ({ getCategories: jest.fn() }))
 
 const mockBack = jest.fn()
 jest.mock('expo-router', () => ({
@@ -22,6 +24,7 @@ jest.mock('expo-router', () => ({
 beforeEach(() => {
   jest.clearAllMocks()
   ;(updateBudget as jest.Mock).mockResolvedValue({})
+  ;(getCategories as jest.Mock).mockResolvedValue([])
 })
 
 function typeAmount(getByLabelText: (t: string) => any, amount: string) {
@@ -55,4 +58,16 @@ it('adds on top of the row another device saved first', async () => {
     fireEvent.press(getByText('Add'))
   })
   await waitFor(() => expect(updateBudget).toHaveBeenLastCalledWith(MONTH, '__income__', { extra: '3000' }, 4))
+})
+
+it('previews Ready to Assign plus the typed amount, not income plus it', async () => {
+  ;(getBudgets as jest.Mock).mockResolvedValue([
+    { month: MONTH, category: '__income__', assigned: '50000', rolled_over: '0', extra: '0', version: 1 },
+    { month: MONTH, category: 'Food', assigned: '40000', rolled_over: '0', extra: '0', version: 1 },
+  ])
+  ;(getCategories as jest.Mock).mockResolvedValue([{ name: 'Food', group: 'Everyday' }])
+  const { getByLabelText, findByText } = renderWithProviders(<AddIncomeModal />)
+  await findByText('₹50,000 monthly')
+  typeAmount(getByLabelText, '5000')
+  expect(await findByText('Ready to Assign ₹15,000 · this month only')).toBeTruthy()
 })
