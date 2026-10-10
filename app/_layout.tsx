@@ -26,7 +26,6 @@ import { startAutoFlush } from '@/src/sync/flush'
 import { cancelHabitNudges } from '@/src/lib/habitNudges'
 import { useAppFonts } from '@/src/theme/fonts'
 import { ThemeProvider,useTheme } from '@/src/theme/ThemeProvider'
-import { clearSnapshot } from '@/src/widgets/snapshot'
 import { WidgetSync, lockWidgets } from '@/src/widgets/WidgetSync'
 import { useAccessAllowed } from '@/src/hooks/useBillingStatus'
 import { onAiAllowanceExceeded } from '@/src/lib/aiAllowance'
@@ -99,6 +98,10 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
   // leaves them asking where to go. Read once per sign-in, so the stack's
   // first screen doesn't shift mid-session.
   const [landOnHome, setLandOnHome] = useState(false)
+  // The logout handler below subscribes once, so it reads the theme through
+  // a ref rather than a stale closure.
+  const preferenceRef = useRef(preference)
+  useEffect(() => { preferenceRef.current = preference }, [preference])
 
   useEffect(() => subscribeExpenseQuerySync(queryClient), [])
 
@@ -143,8 +146,10 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
       // previous one's budget numbers on the home screen (see PrivacyContext
       // for the same reasoning applied to the hide-amounts preference).
       // Offline expense queues stay: they're keyed by user id, so only that
-      // account can sync them when it signs back in.
-      await Promise.allSettled([queryPersister.removeClient(), clearSnapshot(), clearCategoryCache(), clearGroupCache(), unregisterDevicePushToken(token), cancelHabitNudges()])
+      // account can sync them when it signs back in. lockWidgets also repaints
+      // the home-screen widgets: WidgetSync is gone by now, so without it they
+      // kept the old account's numbers until Android's 30-minute tick.
+      await Promise.allSettled([queryPersister.removeClient(), lockWidgets(preferenceRef.current), clearCategoryCache(), clearGroupCache(), unregisterDevicePushToken(token), cancelHabitNudges()])
     })
     return () => {
       unsubscribe()
