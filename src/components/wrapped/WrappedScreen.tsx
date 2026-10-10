@@ -12,6 +12,7 @@ import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { useWrapped } from '@/src/hooks/useWrapped'
 import { useBudgets } from '@/src/hooks/useBudgets'
+import { moneyStayedPut } from '@/src/lib/monthly'
 import { useWrappedMusic } from '@/src/hooks/useWrappedMusic'
 import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
 import { Icon } from '@/src/components/shared/Icon'
@@ -149,14 +150,8 @@ export function WrappedScreen() {
   useWrappedMusic(started && !muted)
 
   const moneySaved = useMemo(() => {
-    if (!data || !budgets || budgets.length === 0) return undefined
-    const startMonth = data.range.startDate.slice(0, 7)
-    const endMonth = data.range.endDate.slice(0, 7)
-    const assigned = budgets
-      .filter((b) => b.month >= startMonth && b.month <= endMonth)
-      .reduce((s, b) => s + (Number(b.assigned) || 0) + (Number(b.rolled_over) || 0), 0)
-    const saved = assigned - data.totalSpent
-    return saved > 0 ? saved : undefined
+    if (!data || !budgets) return undefined
+    return moneyStayedPut(budgets, data.range, data.totalSpent)
   }, [data, budgets])
 
   // Which card people stop on is the only thing about Wrapped worth knowing,

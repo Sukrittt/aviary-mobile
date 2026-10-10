@@ -313,3 +313,20 @@ export function monthComparison(expenseRows: ExpenseRow[], month: string, today:
   return { spent, baseline, deltaPct, inProgress, projected, driver, days }
 }
 
+
+/** Wrapped's "Money that stayed put": envelope budget (assigned + rolled over)
+ *  across the range's months, minus what was spent. Income and credit card rows
+ *  aren't envelopes, so they stay out of the sum. Undefined when nothing's left. */
+export function moneyStayedPut(
+  budgetRows: BudgetRow[],
+  range: { startDate: string; endDate: string },
+  totalSpent: number,
+): number | undefined {
+  const startMonth = range.startDate.slice(0, 7)
+  const endMonth = range.endDate.slice(0, 7)
+  const assigned = budgetRows
+    .filter((b) => b.month >= startMonth && b.month <= endMonth && !isExcluded(b.category))
+    .reduce((s, b) => s + (Number(b.assigned) || 0) + (Number(b.rolled_over) || 0), 0)
+  const saved = assigned - totalSpent
+  return saved > 0 ? saved : undefined
+}
