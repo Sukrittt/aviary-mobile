@@ -71,3 +71,15 @@ it('previews Ready to Assign plus the typed amount, not income plus it', async (
   typeAmount(getByLabelText, '5000')
   expect(await findByText('Ready to Assign ₹15,000 · this month only')).toBeTruthy()
 })
+
+it('holds the Ready to Assign preview until categories load', async () => {
+  ;(getBudgets as jest.Mock).mockResolvedValue([
+    { month: MONTH, category: '__income__', assigned: '50000', rolled_over: '0', extra: '0', version: 1 },
+    { month: MONTH, category: 'Food', assigned: '40000', rolled_over: '0', extra: '0', version: 1 },
+  ])
+  ;(getCategories as jest.Mock).mockReturnValue(new Promise(() => {}))
+  const { getByLabelText, findByText, queryByText } = renderWithProviders(<AddIncomeModal />)
+  await findByText('₹50,000 monthly')
+  typeAmount(getByLabelText, '5000')
+  expect(queryByText(/Ready to Assign/)).toBeNull()
+})

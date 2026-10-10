@@ -37,8 +37,12 @@ export default function AddIncomeModal() {
   const { tokens, space, radius, type } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const budgets = useBudgets().data ?? EMPTY;
-  const categories = useCategories().data ?? EMPTY;
+  const budgetsQ = useBudgets();
+  const categoriesQ = useCategories();
+  const budgets = budgetsQ.data ?? EMPTY;
+  const categories = categoriesQ.data ?? EMPTY;
+  // Without both lists the preview would read as income plus the typed value.
+  const canPreview = budgetsQ.data !== undefined && categoriesQ.data !== undefined;
   const updateBudget = useUpdateBudget();
 
   const {
@@ -253,7 +257,7 @@ export default function AddIncomeModal() {
               textAlign: "center",
             }}
           >
-            {value > 0
+            {value > 0 && canPreview
               ? `Ready to Assign ${formatCurrency(state.readyToAssign + value, hideAmounts)} · this month only`
               : "What came in on top of your monthly income"}
           </Reanimated.Text>
