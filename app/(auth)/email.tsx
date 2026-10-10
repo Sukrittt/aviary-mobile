@@ -61,8 +61,12 @@ export default function EmailScreen() {
     }
 
     track('sign_in_started', { method: 'email' })
-    const ok = await sendMagicAuthCode(trimmed)
+    const ok = await sendMagicAuthCode(trimmed).catch(() => null)
     setPending(false)
+    if (ok === null) {
+      track('sign_in_failed', { method: 'email', reason: 'code_send_failed' })
+      return fail("Couldn't send the code. Check your connection and try again.")
+    }
     if (!ok) {
       track('sign_in_failed', { method: 'email', reason: 'code_send_failed' })
       return fail('Could not send code. Check the address and try again.')
@@ -121,7 +125,7 @@ export default function EmailScreen() {
         style={[styles.sendButton, { backgroundColor: tokens.accent, opacity: pending || !email ? 0.6 : 1 }]}
       >
         <Text style={[styles.sendText, { color: tokens.onAccent, fontFamily: fontFamily.displaySemiBold }]}>
-          {pending ? 'Sending...' : 'Send code'}
+          {pending ? 'Sending…' : 'Send code'}
         </Text>
       </Pressable>
 

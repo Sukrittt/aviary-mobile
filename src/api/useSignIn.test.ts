@@ -1,11 +1,12 @@
-import { renderHook, waitFor } from '@testing-library/react-native'
+import { act, renderHook, waitFor } from '@testing-library/react-native'
 import { subscribeExchanging, useSignIn } from './useSignIn'
 import { exchangeCode } from './workos'
 
 const mockResponse: { current: unknown } = { current: null }
+const mockPromptAsync = jest.fn()
 jest.mock('expo-auth-session', () => ({
   ResponseType: { Code: 'code' },
-  useAuthRequest: () => [{ codeVerifier: 'verifier' }, mockResponse.current, jest.fn()],
+  useAuthRequest: () => [{ codeVerifier: 'verifier' }, mockResponse.current, mockPromptAsync],
 }))
 jest.mock('expo-web-browser', () => ({ maybeCompleteAuthSession: jest.fn() }))
 jest.mock('./workos', () => ({ CLIENT_ID: 'client', DISCOVERY: {}, REDIRECT_URI: 'envelope://callback', exchangeCode: jest.fn() }))
@@ -39,5 +40,17 @@ describe('useSignIn exchanging signal', () => {
     await waitFor(() => expect(result.current.error).not.toBeNull())
     expect(seen).toEqual([true, false])
     unsubscribe()
+  })
+})
+
+describe('useSignIn prompt', () => {
+  it('unlocks the button when the auth prompt throws', async () => {
+    // expo-auth-session throws if tapped before the PKCE request has loaded.
+    mockPromptAsync.mockRejectedValue(new Error('Cannot prompt to authenticate until the request has finished loading.'))
+    mockResponse.current = null
+    const { result } = renderHook(() => useSignIn())
+    act(() => result.current.signIn())
+    await waitFor(() => expect(result.current.pending).toBe(false))
+    expect(result.current.error).toBe("Google sign-in didn't work. Try again.")
   })
 })
