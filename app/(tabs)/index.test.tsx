@@ -28,6 +28,9 @@ jest.mock('@/src/hooks/useExpenses', () => ({
   useRecentExpenses: () => ({ data: [], isLoading: false, error: null, refetch: jest.fn() }),
   useLastSpent: () => ({ data: {} }),
 }))
+let mockSchedules: { id: string; frequency: string; status: string }[] | undefined = []
+jest.mock('@/src/hooks/useIncomes', () => ({ useRecurringIncomes: () => ({ data: mockSchedules }) }))
+jest.mock('@/src/hooks/useAccounts', () => ({ useAccounts: () => ({ data: [] }) }))
 jest.mock('@/src/hooks/useCategories', () => ({
   useCategories: () => ({ data: [{ name: 'Food', group: 'Everyday' }], isLoading: false, error: null, refetch: jest.fn() }),
 }))
@@ -74,14 +77,42 @@ describe('HomeScreen · Ready to Assign', () => {
     fireEvent.press(getByLabelText('Ready to Assign options'))
     expect(getByText('Income ₹20,000')).toBeTruthy()
 
+    // No schedule yet: Change income starts one from today's monthly figure.
     fireEvent.press(getByText('Change income'))
-    expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/modals/edit-month-income', params: { month: MONTH, initial: '20000' } })
+    expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/modals/recurring-income', params: { label: 'Monthly income', frequency: 'monthly', amount: '20000' } })
     fireEvent.press(getByLabelText('Ready to Assign options'))
     fireEvent.press(getByText('Add income'))
     expect(mockPush).toHaveBeenLastCalledWith('/modals/add-income')
     fireEvent.press(getByLabelText('Ready to Assign options'))
+    fireEvent.press(getByText('Manage income'))
+    expect(mockPush).toHaveBeenLastCalledWith('/account/income')
+    fireEvent.press(getByLabelText('Ready to Assign options'))
     fireEvent.press(getByText('Set Ready to Assign'))
     expect(mockPush).toHaveBeenLastCalledWith('/modals/edit-ready-to-assign')
+  })
+
+  it('Change income edits the one monthly schedule, or sends you to pick among several', () => {
+    mockSchedules = [{ id: 'r1', frequency: 'monthly', status: 'active' }, { id: 'r2', frequency: 'weekly', status: 'active' }]
+    const first = renderHome()
+    fireEvent.press(first.getByLabelText('Ready to Assign options'))
+    fireEvent.press(first.getByText('Change income'))
+    expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/modals/recurring-income', params: { id: 'r1' } })
+    first.unmount()
+
+    mockSchedules = [{ id: 'r1', frequency: 'monthly', status: 'active' }, { id: 'r3', frequency: 'monthly', status: 'active' }]
+    const second = renderHome()
+    fireEvent.press(second.getByLabelText('Ready to Assign options'))
+    fireEvent.press(second.getByText('Change income'))
+    expect(mockPush).toHaveBeenLastCalledWith('/account/income')
+    second.unmount()
+
+    // Not loaded yet: never a create form that could duplicate a schedule.
+    mockSchedules = undefined
+    const third = renderHome()
+    fireEvent.press(third.getByLabelText('Ready to Assign options'))
+    fireEvent.press(third.getByText('Change income'))
+    expect(mockPush).toHaveBeenLastCalledWith('/account/income')
+    mockSchedules = []
   })
 
   it('shows an income pill that opens the income options', () => {
@@ -96,7 +127,7 @@ describe('HomeScreen · Ready to Assign', () => {
     const { getByText } = renderHome()
 
     fireEvent.press(getByText('Set your income'))
-    expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/modals/edit-month-income', params: { month: MONTH, initial: '0' } })
+    expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/modals/recurring-income', params: { label: 'Monthly income', frequency: 'monthly', amount: '' } })
   })
 
   it('uses the app icon as the home header brand', () => {
@@ -193,7 +224,7 @@ describe('HomeScreen · Ready to Assign', () => {
     expect(queryByText('Set up your budget')).toBeNull()
 
     fireEvent.press(await findByText('Add your income'))
-    expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/modals/edit-month-income', params: { month: MONTH, initial: '0' } })
+    expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/modals/recurring-income', params: { label: 'Monthly income', frequency: 'monthly', amount: '' } })
   })
 
   it('keeps Get started up without income, even with both other milestones done', async () => {

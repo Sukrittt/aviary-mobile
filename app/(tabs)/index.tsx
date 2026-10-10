@@ -1,4 +1,6 @@
 import { useCurrency } from '@/src/context/CurrencyContext'
+import { useRecurringIncomes } from '@/src/hooks/useIncomes'
+import { useAccounts } from '@/src/hooks/useAccounts'
 import { useMemo, useRef, useState } from 'react'
 import { View, Text, Pressable, RefreshControl, StyleSheet, Linking, Platform } from 'react-native'
 import { useQuery } from '@tanstack/react-query'
@@ -98,6 +100,11 @@ export default function HomeScreen() {
   // against overlap and avoids relying on that assumption.
   const [openSheetCount, setOpenSheetCount] = useState(0)
   const [incomeSheetOpen, setIncomeSheetOpen] = useState(false)
+  const schedulesQ = useRecurringIncomes()
+  // Warms the accounts cache, so Log expense has them on its first open and
+  // doesn't send an expense without the account it would have defaulted to.
+  useAccounts()
+  const monthlySchedules = (schedulesQ.data ?? []).filter((r) => r.frequency === 'monthly' && r.status === 'active')
   const birdMarkRef = useRef<BirdLandingMarkHandle>(null)
 
   const budgets = emptyForPreview(budgetsQ.data ?? EMPTY)
@@ -109,6 +116,15 @@ export default function HomeScreen() {
     () => computeEnvelopeState(budgets, expenses, month, categories, groups, lastSpent),
     [budgets, expenses, month, categories, groups, lastSpent],
   )
+
+  // Every way to set income edits the monthly schedule Ready to Assign counts
+  // from day 1. With more than one, or before they've loaded (a create form
+  // then could duplicate one), the Income screen is the place to pick.
+  const changeIncomeHref = !schedulesQ.data || monthlySchedules.length > 1
+    ? '/account/income' as const
+    : monthlySchedules.length === 1
+      ? { pathname: '/modals/recurring-income' as const, params: { id: monthlySchedules[0].id } }
+      : { pathname: '/modals/recurring-income' as const, params: { label: 'Monthly income', frequency: 'monthly', amount: envelopeState.incomeBase > 0 ? String(envelopeState.incomeBase) : '' } }
 
   const prevEnvelopeState = useMemo(
     () => computeEnvelopeState(budgets, expenses, prevMonth, categories, groups),
@@ -282,7 +298,7 @@ export default function HomeScreen() {
             accessibilityRole="button"
             onPress={() =>
               envelopeState.income === 0
-                ? router.push({ pathname: '/modals/edit-month-income', params: { month, initial: String(envelopeState.incomeBase) } })
+                ? router.push(changeIncomeHref)
                 : setIncomeSheetOpen(true)
             }
             hitSlop={8}
@@ -345,7 +361,7 @@ export default function HomeScreen() {
               manualTransactionDone={!!user.manualTransactionCompletedAt}
               guidedTourDone={!!user.guidedTourCompletedAt}
               onAddIncome={() =>
-                router.push({ pathname: '/modals/edit-month-income', params: { month, initial: String(envelopeState.incomeBase) } })
+                router.push(changeIncomeHref)
               }
               fundHint={incomeDone ? `${formatCurrency(envelopeState.readyToAssign, hideAmounts)} still to assign` : undefined}
               onFund={() => (nextToFund ? handleEditAmount(nextToFund) : router.navigate('/(tabs)/envelopes'))}
@@ -442,8 +458,9 @@ export default function HomeScreen() {
           Income {formatCurrency(envelopeState.income, hideAmounts)}
         </Text>
         {([
-          ['Change income', { pathname: '/modals/edit-month-income', params: { month, initial: String(envelopeState.incomeBase) } }],
+          ['Change income', changeIncomeHref],
           ['Add income', '/modals/add-income'],
+          ['Manage income', '/account/income'],
           ['Set Ready to Assign', '/modals/edit-ready-to-assign'],
         ] as const).map(([label, href]) => (
           <Pressable

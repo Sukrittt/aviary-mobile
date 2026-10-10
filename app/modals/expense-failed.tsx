@@ -57,6 +57,7 @@ export default function ExpenseFailedScreen() {
   const date = str(params.date)
   const notes = str(params.notes)
   const paymentMethod = str(params.paymentMethod)
+  const accountId = str(params.accountId)
   const amount = Number(str(params.amount)) || 0
 
   const addExpense = useAddExpense()
@@ -100,6 +101,7 @@ export default function ExpenseFailedScreen() {
         date,
         notes,
         payment_method: paymentMethod,
+        ...(accountId ? { account_id: accountId } : {}),
       },
       {
         onSuccess: (res) => {
@@ -117,6 +119,7 @@ export default function ExpenseFailedScreen() {
               date,
               notes,
               paymentMethod,
+              ...(accountId ? { accountId } : {}),
             },
           })
         },
@@ -133,7 +136,7 @@ export default function ExpenseFailedScreen() {
   function handleDismiss() {
     router.replace({
       pathname: LOG_EXPENSE_PATH,
-      params: { item, amountInr: String(amount), category, date, notes, paymentMethod },
+      params: { item, amountInr: String(amount), category, date, notes, paymentMethod, ...(accountId ? { accountId } : {}) },
     })
   }
 

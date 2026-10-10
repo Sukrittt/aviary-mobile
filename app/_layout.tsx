@@ -360,6 +360,8 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
           <Stack.Screen name="account/features" options={{ presentation: 'card', animation: 'slide_from_right' }} />
           <Stack.Screen name="account/archive" options={{ presentation: 'card', animation: 'slide_from_right' }} />
           <Stack.Screen name="account/recurring" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+          <Stack.Screen name="account/income" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+          <Stack.Screen name="account/accounts" options={{ presentation: 'card', animation: 'slide_from_right' }} />
           <Stack.Screen name="account/recurring-suggestions" options={{ presentation: 'card', animation: 'slide_from_right' }} />
           <Stack.Screen name="account/bill-scans" options={{ presentation: 'card', animation: 'slide_from_right' }} />
           <Stack.Screen name="account/guided-tour" options={{ presentation: 'card', animation: 'slide_from_right' }} />
@@ -381,6 +383,8 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
           <Stack.Screen name="modals/subscription" options={{ presentation: 'modal' }} />
           <Stack.Screen name="modals/ai-allowance" options={{ presentation: 'modal' }} />
           <Stack.Screen name="modals/recurring-expense" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="modals/recurring-income" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="modals/account" options={{ presentation: 'modal' }} />
           <Stack.Screen name="modals/bill-scan" options={{ presentation: 'modal' }} />
           <Stack.Screen name="modals/duplicates" options={{ presentation: 'modal' }} />
           <Stack.Screen name="modals/balance-check" options={{ presentation: 'modal' }} />
