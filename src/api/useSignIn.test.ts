@@ -1,6 +1,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react-native'
 import { subscribeExchanging, useSignIn } from './useSignIn'
 import { exchangeCode } from './workos'
+import { track } from '../lib/analytics'
 
 const mockResponse: { current: unknown } = { current: null }
 const mockPromptAsync = jest.fn()
@@ -52,5 +53,6 @@ describe('useSignIn prompt', () => {
     act(() => result.current.signIn())
     await waitFor(() => expect(result.current.pending).toBe(false))
     expect(result.current.error).toBe("Google sign-in didn't work. Try again.")
+    expect(track).toHaveBeenCalledWith('sign_in_failed', { method: 'google', reason: 'prompt_failed' })
   })
 })

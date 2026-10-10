@@ -137,8 +137,8 @@ export default function CodeScreen() {
         triggerShake()
       }
     }).catch(() => {
-      // Transport failure (verifyEmailChange goes through apiFetch, which
-      // throws). Not the user's typo, so no wrong_code event and no shake.
+      // Transport failure: both verify calls throw on one. Not the user's
+      // typo, so no wrong_code event and no shake.
       if (cancelledRef.current) return
       setPending(false)
       setError("Couldn't check the code. Check your connection and try again.")
@@ -187,7 +187,7 @@ export default function CodeScreen() {
           {error !== '' && (
             <Text style={[styles.error, { color: tokens.coral, fontFamily: fontFamily.bodyMedium }]}>{error}</Text>
           )}
-          <ResendTimer onResend={() => void (isChangeEmail ? resendEmailCode() : sendMagicAuthCode(email)).catch(() => {})} />
+          <ResendTimer onResend={() => (isChangeEmail ? resendEmailCode().then(() => true) : sendMagicAuthCode(email))} />
         </>
       )}
 

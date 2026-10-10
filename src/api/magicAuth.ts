@@ -9,34 +9,27 @@ import { persistSession } from './accessMode'
 // (no session yet), so without it a hung connection pins the screen forever.
 const TIMEOUT_MS = 15_000
 
-/** Resolves false on any failure, transport included; never throws. */
+/** Resolves false when the server refuses; throws on a transport failure, so
+ * callers can tell a bad address from a dead connection. */
 export async function sendMagicAuthCode(email: string): Promise<boolean> {
-  try {
-    const resp = await fetch(`${BASE_URL}/api/auth/magic-auth/send`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email }),
-      signal: AbortSignal.timeout(TIMEOUT_MS),
-    })
-    return resp.ok
-  } catch {
-    return false
-  }
+  const resp = await fetch(`${BASE_URL}/api/auth/magic-auth/send`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+    signal: AbortSignal.timeout(TIMEOUT_MS),
+  })
+  return resp.ok
 }
 
-/** Verifies the code and, on success, stores the resulting session. */
+/** Verifies the code and, on success, stores the resulting session. Resolves
+ * false for a wrong code; throws on a transport failure, like send. */
 export async function verifyMagicAuthCode(email: string, code: string): Promise<boolean> {
-  let resp: Response
-  try {
-    resp = await fetch(`${BASE_URL}/api/auth/magic-auth/verify`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, code, device: deviceLabel() }),
-      signal: AbortSignal.timeout(TIMEOUT_MS),
-    })
-  } catch {
-    return false
-  }
+  const resp = await fetch(`${BASE_URL}/api/auth/magic-auth/verify`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, code, device: deviceLabel() }),
+    signal: AbortSignal.timeout(TIMEOUT_MS),
+  })
   if (!resp.ok) return false
 
   const { accessToken, refreshToken } = (await resp.json()) as {

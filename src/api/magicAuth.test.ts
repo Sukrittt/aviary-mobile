@@ -10,14 +10,14 @@ global.fetch = mockFetch
 beforeEach(() => mockFetch.mockReset())
 
 describe('magic auth on a network failure', () => {
-  it('send resolves false instead of throwing', async () => {
+  it('send throws so the screen can tell it from a bad address', async () => {
     mockFetch.mockRejectedValue(new TypeError('Network request failed'))
-    await expect(sendMagicAuthCode('a@b.co')).resolves.toBe(false)
+    await expect(sendMagicAuthCode('a@b.co')).rejects.toThrow()
   })
 
-  it('verify resolves false instead of throwing', async () => {
+  it('verify throws so the screen can tell it from a wrong code', async () => {
     mockFetch.mockRejectedValue(new TypeError('Network request failed'))
-    await expect(verifyMagicAuthCode('a@b.co', '123456')).resolves.toBe(false)
+    await expect(verifyMagicAuthCode('a@b.co', '123456')).rejects.toThrow()
   })
 
   it('gives both requests a timeout so a hung connection gives up', async () => {

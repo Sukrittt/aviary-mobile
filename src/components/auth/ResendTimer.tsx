@@ -5,9 +5,11 @@ import { fontFamily } from '@/src/theme/fonts'
 
 const RESEND_SECONDS = 30
 
-export function ResendTimer({ onResend }: { onResend: () => void }) {
+/** `onResend` resolves true when the code went out; false or a throw means it didn't. */
+export function ResendTimer({ onResend }: { onResend: () => Promise<boolean> }) {
   const { tokens } = useTheme()
   const [seconds, setSeconds] = useState(RESEND_SECONDS)
+  const [failed, setFailed] = useState(false)
 
   useEffect(() => {
     if (seconds <= 0) return
@@ -17,14 +19,22 @@ export function ResendTimer({ onResend }: { onResend: () => void }) {
 
   const handlePress = () => {
     if (seconds > 0) return
-    onResend()
+    setFailed(false)
     setSeconds(RESEND_SECONDS)
+    // Nothing went out, so drop the cooldown and let them retry right away.
+    const fail = () => {
+      setSeconds(0)
+      setFailed(true)
+    }
+    onResend().then((ok) => {
+      if (!ok) fail()
+    }, fail)
   }
 
   return (
     <Pressable onPress={handlePress} disabled={seconds > 0} hitSlop={8}>
       <Text style={[styles.text, { color: seconds > 0 ? tokens.text3 : tokens.accent, fontFamily: fontFamily.bodySemiBold }]}>
-        {seconds > 0 ? `Resend code in ${seconds}s` : "Didn't get it? Resend now"}
+        {seconds > 0 ? `Resend code in ${seconds}s` : failed ? "Couldn't send. Try again" : "Didn't get it? Resend now"}
       </Text>
     </Pressable>
   )

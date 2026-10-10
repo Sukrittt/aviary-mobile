@@ -116,6 +116,7 @@ export function useSignIn(): SignInState {
     setPending(true)
     // Throws if tapped before the PKCE request has loaded.
     promptAsync().catch(() => {
+      track('sign_in_failed', { method: 'google', reason: 'prompt_failed' })
       setPending(false)
       setError(SIGN_IN_FAILED)
     })
