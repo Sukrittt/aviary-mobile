@@ -7,7 +7,7 @@ import { ExpenseConflictReview } from '@/src/features/log-expense/ExpenseConflic
 import { ExpensePhotoField, type PickedPhoto } from '@/src/features/log-expense/ExpensePhotoField'
 import { AutoCategoryPill, MIN_SPIN_MS, PILL_MAX_WIDTH } from '@/src/features/log-expense/AutoCategoryPill'
 import { createThinkingGate, type ThinkingGate } from '@/src/lib/thinkingGate'
-import { ExpenseWriteError, expenseChanges, expenseDraft, rebaseExpenseDraft } from '@/src/lib/expenseConflict'
+import { ExpenseWriteError, expenseChanges, expenseDraft, paymentMethodOf, rebaseExpenseDraft, type ExpenseDraft, type PaymentMethod } from '@/src/lib/expenseConflict'
 import type { CategoryRow, ExpenseRow } from '@/src/types'
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { suggestCategoryLLM } from "@/src/api/categoryMap";
@@ -162,8 +162,8 @@ export default function LogExpenseScreen() {
   );
   const [date, setDate] = useState(draft?.date ?? (str(params.date).slice(0, 10) || todayLocal()));
   const [notes, setNotes] = useState(draft?.notes ?? str(params.notes));
-  const [paymentMethod, setPaymentMethod] = useState<"bank" | "credit_card">(
-    draft?.paymentMethod ?? (str(params.paymentMethod) === "credit_card" ? "credit_card" : "bank"),
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(
+    draft?.paymentMethod ?? paymentMethodOf(str(params.paymentMethod)),
   );
   // null: follow the category's usual account (src/lib/defaultAccount.ts).
   // An edit starts on the row's own account, even none.
@@ -171,9 +171,9 @@ export default function LogExpenseScreen() {
     draft?.accountId !== undefined ? draft.accountId : isEdit ? str(params.accountId) : str(params.accountId) || null,
   );
   const accountsQ = useAccounts();
-  const accounts = liveAccounts(accountsQ.data);
+  const accounts = useMemo(() => liveAccounts(accountsQ.data), [accountsQ.data]);
   const accountId = accountPick ?? defaultAccountFor(expensesQ.data ?? [], category, accounts);
-  const [base, setBase] = useState({ item: origItem, amount: String(origAmountInr), date: str(params.date).slice(0, 10), category: str(params.category) });
+  const [base, setBase] = useState<ExpenseDraft>({ item: origItem, amount: String(origAmountInr), date: str(params.date).slice(0, 10), category: str(params.category), paymentMethod: paymentMethodOf(str(params.paymentMethod)), notes: str(params.notes), accountId: str(params.accountId) });
   const [expectedVersion, setExpectedVersion] = useState(str(params.version) === '' ? undefined : Number(str(params.version)));
   const [conflict, setConflict] = useState<ExpenseRow | null>(null);
   const [deleted, setDeleted] = useState(false);
@@ -301,6 +301,13 @@ export default function LogExpenseScreen() {
   const missing = missingFields({ amount, category });
   // "What was it for?" is optional: left blank, the row is named after its category.
   const savedItem = item.trim() || splitEmoji(category).text;
+  // With accounts the server takes the payment method from the account's
+  // type, so an edit only ever changes one of the two.
+  const editedDraft = useMemo<ExpenseDraft>(() => ({
+    item, amount, date, category, notes,
+    paymentMethod: accounts.length > 0 ? base.paymentMethod : paymentMethod,
+    accountId: accounts.length > 0 ? accountId : base.accountId,
+  }), [item, amount, date, category, notes, paymentMethod, accountId, accounts.length, base]);
   // Waits out a cold accounts fetch (one request) so the expense lands on the
   // account it would default to. Never offline: logging must keep working there.
   const accountsPending = online && accountsQ.isLoading;
@@ -352,10 +359,7 @@ export default function LogExpenseScreen() {
       return;
     }
     if (isEdit) {
-      const updates = {
-        ...expenseChanges(base, { item: savedItem, amount, date, category }),
-        ...(accounts.length > 0 && accountId !== str(params.accountId) ? { new_account_id: accountId } : {}),
-      };
+      const updates = expenseChanges(base, { ...editedDraft, item: savedItem });
       const finishEdit = async () => { await syncPhoto(origId, false); setLogSuccess(true); };
       if (!Object.keys(updates).length) { void finishEdit(); return; }
       updateMutate(
@@ -446,7 +450,7 @@ export default function LogExpenseScreen() {
         },
       );
     }
-  }, [canSubmit, unusual, unusualWarnedFor, base, amount, expectedVersion, isEdit, origId, origTimestamp, origItem, origAmountInr, item, savedItem, parsedAmount, date, category, notes, paymentMethod, accountId, accounts.length, params.accountId, router, addMutate, updateMutate, autoPicked, syncPhoto]);
+  }, [canSubmit, unusual, unusualWarnedFor, base, amount, expectedVersion, isEdit, origId, origTimestamp, origItem, origAmountInr, item, savedItem, parsedAmount, date, category, notes, paymentMethod, accountId, accounts, editedDraft, router, addMutate, updateMutate, autoPicked, syncPhoto]);
 
   // Publish only when the action or its visible state changes.
   useEffect(() => {
@@ -462,10 +466,11 @@ export default function LogExpenseScreen() {
 
   function reviewLatest(keepDraft: boolean) {
     if (!conflict) return;
-    const draft = keepDraft ? rebaseExpenseDraft(base, { item, amount, date, category }, conflict) : expenseDraft(conflict);
+    const draft = keepDraft ? rebaseExpenseDraft(base, editedDraft, conflict) : expenseDraft(conflict);
     setBase(expenseDraft(conflict));
     setExpectedVersion(conflict.version);
     setItem(draft.item); setAmount(draft.amount); setDate(draft.date); setCategory(draft.category);
+    setPaymentMethod(draft.paymentMethod); setNotes(draft.notes); setAccountPick(draft.accountId);
     setCategoryTouched(true);
     setAutoPicked(false);
     setConflict(null); setError('');
@@ -478,7 +483,7 @@ export default function LogExpenseScreen() {
     <View style={[styles.screen, { backgroundColor: tokens.accent }]}>
       {showDeletedNotice && <ExpenseNoticeScreen status={404} action="edit" onBack={() => setShowDeletedNotice(false)} />}
       {conflict && (
-        <ExpenseConflictReview latest={conflict} original={base} draft={{ item, amount, date, category }}
+        <ExpenseConflictReview latest={conflict} original={base} draft={editedDraft} accounts={accountsQ.data ?? []}
           onChoose={reviewLatest} onClose={() => { setConflict(null); setError(''); }} />
       )}
       <View
