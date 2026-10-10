@@ -4,6 +4,7 @@ import { AmountText } from "@/src/components/ui/AmountText";
 import { Numpad } from "@/src/components/ui/Numpad";
 import { useAmountEntry } from "@/src/components/ui/useAmountEntry";
 import { useBudgets, useUpdateBudget } from "@/src/hooks/useBudgets";
+import { useCategories } from "@/src/hooks/useCategories";
 import { EMPTY } from "@/src/lib/constants";
 import { BudgetWriteError } from "@/src/lib/budgetConflict";
 import { computeEnvelopeState, currentMonthKey, INCOME_CATEGORY, monthLabel } from "@/src/lib/envelope";
@@ -36,7 +37,12 @@ export default function AddIncomeModal() {
   const { tokens, space, radius, type } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const budgets = useBudgets().data ?? EMPTY;
+  const budgetsQ = useBudgets();
+  const categoriesQ = useCategories();
+  const budgets = budgetsQ.data ?? EMPTY;
+  const categories = categoriesQ.data ?? EMPTY;
+  // Without both lists the preview would read as income plus the typed value.
+  const canPreview = budgetsQ.data !== undefined && categoriesQ.data !== undefined;
   const updateBudget = useUpdateBudget();
 
   const {
@@ -51,8 +57,10 @@ export default function AddIncomeModal() {
   const [error, setError] = useState("");
 
   const value = Number(amountText) || 0;
-  // Expenses don't change income or what's assigned, so budgets alone are enough here.
-  const state = computeEnvelopeState(budgets, EMPTY, month, EMPTY, EMPTY);
+  // Expenses and groups don't change income or what's assigned, but the
+  // category list owns envelope membership, so without it nothing counts as
+  // assigned and Ready to Assign collapses to income.
+  const state = computeEnvelopeState(budgets, EMPTY, month, categories, EMPTY);
   const detail =
     state.incomeExtra === 0
       ? `${formatCurrency(state.incomeBase, hideAmounts)} monthly`
@@ -249,7 +257,7 @@ export default function AddIncomeModal() {
               textAlign: "center",
             }}
           >
-            {value > 0
+            {value > 0 && canPreview
               ? `Ready to Assign ${formatCurrency(state.readyToAssign + value, hideAmounts)} · this month only`
               : "What came in on top of your monthly income"}
           </Reanimated.Text>
