@@ -105,7 +105,9 @@ export default function MoveMoneyModal() {
   const amount = Number(amountStr) || 0
   const allocated = Object.values(allocs).reduce((a, b) => a + b, 0)
   const remaining = Math.max(0, amount - allocated)
-  const ready = amount > 0 && remaining === 0
+  // Exact match, not `remaining === 0`: `remaining` clamps at 0, which would
+  // hide an over-allocation. Compared in paise so float sums still match.
+  const ready = amount > 0 && Math.round(allocated * 100) === Math.round(amount * 100)
   const saving = transferBudget.isPending
 
   const [progressTrackWidth, setProgressTrackWidth] = useState(0)
@@ -163,8 +165,8 @@ export default function MoveMoneyModal() {
     return Math.min(item.available, currentAlloc + remaining)
   }
   function pick(item: SourceItem) {
-    const room = remaining > 0 ? remaining : amount
-    setAllocValue(item.key, Math.max(1, Math.min(item.available, room)))
+    if (remaining <= 0) return
+    setAllocValue(item.key, Math.min(item.available, remaining))
   }
   function autoFillNow() {
     if (amount <= 0) return

@@ -158,3 +158,48 @@ it('removes native input padding so the envelope placeholder aligns with the sea
   const inputStyle = StyleSheet.flatten(getByPlaceholderText('Find an envelope').props.style)
   expect(inputStyle.padding).toBe(0)
 })
+
+it('ignores a pool tap once the amount is covered, so the move never exceeds it', async () => {
+  ;(transferBudget as jest.Mock).mockResolvedValue({})
+  const { getByText, getByLabelText } = setup({}, SPENDING)
+  await waitFor(() => expect(getByLabelText('1')).toBeTruthy())
+  await enterAmount(getByLabelText, '1000')
+  fireEvent.press(getByText('Pick sources →'))
+  await waitFor(() => expect(getByText('SUGGESTED SOURCES')).toBeTruthy())
+
+  fireEvent.press(getByText('Auto-fill'))
+  await waitFor(() => expect(getByText('Move ₹1,000')).toBeTruthy())
+  // Travel 900 + Cook 100 already cover it; Shopping is still in the pool.
+  fireEvent.press(getByText('Shopping'))
+  fireEvent.press(getByText('Move ₹1,000'))
+
+  await waitFor(() => expect(transferBudget).toHaveBeenCalled())
+  const posted = (transferBudget as jest.Mock).mock.calls[0][2] as { amount: number }[]
+  expect(posted.reduce((sum, s) => sum + s.amount, 0)).toBe(1000)
+})
+
+it('never picks more than a source has available', async () => {
+  ;(transferBudget as jest.Mock).mockResolvedValue({})
+  // Shopping is left with 0.5, less than the 1 being moved.
+  const spending = [
+    { date: `${MONTH}-05`, amount_inr: '100', category: 'Travel' },
+    { date: `${MONTH}-05`, amount_inr: '999.5', category: 'Shopping' },
+  ]
+  const { getByText, getByLabelText } = setup({}, spending)
+  await waitFor(() => expect(getByLabelText('1')).toBeTruthy())
+  await enterAmount(getByLabelText, '1')
+  fireEvent.press(getByText('Pick sources →'))
+  await waitFor(() => expect(getByText('SUGGESTED SOURCES')).toBeTruthy())
+
+  fireEvent.press(getByText('Shopping'))
+  fireEvent.press(getByText('Travel'))
+  await waitFor(() => expect(getByText('Move ₹1')).toBeTruthy())
+  fireEvent.press(getByText('Move ₹1'))
+
+  await waitFor(() =>
+    expect(transferBudget).toHaveBeenCalledWith(MONTH, 'Electricity', [
+      { category: 'Shopping', amount: 0.5 },
+      { category: 'Travel', amount: 0.5 },
+    ]),
+  )
+})
