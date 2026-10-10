@@ -127,7 +127,7 @@ describe('HomeScreen · Ready to Assign', () => {
     const { getByText } = renderHome()
 
     fireEvent.press(getByText('Set your income'))
-    expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/modals/edit-month-income', params: { month: MONTH, initial: '0' } })
+    expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/modals/recurring-income', params: { label: 'Monthly income', frequency: 'monthly', amount: '' } })
   })
 
   it('uses the app icon as the home header brand', () => {
@@ -224,7 +224,7 @@ describe('HomeScreen · Ready to Assign', () => {
     expect(queryByText('Set up your budget')).toBeNull()
 
     fireEvent.press(await findByText('Add your income'))
-    expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/modals/edit-month-income', params: { month: MONTH, initial: '0' } })
+    expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/modals/recurring-income', params: { label: 'Monthly income', frequency: 'monthly', amount: '' } })
   })
 
   it('keeps Get started up without income, even with both other milestones done', async () => {
