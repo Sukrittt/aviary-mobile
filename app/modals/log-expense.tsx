@@ -51,6 +51,7 @@ import { useCaptureTip } from "@/src/hooks/useCaptureTip";
 import { noteManualLog, type CaptureTipReason } from "@/src/lib/captureTip";
 import { CaptureTipBubble } from "@/src/features/log-expense/CaptureTipBubble";
 import { useBounce } from "@/src/hooks/useBounce";
+import * as Crypto from "expo-crypto";
 import * as Haptics from "expo-haptics";
 import Reanimated from "react-native-reanimated";
 import { useCallback,useEffect,useMemo,useRef,useState } from "react";
@@ -290,6 +291,9 @@ export default function LogExpenseScreen() {
   const missing = missingFields({ amount, category });
   // "What was it for?" is optional: left blank, the row is named after its category.
   const savedItem = item.trim() || splitEmoji(category).text;
+  // One name for this form's create, reused by the failure screen's Retry, so
+  // a POST that committed behind a 5xx is recognized instead of logged twice.
+  const [clientId] = useState(() => Crypto.randomUUID());
   const canSubmit = missing.length === 0 && !conflict && !deleted;
   const flag = (f: (typeof missing)[number]) => nudge > 0 && missing.includes(f);
   const saving = addExpense.isPending || updateExpense.isPending || savePhoto.isPending;
@@ -380,6 +384,7 @@ export default function LogExpenseScreen() {
           notes: notes.trim(),
           payment_method: paymentMethod,
           source: 'manual',
+          client_id: clientId,
         },
         {
           // replace, not push: this screen is spent, and Done on the success
@@ -413,18 +418,19 @@ export default function LogExpenseScreen() {
             router.replace({
               pathname: "/modals/expense-failed",
               params: {
-                item: item.trim(),
+                item: savedItem,
                 amount: String(parsedAmount),
                 category,
                 date,
                 notes: notes.trim(),
                 paymentMethod,
+                clientId,
               },
             }),
         },
       );
     }
-  }, [canSubmit, unusual, unusualWarnedFor, base, amount, expectedVersion, isEdit, origId, origTimestamp, origItem, origAmountInr, item, savedItem, parsedAmount, date, category, notes, paymentMethod, router, addMutate, updateMutate, autoPicked, syncPhoto]);
+  }, [canSubmit, unusual, unusualWarnedFor, base, amount, expectedVersion, isEdit, origId, origTimestamp, origItem, origAmountInr, savedItem, parsedAmount, date, category, notes, paymentMethod, router, addMutate, updateMutate, autoPicked, syncPhoto, clientId]);
 
   // Publish only when the action or its visible state changes.
   useEffect(() => {

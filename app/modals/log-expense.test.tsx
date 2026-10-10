@@ -1,3 +1,4 @@
+import { HttpError } from '@/src/api/client'
 import { ExpenseWriteError } from '@/src/lib/expenseConflict'
 import type { ExpenseRow } from '@/src/types'
 import { Alert, Modal } from 'react-native'
@@ -200,6 +201,30 @@ it('names what is still missing when an incomplete submit is blocked', async () 
   // The copy tracks the form live while the toast is up.
   fireEvent.press(getByLabelText('4'))
   expect(await findByText('Pick a category')).toBeTruthy()
+})
+
+it('hands the failure screen the saved item and the client_id it posted', async () => {
+  // A blank item saves under the category name; Retry must post that, not ''
+  // (the server 400s an empty item), and must reuse the same client_id so a
+  // create that committed behind a 5xx is deduplicated instead of doubled.
+  ;(postExpensePayload as jest.Mock).mockRejectedValue(new HttpError(503, 'Failed to add expense: 503'))
+  const utils = setup()
+  fireEvent.press(utils.getByLabelText('4'))
+  fireEvent.press(utils.getByText('Pick a category'))
+  fireEvent.press(await utils.findByText(/Groceries/))
+
+  await act(async () => {
+    ;(globalThis as any).__submit()
+    await Promise.resolve()
+    await Promise.resolve()
+  })
+
+  const posted = (postExpensePayload as jest.Mock).mock.calls[0][0]
+  expect(posted.client_id).toEqual(expect.any(String))
+  expect(mockReplace).toHaveBeenCalledWith({
+    pathname: '/modals/expense-failed',
+    params: expect.objectContaining({ item: 'Groceries', clientId: posted.client_id }),
+  })
 })
 
 it('saves a blank "What was it for?" under the category name', async () => {
