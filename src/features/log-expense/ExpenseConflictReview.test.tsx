@@ -4,8 +4,8 @@ import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { ExpenseConflictReview } from './ExpenseConflictReview'
 import type { ExpenseRow } from '@/src/types'
 
-const original = { item: 'Lunch', amount: '100', date: '2026-09-18', category: 'Food' }
-const latest = { id: 'id1', version: 1, item: 'Lunch', amount_inr: '150', date: '2026-09-18', category: 'Food' } as ExpenseRow
+const original = { item: 'Lunch', amount: '100', date: '2026-09-18', category: 'Food', paymentMethod: 'bank' as const, notes: '' }
+const latest = { id: 'id1', version: 1, item: 'Lunch', amount_inr: '150', date: '2026-09-18', category: 'Food', payment_method: 'bank', notes: '' } as ExpenseRow
 
 afterEach(() => jest.restoreAllMocks())
 
@@ -34,4 +34,11 @@ it.each([
   expect(onChoose).toHaveBeenLastCalledWith(false)
   fireEvent.press(screen.getByLabelText('Back to editing'))
   expect(onClose).toHaveBeenCalledTimes(1)
+})
+
+it('shows payment method and notes edits in the comparison', () => {
+  const screen = renderWithProviders(<ExpenseConflictReview latest={latest} original={original}
+    draft={{ ...original, paymentMethod: 'credit_card', notes: 'work trip' }} onChoose={jest.fn()} onClose={jest.fn()} />)
+  expect(screen.getByLabelText('Payment method, with your changes: Credit Card')).toBeTruthy()
+  expect(screen.getByLabelText('Notes, with your changes: work trip')).toBeTruthy()
 })

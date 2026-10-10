@@ -1,6 +1,6 @@
 import { ConflictReview } from '@/src/components/shared/ConflictReview'
 import { useCurrency } from '@/src/context/CurrencyContext'
-import { rebaseExpenseDraft, type ExpenseDraft } from '@/src/lib/expenseConflict'
+import { paymentMethodOf, rebaseExpenseDraft, type ExpenseDraft, type PaymentMethod } from '@/src/lib/expenseConflict'
 import type { ExpenseRow } from '@/src/types'
 
 interface Props {
@@ -11,6 +11,8 @@ interface Props {
   onClose: () => void
 }
 
+const paymentLabel = (m: PaymentMethod) => (m === 'bank' ? 'Bank/UPI' : 'Credit Card')
+
 /** Full-screen native presentation keeps the editor mounted and its draft intact. */
 export function ExpenseConflictReview({ latest, original, draft, onChoose, onClose }: Props) {
   const { formatCurrency } = useCurrency()
@@ -20,6 +22,8 @@ export function ExpenseConflictReview({ latest, original, draft, onChoose, onClo
     { label: 'Amount', saved: formatCurrency(Number(latest.amount_inr)), next: formatCurrency(Number(merged.amount)), changed: Number(latest.amount_inr) !== Number(original.amount) || Number(draft.amount) !== Number(original.amount) },
     { label: 'Date', saved: latest.date.slice(0, 10), next: merged.date, changed: latest.date.slice(0, 10) !== original.date || draft.date !== original.date },
     { label: 'Category', saved: latest.category, next: merged.category, changed: latest.category !== original.category || draft.category !== original.category },
+    { label: 'Payment method', saved: paymentLabel(paymentMethodOf(latest.payment_method)), next: paymentLabel(merged.paymentMethod), changed: paymentMethodOf(latest.payment_method) !== original.paymentMethod || draft.paymentMethod !== original.paymentMethod },
+    { label: 'Notes', saved: latest.notes || '—', next: merged.notes || '—', changed: (latest.notes ?? '') !== original.notes || draft.notes.trim() !== original.notes.trim() },
   ].filter((row) => row.changed)
 
   return (
