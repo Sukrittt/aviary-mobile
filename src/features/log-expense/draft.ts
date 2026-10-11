@@ -14,6 +14,8 @@ export type LogExpenseDraft = {
   date: string
   notes: string
   paymentMethod: 'bank' | 'credit_card'
+  /** The picked account, or null to follow the category's usual one. */
+  accountId?: string | null
 }
 
 let draft: LogExpenseDraft | null = null

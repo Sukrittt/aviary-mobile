@@ -23,6 +23,10 @@ jest.mock('@/src/hooks/useExpenses', () => ({
   useRecentExpenses: () => ({ data: [], isLoading: false, error: null }),
 }))
 
+let mockIncomes: Record<string, unknown>[] = []
+jest.mock('@/src/hooks/useIncomes', () => ({ useIncomes: () => ({ data: mockIncomes }) }))
+jest.mock('@/src/hooks/useAccounts', () => ({ useAccounts: () => ({ data: [] }), liveAccounts: () => [] }))
+
 let mockCategories: { data: unknown; isLoading: boolean; error: Error | null } = { data: [], isLoading: false, error: null }
 jest.mock('@/src/hooks/useCategories', () => ({
   useCategories: () => mockCategories,
@@ -92,6 +96,7 @@ function pageResult(overrides: Partial<ExpensesPage>): ExpensesPage {
 }
 
 beforeEach(() => {
+  mockIncomes = []
   mockUseExpensesPage.mockReset()
   mockPush.mockReset()
   mockDuplicates = []
@@ -301,6 +306,34 @@ describe('multi-select delete', () => {
     fireEvent.press(screen.getByText('Back to transactions'))
     expect(screen.getByText('1 selected')).toBeTruthy()
     expect(screen.getByText('Item 2')).toBeTruthy()
+  })
+})
+
+describe('income', () => {
+  const income = (id: string, date: string, label: string) => ({
+    id, version: 0, date, amount: '50000', label, notes: '', account_id: '', recurring_id: '', source: 'recurring', counted: 'monthly', created_at: '',
+  })
+
+  it('slots income in by date, signed, and opens Income when tapped', () => {
+    mockIncomes = [income('i1', '2026-06-02', 'Salary')]
+    mockUseExpensesPage.mockReturnValue({ data: pageResult({ rows: [row(1, '2026-06-03'), row(2, '2026-06-01')], total: 2 }), isLoading: false, error: null })
+    const screen = renderWithProviders(<ActivityScreen />)
+    const labels = screen.getAllByText(/^(Item \d|Salary)$/).map((n) => n.props.children)
+    expect(labels).toEqual(['Item 1', 'Salary', 'Item 2'])
+    expect(screen.getByText('+₹50,000')).toBeTruthy()
+    fireEvent.press(screen.getByLabelText('Salary, income. Open Income'))
+    expect(mockPush).toHaveBeenCalledWith('/account/income')
+  })
+
+  it('still shows income in a period with no spending', () => {
+    // No spending anchors "this month" on today.
+    const today = new Date()
+    const date = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`
+    mockIncomes = [income('i1', date, 'Salary')]
+    mockUseExpensesPage.mockReturnValue({ data: pageResult({ rows: [], total: 0, totalAmount: 0 }), isLoading: false, error: null })
+    const screen = renderWithProviders(<ActivityScreen />)
+    expect(screen.getByText('Salary')).toBeTruthy()
+    expect(screen.queryByText('Your story starts here')).toBeNull()
   })
 })
 

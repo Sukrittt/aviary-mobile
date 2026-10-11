@@ -27,6 +27,8 @@ export type ExpensesPageParams = {
   page: number
   limit: number
   category?: string
+  /** One of the user's accounts: only expenses paid from it. */
+  account?: string
   from?: string
   to?: string
   q?: string
@@ -44,6 +46,7 @@ export type ExpensesPage = {
 export async function getExpensesPage(params: ExpensesPageParams): Promise<ExpensesPage> {
   const qs = new URLSearchParams({ page: String(params.page), limit: String(params.limit) })
   if (params.category) qs.set('category', params.category)
+  if (params.account) qs.set('account', params.account)
   if (params.from) qs.set('from', params.from)
   if (params.to) qs.set('to', params.to)
   if (params.q) qs.set('q', params.q)
@@ -61,6 +64,8 @@ export type NewExpenseRow = {
   date?: string
   notes?: string
   payment_method?: string
+  /** One of the user's accounts; the server takes the payment method from its type. */
+  account_id?: string
   /**
    * Where it came from: 'manual' (the default, server-side), 'scan', 'text' (a
    * row confirmed from the money brain) or 'balance_gap' (an estimate confirmed
@@ -131,6 +136,8 @@ export async function updateExpense(
     new_amount_inr?: string
     new_date?: string
     new_payment_method?: string
+    /** '' clears the account. */
+    new_account_id?: string
     category?: string
   },
   version?: number,

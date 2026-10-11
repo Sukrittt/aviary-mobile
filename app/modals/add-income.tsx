@@ -3,10 +3,13 @@ import { CheckIcon } from "@/src/components/shared/CheckIcon";
 import { AmountText } from "@/src/components/ui/AmountText";
 import { Numpad } from "@/src/components/ui/Numpad";
 import { useAmountEntry } from "@/src/components/ui/useAmountEntry";
-import { useBudgets, useUpdateBudget } from "@/src/hooks/useBudgets";
+import { useBudgets } from "@/src/hooks/useBudgets";
+import { useAddIncome } from "@/src/hooks/useIncomes";
+import { liveAccounts, useAccounts } from "@/src/hooks/useAccounts";
+import { AccountChips } from "@/src/components/shared/AccountChips";
+import * as Crypto from "expo-crypto";
 import { EMPTY } from "@/src/lib/constants";
-import { BudgetWriteError } from "@/src/lib/budgetConflict";
-import { computeEnvelopeState, currentMonthKey, INCOME_CATEGORY, monthLabel } from "@/src/lib/envelope";
+import { computeEnvelopeState, currentMonthKey, monthLabel } from "@/src/lib/envelope";
 import { usePrivacy } from "@/src/context/PrivacyContext";
 
 import { fontFamily } from "@/src/theme/fonts";
@@ -20,13 +23,15 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from "react-native";
 import Reanimated, { FadeIn } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-/** Opened from Home's Ready to Assign sheet. Adds a one-off amount to this
- * month's income extra, so Ready to Assign goes up by exactly that much and
+/** Opened from Home's Ready to Assign sheet and the Income screen. Records a
+ * one-off in the income ledger; the server adds it to this month's income
+ * extra in the same write, so Ready to Assign goes up by exactly that much and
  * next month doesn't repeat it. Same layout as edit-month-income.tsx. */
 export default function AddIncomeModal() {
   const month = currentMonthKey();
@@ -37,7 +42,11 @@ export default function AddIncomeModal() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const budgets = useBudgets().data ?? EMPTY;
-  const updateBudget = useUpdateBudget();
+  const addIncome = useAddIncome();
+  const accounts = liveAccounts(useAccounts().data);
+  const [label, setLabel] = useState("");
+  const [accountId, setAccountId] = useState("");
+  const [clientId] = useState(() => Crypto.randomUUID());
 
   const {
     amount: amountText,
@@ -59,30 +68,18 @@ export default function AddIncomeModal() {
       : `${formatCurrency(state.incomeBase, hideAmounts)} monthly · ${formatCurrency(state.incomeExtra, hideAmounts)} extra`;
 
   async function submit() {
-    if (value <= 0) return;
+    if (value <= 0 || saving) return;
     setSaving(true);
     setError("");
-    const row = budgets.find((b) => b.month === month && b.category === INCOME_CATEGORY);
-    let version = row?.version ?? 0;
-    let extra = Number(row?.extra) || 0;
     try {
-      // Adding is order-independent, so a save that lost a race to another
-      // device adds on top of the row it lost to.
-      for (let attempt = 0; ; attempt++) {
-        try {
-          await updateBudget.mutateAsync({
-            month,
-            category: INCOME_CATEGORY,
-            version,
-            updates: { extra: String(Math.round((extra + value) * 100) / 100) },
-          });
-          break;
-        } catch (err) {
-          if (attempt > 0 || !(err instanceof BudgetWriteError && err.status === 409 && err.current)) throw err;
-          version = err.current.version;
-          extra = Number(err.current.extra) || 0;
-        }
-      }
+      // The server records it and moves this month's extra in one write
+      // (Web/lib/income.ts); the client id makes a retried save count once.
+      await addIncome.mutateAsync({
+        amount: value,
+        label: label.trim() || "Extra income",
+        ...(accountId ? { account_id: accountId } : {}),
+        client_id: clientId,
+      });
       setSuccess(true);
     } catch {
       setError("Couldn't save. Check your connection and try again.");
@@ -254,6 +251,30 @@ export default function AddIncomeModal() {
               : "What came in on top of your monthly income"}
           </Reanimated.Text>
         </View>
+
+        <TextInput
+          value={label}
+          onChangeText={setLabel}
+          placeholder="What was it? A bonus, a refund, a gift…"
+          placeholderTextColor={tokens.text3}
+          maxLength={200}
+          accessibilityLabel="What was it"
+          style={{
+            borderWidth: 1,
+            borderColor: tokens.border,
+            backgroundColor: tokens.inputBg,
+            borderRadius: radius.md,
+            paddingHorizontal: space.md,
+            paddingVertical: space.sm + 2,
+            color: tokens.text,
+            fontFamily: fontFamily.bodyMedium,
+            fontSize: type.body,
+          }}
+        />
+
+        {accounts.length > 0 && (
+          <AccountChips accounts={accounts} value={accountId} onChange={setAccountId} allowNone label="Paid into" />
+        )}
 
         {error !== "" && (
           <Text style={{ color: tokens.coral, fontSize: 12 }}>{error}</Text>

@@ -206,6 +206,7 @@ export default function ExpenseAddedScreen() {
   const date = str(params.date);
   const notes = str(params.notes);
   const paymentMethod = str(params.paymentMethod);
+  const accountId = str(params.accountId);
   const amount = Number(str(params.amount)) || 0;
   // Older servers return no timestamp on POST, which left the stamp line blank.
   // log-expense sends the moment it navigated as a fallback; it is only ever
@@ -321,7 +322,7 @@ export default function ExpenseAddedScreen() {
     if (!mounted.current || undoSession.generation !== sessionGeneration()) return;
     router.replace({
       pathname: LOG_EXPENSE_PATH,
-      params: { item, amountInr: String(amount), category, date, notes, paymentMethod },
+      params: { item, amountInr: String(amount), category, date, notes, paymentMethod, ...(accountId ? { accountId } : {}) },
     });
   }
 
