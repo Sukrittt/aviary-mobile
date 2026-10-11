@@ -5,7 +5,7 @@ import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 
 import { splitEmoji } from '@/src/lib/emoji'
-import { toLocalDateString } from '@/src/lib/date'
+import { parseLocalDate, toLocalDateString } from '@/src/lib/date'
 import { ProgressBar } from './ProgressBar'
 import { BottomSheet } from '@/src/components/shared/Modal'
 import type { Envelope } from '@/src/lib/envelope'
@@ -19,9 +19,9 @@ function usedPctLabel(e: Envelope): string {
 }
 
 /** Mirrors Web's EnvelopeGrid lastSpentLabel(), written by hand (no Intl) per this app's date-formatting convention. */
-function lastSpentLabel(iso: string | undefined): string {
+export function lastSpentLabel(iso: string | undefined): string {
   if (!iso) return '—'
-  const d = new Date(iso)
+  const d = parseLocalDate(iso)
   if (Number.isNaN(d.getTime())) return '—'
   const today = new Date()
   const todayStr = toLocalDateString(today)
@@ -29,7 +29,9 @@ function lastSpentLabel(iso: string | undefined): string {
   const yesterday = new Date(today)
   yesterday.setDate(yesterday.getDate() - 1)
   if (iso === toLocalDateString(yesterday)) return 'Yesterday'
-  const days = Math.round((today.getTime() - d.getTime()) / 86400000)
+  // Both sides at local midnight so the count is calendar days; round absorbs DST's 23/25h days.
+  const midnight = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+  const days = Math.round((midnight.getTime() - d.getTime()) / 86400000)
   if (days >= 1 && days <= 31) return `${days}d ago`
   return `${d.getDate()} ${SHORT_MONTHS[d.getMonth()]}`
 }

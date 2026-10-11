@@ -50,7 +50,7 @@ import { OfflineScreen } from "@/src/components/shared/OfflineScreen";
 import { ErrorScreen } from "@/src/components/shared/ErrorScreen";
 import { EmptyState } from "@/src/components/shared/EmptyState";
 import type { ExpenseRow, IncomeRow } from "@/src/types";
-import { toLocalDateString } from "@/src/lib/date";
+import { parseLocalDate, toLocalDateString } from "@/src/lib/date";
 import { useOnline } from "@/src/lib/netStatus";
 import { EMPTY } from "@/src/lib/constants";
 import { FORCE_EMPTY_STATE_PREVIEW, emptyForPreview } from "@/src/lib/emptyStatePreview";
@@ -69,7 +69,7 @@ function toDateInput(d: Date): string {
 }
 
 function formatDateHeader(iso: string): string {
-  const d = new Date(iso);
+  const d = parseLocalDate(iso);
   if (Number.isNaN(d.getTime())) return iso;
   const today = new Date();
   const yesterday = new Date(today);
@@ -85,7 +85,7 @@ function formatDateHeader(iso: string): string {
 }
 
 function formatShortDate(iso: string): string {
-  const d = new Date(iso);
+  const d = parseLocalDate(iso);
   if (Number.isNaN(d.getTime())) return iso;
   const day = d.getDate();
   const month = d.toLocaleDateString("en-IN", { month: "short" });
@@ -264,7 +264,7 @@ export default function ActivityScreen() {
   const latestDate = useMemo(() => {
     const iso = anchorQuery.data?.rows[0]?.date;
     if (!iso) return new Date();
-    const d = new Date(iso);
+    const d = parseLocalDate(iso);
     return Number.isNaN(d.getTime()) ? new Date() : d;
   }, [anchorQuery.data]);
 

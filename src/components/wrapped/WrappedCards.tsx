@@ -6,6 +6,7 @@ import { formatDate, formatDateShort } from '@/src/lib/format'
 import { fontFamily } from '@/src/theme/fonts'
 import { splitEmoji } from '@/src/lib/emoji'
 import { monthLabel } from '@/src/lib/envelope'
+import { parseLocalDate } from '@/src/lib/date'
 import {
   WrappedCard,
   WrappedBigNumber,
@@ -215,7 +216,7 @@ export function BiggestPurchaseCard({ data, color, onColor }: CardProps) {
   if (!p) return null
   const avgPerDay = data.range.daysTracked > 0 ? data.totalSpent / data.range.daysTracked : 0
   const daysOfAverage = avgPerDay > 0 ? Math.round(p.amountInr / avgPerDay) : 0
-  const weekday = JS_WEEKDAYS[new Date(p.date).getDay()]
+  const weekday = JS_WEEKDAYS[parseLocalDate(p.date).getDay()]
   return (
     <WrappedCard
       color={color}

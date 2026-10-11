@@ -20,3 +20,5 @@ jobs:
       # benign jest-expo/react-query quirk, not a leak in these tests) — force the
       # process down immediately after results are reported instead of eating CI time.
       - run: npm test -- --ci --forceExit
+      # Re-run the zone-sensitive suites (*.tz.test.ts) west and east of UTC.
+      - run: npm run test:tz
