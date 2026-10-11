@@ -172,3 +172,19 @@ it('a later successful sync clears the failed copy left by a half-finished move'
   await pending.remove('c1')
   expect(await pending.listUnsynced()).toEqual([])
 })
+
+it('clearAll empties the pending, failed and receipt keys for that owner only', async () => {
+  await pending.enqueue(payload('c1'))
+  await pending.enqueue(payload('c2'))
+  await pending.bumpAttempts('c2', 1)
+  await pending.saveSyncReceipt({ clientId: 'c0', timestamp: '2026-01-01T10:00:00+05:30', item: 'Coffee', amountInr: 150 }, 'user_a')
+  await pending.enqueue(payload('b1'), 'user_b')
+
+  await pending.clearAll('user_a')
+
+  expect(await pending.list()).toEqual([])
+  expect(await pending.listFailed()).toEqual([])
+  const keys = await AsyncStorage.getAllKeys()
+  expect(keys.filter((k) => k.endsWith(':user_a'))).toEqual([])
+  expect(await pending.list('user_b')).toHaveLength(1)
+})

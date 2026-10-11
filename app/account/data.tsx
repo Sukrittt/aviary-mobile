@@ -47,7 +47,7 @@ import {
   type ExportRow,
 } from "@/src/api/account";
 import { isAnalyticsEnabled, setAnalyticsEnabled, track } from "@/src/lib/analytics";
-import { listUnsynced, toCsv } from "@/src/lib/pendingExpenses";
+import { clearAll, listUnsynced, toCsv } from "@/src/lib/pendingExpenses";
 
 function exportStatusMeta(status: ExportRow["status"], tokens: ThemeTokens) {
   switch (status) {
@@ -210,6 +210,8 @@ export default function DataScreen() {
     setClearing(true);
     try {
       await clearTransactions();
+      // Otherwise the next flush re-uploads the queue and the rows come back.
+      await clearAll();
       qc.invalidateQueries();
       setConfirmingClear(false);
     } catch {

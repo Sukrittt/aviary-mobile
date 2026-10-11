@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import { readEncrypted, writeEncrypted } from './encryptedStorage'
 import { currentUserId } from '@/src/api/accessMode'
 import type { ExpensePayload } from '@/src/api/expenses'
@@ -136,6 +137,18 @@ export function bumpAttempts(clientId: string, cap: number, owner = currentUserI
     } else {
       await write(k, entries)
     }
+  })
+}
+
+/**
+ * Drops everything this device holds for `owner`: queued, failed and receipts.
+ * For when the server copy is gone on purpose (cleared or deleted), so a later
+ * flush can't bring the rows back.
+ */
+export function clearAll(owner = currentUserId()): Promise<void> {
+  return serialize(async () => {
+    if (!owner) return
+    await AsyncStorage.multiRemove([key(owner)!, failedKey(owner)!, `${RECEIPT_PREFIX}:${owner}`])
   })
 }
 

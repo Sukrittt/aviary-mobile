@@ -1,4 +1,4 @@
-import { clearAccess } from '@/src/api/accessMode'
+import { clearAccess, currentUserId } from '@/src/api/accessMode'
 import { deleteAccount,resendEmailCode,revokeAllSessions,revokeSession } from '@/src/api/account'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { Icon } from '@/src/components/shared/Icon'
@@ -19,6 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRefresh } from '@/src/hooks/useRefresh'
 import { useBillingStatus } from '@/src/hooks/useBillingStatus'
 import { flushAnalytics, track } from '@/src/lib/analytics'
+import { clearAll } from '@/src/lib/pendingExpenses'
 import { isWebPlan } from '@/src/lib/billingStatus'
 
 function sessionLabel(userAgent: string | null, authMethod: string): string {
@@ -143,6 +144,9 @@ export default function SecurityScreen() {
       // the last event this person will ever send.
       track('account_deleted')
       await flushAnalytics()
+      // The logout hook keeps the offline queue for re-sign-in, but a deleted
+      // account can never sync it. Best effort: the account is already gone.
+      await clearAll(currentUserId()).catch(() => {})
       await clearAccess()
       router.replace('/(auth)/welcome')
     } catch {

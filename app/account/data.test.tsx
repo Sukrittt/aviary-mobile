@@ -1,8 +1,8 @@
 import { Share } from 'react-native'
 import { fireEvent, waitFor } from '@testing-library/react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
-import { getExports, startExport, type ExportsResponse } from '@/src/api/account'
-import { listUnsynced } from '@/src/lib/pendingExpenses'
+import { clearTransactions, getExports, startExport, type ExportsResponse } from '@/src/api/account'
+import { clearAll, listUnsynced } from '@/src/lib/pendingExpenses'
 import DataScreen from './data'
 
 jest.mock('expo-router', () => ({ useRouter: () => ({ back: jest.fn(), push: jest.fn() }) }))
@@ -19,6 +19,7 @@ jest.mock('@/src/api/account', () => ({
 jest.mock('@/src/lib/pendingExpenses', () => ({
   ...jest.requireActual('@/src/lib/pendingExpenses'),
   listUnsynced: jest.fn(() => Promise.resolve([])),
+  clearAll: jest.fn(() => Promise.resolve()),
 }))
 
 const mockGetExports = getExports as jest.Mock
@@ -114,5 +115,28 @@ describe('unsynced expenses', () => {
     expect(message).toContain('"Chai"')
     expect(message).toContain('"Samosa"')
     expect(message.split('\n')).toHaveLength(3) // header + both entries
+  })
+})
+
+describe('clear all transactions', () => {
+  async function clear() {
+    const { getAllByText, getByText, findByText } = renderWithProviders(<DataScreen />)
+    await findByText(/0 of 3 exports used/)
+    fireEvent.press(getAllByText('Clear all transactions')[0])
+    fireEvent.press(getByText('Clear'))
+  }
+
+  // Otherwise the next flush POSTs the queue and the cleared rows come back.
+  it('empties the offline queue once the server has cleared', async () => {
+    ;(clearTransactions as jest.Mock).mockResolvedValue(undefined)
+    await clear()
+    await waitFor(() => expect(clearAll).toHaveBeenCalled())
+  })
+
+  it('keeps the offline queue when the server clear fails', async () => {
+    ;(clearTransactions as jest.Mock).mockRejectedValue(new Error('503'))
+    await clear()
+    await waitFor(() => expect(clearTransactions).toHaveBeenCalled())
+    expect(clearAll).not.toHaveBeenCalled()
   })
 })
