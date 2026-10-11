@@ -48,6 +48,7 @@ it('records a one-off in the ledger, which moves Ready to Assign server-side', a
   const { getByLabelText, getByText } = renderWithProviders(<AddIncomeModal />)
   await waitFor(() => expect(getByText('₹1,00,000 monthly · ₹500 extra')).toBeTruthy())
   typeAmount(getByLabelText, '10000')
+  fireEvent.press(getByText('More'))
   fireEvent.changeText(getByLabelText('What was it'), 'Diwali bonus')
   await act(async () => {
     fireEvent.press(getByText('Add'))
@@ -59,6 +60,7 @@ it('records a one-off in the ledger, which moves Ready to Assign server-side', a
 it('names an unnamed one-off and puts it on the picked account', async () => {
   ;(getAccounts as jest.Mock).mockResolvedValue([{ id: 'a1', name: 'HDFC', type: 'bank', archived: false, created_at: '' }])
   const { getByLabelText, getByText, findByLabelText } = renderWithProviders(<AddIncomeModal />)
+  fireEvent.press(getByText('More'))
   fireEvent.press(await findByLabelText('🏦 HDFC'))
   typeAmount(getByLabelText, '500')
   await act(async () => {
@@ -111,6 +113,7 @@ it('edits a recorded income in place, keeping its name when the field is cleared
   const { getByLabelText, getByText, findByText } = renderWithProviders(<AddIncomeModal />)
   expect(await findByText('Edit income')).toBeTruthy()
   fireEvent.press(getByLabelText('5'))
+  fireEvent.press(getByText('More'))
   fireEvent.changeText(getByLabelText('What was it'), '')
   await act(async () => {
     fireEvent.press(getByText('Save'))

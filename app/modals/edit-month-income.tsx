@@ -1,5 +1,6 @@
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { CheckIcon } from "@/src/components/shared/CheckIcon";
+import * as Haptics from "expo-haptics";
 import { AmountText } from "@/src/components/ui/AmountText";
 import { Numpad } from "@/src/components/ui/Numpad";
 import { useAmountEntry } from "@/src/components/ui/useAmountEntry";
@@ -68,6 +69,7 @@ export default function EditMonthIncomeModal() {
       });
       setSuccess(true);
     } catch {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
       setError("Couldn't save. Check your connection and try again.");
     } finally {
       setSaving(false);

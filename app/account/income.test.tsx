@@ -19,6 +19,20 @@ jest.mock('@/src/api/incomes', () => ({
 }))
 jest.mock('@/src/api/accounts', () => ({ ...jest.requireActual('@/src/api/accounts'), getAccounts: jest.fn() }))
 jest.mock('@/src/api/budgets', () => ({ getBudgets: jest.fn(async () => []) }))
+// Counts reveal mounts: each one replays the pop-in animation.
+let mockPopInMounts = 0
+jest.mock('@/src/components/shared/PopIn', () => {
+  const { useEffect } = jest.requireActual('react')
+  const { View } = jest.requireActual('react-native')
+  return {
+    PopIn: ({ style, children }: { style?: object; children: React.ReactNode }) => {
+      useEffect(() => {
+        mockPopInMounts++
+      }, [])
+      return <View style={style}>{children}</View>
+    },
+  }
+})
 
 const month = currentMonthKey()
 const schedule = (over: Partial<RecurringIncomeRow> = {}): RecurringIncomeRow => ({
@@ -41,7 +55,7 @@ it('shows what comes in on repeat and what was recorded this month', async () =>
   const { findByText, getByText } = renderWithProviders(<IncomeScreen />)
   expect(await findByText('Salary')).toBeTruthy()
   expect(getByText('Every month')).toBeTruthy()
-  await findByText('· HDFC')
+  await findByText(/· HDFC/)
   expect(getByText('Freelance')).toBeTruthy()
   expect(getByText(/Added by you/)).toBeTruthy()
 })
@@ -86,4 +100,16 @@ it('says it could not load rather than inviting a first income', async () => {
   const { findByText, queryByText } = renderWithProviders(<IncomeScreen />)
   expect(await findByText("Couldn't load your income. Pull down to try again.")).toBeTruthy()
   expect(queryByText('What comes in?')).toBeNull()
+})
+
+it('reveals the rows once, not again when the delete sheet opens', async () => {
+  ;(getRecurringIncomes as jest.Mock).mockResolvedValue([schedule()])
+  ;(getIncomes as jest.Mock).mockResolvedValue([income()])
+  const { findByText, getByLabelText } = renderWithProviders(<IncomeScreen />)
+  await findByText('Freelance')
+  await findByText(/· HDFC/)
+  const mounted = mockPopInMounts
+  fireEvent.press(getByLabelText('Delete Freelance'))
+  await findByText('Delete income')
+  expect(mockPopInMounts).toBe(mounted)
 })
