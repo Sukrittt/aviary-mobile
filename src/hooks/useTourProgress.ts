@@ -4,6 +4,12 @@ import { accessMode } from '@/src/api/accessMode'
 
 const KEY = 'mc-tour-done'
 
+// Once per app, not per screen: signing out from anywhere (More, Security)
+// must clear progress, or the next account opens the tour already finished.
+accessMode.subscribeLogout(() => {
+  SecureStore.deleteItemAsync(KEY).catch(() => {})
+})
+
 /**
  * Which guided-tour chapters have been completed, remembered on this device.
  * Drop-in for `useState<Set<number>>(new Set())` — same tuple, same setter.
@@ -27,12 +33,10 @@ export function useTourProgress() {
         hydrated.current = true
       })
 
-    // Otherwise the next account signed into on this device inherits the
-    // previous one's progress.
+    // Signing out with the tour open also resets what's on screen.
     return accessMode.subscribeLogout(() => {
       hydrated.current = false
       setDone(new Set())
-      SecureStore.deleteItemAsync(KEY).catch(() => {})
     })
   }, [])
 
