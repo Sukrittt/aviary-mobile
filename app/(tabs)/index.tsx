@@ -234,9 +234,9 @@ export default function HomeScreen() {
     )
   }
 
-  // Saved data stays on screen offline (the root OfflineBanner says so); the
-  // full offline screen is only for when there's nothing to show.
-  if (hasError && !online) return <OfflineScreen />
+  // Offline blocks the whole screen, not just this one query error — a single
+  // gate instead of six per-screen error branches (see OfflineScreen).
+  if (!online) return <OfflineScreen />
 
   if (hasError) {
     return (

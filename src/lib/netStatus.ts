@@ -13,13 +13,19 @@ import { currentUserId } from '@/src/api/accessMode'
 // backend or one slow parallel call among several isn't a real outage — so
 // going offline requires FAILURE_THRESHOLD consecutive failures with no
 // success in between. Going back online stays immediate on any success.
+//
+// Even two failures in a row aren't proof: one dropped socket (resuming from
+// the background, a wifi/cellular handover) fails every parallel request at
+// once. So before flipping, apiFetch's confirmOffline asks the server once
+// more after a short pause, and only a probe that also can't reach it counts.
 let online = true
 let consecutiveFailures = 0
+let confirming = false
 const FAILURE_THRESHOLD = 2
 const listeners = new Set<() => void>()
 const onlineTransitionListeners = new Set<() => void>()
 
-export function setOnline(next: boolean): void {
+export function setOnline(next: boolean, confirmOffline?: () => Promise<boolean>): void {
   if (next) {
     consecutiveFailures = 0
     if (online) return
@@ -30,7 +36,22 @@ export function setOnline(next: boolean): void {
   }
 
   consecutiveFailures += 1
-  if (consecutiveFailures < FAILURE_THRESHOLD || !online) return
+  if (consecutiveFailures < FAILURE_THRESHOLD || !online || confirming) return
+  if (!confirmOffline) return goOffline()
+  confirming = true
+  void confirmOffline()
+    .catch(() => true)
+    .then((offline) => {
+      confirming = false
+      // A request that got answered meanwhile already reset the streak.
+      if (consecutiveFailures < FAILURE_THRESHOLD) return
+      if (offline) goOffline()
+      else consecutiveFailures = 0
+    })
+}
+
+function goOffline(): void {
+  if (!online) return
   online = false
   listeners.forEach((l) => l())
 }
