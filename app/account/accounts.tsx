@@ -21,7 +21,7 @@ import { useRefresh } from "@/src/hooks/useRefresh";
 import { ACCOUNT_TYPE_LABEL, accountErrorMessage } from "@/src/lib/accounts";
 import type { AccountRow, AccountType } from "@/src/types";
 
-const LOADING_PHRASES = ["Finding your accounts…", "Counting wallets…", "Almost there…"];
+const LOADING_PHRASES = ["Opening your wallet…", "Shaking the piggy bank…", "Shuffling your cards…", "Counting the coin jar…"];
 const MOUNT_DELAY = 100;
 const ITEM_STAGGER = 45;
 const STAGGER_CAP = 6;
@@ -61,7 +61,7 @@ export default function AccountsScreen() {
         <View style={{ flex: 1 }}>
           <Text style={[styles.headerTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Accounts</Text>
           <Text style={[styles.headerSub, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
-            {live.length === 0 ? "Where your money lives" : `${live.length} in use`}
+            Where your money lives
           </Text>
         </View>
         <Pressable onPress={() => router.push("/modals/account")} accessibilityRole="button" style={[styles.addButton, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
@@ -86,7 +86,7 @@ export default function AccountsScreen() {
               ))}
             </View>
             <Text style={[styles.hint, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>
-              Pick one when you log an expense. Your weekly balance check asks about each bank account.
+              These are just labels, so there&apos;s no balance to keep up. Pick one when you log an expense. Your weekly balance check asks about each bank account.
             </Text>
             {archived.length > 0 && (
               <View style={styles.section}>
@@ -170,7 +170,7 @@ function StarterPicks({ names }: { names: string[] }) {
     <View style={[styles.starter, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
       <Text style={[styles.starterTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Start with these?</Text>
       <Text style={[styles.starterBody, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
-        Name where your money lives. Then each expense can say which one it came from.
+        Name where your money lives. Then each expense can say which one it came from. They&apos;re just labels, so there&apos;s no balance to keep up.
       </Text>
       <View style={styles.chipRow}>
         {choices.map((c, i) => (
