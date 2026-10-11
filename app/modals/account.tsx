@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { View, Text, TextInput, Pressable, ScrollView, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router'
+import * as Haptics from 'expo-haptics'
 import { Alert } from '@/src/components/ui/AlertHost'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
@@ -12,6 +13,9 @@ import { BottomSheet } from '@/src/components/shared/Modal'
 import { ACCOUNT_TYPE_EMOJI, accountEmoji } from '@/src/components/shared/AccountChips'
 import { splitEmoji } from '@/src/lib/emoji'
 import type { AccountType } from '@/src/types'
+
+const tick = () => Haptics.selectionAsync().catch(() => {})
+const buzzError = () => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {})
 
 function str(v: string | string[] | undefined): string {
   return typeof v === 'string' ? v : ''
@@ -51,7 +55,10 @@ export default function AccountModal() {
 
   function handleSubmit() {
     if (!canSubmit || busy) return
-    const onError = (err: unknown) => Alert.alert("Couldn't save", accountErrorMessage(err))
+    const onError = (err: unknown) => {
+      buzzError()
+      Alert.alert("Couldn't save", accountErrorMessage(err))
+    }
     if (existing) update.mutate({ id: existing.id, updates: { name: name.trim(), type } }, { onSuccess: () => setSaved(true), onError })
     else add.mutate({ name: name.trim(), type }, { onSuccess: () => setSaved(true), onError })
   }
@@ -67,6 +74,7 @@ export default function AccountModal() {
         },
         onError: (err) => {
           setConfirmArchive(false)
+          buzzError()
           Alert.alert("Couldn't archive this", accountErrorMessage(err))
         },
       },
@@ -121,7 +129,10 @@ export default function AccountModal() {
               return (
                 <Pressable
                   key={t.value}
-                  onPress={() => setType(t.value)}
+                  onPress={() => {
+                    if (!selected) tick()
+                    setType(t.value)
+                  }}
                   accessibilityRole="radio"
                   accessibilityState={{ checked: selected }}
                   style={[styles.chip, { backgroundColor: selected ? tokens.accent : tokens.pillBg, borderColor: selected ? tokens.accent : tokens.border }]}
@@ -153,7 +164,10 @@ export default function AccountModal() {
 
         {existing && !saved ? (
           <View style={[styles.dangerZone, { borderTopColor: tokens.border }]}>
-            <Pressable onPress={() => setConfirmArchive(true)} disabled={busy} hitSlop={8} style={{ paddingVertical: 10, opacity: busy ? 0.5 : 1 }}>
+            <Pressable onPress={() => {
+              tick()
+              setConfirmArchive(true)
+            }} disabled={busy} hitSlop={8} style={{ paddingVertical: 10, opacity: busy ? 0.5 : 1 }}>
               <Text style={{ color: tokens.coral, fontSize: 14, fontFamily: fontFamily.bodySemiBold, textAlign: 'center' }}>Archive</Text>
             </Pressable>
           </View>

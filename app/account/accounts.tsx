@@ -4,6 +4,7 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ArrowLeft, Pencil, Plus, ReceiptText, Trash2 } from "lucide-react-native";
 import Reanimated from "react-native-reanimated";
+import * as Haptics from "expo-haptics";
 import { OfflineScreen } from "@/src/components/shared/OfflineScreen";
 import { useOnline } from "@/src/lib/netStatus";
 import { useTheme } from "@/src/theme/ThemeProvider";
@@ -26,6 +27,8 @@ const LOADING_PHRASES = ["Opening your wallet…", "Shaking the piggy bank…", 
 const MOUNT_DELAY = 100;
 const ITEM_STAGGER = 45;
 const STAGGER_CAP = 6;
+const tick = () => Haptics.selectionAsync().catch(() => {});
+const buzzError = () => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
 
 /**
  * Name where money lives so each expense can say which one it came from.
@@ -54,9 +57,13 @@ export default function AccountsScreen() {
     update.mutate(
       { id: deleting.id, updates: { archived: true } },
       {
-        onSuccess: () => setDeleting(null),
+        onSuccess: () => {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+          setDeleting(null);
+        },
         onError: (err) => {
           setDeleting(null);
+          buzzError();
           Alert.alert("Couldn't delete this", accountErrorMessage(err));
         },
       },
@@ -66,7 +73,13 @@ export default function AccountsScreen() {
   function restore(a: AccountRow) {
     update.mutate(
       { id: a.id, updates: { archived: false } },
-      { onError: (err) => Alert.alert("Couldn't restore this", accountErrorMessage(err)) },
+      {
+        onSuccess: () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}),
+        onError: (err) => {
+          buzzError();
+          Alert.alert("Couldn't restore this", accountErrorMessage(err));
+        },
+      },
     );
   }
 
@@ -82,7 +95,7 @@ export default function AccountsScreen() {
             Where your money lives
           </Text>
         </View>
-        <Pressable onPress={() => router.push("/modals/account")} accessibilityRole="button" style={[styles.addButton, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
+        <Pressable onPress={() => { tick(); router.push("/modals/account"); }} accessibilityRole="button" style={[styles.addButton, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
           <Icon icon={Plus} size={16} color={tokens.text} />
           <Text style={[styles.addText, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>Add</Text>
         </Pressable>
@@ -181,7 +194,7 @@ function ActionIcon({ icon, label, onPress }: { icon: typeof Pencil; label: stri
   const press = usePressSpring(0.88);
   return (
     <Reanimated.View style={press.style}>
-      <Pressable onPress={onPress} onPressIn={press.onPressIn} onPressOut={press.onPressOut} hitSlop={8} accessibilityRole="button" accessibilityLabel={label}>
+      <Pressable onPress={() => { tick(); onPress(); }} onPressIn={press.onPressIn} onPressOut={press.onPressOut} hitSlop={8} accessibilityRole="button" accessibilityLabel={label}>
         <Icon icon={icon} size={17} color={tokens.text3} />
       </Pressable>
     </Reanimated.View>
@@ -221,6 +234,7 @@ function StarterPicks({ names }: { names: string[] }) {
       for (const c of picked) await add.mutateAsync({ name: c.name, type: c.type });
       setDone(true);
     } catch (err) {
+      buzzError();
       Alert.alert("Couldn't add these", accountErrorMessage(err));
     } finally {
       setSaving(false);
@@ -240,7 +254,10 @@ function StarterPicks({ names }: { names: string[] }) {
             accessibilityRole="checkbox"
             accessibilityState={{ checked: c.picked }}
             accessibilityLabel={c.name}
-            onPress={() => setChoices((all) => all.map((x, j) => (j === i ? { ...x, picked: !x.picked } : x)))}
+            onPress={() => {
+              tick();
+              setChoices((all) => all.map((x, j) => (j === i ? { ...x, picked: !x.picked } : x)));
+            }}
             style={[styles.chip, { backgroundColor: c.picked ? tokens.accent : tokens.pillBg, borderColor: c.picked ? tokens.accent : tokens.border }]}
           >
             <Text style={[styles.chipText, { color: c.picked ? tokens.onAccent : tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
