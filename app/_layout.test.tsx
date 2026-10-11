@@ -7,6 +7,9 @@ import { getUser, type UserProfile } from '@/src/api/account'
 import * as SplashScreen from 'expo-splash-screen'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { QueryClient } from '@tanstack/react-query'
+import { Platform } from 'react-native'
+import { requestWidgetUpdate } from 'react-native-android-widget'
+import { SignInWidget } from '@/src/widgets/SignInWidget'
 
 // Capture the layout's module-level client for cleanup. Disable GC timers too:
 // an in-flight fetch can schedule GC again after the client has been cleared.
@@ -103,6 +106,7 @@ jest.mock('@/src/api/accessMode', () => ({
   currentUserId: jest.fn(() => 'user_test'),
 }))
 jest.mock('@/src/api/account', () => ({ getUser: jest.fn(), syncTimezone: jest.fn() }))
+jest.mock('react-native-android-widget', () => ({ requestWidgetUpdate: jest.fn(() => Promise.resolve()) }))
 
 const mockInitAccessMode = initAccessMode as jest.MockedFunction<typeof initAccessMode>
 const mockGetUser = getUser as jest.MockedFunction<typeof getUser>
@@ -167,6 +171,23 @@ describe('RootLayout', () => {
 
     expect(await AsyncStorage.getItem('mc-pending-expenses:user_test')).toBe('queued')
     expect(await AsyncStorage.getItem('mc-failed-expenses:user_test')).toBe('failed')
+  })
+
+  it('repaints every home-screen widget with the sign-in surface on sign-out', async () => {
+    jest.replaceProperty(Platform, 'OS', 'android')
+    mockInitAccessMode.mockReturnValue(new Promise(() => {}))
+    mockGetUser.mockReturnValue(new Promise(() => {}))
+    render(<RootLayout />)
+
+    const subs = (accessMode.subscribeLogout as jest.Mock).mock.calls.map(([fn]) => fn as (token: string) => Promise<void>)
+    await act(async () => { await Promise.all(subs.map(fn => fn('token'))) })
+
+    const updates = jest.mocked(requestWidgetUpdate).mock.calls.map(([opts]) => opts)
+    expect(updates.map(u => u.widgetName).sort()).toEqual(['Envelope', 'EnvelopeBar', 'EnvelopeMini'])
+    for (const u of updates) {
+      const tree = u.renderWidget({ width: 200, height: 200 } as never) as { light: { type: unknown } }
+      expect(tree.light.type).toBe(SignInWidget)
+    }
   })
 
   it('renders the navigator on the first render, before fonts or auth resolve', () => {
