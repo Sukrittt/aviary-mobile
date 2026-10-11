@@ -348,6 +348,14 @@ export default function ActivityScreen() {
     setPage(1);
   }, [selectedDate, period, customRange.from, customRange.to, selectedCategory, selectedAccount, search]);
 
+  // Deleting the last page's only row shrinks pageCount under us; step back
+  // to the new last page instead of stranding the user on an empty one.
+  const serverPageCount = expensesQ.data?.pageCount ?? 0;
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (serverPageCount > 0 && page > serverPageCount) setPage(serverPageCount);
+  }, [page, serverPageCount]);
+
   // Which rows are on screen; a bulk delete that finishes after it changed
   // mustn't reselect its failures into a view that no longer shows them.
   const viewKey = [page, selectedDate, period, customRange.from, customRange.to, selectedCategory, selectedAccount, search].join("|");
