@@ -261,22 +261,22 @@ export default function MoreScreen() {
                 iconColor={tokens.mint}
                 onPress={openScanPicker}
               />}
-              <FeatureCard
+              {!isHidden(user, 'income') && <FeatureCard
                 icon={Wallet}
                 label="Income"
                 blurb="What comes in and when"
                 iconBg={tokens.mintSoft}
                 iconColor={tokens.mint}
                 onPress={() => router.push('/account/income')}
-              />
-              <FeatureCard
+              />}
+              {!isHidden(user, 'accounts') && <FeatureCard
                 icon={Landmark}
                 label="Accounts"
                 blurb="Bank, card and cash"
                 iconBg={tokens.accentSoft}
                 iconColor={tokens.accent}
                 onPress={() => router.push('/account/accounts')}
-              />
+              />}
               {!isHidden(user, 'recurring') && <FeatureCard
                 icon={Repeat}
                 label="Recurring expenses"
