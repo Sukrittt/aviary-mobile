@@ -377,6 +377,15 @@ describe('More tab · hidden features', () => {
     expect(getByText('2 hidden')).toBeTruthy()
   })
 
+  it('drops the Income and Accounts cards when hidden', async () => {
+    mockUseUser.mockReturnValue({ data: { email: 'a@b.com', emailVerified: true, hiddenFeatures: ['income', 'accounts'] } })
+    const { queryByText, getByText } = renderWithProviders(<MoreScreen />)
+    await flushCategories()
+    expect(queryByText('Income')).toBeNull()
+    expect(queryByText('Accounts')).toBeNull()
+    expect(getByText('Insights')).toBeTruthy()
+  })
+
   it('opens the Features screen from Preferences', async () => {
     const { getByText } = renderWithProviders(<MoreScreen />)
     await flushCategories()

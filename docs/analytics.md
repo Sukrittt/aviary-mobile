@@ -49,6 +49,8 @@ category names, notification text or raw error messages in any property.
 | `money_brain_answered` | `ok`, `seconds`, `reason` |
 | `ai_allowance_hit` | `feature`: brief, chat, scan |
 | `recurring_created`, `recurring_suggestion_accepted`, `recurring_suggestion_dismissed` | |
+| `income_added`, `recurring_income_created` | one-off income, a new recurring income |
+| `account_created` | |
 | `holding_added` | |
 | `subscription_added` | `billing_cycle` |
 | `wrapped_opened` | `muted` |

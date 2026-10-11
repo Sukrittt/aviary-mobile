@@ -7,6 +7,7 @@ type ExpenseDetails = {
   date: string
   notes: string
   paymentMethod: string
+  accountId?: string
 }
 
 /** Every create entry point must preserve the identity used by online/offline Undo. */
