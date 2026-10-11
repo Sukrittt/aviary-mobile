@@ -20,7 +20,6 @@ jest.mock('@/src/hooks/useUser', () => ({
 jest.mock('@/src/api/accessMode', () => ({
   ...jest.requireActual('@/src/api/accessMode'),
   clearAccess: jest.fn(),
-  currentUserId: () => 'user_a',
 }))
 jest.mock('@/src/lib/pendingExpenses', () => ({ clearAll: jest.fn(() => Promise.resolve()) }))
 jest.mock('@/src/api/account', () => ({
@@ -39,9 +38,9 @@ it('lets you retry the resend when it fails', async () => {
   expect(resendEmailCode).toHaveBeenCalledTimes(2)
 })
 
-// The logout hook keeps the queue for re-sign-in. After a delete nothing can
-// ever sync it, so it has to go before clearAccess forgets whose it is.
-it('wipes the offline queue before signing out a deleted account', async () => {
+// Deletion has a restore grace window. Signing back in and restoring syncs the
+// offline queue, so delete must leave it on disk.
+it('keeps the offline queue when deleting the account', async () => {
   ;(deleteAccount as jest.Mock).mockResolvedValue(undefined)
   const { getAllByText, getByPlaceholderText } = renderWithProviders(<SecurityScreen />)
   fireEvent.press(getAllByText('Delete account')[1])
@@ -50,8 +49,5 @@ it('wipes the offline queue before signing out a deleted account', async () => {
   fireEvent.press(buttons[buttons.length - 1])
 
   await waitFor(() => expect(clearAccess).toHaveBeenCalled())
-  expect(clearAll).toHaveBeenCalledWith('user_a')
-  expect((clearAll as jest.Mock).mock.invocationCallOrder[0]).toBeLessThan(
-    (clearAccess as jest.Mock).mock.invocationCallOrder[0],
-  )
+  expect(clearAll).not.toHaveBeenCalled()
 })
