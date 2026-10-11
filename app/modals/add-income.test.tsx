@@ -3,6 +3,7 @@ import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { getBudgets, updateBudget } from '@/src/api/budgets'
 import { addIncome } from '@/src/api/incomes'
 import { getAccounts } from '@/src/api/accounts'
+import { getCategories } from '@/src/api/categories'
 import AddIncomeModal from './add-income'
 import { currentMonthKey } from '@/src/lib/envelope'
 
@@ -15,6 +16,7 @@ jest.mock('@/src/api/budgets', () => ({
 }))
 jest.mock('@/src/api/incomes', () => ({ ...jest.requireActual('@/src/api/incomes'), addIncome: jest.fn() }))
 jest.mock('@/src/api/accounts', () => ({ ...jest.requireActual('@/src/api/accounts'), getAccounts: jest.fn() }))
+jest.mock('@/src/api/categories', () => ({ getCategories: jest.fn() }))
 
 const mockBack = jest.fn()
 jest.mock('expo-router', () => ({
@@ -28,6 +30,7 @@ beforeEach(() => {
   jest.clearAllMocks()
   ;(addIncome as jest.Mock).mockResolvedValue({ id: 'i1' })
   ;(getAccounts as jest.Mock).mockResolvedValue([])
+  ;(getCategories as jest.Mock).mockResolvedValue([])
   ;(getBudgets as jest.Mock).mockResolvedValue([
     { month: MONTH, category: '__income__', assigned: '100000', rolled_over: '0', extra: '500', version: 3 },
   ])
@@ -70,4 +73,28 @@ it('keeps the screen open with a written error when saving fails', async () => {
   })
   expect(await findByText("Couldn't save. Check your connection and try again.")).toBeTruthy()
   expect(mockBack).not.toHaveBeenCalled()
+})
+
+it('previews Ready to Assign plus the typed amount, not income plus it', async () => {
+  ;(getBudgets as jest.Mock).mockResolvedValue([
+    { month: MONTH, category: '__income__', assigned: '50000', rolled_over: '0', extra: '0', version: 1 },
+    { month: MONTH, category: 'Food', assigned: '40000', rolled_over: '0', extra: '0', version: 1 },
+  ])
+  ;(getCategories as jest.Mock).mockResolvedValue([{ name: 'Food', group: 'Everyday' }])
+  const { getByLabelText, findByText } = renderWithProviders(<AddIncomeModal />)
+  await findByText('₹50,000 monthly')
+  typeAmount(getByLabelText, '5000')
+  expect(await findByText('Ready to Assign ₹15,000 · this month only')).toBeTruthy()
+})
+
+it('holds the Ready to Assign preview until categories load', async () => {
+  ;(getBudgets as jest.Mock).mockResolvedValue([
+    { month: MONTH, category: '__income__', assigned: '50000', rolled_over: '0', extra: '0', version: 1 },
+    { month: MONTH, category: 'Food', assigned: '40000', rolled_over: '0', extra: '0', version: 1 },
+  ])
+  ;(getCategories as jest.Mock).mockReturnValue(new Promise(() => {}))
+  const { getByLabelText, findByText, queryByText } = renderWithProviders(<AddIncomeModal />)
+  await findByText('₹50,000 monthly')
+  typeAmount(getByLabelText, '5000')
+  expect(queryByText(/Ready to Assign/)).toBeNull()
 })
