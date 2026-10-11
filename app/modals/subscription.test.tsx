@@ -7,13 +7,14 @@ const mockAccept = jest.fn()
 const mockAdd = { isPending: false, mutate: jest.fn() }
 const mockIdleMutation = { isPending: false, mutate: jest.fn() }
 let mockParams: Record<string, string> = {}
+let mockSubs: Record<string, unknown>[] = []
 
 jest.mock('expo-router', () => ({
   useRouter: () => ({ back: mockBack }),
   useLocalSearchParams: () => mockParams,
 }))
 jest.mock('@/src/hooks/useSubscriptions', () => ({
-  useSubscriptions: () => ({ data: [] }),
+  useSubscriptions: () => ({ data: mockSubs }),
   useAddSubscription: () => mockAdd,
   useUpdateSubscription: () => mockIdleMutation,
   useCancelSubscription: () => mockIdleMutation,
@@ -27,6 +28,7 @@ jest.mock('@/src/components/shared/CategoryPickerSheet', () => ({ CategoryPicker
 beforeEach(() => {
   jest.clearAllMocks()
   jest.useFakeTimers({ legacyFakeTimers: false })
+  mockSubs = []
   mockParams = {
     suggestionId: 'suggestion-1',
     service: 'Netflix',
@@ -62,4 +64,18 @@ it('submits a prefilled suggestion as a new subscription and retires it after su
 
   act(() => mockAdd.mutate.mock.calls[0][1].onSuccess())
   expect(mockAccept).toHaveBeenCalledWith('suggestion-1')
+})
+
+it('keeps in-progress edits when the list refetches', () => {
+  const row = { service: 'Netflix', amount_inr: '649', billing_cycle: 'monthly', next_due_date: '2026-10-05', status: 'active', category: 'Entertainment' }
+  mockParams = { service: 'Netflix' }
+  mockSubs = [row]
+  const utils = renderWithProviders(<SubscriptionModal />)
+
+  fireEvent.changeText(utils.getByDisplayValue('649'), '799')
+  // Refetch lands: same row, new object. Any re-render now sees it.
+  mockSubs = [{ ...row }]
+  fireEvent.changeText(utils.getByDisplayValue('Netflix'), 'Netflix Premium')
+
+  expect(utils.getByDisplayValue('799')).toBeTruthy()
 })
