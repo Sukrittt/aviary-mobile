@@ -627,6 +627,15 @@ describe('accounts', () => {
     expect(mockPush).toHaveBeenCalledWith('/modals/account')
   })
 
+  it('keeps the add account button next to existing accounts', async () => {
+    mockAccounts = [{ id: 'hdfc', name: 'HDFC', type: 'bank', archived: false, created_at: '1' }]
+    const utils = setup()
+    fireEvent.press(utils.getByText('More'))
+    await utils.findByLabelText('🏦 HDFC')
+    fireEvent.press(utils.getByLabelText('Add account'))
+    expect(mockPush).toHaveBeenCalledWith('/modals/account')
+  })
+
   it('sends no account while the user has none', async () => {
     ;(postExpensePayload as jest.Mock).mockResolvedValue({ id: 'srv1', timestamp: '2026-09-04T01:24:00' })
     const utils = setup()

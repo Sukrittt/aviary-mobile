@@ -769,33 +769,34 @@ export default function LogExpenseScreen() {
           <DatePicker mode="single" value={date} onChange={setDate} />
 
           <View style={{ gap: space.sm }}>
-            <Text
-              style={[
-                styles.fieldLabel,
-                { color: tokens.text3, fontFamily: fontFamily.bodySemiBold },
-              ]}
-            >
-              Paid from
-            </Text>
-            {accounts.length > 0 ? (
-              // Accounts replace the toggle once there are some; the server
-              // takes the payment method from the account's type.
-              <AccountChips accounts={accounts} value={accountId} onChange={setAccountPick} allowNone={isEdit && !accountId} showLabel={false} label="Paid from" />
-            ) : accountsQ.isSuccess && (
-              // No accounts yet: offer one right here. A new one is the only
-              // live account, so it becomes the default pick on its own.
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => {
-                  Keyboard.dismiss();
-                  router.push("/modals/account");
-                }}
-                disabled={!online}
-                style={{ alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: space.xs, paddingHorizontal: space.md, paddingVertical: space.sm, borderRadius: radius.full, backgroundColor: tokens.inputBg, opacity: online ? 1 : 0.5 }}
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <Text
+                style={[
+                  styles.fieldLabel,
+                  { color: tokens.text3, fontFamily: fontFamily.bodySemiBold },
+                ]}
               >
-                <Plus size={16} color={tokens.accentInk} />
-                <Text style={{ color: tokens.accentInk, fontFamily: fontFamily.bodySemiBold }}>Add account</Text>
-              </Pressable>
+                Paid from
+              </Text>
+              {accountsQ.isSuccess && (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Add account"
+                  onPress={() => {
+                    Keyboard.dismiss();
+                    router.push("/modals/account");
+                  }}
+                  disabled={!online}
+                  style={{ marginLeft: "auto", flexDirection: "row", alignItems: "center", gap: space.xs, paddingHorizontal: space.md, paddingVertical: space.sm, borderRadius: radius.full, backgroundColor: tokens.inputBg, opacity: online ? 1 : 0.5 }}
+                >
+                  <Plus size={16} color={tokens.accentInk} />
+                  <Text style={{ color: tokens.accentInk, fontFamily: fontFamily.bodySemiBold }}>Add</Text>
+                </Pressable>
+              )}
+            </View>
+            {accounts.length > 0 && (
+              // The server takes the payment method from the account's type.
+              <AccountChips accounts={accounts} value={accountId} onChange={setAccountPick} allowNone={isEdit && !accountId} showLabel={false} label="Paid from" />
             )}
           </View>
 
