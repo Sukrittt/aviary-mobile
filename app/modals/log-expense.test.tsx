@@ -252,6 +252,39 @@ it('preserves an edit draft on conflict and only reapplies changed fields after 
   expect(updateExpense).toHaveBeenLastCalledWith('srv1', 'ts', 'Lunch', 100, { new_item: 'Dinner' }, 1)
 })
 
+it('saves a payment method change on its own when editing', async () => {
+  const utils = setup({ id: 'srv1', version: '0', timestamp: 'ts', item: 'Lunch', amountInr: '100', category: 'Groceries', date: '2026-09-18', paymentMethod: 'bank' })
+  ;(updateExpense as jest.Mock).mockResolvedValueOnce(undefined)
+  fireEvent.press(utils.getByText('More'))
+  fireEvent.press(utils.getByText('Credit Card'))
+  await act(async () => { (globalThis as any).__submit(); await Promise.resolve(); await Promise.resolve() })
+  expect(updateExpense).toHaveBeenLastCalledWith('srv1', 'ts', 'Lunch', 100, { new_payment_method: 'credit_card' }, 0)
+})
+
+it('saves a notes change on its own when editing', async () => {
+  const utils = setup({ id: 'srv1', version: '0', timestamp: 'ts', item: 'Lunch', amountInr: '100', category: 'Groceries', date: '2026-09-18', notes: '' })
+  ;(updateExpense as jest.Mock).mockResolvedValueOnce(undefined)
+  fireEvent.press(utils.getByText('More'))
+  fireEvent.changeText(utils.getByPlaceholderText('Notes'), '  split with Sam ')
+  await act(async () => { (globalThis as any).__submit(); await Promise.resolve(); await Promise.resolve() })
+  expect(updateExpense).toHaveBeenLastCalledWith('srv1', 'ts', 'Lunch', 100, { new_notes: 'split with Sam' }, 0)
+})
+
+it('keeps a conflicting edit to payment method and notes after review', async () => {
+  const utils = setup({ id: 'srv1', version: '0', timestamp: 'ts', item: 'Lunch', amountInr: '100', category: 'Groceries', date: '2026-09-18', paymentMethod: 'bank', notes: '' })
+  ;(updateExpense as jest.Mock).mockRejectedValueOnce(new ExpenseWriteError(409, 'Changed elsewhere', {
+    id: 'srv1', version: 1, item: 'Lunch', amount_inr: '150', date: '2026-09-18', category: 'Groceries', payment_method: 'bank', notes: '',
+  } as ExpenseRow)).mockResolvedValueOnce(undefined)
+  fireEvent.press(utils.getByText('More'))
+  fireEvent.press(utils.getByText('Credit Card'))
+  fireEvent.changeText(utils.getByPlaceholderText('Notes'), 'work trip')
+  await act(async () => { (globalThis as any).__submit(); await Promise.resolve(); await Promise.resolve() })
+  await act(async () => { jest.advanceTimersByTime(1) })
+  fireEvent.press(utils.getByText('Continue with my changes'))
+  await act(async () => { (globalThis as any).__submit(); await Promise.resolve(); await Promise.resolve() })
+  expect(updateExpense).toHaveBeenLastCalledWith('srv1', 'ts', 'Lunch', 100, { new_payment_method: 'credit_card', new_notes: 'work trip' }, 1)
+})
+
 it('keeps the draft and shows a deleted-elsewhere message', async () => {
   const utils = setup({ id: 'srv1', version: '0', timestamp: 'ts', item: 'Lunch', amountInr: '100', category: 'Groceries', date: '2026-09-18' })
   ;(updateExpense as jest.Mock).mockRejectedValueOnce(new ExpenseWriteError(404, 'This transaction was deleted on another device.'))
@@ -623,6 +656,38 @@ describe('accounts', () => {
       await Promise.resolve()
     })
     expect(updateExpense).toHaveBeenCalledWith('e1', '2026-09-04T10:00:00', 'Milk', 450, { new_account_id: 'cash' }, 0)
+  })
+
+  it('an edit to only the notes sends just the notes, never a payment method', async () => {
+    mockAccounts = [{ id: 'hdfc', name: 'HDFC', type: 'bank', archived: false, created_at: '1' }]
+    ;(updateExpense as jest.Mock).mockResolvedValue(undefined)
+    const utils = setup({ id: 'e1', version: '0', timestamp: 'ts', item: 'Milk', amountInr: '450', category: 'Groceries', date: '2026-09-04', notes: '', paymentMethod: 'bank', accountId: 'hdfc' })
+    fireEvent.press(utils.getByText('More'))
+    await utils.findByLabelText('🏦 HDFC')
+    fireEvent.changeText(utils.getByPlaceholderText('Notes'), 'for the week')
+    await act(async () => { (globalThis as any).__submit(); await Promise.resolve(); await Promise.resolve() })
+    expect(updateExpense).toHaveBeenCalledWith('e1', 'ts', 'Milk', 450, { new_notes: 'for the week' }, 0)
+  })
+
+  it('using the latest version after a conflict resets the account to the saved one', async () => {
+    mockAccounts = [
+      { id: 'hdfc', name: 'HDFC', type: 'bank', archived: false, created_at: '1' },
+      { id: 'cash', name: 'Wallet', type: 'cash', archived: false, created_at: '2' },
+    ]
+    ;(updateExpense as jest.Mock).mockRejectedValueOnce(new ExpenseWriteError(409, 'Changed elsewhere', {
+      ...row('Groceries', 'hdfc', '2026-09-04'), id: 'e1', version: 1, item: 'Milk', amount_inr: '500',
+    }))
+    const utils = setup({ id: 'e1', version: '0', timestamp: 'ts', item: 'Milk', amountInr: '450', category: 'Groceries', date: '2026-09-04', notes: '', paymentMethod: 'bank', accountId: 'hdfc' })
+    fireEvent.press(utils.getByText('More'))
+    fireEvent.press(await utils.findByLabelText('💵 Wallet'))
+    await act(async () => { (globalThis as any).__submit(); await Promise.resolve(); await Promise.resolve() })
+    await act(async () => { jest.advanceTimersByTime(1) })
+    expect(utils.getByLabelText('Paid from, with your changes: Wallet')).toBeTruthy()
+    fireEvent.press(utils.getByText('Use latest instead'))
+    expect(utils.getByLabelText('🏦 HDFC').props.accessibilityState).toMatchObject({ checked: true })
+    ;(updateExpense as jest.Mock).mockClear()
+    await act(async () => { (globalThis as any).__submit(); await Promise.resolve(); await Promise.resolve() })
+    expect(updateExpense).not.toHaveBeenCalled()
   })
 })
 

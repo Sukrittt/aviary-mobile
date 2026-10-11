@@ -136,6 +136,7 @@ export async function updateExpense(
     new_amount_inr?: string
     new_date?: string
     new_payment_method?: string
+    new_notes?: string
     /** '' clears the account. */
     new_account_id?: string
     category?: string
