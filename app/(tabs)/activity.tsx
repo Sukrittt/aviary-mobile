@@ -350,7 +350,8 @@ export default function ActivityScreen() {
 
   // Deleting the last page's only row shrinks pageCount under us; step back
   // to the new last page instead of stranding the user on an empty one.
-  const serverPageCount = expensesQ.data?.pageCount ?? 0;
+  // Placeholder data is the previous query's, so its count says nothing here.
+  const serverPageCount = expensesQ.isPlaceholderData ? 0 : expensesQ.data?.pageCount ?? 0;
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (serverPageCount > 0 && page > serverPageCount) setPage(serverPageCount);
