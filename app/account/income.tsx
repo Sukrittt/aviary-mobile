@@ -3,7 +3,7 @@ import { useState } from "react";
 import { View, Text, Pressable, ScrollView, RefreshControl, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ArrowLeft, Plus, Repeat } from "lucide-react-native";
+import { ArrowLeft, Pencil, Plus, Repeat, Trash2 } from "lucide-react-native";
 import Reanimated from "react-native-reanimated";
 import { OfflineScreen } from "@/src/components/shared/OfflineScreen";
 import { useOnline } from "@/src/lib/netStatus";
@@ -240,9 +240,14 @@ export default function IncomeScreen() {
                         </Text>
                       </View>
                       <Text style={[styles.rowAmount, { color: tokens.mint, fontFamily: fontFamily.bodyBold }]}>+{formatCurrency(Number(row.amount) || 0, hideAmounts)}</Text>
-                      <Pressable onPress={() => setDeleting(row)} hitSlop={10} accessibilityRole="button" accessibilityLabel={`Delete ${row.label}`}>
-                        <Text style={[styles.restore, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>Delete</Text>
-                      </Pressable>
+                      <View style={styles.rowActions}>
+                        <Pressable onPress={() => router.push(`/modals/add-income?id=${encodeURIComponent(row.id)}`)} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Edit ${row.label}`}>
+                          <Pencil size={17} color={tokens.text3} />
+                        </Pressable>
+                        <Pressable onPress={() => setDeleting(row)} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Delete ${row.label}`}>
+                          <Trash2 size={17} color={tokens.text3} />
+                        </Pressable>
+                      </View>
                     </View>
                   );
                 })
@@ -408,7 +413,7 @@ const styles = StyleSheet.create({
   primary: { borderRadius: 14, paddingVertical: 14, alignItems: "center", justifyContent: "center", marginTop: 4 },
   primaryText: { fontSize: 15 },
   hint: { fontSize: 12, lineHeight: 16 },
-  restore: { fontSize: 13 },
+  rowActions: { flexDirection: "row", alignItems: "center", gap: 18, marginLeft: 8 },
   sheetTitle: { fontSize: 18, marginBottom: 12 },
   sheetBody: { fontSize: 13, lineHeight: 18 },
   sheetButtonRow: { flexDirection: "row", gap: 12, marginTop: 16 },

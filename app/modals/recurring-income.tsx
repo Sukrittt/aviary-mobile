@@ -241,7 +241,7 @@ export default function RecurringIncomeModal() {
       <BottomSheet visible={confirmDelete} onClose={() => !remove.isPending && setConfirmDelete(false)}>
         <Text style={[styles.sheetTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Delete income</Text>
         <Text style={[styles.sheetBody, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
-          {`Remove "${existing?.label ?? ''}"? Paydays already recorded stay put.`}
+          {`Remove "${existing?.label ?? ''}"? It still counts this month and stops from next month.`}
         </Text>
         <View style={styles.sheetButtonRow}>
           <Pressable onPress={() => setConfirmDelete(false)} disabled={remove.isPending} style={[styles.sheetCancelButton, { backgroundColor: tokens.pillBg, opacity: remove.isPending ? 0.5 : 1 }]}>

@@ -1,7 +1,7 @@
 import { act, fireEvent, waitFor } from '@testing-library/react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { getBudgets, updateBudget } from '@/src/api/budgets'
-import { addIncome } from '@/src/api/incomes'
+import { addIncome, getIncomes, updateIncome } from '@/src/api/incomes'
 import { getAccounts } from '@/src/api/accounts'
 import { getCategories } from '@/src/api/categories'
 import AddIncomeModal from './add-income'
@@ -14,20 +14,24 @@ jest.mock('@/src/api/budgets', () => ({
   deleteBudget: jest.fn(),
   transferBudget: jest.fn(),
 }))
-jest.mock('@/src/api/incomes', () => ({ ...jest.requireActual('@/src/api/incomes'), addIncome: jest.fn() }))
+jest.mock('@/src/api/incomes', () => ({ ...jest.requireActual('@/src/api/incomes'), addIncome: jest.fn(), getIncomes: jest.fn(), updateIncome: jest.fn() }))
 jest.mock('@/src/api/accounts', () => ({ ...jest.requireActual('@/src/api/accounts'), getAccounts: jest.fn() }))
 jest.mock('@/src/api/categories', () => ({ getCategories: jest.fn() }))
 
 const mockBack = jest.fn()
+let mockParams: Record<string, string> = {}
 jest.mock('expo-router', () => ({
   useRouter: () => ({ back: mockBack, push: jest.fn(), replace: jest.fn(), navigate: jest.fn() }),
-  useLocalSearchParams: () => ({}),
+  useLocalSearchParams: () => mockParams,
 }))
 
 const MONTH = currentMonthKey()
 
 beforeEach(() => {
   jest.clearAllMocks()
+  mockParams = {}
+  ;(getIncomes as jest.Mock).mockResolvedValue([])
+  ;(updateIncome as jest.Mock).mockResolvedValue(5)
   ;(addIncome as jest.Mock).mockResolvedValue({ id: 'i1' })
   ;(getAccounts as jest.Mock).mockResolvedValue([])
   ;(getCategories as jest.Mock).mockResolvedValue([])
@@ -84,7 +88,7 @@ it('previews Ready to Assign plus the typed amount, not income plus it', async (
   const { getByLabelText, findByText } = renderWithProviders(<AddIncomeModal />)
   await findByText('₹50,000 monthly')
   typeAmount(getByLabelText, '5000')
-  expect(await findByText('Ready to Assign ₹15,000 · this month only')).toBeTruthy()
+  expect(await findByText('Ready to Assign ₹15,000 · This month only')).toBeTruthy()
 })
 
 it('holds the Ready to Assign preview until categories load', async () => {
@@ -97,4 +101,20 @@ it('holds the Ready to Assign preview until categories load', async () => {
   await findByText('₹50,000 monthly')
   typeAmount(getByLabelText, '5000')
   expect(queryByText(/Ready to Assign/)).toBeNull()
+})
+
+it('edits a recorded income in place, keeping its name when the field is cleared', async () => {
+  mockParams = { id: 'r1' }
+  ;(getIncomes as jest.Mock).mockResolvedValue([
+    { id: 'r1', version: 4, date: `${MONTH}-05`, amount: '1000', label: 'Bonus', notes: '', account_id: '', recurring_id: '', source: 'manual', counted: 'extra', created_at: '' },
+  ])
+  const { getByLabelText, getByText, findByText } = renderWithProviders(<AddIncomeModal />)
+  expect(await findByText('Edit income')).toBeTruthy()
+  fireEvent.press(getByLabelText('5'))
+  fireEvent.changeText(getByLabelText('What was it'), '')
+  await act(async () => {
+    fireEvent.press(getByText('Save'))
+  })
+  expect(updateIncome).toHaveBeenCalledWith('r1', 4, { amount: 10005, label: 'Bonus' })
+  expect(addIncome).not.toHaveBeenCalled()
 })
