@@ -9,7 +9,8 @@ import { useAccounts, useAddAccount, useUpdateAccount } from '@/src/hooks/useAcc
 import { ACCOUNT_TYPES, accountErrorMessage } from '@/src/lib/accounts'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { BottomSheet } from '@/src/components/shared/Modal'
-import { ACCOUNT_TYPE_EMOJI } from '@/src/components/shared/AccountChips'
+import { ACCOUNT_TYPE_EMOJI, accountEmoji } from '@/src/components/shared/AccountChips'
+import { splitEmoji } from '@/src/lib/emoji'
 import type { AccountType } from '@/src/types'
 
 function str(v: string | string[] | undefined): string {
@@ -92,6 +93,10 @@ export default function AccountModal() {
       <ScrollView contentContainerStyle={[styles.body, { paddingBottom: insets.bottom + 32 }]} keyboardShouldPersistTaps="handled">
         <View style={styles.field}>
           <Text style={[styles.fieldLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>Name</Text>
+          <View style={styles.nameRow}>
+          <View style={[styles.swatch, { backgroundColor: tokens.inputBg, borderColor: tokens.border }]}>
+            <Text style={styles.swatchEmoji}>{accountEmoji({ name, type })}</Text>
+          </View>
           <TextInput
             value={name}
             onChangeText={setName}
@@ -99,9 +104,13 @@ export default function AccountModal() {
             placeholderTextColor={tokens.text3}
             maxLength={30}
             accessibilityLabel="Name"
-            style={[styles.input, { backgroundColor: tokens.inputBg, borderColor: tokens.border, color: tokens.text, fontFamily: fontFamily.bodyMedium }]}
+            style={[styles.input, { flex: 1, backgroundColor: tokens.inputBg, borderColor: tokens.border, color: tokens.text, fontFamily: fontFamily.bodyMedium }]}
             autoFocus={!id}
           />
+          </View>
+          {name.trim() !== '' && !splitEmoji(name).icon && (
+            <Text style={[styles.hint, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>💡 Tip: start the name with an emoji, like 🐷 Savings, to give it its own icon.</Text>
+          )}
         </View>
 
         <View style={styles.field}>
@@ -170,6 +179,9 @@ export default function AccountModal() {
 }
 
 const styles = StyleSheet.create({
+  nameRow: { flexDirection: 'row', gap: 10, alignItems: 'stretch' },
+  swatch: { width: 48, borderWidth: 1, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  swatchEmoji: { fontSize: 22 },
   container: { flex: 1 },
   header: {
     flexDirection: 'row',

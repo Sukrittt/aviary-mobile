@@ -15,7 +15,7 @@ import { CheckIcon } from "@/src/components/shared/CheckIcon";
 import { usePressSpring } from "@/src/components/ui/Button";
 import { Alert } from "@/src/components/ui/AlertHost";
 import { BottomSheet } from "@/src/components/shared/Modal";
-import { ACCOUNT_TYPE_EMOJI } from "@/src/components/shared/AccountChips";
+import { accountEmoji, accountLabel } from "@/src/components/shared/AccountChips";
 import { liveAccounts, useAccounts, useAddAccount, useUpdateAccount } from "@/src/hooks/useAccounts";
 import { useBalanceStatus } from "@/src/hooks/useBalanceCheck";
 import { useRefresh } from "@/src/hooks/useRefresh";
@@ -118,8 +118,8 @@ export default function AccountsScreen() {
                 <Text style={[styles.sectionLabel, { color: tokens.text3, fontFamily: fontFamily.bodyBold }]}>ARCHIVED</Text>
                 {archived.map((a) => (
                   <View key={a.id} style={[styles.rowCard, styles.rowInner, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
-                    <Text style={[styles.emoji, { opacity: 0.5 }]}>{ACCOUNT_TYPE_EMOJI[a.type] ?? "🏦"}</Text>
-                    <Text style={[styles.rowTitle, { flex: 1, color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]} numberOfLines={1}>{a.name}</Text>
+                    <Text style={[styles.emoji, { opacity: 0.5 }]}>{accountEmoji(a)}</Text>
+                    <Text style={[styles.rowTitle, { flex: 1, color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]} numberOfLines={1}>{accountLabel(a)}</Text>
                     <Pressable onPress={() => restore(a)} disabled={update.isPending} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Restore ${a.name}`}>
                       <Text style={[styles.restore, { color: tokens.mint, fontFamily: fontFamily.bodyBold }]}>Restore</Text>
                     </Pressable>
@@ -159,9 +159,9 @@ function AccountItem({ account, index, onEdit, onTransactions, onDelete }: { acc
   ];
   return (
     <PopIn play delay={delay} style={[styles.rowCard, styles.rowInner, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
-      <Text style={styles.emoji}>{ACCOUNT_TYPE_EMOJI[account.type] ?? "🏦"}</Text>
+      <Text style={styles.emoji}>{accountEmoji(account)}</Text>
       <View style={{ flex: 1 }}>
-        <Text style={[styles.rowTitle, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]} numberOfLines={1}>{account.name}</Text>
+        <Text style={[styles.rowTitle, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]} numberOfLines={1}>{accountLabel(account)}</Text>
         <Text style={[styles.rowMeta, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>{ACCOUNT_TYPE_LABEL[account.type] ?? "Account"}</Text>
       </View>
       <View style={styles.rowActions}>
@@ -244,7 +244,7 @@ function StarterPicks({ names }: { names: string[] }) {
             style={[styles.chip, { backgroundColor: c.picked ? tokens.accent : tokens.pillBg, borderColor: c.picked ? tokens.accent : tokens.border }]}
           >
             <Text style={[styles.chipText, { color: c.picked ? tokens.onAccent : tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
-              {ACCOUNT_TYPE_EMOJI[c.type]} {c.name}
+              {accountEmoji(c)} {accountLabel(c)}
             </Text>
           </Pressable>
         ))}

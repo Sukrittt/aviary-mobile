@@ -3,8 +3,19 @@ import * as Haptics from 'expo-haptics'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import type { AccountRow } from '@/src/types'
+import { splitEmoji } from '@/src/lib/emoji'
 
 export const ACCOUNT_TYPE_EMOJI: Record<string, string> = { bank: '🏦', cash: '💵', credit_card: '💳' }
+
+/** A leading emoji in the name is the account's icon, like envelopes; else its type's. */
+export function accountEmoji(a: { name: string; type: string }): string {
+  return splitEmoji(a.name).icon || ACCOUNT_TYPE_EMOJI[a.type] || '🏦'
+}
+
+/** The name without its leading emoji, for next to `accountEmoji`. */
+export function accountLabel(a: { name: string }): string {
+  return splitEmoji(a.name).text
+}
 
 /**
  * One chip per live account. Replaces the Bank / Credit card toggle once a
@@ -29,7 +40,7 @@ export function AccountChips({
   showLabel?: boolean
 }) {
   const { tokens } = useTheme()
-  const options = [...(allowNone ? [{ id: '', label: 'No account' }] : []), ...accounts.map((a) => ({ id: a.id, label: `${ACCOUNT_TYPE_EMOJI[a.type] ?? '🏦'} ${a.name}` }))]
+  const options = [...(allowNone ? [{ id: '', label: 'No account' }] : []), ...accounts.map((a) => ({ id: a.id, label: `${accountEmoji(a)} ${accountLabel(a)}` }))]
   return (
     <View style={styles.wrap}>
       {showLabel && <Text style={[styles.label, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>{label}</Text>}
