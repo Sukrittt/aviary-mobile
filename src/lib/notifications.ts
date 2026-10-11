@@ -113,6 +113,9 @@ function routeFromNotificationResponse(response: NotificationsType.NotificationR
   // notification bodies carry category names and amounts.
   track('notification_opened', {
     target: typeof route === 'string' && route ? route : typeof data?.date === 'string' ? 'activity_date' : 'none',
+    // Come-back nudges: which step of the quiet-spell ladder brought them back.
+    ...(typeof data?.kind === 'string' && { kind: data.kind }),
+    ...(typeof data?.step === 'number' && { step: data.step }),
   })
   if (typeof route === 'string' && route) {
     if (route === '/wrapped' || route === '/recap' || route === '/activity' || route === '/investments') router.push(route)
