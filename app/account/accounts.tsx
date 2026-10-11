@@ -2,7 +2,7 @@ import { useState } from "react";
 import { View, Text, Pressable, ScrollView, RefreshControl, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ArrowLeft, Plus } from "lucide-react-native";
+import { ArrowLeft, Pencil, Plus, ReceiptText, Trash2 } from "lucide-react-native";
 import Reanimated from "react-native-reanimated";
 import { OfflineScreen } from "@/src/components/shared/OfflineScreen";
 import { useOnline } from "@/src/lib/netStatus";
@@ -14,6 +14,7 @@ import { PopIn } from "@/src/components/shared/PopIn";
 import { CheckIcon } from "@/src/components/shared/CheckIcon";
 import { usePressSpring } from "@/src/components/ui/Button";
 import { Alert } from "@/src/components/ui/AlertHost";
+import { BottomSheet } from "@/src/components/shared/Modal";
 import { ACCOUNT_TYPE_EMOJI } from "@/src/components/shared/AccountChips";
 import { liveAccounts, useAccounts, useAddAccount, useUpdateAccount } from "@/src/hooks/useAccounts";
 import { useBalanceStatus } from "@/src/hooks/useBalanceCheck";
@@ -42,8 +43,25 @@ export default function AccountsScreen() {
   const all = accountsQ.data ?? [];
   const live = liveAccounts(all);
   const archived = all.filter((a) => a.archived);
+  const [deleting, setDeleting] = useState<AccountRow | null>(null);
 
   if (!online) return <OfflineScreen />;
+
+  // Deleting archives: the account leaves every picker, its expenses keep the
+  // label, and Restore brings it back.
+  function confirmDelete() {
+    if (!deleting) return;
+    update.mutate(
+      { id: deleting.id, updates: { archived: true } },
+      {
+        onSuccess: () => setDeleting(null),
+        onError: (err) => {
+          setDeleting(null);
+          Alert.alert("Couldn't delete this", accountErrorMessage(err));
+        },
+      },
+    );
+  }
 
   function restore(a: AccountRow) {
     update.mutate(
@@ -82,7 +100,14 @@ export default function AccountsScreen() {
           <>
             <View style={{ gap: 10 }}>
               {live.map((a, i) => (
-                <AccountItem key={a.id} account={a} index={i} onPress={() => router.push(`/modals/account?id=${encodeURIComponent(a.id)}`)} />
+                <AccountItem
+                  key={a.id}
+                  account={a}
+                  index={i}
+                  onEdit={() => router.push(`/modals/account?id=${encodeURIComponent(a.id)}`)}
+                  onTransactions={() => router.push({ pathname: "/(tabs)/activity", params: { account: a.id } })}
+                  onDelete={() => setDeleting(a)}
+                />
               ))}
             </View>
             <Text style={[styles.hint, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>
@@ -105,25 +130,61 @@ export default function AccountsScreen() {
           </>
         )}
       </ScrollView>
+
+      <BottomSheet visible={deleting !== null} onClose={() => !update.isPending && setDeleting(null)}>
+        <Text style={[styles.sheetTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Delete {deleting?.name ?? "account"}?</Text>
+        <Text style={[styles.sheetBody, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
+          Expenses on it keep the label. You can bring it back from Archived.{deleting?.type === "bank" ? " Your next balance check starts fresh." : ""}
+        </Text>
+        <View style={styles.sheetButtonRow}>
+          <Pressable onPress={() => setDeleting(null)} disabled={update.isPending} style={[styles.sheetButton, { backgroundColor: tokens.pillBg }]}>
+            <Text style={[styles.sheetButtonText, { color: tokens.text2, fontFamily: fontFamily.bodyBold }]}>Back</Text>
+          </Pressable>
+          <Pressable onPress={confirmDelete} disabled={update.isPending} style={[styles.sheetButton, { backgroundColor: tokens.coral, opacity: update.isPending ? 0.6 : 1 }]}>
+            <Text style={[styles.sheetButtonText, { color: tokens.onAccent, fontFamily: fontFamily.bodyBold }]}>{update.isPending ? "Working…" : "Delete"}</Text>
+          </Pressable>
+        </View>
+      </BottomSheet>
     </View>
   );
 }
 
-function AccountItem({ account, index, onPress }: { account: AccountRow; index: number; onPress: () => void }) {
+function AccountItem({ account, index, onEdit, onTransactions, onDelete }: { account: AccountRow; index: number; onEdit: () => void; onTransactions: () => void; onDelete: () => void }) {
   const { tokens } = useTheme();
-  const press = usePressSpring(0.98);
+  const delay = MOUNT_DELAY + Math.min(index, STAGGER_CAP) * ITEM_STAGGER;
+  const actions = [
+    { icon: ReceiptText, label: `View ${account.name} transactions`, onPress: onTransactions },
+    { icon: Pencil, label: `Edit ${account.name}`, onPress: onEdit },
+    { icon: Trash2, label: `Delete ${account.name}`, onPress: onDelete },
+  ];
   return (
-    <PopIn play delay={MOUNT_DELAY + Math.min(index, STAGGER_CAP) * ITEM_STAGGER} style={[styles.rowCard, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
-      <Reanimated.View style={press.style}>
-        <Pressable onPress={onPress} onPressIn={press.onPressIn} onPressOut={press.onPressOut} accessibilityRole="button" accessibilityLabel={`Edit ${account.name}`} style={styles.rowInner}>
-          <Text style={styles.emoji}>{ACCOUNT_TYPE_EMOJI[account.type] ?? "🏦"}</Text>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.rowTitle, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]} numberOfLines={1}>{account.name}</Text>
-            <Text style={[styles.rowMeta, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>{ACCOUNT_TYPE_LABEL[account.type] ?? "Account"}</Text>
-          </View>
-        </Pressable>
-      </Reanimated.View>
+    <PopIn play delay={delay} style={[styles.rowCard, styles.rowInner, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
+      <Text style={styles.emoji}>{ACCOUNT_TYPE_EMOJI[account.type] ?? "🏦"}</Text>
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.rowTitle, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]} numberOfLines={1}>{account.name}</Text>
+        <Text style={[styles.rowMeta, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>{ACCOUNT_TYPE_LABEL[account.type] ?? "Account"}</Text>
+      </View>
+      <View style={styles.rowActions}>
+        {/* The actions pop in one by one once the row has landed. */}
+        {actions.map((a, j) => (
+          <PopIn key={a.label} play delay={delay + 120 + j * ITEM_STAGGER}>
+            <ActionIcon {...a} />
+          </PopIn>
+        ))}
+      </View>
     </PopIn>
+  );
+}
+
+function ActionIcon({ icon, label, onPress }: { icon: typeof Pencil; label: string; onPress: () => void }) {
+  const { tokens } = useTheme();
+  const press = usePressSpring(0.88);
+  return (
+    <Reanimated.View style={press.style}>
+      <Pressable onPress={onPress} onPressIn={press.onPressIn} onPressOut={press.onPressOut} hitSlop={8} accessibilityRole="button" accessibilityLabel={label}>
+        <Icon icon={icon} size={17} color={tokens.text3} />
+      </Pressable>
+    </Reanimated.View>
   );
 }
 
@@ -207,6 +268,7 @@ function StarterPicks({ names }: { names: string[] }) {
 }
 
 const styles = StyleSheet.create({
+  rowActions: { flexDirection: "row", alignItems: "center", gap: 18, marginLeft: 8 },
   container: { flex: 1 },
   header: {
     flexDirection: "row",

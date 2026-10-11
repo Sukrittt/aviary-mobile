@@ -154,7 +154,9 @@ export default function ActivityScreen() {
     date?: string;
     category?: string;
     period?: string;
+    account?: string;
   }>();
+  const paramAccount = typeof params.account === "string" ? params.account : "";
   const paramDate = typeof params.date === "string" ? params.date : "";
   const paramCategory =
     typeof params.category === "string" ? params.category : "";
@@ -203,7 +205,12 @@ export default function ActivityScreen() {
   const [removedKeys, setRemovedKeys] = useState<ReadonlySet<string>>(() => new Set());
   const [categorySheetOpen, setCategorySheetOpen] = useState(false);
   const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
-  const [selectedAccount, setSelectedAccount] = useState("");
+  // Account drill-in from the Accounts screen's transactions action.
+  const [selectedAccount, setSelectedAccount] = useState(paramAccount);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- syncs local (user-clearable) filter to an incoming route param, not derivable from render
+    if (paramAccount) setSelectedAccount(paramAccount);
+  }, [paramAccount]);
   const accountsQ = useAccounts();
   const accountOptions = liveAccounts(accountsQ.data);
   const incomesQ = useIncomes();
