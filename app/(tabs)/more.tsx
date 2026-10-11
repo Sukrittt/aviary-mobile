@@ -8,7 +8,7 @@ import { requestPinWidget } from 'react-native-android-widget'
 import * as ImagePicker from 'expo-image-picker'
 import * as Haptics from 'expo-haptics'
 import * as StoreReview from 'expo-store-review'
-import { Gift, Brain, Wallet, Landmark, TrendingUp, Lock, Database, Archive, Repeat, CreditCard, MessageCircle, Compass, LayoutGrid, ChevronRight, ScanLine, Camera, Images, FileText, Receipt, LineChart, History, Globe, Star, type LucideIcon } from 'lucide-react-native'
+import { Gift, Brain, Wallet, Landmark, TrendingUp, Lock, Database, Archive, Repeat, CreditCard, MessageCircle, Compass, LayoutGrid, ChevronRight, ScanLine, Camera, Images, FileText, Receipt, LineChart, History, Globe, Star, ScrollText, type LucideIcon } from 'lucide-react-native'
 import { AnimatedTabContent } from '@/src/components/nav/AnimatedTabContent'
 import { Screen } from '@/src/components/ui/Screen'
 import { Alert } from '@/src/components/ui/AlertHost'
@@ -261,22 +261,22 @@ export default function MoreScreen() {
                 iconColor={tokens.mint}
                 onPress={openScanPicker}
               />}
-              <FeatureCard
+              {!isHidden(user, 'income') && <FeatureCard
                 icon={Wallet}
                 label="Income"
                 blurb="What comes in and when"
                 iconBg={tokens.mintSoft}
                 iconColor={tokens.mint}
                 onPress={() => router.push('/account/income')}
-              />
-              <FeatureCard
+              />}
+              {!isHidden(user, 'accounts') && <FeatureCard
                 icon={Landmark}
                 label="Accounts"
                 blurb="Bank, card and cash"
                 iconBg={tokens.accentSoft}
                 iconColor={tokens.accent}
                 onPress={() => router.push('/account/accounts')}
-              />
+              />}
               {!isHidden(user, 'recurring') && <FeatureCard
                 icon={Repeat}
                 label="Recurring expenses"
@@ -413,6 +413,8 @@ export default function MoreScreen() {
               </Pressable>
               <View style={[styles.divider, { backgroundColor: tokens.border }]} />
               <AccountRow icon={Compass} label="How this works" onPress={() => router.push('/account/guided-tour')} tokens={tokens} />
+              <View style={[styles.divider, { backgroundColor: tokens.border }]} />
+              <AccountRow icon={ScrollText} label="Changelog" onPress={() => router.push('/account/changelog')} tokens={tokens} />
               <View style={[styles.divider, { backgroundColor: tokens.border }]} />
               <AccountRow icon={MessageCircle} label="Help & feedback" hint="We read every one" onPress={() => router.push('/account/help')} tokens={tokens} />
               <View style={[styles.divider, { backgroundColor: tokens.border }]} />

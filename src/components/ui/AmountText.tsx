@@ -5,6 +5,7 @@ import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 
 import { usePrivacy } from '@/src/context/PrivacyContext'
+import { rippleHaptic } from '@/src/lib/haptics'
 
 /**
  * Every money display in the app. Owns three things that were previously
@@ -15,6 +16,10 @@ import { usePrivacy } from '@/src/context/PrivacyContext'
  * `animate` adds the odometer roll — only the digits that actually changed
  * scroll past their old value. Reserve it for hero numbers; a list of forty
  * rolling rows is noise.
+ *
+ * `settle` adds a haptic roll (one tick per changed digit, so a bigger change
+ * rolls longer) and a small pop as the digits land. For balances that change
+ * as the result of an action, not ones the user is typing into.
  */
 export function AmountText({
   value,
@@ -26,6 +31,7 @@ export function AmountText({
   rawText,
   id,
   ignoreHide = false,
+  settle = false,
 }: {
   value: number
   size: number
@@ -48,6 +54,7 @@ export function AmountText({
    * which remounts on tab blur/focus) so the roll survives the remount. Omit
    * for instances that stay mounted across the change. */
   id?: string
+  settle?: boolean
 }) {
   const { formatCurrency } = useCurrency()
 
@@ -72,7 +79,7 @@ export function AmountText({
     )
   }
 
-  return <Odometer text={text} value={value} size={size} textStyle={textStyle} id={id} />
+  return <Odometer text={text} value={value} size={size} textStyle={textStyle} id={id} settle={settle} />
 }
 
 // Survives a remount of the Odometer instance that owns a given id, so a
@@ -87,13 +94,17 @@ function Odometer({
   size,
   textStyle,
   id,
+  settle,
 }: {
   text: string
   value: number
   size: number
   textStyle: StyleProp<TextStyle>
   id?: string
+  settle?: boolean
 }) {
+  const { motion } = useTheme()
+  const scale = useRef(new Animated.Value(1)).current
   // usePrevious: during this render prevRef still holds the previous string/value, so
   // each slot can diff old vs new before it is overwritten.
   const seed = id ? lastSeen.get(id) : undefined
@@ -105,10 +116,19 @@ function Odometer({
   const prevValueRef = useRef(seed?.value ?? value)
   const direction: 'up' | 'down' = value < prevValueRef.current ? 'down' : 'up'
   useEffect(() => {
+    if (settle && value !== prevValueRef.current) {
+      rippleHaptic(changedDigitCount(prevRef.current, text), motion.slow)
+      // Swell with the roll, then spring back past 1 and settle as the digits land.
+      scale.setValue(1)
+      Animated.sequence([
+        Animated.timing(scale, { toValue: 1.06, duration: motion.slow, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+        Animated.spring(scale, { toValue: 1, friction: 4, tension: 160, useNativeDriver: true }),
+      ]).start()
+    }
     prevRef.current = text
     prevValueRef.current = value
     if (id) lastSeen.set(id, { text, value })
-  }, [text, value, id])
+  }, [text, value, id, settle, motion.slow, scale])
 
   const rowHeight = Math.round(size * 1.2)
   const chars = text.split('')
@@ -121,7 +141,7 @@ function Odometer({
   const lengthChanged = chars.length !== prevChars.length
 
   return (
-    <View style={styles.row} accessibilityLabel={text} accessible>
+    <Animated.View style={[styles.row, { transform: [{ scale }] }]} accessibilityLabel={text} accessible>
       {chars.map((ch, i) => {
         // Align from the right so ₹900 -> ₹1,000 rolls the units column, not everything.
         const prevIndex = prevChars.length - (chars.length - i)
@@ -137,8 +157,17 @@ function Odometer({
           />
         )
       })}
-    </View>
+    </Animated.View>
   )
+}
+
+/** Digit slots that roll between two values, right-aligned like the odometer, plus any added or dropped. */
+function changedDigitCount(prev: string, next: string) {
+  const a = prev.replace(/\D/g, '')
+  const b = next.replace(/\D/g, '')
+  let n = Math.abs(a.length - b.length)
+  for (let i = 1; i <= Math.min(a.length, b.length); i++) if (a[a.length - i] !== b[b.length - i]) n++
+  return Math.max(n, 1)
 }
 
 function Digit({

@@ -2,7 +2,7 @@ import { act, fireEvent, waitFor } from '@testing-library/react-native'
 import { ACK_PHRASES } from '@/src/lib/captureAck'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { AiAllowanceError } from '@/src/lib/aiAllowance'
-import type { CaptureProposal } from '@/src/api/ai'
+import { getChatSession, type CaptureProposal, type streamChat } from '@/src/api/ai'
 import MoneyBrainModal from './money-brain'
 
 const mockPush = jest.fn()
@@ -11,6 +11,7 @@ let mockParams: Record<string, string> = {}
 const mockStreamChat = jest.fn()
 const mockUpdateProposalStatus = jest.fn().mockResolvedValue(null)
 let mockBrief: Record<string, unknown> = {}
+let mockSessions: unknown = undefined
 
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: mockPush, back: jest.fn(), dismissTo: mockDismissTo }),
@@ -22,7 +23,7 @@ jest.mock('@/src/hooks/useCategories', () => ({ useCategories: () => ({ data: []
 jest.mock('@/src/hooks/useGroups', () => ({ useGroups: () => ({ data: [] }) }))
 jest.mock('@/src/hooks/useMoneyBrief', () => ({ useMoneyBrief: () => mockBrief }))
 jest.mock('@/src/hooks/useChatSessions', () => ({
-  useChatSessions: () => ({ data: undefined, isLoading: false }),
+  useChatSessions: () => ({ data: mockSessions, isLoading: false }),
   useChatSessionsCount: () => ({ data: 0 }),
 }))
 jest.mock('@/src/lib/netStatus', () => ({ ...jest.requireActual('@/src/lib/netStatus'), useOnline: () => true }))
@@ -57,6 +58,7 @@ const proposal: CaptureProposal = {
 beforeEach(() => {
   jest.clearAllMocks()
   mockParams = {}
+  mockSessions = undefined
   mockBrief = { data: undefined, isLoading: false, isError: false, error: null, refetch: jest.fn() }
 })
 
@@ -170,4 +172,149 @@ it('keeps the generic message for any other failure', async () => {
 
   expect(await utils.findByText('Something went wrong. Try again.')).toBeTruthy()
   expect(utils.queryByText('Add it by hand')).toBeNull()
+})
+
+
+type ChatCall = {
+  delta: Parameters<typeof streamChat>[2]
+  proposal: NonNullable<Parameters<typeof streamChat>[4]>
+  signal: AbortSignal
+  resolve: (id: string) => void
+  reject: (error: Error) => void
+}
+
+function holdStreams() {
+  const calls: ChatCall[] = []
+  mockStreamChat.mockImplementation((_session, _messages, delta, signal, onProposal) =>
+    new Promise<string>((resolve, reject) => calls.push({ delta, proposal: onProposal, signal, resolve, reject })),
+  )
+  return calls
+}
+
+async function sendQuestion(utils: ReturnType<typeof renderWithProviders>, text: string) {
+  const input = await utils.findByPlaceholderText('Ask about your money…')
+  fireEvent.changeText(input, text)
+  await act(async () => { fireEvent(input, 'submitEditing') })
+}
+
+it.each(['abort-error', 'late-success', 'late-callbacks'])('keeps the new conversation intact after %s from an old stream', async (lateEvent) => {
+  const calls = holdStreams()
+  const utils = renderWithProviders(<MoneyBrainModal />)
+  await sendQuestion(utils, 'Old question')
+  fireEvent.press(utils.getByText('New'))
+  expect(calls[0].signal.aborted).toBe(true)
+  await sendQuestion(utils, 'New question')
+  await act(async () => { calls[1].delta('New reply'); calls[1].proposal({ ...proposal, id: 'new-proposal' }) })
+  fireEvent.press(utils.getByText('Review card: 2 rows'))
+  expect(mockUpdateProposalStatus).not.toHaveBeenCalled()
+
+  await act(async () => {
+    if (lateEvent === 'abort-error') {
+      const error = new Error('Aborted'); error.name = 'AbortError'; calls[0].reject(error)
+    } else {
+      if (lateEvent === 'late-callbacks') { calls[0].delta('Stale delta'); calls[0].proposal({ ...proposal, id: 'old-proposal', items: [proposal.items[0]] }) }
+      calls[0].resolve('old-session')
+    }
+  })
+  expect(utils.getByText('New reply')).toBeTruthy()
+  expect(utils.queryByText('Stale delta')).toBeNull()
+  expect(utils.queryByText('Review card: 1 rows')).toBeNull()
+  expect(utils.queryByText('Something went wrong. Try again.')).toBeNull()
+  expect(mockUpdateProposalStatus).not.toHaveBeenCalled()
+  // The old finally must not unlock Send or consume the new proposal's settlement.
+  await sendQuestion(utils, 'While still streaming')
+  expect(calls).toHaveLength(2)
+  await act(async () => { calls[1].resolve('new-session') })
+  expect(mockUpdateProposalStatus).toHaveBeenCalledWith('new-session', 'new-proposal', 'submitted', ['e1', 'e2'], expect.any(String))
+  await sendQuestion(utils, 'Follow up')
+  expect(mockStreamChat.mock.calls[2][0]).toBe('new-session')
+  await act(async () => { calls[2].resolve('new-session') })
+})
+
+it('ignores delayed callbacks and errors after New, before any new message exists', async () => {
+  const calls = holdStreams()
+  const utils = renderWithProviders(<MoneyBrainModal />)
+  await sendQuestion(utils, 'Old question')
+  fireEvent.press(utils.getByText('New'))
+  await act(async () => { calls[0].delta('Stale'); calls[0].proposal(proposal); calls[0].reject(new Error('aborted')) })
+  expect(utils.queryByText('Stale')).toBeNull()
+  expect(utils.queryByText('Review card: 2 rows')).toBeNull()
+  expect(utils.queryByText('Something went wrong. Try again.')).toBeNull()
+  await sendQuestion(utils, 'Fresh question')
+  expect(mockStreamChat.mock.calls[1][0]).toBeNull()
+  await act(async () => { calls[1].resolve('fresh-session') })
+})
+
+it('keeps current deltas on the reply when a mid-stream capture settlement appends an acknowledgement', async () => {
+  const calls = holdStreams()
+  const utils = renderWithProviders(<MoneyBrainModal />)
+  await sendQuestion(utils, 'Log lunch')
+  await act(async () => { calls[0].proposal(proposal); calls[0].delta('Part one') })
+  fireEvent.press(utils.getByText('Review card: 2 rows'))
+  const ack = ACK_PHRASES.find((text) => utils.queryByText(text))!
+  expect(ack).toBeDefined()
+  await act(async () => { calls[0].delta(' and part two'); calls[0].resolve('s1') })
+  expect(utils.getByText('Part one and part two')).toBeTruthy()
+  expect(utils.getByText(ack)).toBeTruthy()
+  expect(mockUpdateProposalStatus).toHaveBeenCalledWith('s1', 'p1', 'submitted', ['e1', 'e2'], ack)
+})
+
+it('keeps deltas on the current reply when an older card settles mid-stream above it', async () => {
+  const calls = holdStreams()
+  const utils = renderWithProviders(<MoneyBrainModal />)
+  await sendQuestion(utils, 'Log lunch')
+  await act(async () => { calls[0].proposal(proposal); calls[0].resolve('s1') })
+  await sendQuestion(utils, 'How am I doing?')
+  await act(async () => { calls[1].delta('Part one') })
+  fireEvent.press(utils.getByText('Review card: 2 rows'))
+  const ack = ACK_PHRASES.find((text) => utils.queryByText(text))!
+  expect(ack).toBeDefined()
+  await act(async () => { calls[1].delta(' and part two'); calls[1].resolve('s1') })
+  expect(utils.getByText('Part one and part two')).toBeTruthy()
+  expect(utils.getByText(ack)).toBeTruthy()
+})
+
+it('revokes stream ownership on unmount', async () => {
+  const calls = holdStreams()
+  const utils = renderWithProviders(<MoneyBrainModal />)
+  await sendQuestion(utils, 'Old question')
+  utils.unmount()
+  expect(calls[0].signal.aborted).toBe(true)
+  await act(async () => { calls[0].proposal(proposal); calls[0].delta('Stale'); calls[0].resolve('old-session') })
+  expect(mockUpdateProposalStatus).not.toHaveBeenCalled()
+})
+
+
+it('revokes the old stream when a saved chat is opened', async () => {
+  mockSessions = { sessions: [{ id: 'saved', title: 'Saved chat', updatedAt: new Date().toISOString(), preview: '', messageCount: 1 }], pageCount: 1 }
+  ;(getChatSession as jest.Mock).mockResolvedValue({ id: 'saved', messages: [{ role: 'model', text: 'Saved reply' }] })
+  const calls = holdStreams()
+  const utils = renderWithProviders(<MoneyBrainModal />)
+  await sendQuestion(utils, 'Old question')
+  fireEvent.press(utils.getByText('0')) // chat history count
+  await act(async () => { fireEvent.press(utils.getByText('Saved chat')) })
+  expect(calls[0].signal.aborted).toBe(true)
+  await act(async () => { calls[0].delta('Stale'); calls[0].resolve('old-session') })
+  expect(utils.getByText('Saved reply')).toBeTruthy()
+  expect(utils.queryByText('Stale')).toBeNull()
+  await sendQuestion(utils, 'Saved follow up')
+  expect(mockStreamChat.mock.calls[1][0]).toBe('saved')
+  await act(async () => { calls[1].resolve('saved') })
+})
+
+it('ignores a saved-chat response arriving after New', async () => {
+  mockSessions = { sessions: [{ id: 'saved', title: 'Saved chat', updatedAt: new Date().toISOString(), preview: '', messageCount: 1 }], pageCount: 1 }
+  let finish!: (detail: unknown) => void
+  ;(getChatSession as jest.Mock).mockImplementation(() => new Promise((resolve) => { finish = resolve }))
+  const calls = holdStreams()
+  const utils = renderWithProviders(<MoneyBrainModal />)
+  await utils.findByPlaceholderText('Ask about your money…')
+  fireEvent.press(utils.getByText('0'))
+  fireEvent.press(utils.getByText('Saved chat'))
+  fireEvent.press(utils.getByText('New'))
+  await act(async () => { finish({ id: 'saved', messages: [{ role: 'model', text: 'Stale saved reply' }] }) })
+  expect(utils.queryByText('Stale saved reply')).toBeNull()
+  await sendQuestion(utils, 'New question')
+  expect(mockStreamChat.mock.calls[0][0]).toBeNull()
+  await act(async () => { calls[0].resolve('new-session') })
 })

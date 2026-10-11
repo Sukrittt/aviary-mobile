@@ -9,7 +9,6 @@ import type { ThemeTokens } from "@/src/theme/tokens";
 import { fontFamily } from "@/src/theme/fonts";
 import { heroFontSize, layoutFor, widgetMood, withPerDay, type WidgetData } from "./data";
 import { birdFrames, birdSvg, FRAME_MS, heroTint, ringSvg } from "./bird";
-import { doodlesSvg } from "./doodles";
 import { WidgetSurface, color } from "./surface";
 import { plusSvg } from "./icons";
 
@@ -63,10 +62,6 @@ export function EnvelopeWidget({
       style={{ padding: 0 }}
     >
       <OverlapWidget style={{ width: "match_parent", height: bandHeight }}>
-        <SvgWidget
-          svg={doodlesSvg(width, bandHeight, tokens, scheme)}
-          style={{ width: "match_parent", height: "match_parent" }}
-        />
         <FlexWidget
           style={{
             width: "match_parent",
@@ -372,6 +367,8 @@ export function EnvelopeWidget({
           paddingBottom: 14,
         }}
       >
+        {/* Half the height, not "big": Android's GradientDrawable doesn't clamp a
+            corner radius past that, it draws oval ends. */}
         {chips.map((chip) => (
           <FlexWidget
             key={chip.category}
@@ -383,7 +380,7 @@ export function EnvelopeWidget({
               height: layout.actionHeight,
               alignItems: "center",
               justifyContent: "center",
-              borderRadius: 100,
+              borderRadius: layout.actionHeight / 2,
               backgroundColor: color(tokens.chipActiveBg),
             }}
           >
@@ -408,7 +405,7 @@ export function EnvelopeWidget({
             height: layout.actionHeight,
             alignItems: "center",
             justifyContent: "center",
-            borderRadius: 100,
+            borderRadius: layout.actionHeight / 2,
             backgroundColor: color(tokens.accent),
           }}
         >

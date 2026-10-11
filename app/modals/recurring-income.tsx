@@ -4,6 +4,7 @@ import { View, Text, TextInput, Pressable, ScrollView, StyleSheet, KeyboardAvoid
 import Reanimated, { LinearTransition } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router'
+import * as Haptics from 'expo-haptics'
 import { Alert } from '@/src/components/ui/AlertHost'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
@@ -35,6 +36,8 @@ function str(v: string | string[] | undefined): string {
  * frequency} prefill a new one (Home's Change income). Ready to Assign math
  * is the server's (Web/lib/income.ts). Twin of Web's RecurringIncomeModal.
  */
+const buzzError = () => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {})
+
 export default function RecurringIncomeModal() {
   const { currencySymbol } = useCurrency()
   const { tokens } = useTheme()
@@ -93,16 +96,16 @@ export default function RecurringIncomeModal() {
     const fields = { label: label.trim(), amount: String(parsed), frequency, start_date: payday, end_date: endDate, ...(accountId !== (existing?.account_id ?? '') ? { account_id: accountId } : {}) }
     const onSuccess = () => setSaved(true)
     if (isEdit) {
-      update.mutate({ id, updates: fields }, { onSuccess, onError: () => Alert.alert("Couldn't save", 'Check your connection and try again.') })
+      update.mutate({ id, updates: fields }, { onSuccess, onError: () => { buzzError(); Alert.alert("Couldn't save", 'Check your connection and try again.') } })
     } else {
-      add.mutate(fields, { onSuccess, onError: () => Alert.alert("Couldn't add this", 'Check your connection and try again.') })
+      add.mutate(fields, { onSuccess, onError: () => { buzzError(); Alert.alert("Couldn't add this", 'Check your connection and try again.') } })
     }
   }
 
   function handleTogglePause() {
     update.mutate(
       { id, updates: { status: isActive ? 'paused' : 'active' } },
-      { onSuccess: () => setSaved(true), onError: () => Alert.alert("Couldn't update this", 'Check your connection and try again.') },
+      { onSuccess: () => setSaved(true), onError: () => { buzzError(); Alert.alert("Couldn't update this", 'Check your connection and try again.') } },
     )
   }
 
@@ -114,6 +117,7 @@ export default function RecurringIncomeModal() {
       },
       onError: () => {
         setConfirmDelete(false)
+        buzzError()
         Alert.alert("Couldn't delete this", 'Check your connection and try again.')
       },
     })
@@ -172,7 +176,10 @@ export default function RecurringIncomeModal() {
               return (
                 <Pressable
                   key={f}
-                  onPress={() => setFrequency(f)}
+                  onPress={() => {
+                    Haptics.selectionAsync().catch(() => {})
+                    setFrequency(f)
+                  }}
                   accessibilityRole="radio"
                   accessibilityState={{ checked: selected }}
                   style={[styles.chip, { backgroundColor: selected ? tokens.accent : tokens.pillBg, borderColor: selected ? tokens.accent : tokens.border }]}
@@ -241,7 +248,7 @@ export default function RecurringIncomeModal() {
       <BottomSheet visible={confirmDelete} onClose={() => !remove.isPending && setConfirmDelete(false)}>
         <Text style={[styles.sheetTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Delete income</Text>
         <Text style={[styles.sheetBody, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
-          {`Remove "${existing?.label ?? ''}"? Paydays already recorded stay put.`}
+          {`Remove "${existing?.label ?? ''}"? It still counts this month and stops from next month.`}
         </Text>
         <View style={styles.sheetButtonRow}>
           <Pressable onPress={() => setConfirmDelete(false)} disabled={remove.isPending} style={[styles.sheetCancelButton, { backgroundColor: tokens.pillBg, opacity: remove.isPending ? 0.5 : 1 }]}>

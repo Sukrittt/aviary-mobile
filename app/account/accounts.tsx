@@ -2,8 +2,9 @@ import { useState } from "react";
 import { View, Text, Pressable, ScrollView, RefreshControl, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ArrowLeft, Plus } from "lucide-react-native";
+import { ArrowLeft, Pencil, Plus, ReceiptText, Trash2 } from "lucide-react-native";
 import Reanimated from "react-native-reanimated";
+import * as Haptics from "expo-haptics";
 import { OfflineScreen } from "@/src/components/shared/OfflineScreen";
 import { useOnline } from "@/src/lib/netStatus";
 import { useTheme } from "@/src/theme/ThemeProvider";
@@ -14,17 +15,20 @@ import { PopIn } from "@/src/components/shared/PopIn";
 import { CheckIcon } from "@/src/components/shared/CheckIcon";
 import { usePressSpring } from "@/src/components/ui/Button";
 import { Alert } from "@/src/components/ui/AlertHost";
-import { ACCOUNT_TYPE_EMOJI } from "@/src/components/shared/AccountChips";
+import { BottomSheet } from "@/src/components/shared/Modal";
+import { accountEmoji, accountLabel } from "@/src/components/shared/AccountChips";
 import { liveAccounts, useAccounts, useAddAccount, useUpdateAccount } from "@/src/hooks/useAccounts";
 import { useBalanceStatus } from "@/src/hooks/useBalanceCheck";
 import { useRefresh } from "@/src/hooks/useRefresh";
 import { ACCOUNT_TYPE_LABEL, accountErrorMessage } from "@/src/lib/accounts";
 import type { AccountRow, AccountType } from "@/src/types";
 
-const LOADING_PHRASES = ["Finding your accounts…", "Counting wallets…", "Almost there…"];
+const LOADING_PHRASES = ["Opening your wallet…", "Shaking the piggy bank…", "Shuffling your cards…", "Counting the coin jar…"];
 const MOUNT_DELAY = 100;
 const ITEM_STAGGER = 45;
 const STAGGER_CAP = 6;
+const tick = () => Haptics.selectionAsync().catch(() => {});
+const buzzError = () => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
 
 /**
  * Name where money lives so each expense can say which one it came from.
@@ -42,13 +46,40 @@ export default function AccountsScreen() {
   const all = accountsQ.data ?? [];
   const live = liveAccounts(all);
   const archived = all.filter((a) => a.archived);
+  const [deleting, setDeleting] = useState<AccountRow | null>(null);
 
   if (!online) return <OfflineScreen />;
+
+  // Deleting archives: the account leaves every picker, its expenses keep the
+  // label, and Restore brings it back.
+  function confirmDelete() {
+    if (!deleting) return;
+    update.mutate(
+      { id: deleting.id, updates: { archived: true } },
+      {
+        onSuccess: () => {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+          setDeleting(null);
+        },
+        onError: (err) => {
+          setDeleting(null);
+          buzzError();
+          Alert.alert("Couldn't delete this", accountErrorMessage(err));
+        },
+      },
+    );
+  }
 
   function restore(a: AccountRow) {
     update.mutate(
       { id: a.id, updates: { archived: false } },
-      { onError: (err) => Alert.alert("Couldn't restore this", accountErrorMessage(err)) },
+      {
+        onSuccess: () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}),
+        onError: (err) => {
+          buzzError();
+          Alert.alert("Couldn't restore this", accountErrorMessage(err));
+        },
+      },
     );
   }
 
@@ -61,10 +92,10 @@ export default function AccountsScreen() {
         <View style={{ flex: 1 }}>
           <Text style={[styles.headerTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Accounts</Text>
           <Text style={[styles.headerSub, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
-            {live.length === 0 ? "Where your money lives" : `${live.length} in use`}
+            Where your money lives
           </Text>
         </View>
-        <Pressable onPress={() => router.push("/modals/account")} accessibilityRole="button" style={[styles.addButton, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
+        <Pressable onPress={() => { tick(); router.push("/modals/account"); }} accessibilityRole="button" style={[styles.addButton, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
           <Icon icon={Plus} size={16} color={tokens.text} />
           <Text style={[styles.addText, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>Add</Text>
         </Pressable>
@@ -82,19 +113,26 @@ export default function AccountsScreen() {
           <>
             <View style={{ gap: 10 }}>
               {live.map((a, i) => (
-                <AccountItem key={a.id} account={a} index={i} onPress={() => router.push(`/modals/account?id=${encodeURIComponent(a.id)}`)} />
+                <AccountItem
+                  key={a.id}
+                  account={a}
+                  index={i}
+                  onEdit={() => router.push(`/modals/account?id=${encodeURIComponent(a.id)}`)}
+                  onTransactions={() => router.push({ pathname: "/(tabs)/activity", params: { account: a.id } })}
+                  onDelete={() => setDeleting(a)}
+                />
               ))}
             </View>
             <Text style={[styles.hint, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>
-              Pick one when you log an expense. Your weekly balance check asks about each bank account.
+              These are just labels, so there&apos;s no balance to keep up. Pick one when you log an expense. Your weekly balance check asks about each bank account.
             </Text>
             {archived.length > 0 && (
               <View style={styles.section}>
                 <Text style={[styles.sectionLabel, { color: tokens.text3, fontFamily: fontFamily.bodyBold }]}>ARCHIVED</Text>
                 {archived.map((a) => (
                   <View key={a.id} style={[styles.rowCard, styles.rowInner, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
-                    <Text style={[styles.emoji, { opacity: 0.5 }]}>{ACCOUNT_TYPE_EMOJI[a.type] ?? "🏦"}</Text>
-                    <Text style={[styles.rowTitle, { flex: 1, color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]} numberOfLines={1}>{a.name}</Text>
+                    <Text style={[styles.emoji, { opacity: 0.5 }]}>{accountEmoji(a)}</Text>
+                    <Text style={[styles.rowTitle, { flex: 1, color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]} numberOfLines={1}>{accountLabel(a)}</Text>
                     <Pressable onPress={() => restore(a)} disabled={update.isPending} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Restore ${a.name}`}>
                       <Text style={[styles.restore, { color: tokens.mint, fontFamily: fontFamily.bodyBold }]}>Restore</Text>
                     </Pressable>
@@ -105,25 +143,61 @@ export default function AccountsScreen() {
           </>
         )}
       </ScrollView>
+
+      <BottomSheet visible={deleting !== null} onClose={() => !update.isPending && setDeleting(null)}>
+        <Text style={[styles.sheetTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Delete {deleting?.name ?? "account"}?</Text>
+        <Text style={[styles.sheetBody, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
+          Expenses on it keep the label. You can bring it back from Archived.{deleting?.type === "bank" ? " Your next balance check starts fresh." : ""}
+        </Text>
+        <View style={styles.sheetButtonRow}>
+          <Pressable onPress={() => setDeleting(null)} disabled={update.isPending} style={[styles.sheetButton, { backgroundColor: tokens.pillBg }]}>
+            <Text style={[styles.sheetButtonText, { color: tokens.text2, fontFamily: fontFamily.bodyBold }]}>Back</Text>
+          </Pressable>
+          <Pressable onPress={confirmDelete} disabled={update.isPending} style={[styles.sheetButton, { backgroundColor: tokens.coral, opacity: update.isPending ? 0.6 : 1 }]}>
+            <Text style={[styles.sheetButtonText, { color: tokens.onAccent, fontFamily: fontFamily.bodyBold }]}>{update.isPending ? "Working…" : "Delete"}</Text>
+          </Pressable>
+        </View>
+      </BottomSheet>
     </View>
   );
 }
 
-function AccountItem({ account, index, onPress }: { account: AccountRow; index: number; onPress: () => void }) {
+function AccountItem({ account, index, onEdit, onTransactions, onDelete }: { account: AccountRow; index: number; onEdit: () => void; onTransactions: () => void; onDelete: () => void }) {
   const { tokens } = useTheme();
-  const press = usePressSpring(0.98);
+  const delay = MOUNT_DELAY + Math.min(index, STAGGER_CAP) * ITEM_STAGGER;
+  const actions = [
+    { icon: ReceiptText, label: `View ${account.name} transactions`, onPress: onTransactions },
+    { icon: Pencil, label: `Edit ${account.name}`, onPress: onEdit },
+    { icon: Trash2, label: `Delete ${account.name}`, onPress: onDelete },
+  ];
   return (
-    <PopIn play delay={MOUNT_DELAY + Math.min(index, STAGGER_CAP) * ITEM_STAGGER} style={[styles.rowCard, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
-      <Reanimated.View style={press.style}>
-        <Pressable onPress={onPress} onPressIn={press.onPressIn} onPressOut={press.onPressOut} accessibilityRole="button" accessibilityLabel={`Edit ${account.name}`} style={styles.rowInner}>
-          <Text style={styles.emoji}>{ACCOUNT_TYPE_EMOJI[account.type] ?? "🏦"}</Text>
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.rowTitle, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]} numberOfLines={1}>{account.name}</Text>
-            <Text style={[styles.rowMeta, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>{ACCOUNT_TYPE_LABEL[account.type] ?? "Account"}</Text>
-          </View>
-        </Pressable>
-      </Reanimated.View>
+    <PopIn play delay={delay} style={[styles.rowCard, styles.rowInner, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
+      <Text style={styles.emoji}>{accountEmoji(account)}</Text>
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.rowTitle, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]} numberOfLines={1}>{accountLabel(account)}</Text>
+        <Text style={[styles.rowMeta, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>{ACCOUNT_TYPE_LABEL[account.type] ?? "Account"}</Text>
+      </View>
+      <View style={styles.rowActions}>
+        {/* The actions pop in one by one once the row has landed. */}
+        {actions.map((a, j) => (
+          <PopIn key={a.label} play delay={delay + 120 + j * ITEM_STAGGER}>
+            <ActionIcon {...a} />
+          </PopIn>
+        ))}
+      </View>
     </PopIn>
+  );
+}
+
+function ActionIcon({ icon, label, onPress }: { icon: typeof Pencil; label: string; onPress: () => void }) {
+  const { tokens } = useTheme();
+  const press = usePressSpring(0.88);
+  return (
+    <Reanimated.View style={press.style}>
+      <Pressable onPress={() => { tick(); onPress(); }} onPressIn={press.onPressIn} onPressOut={press.onPressOut} hitSlop={8} accessibilityRole="button" accessibilityLabel={label}>
+        <Icon icon={icon} size={17} color={tokens.text3} />
+      </Pressable>
+    </Reanimated.View>
   );
 }
 
@@ -160,6 +234,7 @@ function StarterPicks({ names }: { names: string[] }) {
       for (const c of picked) await add.mutateAsync({ name: c.name, type: c.type });
       setDone(true);
     } catch (err) {
+      buzzError();
       Alert.alert("Couldn't add these", accountErrorMessage(err));
     } finally {
       setSaving(false);
@@ -170,7 +245,7 @@ function StarterPicks({ names }: { names: string[] }) {
     <View style={[styles.starter, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
       <Text style={[styles.starterTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Start with these?</Text>
       <Text style={[styles.starterBody, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
-        Name where your money lives. Then each expense can say which one it came from.
+        Name where your money lives. Then each expense can say which one it came from. They&apos;re just labels, so there&apos;s no balance to keep up.
       </Text>
       <View style={styles.chipRow}>
         {choices.map((c, i) => (
@@ -179,11 +254,14 @@ function StarterPicks({ names }: { names: string[] }) {
             accessibilityRole="checkbox"
             accessibilityState={{ checked: c.picked }}
             accessibilityLabel={c.name}
-            onPress={() => setChoices((all) => all.map((x, j) => (j === i ? { ...x, picked: !x.picked } : x)))}
+            onPress={() => {
+              tick();
+              setChoices((all) => all.map((x, j) => (j === i ? { ...x, picked: !x.picked } : x)));
+            }}
             style={[styles.chip, { backgroundColor: c.picked ? tokens.accent : tokens.pillBg, borderColor: c.picked ? tokens.accent : tokens.border }]}
           >
             <Text style={[styles.chipText, { color: c.picked ? tokens.onAccent : tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
-              {ACCOUNT_TYPE_EMOJI[c.type]} {c.name}
+              {accountEmoji(c)} {accountLabel(c)}
             </Text>
           </Pressable>
         ))}
@@ -207,6 +285,7 @@ function StarterPicks({ names }: { names: string[] }) {
 }
 
 const styles = StyleSheet.create({
+  rowActions: { flexDirection: "row", alignItems: "center", gap: 18, marginLeft: 8 },
   container: { flex: 1 },
   header: {
     flexDirection: "row",

@@ -74,6 +74,9 @@ export function CoverCard({
 }
 
 export function IntroCard({ data, color, onColor }: CardProps) {
+  const { currencyCode } = useCurrency()
+  const examples = currencyCode === 'INR' ? 'every chai, every EMI' : 'every coffee, every bill'
+
   return (
     <WrappedCard
       color={color}
@@ -89,7 +92,7 @@ export function IntroCard({ data, color, onColor }: CardProps) {
       </WPop>
       <WRise delay={260}>
         <WrappedCaption
-          value={`of logging every chai, every EMI, every regrettable 11pm order. From ${formatDateShort(data.range.startDate)} to ${formatDateShort(data.range.endDate)}.`}
+          value={`of logging ${examples}, every regrettable 11pm order. From ${formatDateShort(data.range.startDate)} to ${formatDateShort(data.range.endDate)}.`}
           onColor={onColor}
         />
       </WRise>

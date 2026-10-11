@@ -136,6 +136,13 @@ export default function CodeScreen() {
         setCode('')
         triggerShake()
       }
+    }).catch(() => {
+      // Transport failure: both verify calls throw on one. Not the user's
+      // typo, so no wrong_code event and no shake.
+      if (cancelledRef.current) return
+      setPending(false)
+      setError("Couldn't check the code. Check your connection and try again.")
+      setCode('')
     })
   }
 
@@ -180,7 +187,7 @@ export default function CodeScreen() {
           {error !== '' && (
             <Text style={[styles.error, { color: tokens.coral, fontFamily: fontFamily.bodyMedium }]}>{error}</Text>
           )}
-          <ResendTimer onResend={() => (isChangeEmail ? resendEmailCode() : sendMagicAuthCode(email))} />
+          <ResendTimer onResend={() => (isChangeEmail ? resendEmailCode().then(() => true) : sendMagicAuthCode(email))} />
         </>
       )}
 

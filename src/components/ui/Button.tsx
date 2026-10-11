@@ -6,7 +6,7 @@ import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { Icon } from '@/src/components/shared/Icon'
 
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable)
+export const AnimatedPressable = Animated.createAnimatedComponent(Pressable)
 
 /** Shared press spring so every tappable in the app compresses identically. */
 function usePressSpring(scaleTo = 0.96) {

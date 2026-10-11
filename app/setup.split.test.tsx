@@ -60,3 +60,13 @@ it('asks Jev about a category the user named and uses its tag', async () => {
   expect(getByText('Savings 20%')).toBeTruthy()
   expect(queryByText(/^· /)).toBeNull()
 })
+
+it('explains the split: a note for the missing bucket and a sheet on tap', async () => {
+  const { getByText, findByText } = toCategoriesStep()
+  fireEvent.press(getByText('Continue'))
+  expect(await findByText('Finish setup')).toBeTruthy()
+  expect(getByText('No savings yet, so needs and wants share it.')).toBeTruthy()
+  fireEvent.press(getByText('Needs 62.5%'))
+  expect(await findByText('How we split it')).toBeTruthy()
+  expect(getByText('50%')).toBeTruthy()
+})

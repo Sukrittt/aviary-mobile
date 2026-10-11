@@ -1,4 +1,4 @@
-import { monthRange, categoryBreakdown, withDelta, leftoverFor, monthTotals, monthComparison, savingsTrend } from './monthly'
+import { monthRange, categoryBreakdown, withDelta, leftoverFor, monthTotals, monthComparison, savingsTrend, moneyStayedPut } from './monthly'
 import { CREDIT_CARD_CATEGORY, INCOME_CATEGORY, currentMonthKey, prevMonthKey } from './envelope'
 import type { BudgetRow, CategoryRow, ExpenseRow } from '@/src/types'
 
@@ -387,5 +387,32 @@ describe('savingsTrend', () => {
     const budgets = [budget('2026-09', INCOME_CATEGORY, '100000')]
     const expenses = [expense('2026-07-05', CREDIT_CARD_CATEGORY, '5000'), expense('2026-07-01', INCOME_CATEGORY, '90000')]
     expect(savingsTrend(budgets, expenses, categories, groups, '2026-09').missingIncome).toEqual([])
+  })
+})
+
+describe('moneyStayedPut', () => {
+  const range = { startDate: '2026-03-01', endDate: '2026-03-31' }
+
+  it('sums envelope budgets only, leaving out the income and credit card rows', () => {
+    const budgets = [
+      budget('2026-03', INCOME_CATEGORY, '50000'),
+      budget('2026-03', CREDIT_CARD_CATEGORY, '5000'),
+      budget('2026-03', 'Food', '30000'),
+      budget('2026-03', 'Rent', '20000'),
+    ]
+    expect(moneyStayedPut(budgets, range, 40000)).toBe(10000)
+  })
+
+  it('counts rolled over money and skips months outside the range', () => {
+    const budgets = [
+      { ...budget('2026-03', 'Food', '1000'), rolled_over: '500' },
+      budget('2026-04', 'Food', '9000'),
+    ]
+    expect(moneyStayedPut(budgets, range, 1000)).toBe(500)
+  })
+
+  it('is undefined when nothing is left or there are no budgets', () => {
+    expect(moneyStayedPut([budget('2026-03', 'Food', '1000')], range, 1000)).toBeUndefined()
+    expect(moneyStayedPut([], range, 0)).toBeUndefined()
   })
 })

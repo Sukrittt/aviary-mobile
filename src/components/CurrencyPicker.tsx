@@ -34,11 +34,10 @@ export function CurrencyPicker({
         <Text style={[styles.selectedEyebrow, { color: tokens.accentInk, fontFamily: fontFamily.bodyBold }]}>SELECTED CURRENCY</Text>
         <Text style={[styles.selectedName, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>{selected.name}</Text>
       </View>
-      <View style={[styles.selectedCode, { backgroundColor: tokens.pillBg, borderColor: tokens.borderStrong }]}>
-        <Text style={[styles.selectedCodeText, { color: tokens.text, fontFamily: fontFamily.bodyBold }]}>
-          {selected.code}{selected.symbol !== selected.code ? ` · ${selected.symbol}` : ''}
-        </Text>
-      </View>
+      {/* Plain text, not a pill: a bordered chip here read as a tappable button. */}
+      <Text style={[styles.selectedCodeText, { color: tokens.accentInk, fontFamily: fontFamily.bodyBold }]}>
+        {selected.code}{selected.symbol !== selected.code ? ` · ${selected.symbol}` : ''}
+      </Text>
     </View>
     <TextInput
       accessibilityLabel="Search currencies"
@@ -136,15 +135,7 @@ const styles = StyleSheet.create({
   selectedCopy: { flex: 1, gap: 3 },
   selectedEyebrow: { fontSize: 10, letterSpacing: 0.7 },
   selectedName: { fontSize: 15 },
-  selectedCode: {
-    minHeight: 34,
-    paddingHorizontal: 11,
-    borderRadius: 100,
-    borderWidth: StyleSheet.hairlineWidth,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  selectedCodeText: { fontSize: 12 },
+  selectedCodeText: { fontSize: 14, flexShrink: 0 },
   search: {
     marginBottom: 12,
     borderRadius: 100,

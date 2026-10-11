@@ -2,8 +2,9 @@ import { useCurrency } from "@/src/context/CurrencyContext";
 import { useState } from "react";
 import { View, Text, Pressable, ScrollView, RefreshControl, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
+import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ArrowLeft, Plus } from "lucide-react-native";
+import { ArrowLeft, Pencil, Plus, Trash2 } from "lucide-react-native";
 import Reanimated from "react-native-reanimated";
 import { OfflineScreen } from "@/src/components/shared/OfflineScreen";
 import { useOnline } from "@/src/lib/netStatus";
@@ -25,10 +26,12 @@ import { useRefresh } from "@/src/hooks/useRefresh";
 import { formatDateShort } from "@/src/lib/format";
 import { toLocalDateString } from "@/src/lib/date";
 import { currentMonthKey, monthLabel } from "@/src/lib/envelope";
-import type { IncomeRow, RecurringIncomeRow } from "@/src/types";
+import type { AccountRow, IncomeRow, RecurringIncomeRow } from "@/src/types";
 
 const LOADING_PHRASES = ["Counting what comes in…", "Checking paydays…", "Almost there…"];
 const CADENCE_LABELS: Record<string, string> = { daily: "Every day", weekly: "Every week", monthly: "Every month", yearly: "Every year" };
+const CADENCE_ORDER = ["monthly", "weekly", "daily", "yearly"] as const;
+const CADENCE_PER: Record<string, string> = { daily: "a day", weekly: "a week", monthly: "a month", yearly: "a year" };
 const SOURCE_LABELS: Record<string, string> = { manual: "Added by you", recurring: "Payday", balance_gap: "From your balance check" };
 const MOUNT_DELAY = 100;
 const ITEM_STAGGER = 45;
@@ -46,6 +49,14 @@ function monthlyAmount(amount: number, frequency: string): number {
     default:
       return amount;
   }
+}
+
+/** Active schedules summed per cadence, in a fixed order, skipping cadences nobody uses. Same as Web's IncomePage. */
+export function cadenceTotals(rows: RecurringIncomeRow[]): { frequency: string; total: number; count: number }[] {
+  return CADENCE_ORDER.map((frequency) => {
+    const list = rows.filter((r) => r.frequency === frequency);
+    return { frequency, total: list.reduce((sum, r) => sum + (Number(r.amount) || 0), 0), count: list.length };
+  }).filter((c) => c.count > 0);
 }
 
 /** The server's next payday, worded like recurring expenses' due line. No local schedule math. */
@@ -87,6 +98,9 @@ export default function IncomeScreen() {
   const thisMonth = (incomesQ.data ?? []).filter((r) => r.date.startsWith(month));
   const monthlyTotal = active.reduce((sum, r) => sum + monthlyAmount(Number(r.amount) || 0, r.frequency), 0);
   const receivedTotal = thisMonth.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
+  const cadences = cadenceTotals(active);
+  const single = cadences.length === 1 ? cadences[0] : null;
+  const landedPct = monthlyTotal > 0 ? Math.min(100, Math.round((receivedTotal / monthlyTotal) * 100)) : 0;
   const loading = recurringQ.isLoading || incomesQ.isLoading;
   const loadError = recurringQ.isError || incomesQ.isError;
   const empty = schedules.length === 0 && thisMonth.length === 0;
@@ -98,8 +112,12 @@ export default function IncomeScreen() {
     removeIncome.mutate(
       { id: deleting.id, version: deleting.version },
       {
-        onSuccess: () => setDeleting(null),
+        onSuccess: () => {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+          setDeleting(null);
+        },
         onError: () => {
+          Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
           setDeleting(null);
           Alert.alert("Couldn't delete that", "Check your connection and try again.");
         },
@@ -113,19 +131,15 @@ export default function IncomeScreen() {
         <Pressable onPress={() => router.back()} hitSlop={12} accessibilityLabel="Back" style={[styles.backButton, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
           <Icon icon={ArrowLeft} size={20} color={tokens.text} />
         </Pressable>
-        <View style={{ flex: 1 }}>
-          <Text style={[styles.headerTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Income</Text>
-          <Text style={[styles.headerSub, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
-            {active.length === 0 ? "Nothing on repeat yet" : `${active.length} coming in on repeat`}
-          </Text>
-        </View>
+        <Text style={[styles.headerTitle, { flex: 1, color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Income</Text>
         <View style={styles.headerButtons}>
           <Pressable onPress={() => router.push("/modals/add-income")} accessibilityRole="button" style={[styles.addButton, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
+            <Icon icon={Plus} size={16} color={tokens.text} />
             <Text style={[styles.addText, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>One-off</Text>
           </Pressable>
-          <Pressable onPress={() => router.push("/modals/recurring-income")} accessibilityRole="button" accessibilityLabel="Add recurring income" style={[styles.addButton, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
-            <Icon icon={Plus} size={16} color={tokens.text} />
-            <Text style={[styles.addText, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>Add</Text>
+          <Pressable onPress={() => router.push("/modals/recurring-income")} accessibilityRole="button" accessibilityLabel="Add recurring income" style={[styles.addButton, { backgroundColor: tokens.accent, borderColor: tokens.accent }]}>
+            <Icon icon={Plus} size={16} color={tokens.onAccent} />
+            <Text style={[styles.addText, { color: tokens.onAccent, fontFamily: fontFamily.bodyBold }]}>Recurring</Text>
           </Pressable>
         </View>
       </View>
@@ -151,25 +165,62 @@ export default function IncomeScreen() {
           />
         ) : (
           <>
-            <View style={styles.heroBlock}>
-              <Text style={[styles.heroLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>Comes in each month</Text>
-              <AmountText value={monthlyTotal} size={34} weight="displayBold" animate />
-              <Text style={[styles.rowMeta, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
-                {formatCurrency(receivedTotal, hideAmounts)} recorded in {monthLabel(month)}
-              </Text>
-            </View>
+            <PopIn play delay={MOUNT_DELAY} style={[styles.hero, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
+              {active.length === 0 ? (
+                <>
+                  <Text style={[styles.heroLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>Recorded in {monthLabel(month)}</Text>
+                  <AmountText value={receivedTotal} size={40} weight="displayBold" color={tokens.mint} />
+                </>
+              ) : (
+                <>
+                  <Text style={[styles.heroLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>Coming in</Text>
+                  <View style={styles.heroAmountRow}>
+                    <AmountText value={single ? single.total : monthlyTotal} size={40} weight="displayBold" color={tokens.mint} animate />
+                    <Text style={[styles.heroPer, { color: tokens.text2, fontFamily: fontFamily.bodyBold }]}>{single ? CADENCE_PER[single.frequency] : "a month"}</Text>
+                  </View>
+                  {single && single.frequency !== "monthly" && (
+                    <Text style={[styles.rowMeta, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>About {formatCurrency(monthlyTotal, hideAmounts)} a month</Text>
+                  )}
+                  {cadences.length > 1 && (
+                    <View style={styles.tileRow} accessibilityLabel="Income by schedule">
+                      {cadences.map((c) => {
+                        const tone = toneFor(tokens, c.frequency);
+                        return (
+                          <View key={c.frequency} style={[styles.tile, { backgroundColor: tone.soft }]}>
+                            <Text style={[styles.tileName, { color: tone.ink, fontFamily: fontFamily.bodyBold }]}>{CADENCE_LABELS[c.frequency]}</Text>
+                            <Text style={[styles.tileAmount, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>{formatCurrency(c.total, hideAmounts)}</Text>
+                            <Text style={[styles.tileCount, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>{c.count === 1 ? "1 source" : `${c.count} sources`}</Text>
+                          </View>
+                        );
+                      })}
+                    </View>
+                  )}
+                  <View
+                    style={[styles.progress, { backgroundColor: tokens.borderStrong }]}
+                    accessibilityRole="progressbar"
+                    accessibilityLabel={`Recorded in ${monthLabel(month)}`}
+                    accessibilityValue={{ min: 0, max: 100, now: landedPct }}
+                  >
+                    <View style={[styles.progressFill, { width: `${landedPct}%`, backgroundColor: tokens.mint }]} />
+                  </View>
+                  <Text style={[styles.rowMeta, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
+                    {formatCurrency(receivedTotal, hideAmounts)} of {formatCurrency(monthlyTotal, hideAmounts)} recorded in {monthLabel(month)}
+                  </Text>
+                </>
+              )}
+            </PopIn>
 
             {active.length > 0 && (
               <Section title="Recurring">
                 {active.map((row, i) => (
-                  <ScheduleItem key={row.id} row={row} index={i} />
+                  <ScheduleItem key={row.id} row={row} index={1 + i} accounts={accounts} />
                 ))}
               </Section>
             )}
             {inactive.length > 0 && (
               <Section title="Paused and finished">
                 {inactive.map((row, i) => (
-                  <ScheduleItem key={row.id} row={row} index={active.length + i} />
+                  <ScheduleItem key={row.id} row={row} index={1 + active.length + i} accounts={accounts} />
                 ))}
               </Section>
             )}
@@ -178,10 +229,11 @@ export default function IncomeScreen() {
               {thisMonth.length === 0 ? (
                 <Text style={[styles.hint, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>Nothing recorded yet this month.</Text>
               ) : (
-                thisMonth.map((row) => {
+                thisMonth.map((row, i) => {
                   const account = accountName(accounts, row.account_id);
+                  const index = 1 + schedules.length + i;
                   return (
-                    <View key={row.id} style={[styles.rowCard, styles.rowInner, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
+                    <PopIn key={row.id} play delay={MOUNT_DELAY + Math.min(index, STAGGER_CAP) * ITEM_STAGGER} style={[styles.rowCard, styles.rowInner, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
                       <View style={{ flex: 1 }}>
                         <Text style={[styles.rowTitle, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]} numberOfLines={1}>{row.label}</Text>
                         <Text style={[styles.rowMeta, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]} numberOfLines={1}>
@@ -189,10 +241,15 @@ export default function IncomeScreen() {
                         </Text>
                       </View>
                       <Text style={[styles.rowAmount, { color: tokens.mint, fontFamily: fontFamily.bodyBold }]}>+{formatCurrency(Number(row.amount) || 0, hideAmounts)}</Text>
-                      <Pressable onPress={() => setDeleting(row)} hitSlop={10} accessibilityRole="button" accessibilityLabel={`Delete ${row.label}`}>
-                        <Text style={[styles.restore, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>Delete</Text>
-                      </Pressable>
-                    </View>
+                      <View style={styles.rowActions}>
+                        <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); router.push(`/modals/add-income?id=${encodeURIComponent(row.id)}`); }} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Edit ${row.label}`}>
+                          <Pencil size={17} color={tokens.text3} />
+                        </Pressable>
+                        <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); setDeleting(row); }} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Delete ${row.label}`}>
+                          <Trash2 size={17} color={tokens.text3} />
+                        </Pressable>
+                      </View>
+                    </PopIn>
                   );
                 })
               )}
@@ -219,50 +276,70 @@ export default function IncomeScreen() {
       </BottomSheet>
     </View>
   );
+}
 
-  function Section({ title, children }: { title: string; children: React.ReactNode }) {
-    return (
-      <View style={styles.section}>
-        <Text style={[styles.sectionLabel, { color: tokens.text3, fontFamily: fontFamily.bodyBold }]}>{title.toUpperCase()}</Text>
-        <View style={{ gap: 10 }}>{children}</View>
-      </View>
-    );
-  }
+type Tokens = ReturnType<typeof useTheme>["tokens"];
 
-  function ScheduleItem({ row, index }: { row: RecurringIncomeRow; index: number }) {
-    const isActive = row.status === "active";
-    const press = usePressSpring(0.98);
-    const account = accountName(accounts, row.account_id);
-    return (
-      <PopIn play delay={MOUNT_DELAY + Math.min(index, STAGGER_CAP) * ITEM_STAGGER} style={[styles.rowCard, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
-        <Reanimated.View style={press.style}>
-          <Pressable
-            onPress={() => router.push(`/modals/recurring-income?id=${encodeURIComponent(row.id)}`)}
-            onPressIn={press.onPressIn}
-            onPressOut={press.onPressOut}
-            accessibilityRole="button"
-            accessibilityLabel={`Edit ${row.label}`}
-            style={styles.rowInner}
-          >
-            <View style={[styles.dot, { backgroundColor: tokens.mint, opacity: isActive ? 1 : 0.5 }]} />
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.rowTitle, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]} numberOfLines={1}>{row.label}</Text>
-              <View style={styles.rowMetaRow}>
-                <View style={[styles.pill, { backgroundColor: tokens.pillBg }]}>
-                  <Text style={[styles.pillText, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>{CADENCE_LABELS[row.frequency] ?? row.frequency}</Text>
-                </View>
-                {account ? <Text style={[styles.rowMeta, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]} numberOfLines={1}>· {account}</Text> : null}
-              </View>
-              <Text style={[styles.rowMeta, { color: isActive && row.next_run_date ? tokens.accentInk : tokens.text3, fontFamily: fontFamily.bodyMedium }]}>{payLabel(row)}</Text>
-            </View>
-            <Text style={[styles.rowAmount, { color: tokens.text, fontFamily: fontFamily.bodyBold, opacity: isActive ? 1 : 0.5 }]}>
-              {formatCurrency(Number(row.amount) || 0, hideAmounts)}
+function toneFor(tokens: Tokens, frequency: string): { ink: string; soft: string } {
+  if (frequency === "weekly") return { ink: tokens.blue, soft: tokens.blueSoft };
+  if (frequency === "daily") return { ink: tokens.violet, soft: tokens.violetSoft };
+  if (frequency === "yearly") return { ink: tokens.accentInk, soft: tokens.accentSoft };
+  return { ink: tokens.mint, soft: tokens.mintSoft };
+}
+
+// Module-level, not inside IncomeScreen: a component defined in render is a new
+// type each render, so its rows remount and replay the reveal.
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  const { tokens } = useTheme();
+  return (
+    <View style={styles.section}>
+      <Text style={[styles.sectionLabel, { color: tokens.text3, fontFamily: fontFamily.bodyBold }]}>{title.toUpperCase()}</Text>
+      <View style={{ gap: 10 }}>{children}</View>
+    </View>
+  );
+}
+
+function ScheduleItem({ row, index, accounts }: { row: RecurringIncomeRow; index: number; accounts: AccountRow[] | undefined }) {
+  const { tokens } = useTheme();
+  const { formatCurrency } = useCurrency();
+  const { hideAmounts } = usePrivacy();
+  const router = useRouter();
+  const isActive = row.status === "active";
+  const press = usePressSpring(0.98);
+  const account = accountName(accounts, row.account_id);
+  const tone = toneFor(tokens, row.frequency);
+  const pay = payLabel(row);
+  return (
+    <PopIn play delay={MOUNT_DELAY + Math.min(index, STAGGER_CAP) * ITEM_STAGGER} style={[styles.rowCard, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
+      <Reanimated.View style={press.style}>
+        <Pressable
+          onPress={() => {
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+            router.push(`/modals/recurring-income?id=${encodeURIComponent(row.id)}`);
+          }}
+          onPressIn={press.onPressIn}
+          onPressOut={press.onPressOut}
+          accessibilityRole="button"
+          accessibilityLabel={`Edit ${row.label}`}
+          style={styles.rowInner}
+        >
+          <View style={{ flex: 1, opacity: isActive ? 1 : 0.5 }}>
+            <Text style={[styles.rowTitle, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]} numberOfLines={1}>{row.label}</Text>
+            <Text style={[styles.rowMeta, styles.rowMetaLine, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]} numberOfLines={1}>
+              <Text style={{ color: tone.ink, fontFamily: fontFamily.bodyBold }}>{CADENCE_LABELS[row.frequency] ?? row.frequency}</Text>
+              {" · "}
+              {/* Orange only when payday is close; a normal date stays quiet. */}
+              <Text style={pay.startsWith("Payday") ? { color: tokens.accentInk } : undefined}>{pay}</Text>
+              {account ? ` · ${account}` : ""}
             </Text>
-          </Pressable>
-        </Reanimated.View>
-      </PopIn>
-    );
-  }
+          </View>
+          <Text style={[styles.rowAmount, { color: tokens.text, fontFamily: fontFamily.bodyBold, opacity: isActive ? 1 : 0.5 }]}>
+            {formatCurrency(Number(row.amount) || 0, hideAmounts)}
+          </Text>
+        </Pressable>
+      </Reanimated.View>
+    </PopIn>
+  );
 }
 
 const styles = StyleSheet.create({
@@ -285,7 +362,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   headerTitle: { fontSize: 19 },
-  headerSub: { fontSize: 11.5, marginTop: 1 },
   addButton: {
     flexDirection: "row",
     alignItems: "center",
@@ -297,7 +373,16 @@ const styles = StyleSheet.create({
   },
   addText: { fontSize: 12.5 },
   body: { padding: 16, gap: 16 },
-  heroBlock: { gap: 4 },
+  hero: { borderWidth: 1, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 20, gap: 6, overflow: "hidden" },
+  heroAmountRow: { flexDirection: "row", alignItems: "baseline", gap: 6 },
+  heroPer: { fontSize: 15 },
+  tileRow: { flexDirection: "row", gap: 8, marginTop: 6 },
+  tile: { flex: 1, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 8, gap: 1 },
+  tileName: { fontSize: 11.5 },
+  tileAmount: { fontSize: 17 },
+  tileCount: { fontSize: 10.5 },
+  progress: { height: 8, borderRadius: 999, overflow: "hidden", marginTop: 8 },
+  progressFill: { height: "100%", borderRadius: 999 },
   heroLabel: { fontSize: 12, textTransform: "uppercase", letterSpacing: 0.5 },
   allocationCard: { borderWidth: 1, borderRadius: 16, padding: 16 },
   discoveryRow: {
@@ -327,7 +412,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
-  dot: { width: 10, height: 10, borderRadius: 5 },
   emoji: { fontSize: 20 },
   headerButtons: { flexDirection: "row", gap: 8 },
   starter: { borderWidth: 1, borderRadius: 16, padding: 16, gap: 10, width: "100%" },
@@ -339,28 +423,14 @@ const styles = StyleSheet.create({
   primary: { borderRadius: 14, paddingVertical: 14, alignItems: "center", justifyContent: "center", marginTop: 4 },
   primaryText: { fontSize: 15 },
   hint: { fontSize: 12, lineHeight: 16 },
-  restore: { fontSize: 13 },
+  rowActions: { flexDirection: "row", alignItems: "center", gap: 18, marginLeft: 8 },
   sheetTitle: { fontSize: 18, marginBottom: 12 },
   sheetBody: { fontSize: 13, lineHeight: 18 },
   sheetButtonRow: { flexDirection: "row", gap: 12, marginTop: 16 },
   sheetButton: { flex: 1, minHeight: 50, borderRadius: 25, alignItems: "center", justifyContent: "center" },
   sheetButtonText: { fontSize: 14 },
   rowTitle: { fontSize: 15 },
-  rowMetaRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    marginTop: 4,
-  },
-  pill: {
-    height: 16,
-    paddingHorizontal: 6,
-    borderRadius: 999,
-    alignItems: "center",
-    justifyContent: "center",
-    overflow: "hidden",
-  },
-  pillText: { fontSize: 11, lineHeight: 13 },
+  rowMetaLine: { marginTop: 2 },
   rowMeta: { fontSize: 12, flexShrink: 1 },
   rowAmount: { fontSize: 15 },
   // Fills the space under the header so the loading phrase and the empty state

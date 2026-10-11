@@ -1,3 +1,4 @@
+import { expenseSuccessParams } from '@/src/lib/expenseSuccessParams'
 import { useEffect, useState } from 'react'
 import { View, Text, StyleSheet } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -109,10 +110,7 @@ export default function ExpenseFailedScreen() {
           clearLogExpenseDraftFor({ item, amount, category })
           router.replace({
             pathname: '/modals/expense-added',
-            params: {
-              id: res.id ?? '',
-              timestamp: res.timestamp ?? '',
-              loggedAt: new Date().toISOString(),
+            params: expenseSuccessParams(res, {
               item,
               amount: String(amount),
               category,
@@ -120,7 +118,7 @@ export default function ExpenseFailedScreen() {
               notes,
               paymentMethod,
               ...(accountId ? { accountId } : {}),
-            },
+            }),
           })
         },
         onError: () => {

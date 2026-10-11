@@ -1,10 +1,11 @@
 import { ExpenseWriteError } from '@/src/lib/expenseConflict'
 import type { ExpenseRow } from '@/src/types'
-import { Modal } from 'react-native'
+import { Alert, Modal } from 'react-native'
 import { act, fireEvent, waitFor } from '@testing-library/react-native'
 import { createTestQueryClient, renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { accountsKey } from '@/src/hooks/useAccounts'
-import { getRecentExpenses, postExpensePayload, updateExpense } from '@/src/api/expenses'
+import { deleteExpensePhoto, getExpensePhotoUrl, getRecentExpenses, postExpensePayload, updateExpense, uploadExpensePhoto } from '@/src/api/expenses'
+import { setOnline } from '@/src/lib/netStatus'
 import { addCategory, getCategories } from '@/src/api/categories'
 import { getGroups } from '@/src/api/groups'
 import { getCategoryMap, suggestCategoryLLM } from '@/src/api/categoryMap'
@@ -19,6 +20,17 @@ jest.mock('@/src/api/expenses', () => ({
   postExpensePayload: jest.fn(),
   mintExpensePayload: jest.requireActual('@/src/api/expenses').mintExpensePayload,
   updateExpense: jest.fn(),
+  uploadExpensePhoto: jest.fn(),
+  getExpensePhotoUrl: jest.fn(),
+  deleteExpensePhoto: jest.fn(),
+}))
+const mockLaunchCamera = jest.fn()
+const mockLaunchLibrary = jest.fn()
+jest.mock('expo-image-picker', () => ({
+  requestCameraPermissionsAsync: async () => ({ granted: true }),
+  requestMediaLibraryPermissionsAsync: async () => ({ granted: true }),
+  launchCameraAsync: (opts: unknown) => mockLaunchCamera(opts),
+  launchImageLibraryAsync: (opts: unknown) => mockLaunchLibrary(opts),
 }))
 jest.mock('@/src/api/categories', () => ({
   getCategories: jest.fn(),
@@ -238,6 +250,29 @@ it('preserves an edit draft on conflict and only reapplies changed fields after 
   fireEvent.press(utils.getByText('Continue with my changes'))
   await act(async () => { (globalThis as any).__submit(); await Promise.resolve(); await Promise.resolve() })
   expect(updateExpense).toHaveBeenLastCalledWith('srv1', 'ts', 'Lunch', 100, { new_item: 'Dinner' }, 1)
+})
+
+it('saves a notes change on its own when editing', async () => {
+  const utils = setup({ id: 'srv1', version: '0', timestamp: 'ts', item: 'Lunch', amountInr: '100', category: 'Groceries', date: '2026-09-18', notes: '' })
+  ;(updateExpense as jest.Mock).mockResolvedValueOnce(undefined)
+  fireEvent.press(utils.getByText('More'))
+  fireEvent.changeText(utils.getByPlaceholderText('Notes'), '  split with Sam ')
+  await act(async () => { (globalThis as any).__submit(); await Promise.resolve(); await Promise.resolve() })
+  expect(updateExpense).toHaveBeenLastCalledWith('srv1', 'ts', 'Lunch', 100, { new_notes: 'split with Sam' }, 0)
+})
+
+it('keeps a conflicting edit to notes after review', async () => {
+  const utils = setup({ id: 'srv1', version: '0', timestamp: 'ts', item: 'Lunch', amountInr: '100', category: 'Groceries', date: '2026-09-18', paymentMethod: 'bank', notes: '' })
+  ;(updateExpense as jest.Mock).mockRejectedValueOnce(new ExpenseWriteError(409, 'Changed elsewhere', {
+    id: 'srv1', version: 1, item: 'Lunch', amount_inr: '150', date: '2026-09-18', category: 'Groceries', payment_method: 'bank', notes: '',
+  } as ExpenseRow)).mockResolvedValueOnce(undefined)
+  fireEvent.press(utils.getByText('More'))
+  fireEvent.changeText(utils.getByPlaceholderText('Notes'), 'work trip')
+  await act(async () => { (globalThis as any).__submit(); await Promise.resolve(); await Promise.resolve() })
+  await act(async () => { jest.advanceTimersByTime(1) })
+  fireEvent.press(utils.getByText('Continue with my changes'))
+  await act(async () => { (globalThis as any).__submit(); await Promise.resolve(); await Promise.resolve() })
+  expect(updateExpense).toHaveBeenLastCalledWith('srv1', 'ts', 'Lunch', 100, { new_notes: 'work trip' }, 1)
 })
 
 it('keeps the draft and shows a deleted-elsewhere message', async () => {
@@ -584,6 +619,23 @@ describe('accounts', () => {
     })
   })
 
+  it('offers the add account sheet instead of a payment toggle while the user has none', async () => {
+    const utils = setup()
+    fireEvent.press(utils.getByText('More'))
+    expect(utils.queryByText('Credit Card')).toBeNull()
+    fireEvent.press(await utils.findByLabelText('Add account'))
+    expect(mockPush).toHaveBeenCalledWith('/modals/account')
+  })
+
+  it('keeps the add account button next to existing accounts', async () => {
+    mockAccounts = [{ id: 'hdfc', name: 'HDFC', type: 'bank', archived: false, created_at: '1' }]
+    const utils = setup()
+    fireEvent.press(utils.getByText('More'))
+    await utils.findByLabelText('🏦 HDFC')
+    fireEvent.press(utils.getByLabelText('Add account'))
+    expect(mockPush).toHaveBeenCalledWith('/modals/account')
+  })
+
   it('sends no account while the user has none', async () => {
     ;(postExpensePayload as jest.Mock).mockResolvedValue({ id: 'srv1', timestamp: '2026-09-04T01:24:00' })
     const utils = setup()
@@ -612,6 +664,38 @@ describe('accounts', () => {
     })
     expect(updateExpense).toHaveBeenCalledWith('e1', '2026-09-04T10:00:00', 'Milk', 450, { new_account_id: 'cash' }, 0)
   })
+
+  it('an edit to only the notes sends just the notes, never a payment method', async () => {
+    mockAccounts = [{ id: 'hdfc', name: 'HDFC', type: 'bank', archived: false, created_at: '1' }]
+    ;(updateExpense as jest.Mock).mockResolvedValue(undefined)
+    const utils = setup({ id: 'e1', version: '0', timestamp: 'ts', item: 'Milk', amountInr: '450', category: 'Groceries', date: '2026-09-04', notes: '', paymentMethod: 'bank', accountId: 'hdfc' })
+    fireEvent.press(utils.getByText('More'))
+    await utils.findByLabelText('🏦 HDFC')
+    fireEvent.changeText(utils.getByPlaceholderText('Notes'), 'for the week')
+    await act(async () => { (globalThis as any).__submit(); await Promise.resolve(); await Promise.resolve() })
+    expect(updateExpense).toHaveBeenCalledWith('e1', 'ts', 'Milk', 450, { new_notes: 'for the week' }, 0)
+  })
+
+  it('using the latest version after a conflict resets the account to the saved one', async () => {
+    mockAccounts = [
+      { id: 'hdfc', name: 'HDFC', type: 'bank', archived: false, created_at: '1' },
+      { id: 'cash', name: 'Wallet', type: 'cash', archived: false, created_at: '2' },
+    ]
+    ;(updateExpense as jest.Mock).mockRejectedValueOnce(new ExpenseWriteError(409, 'Changed elsewhere', {
+      ...row('Groceries', 'hdfc', '2026-09-04'), id: 'e1', version: 1, item: 'Milk', amount_inr: '500',
+    }))
+    const utils = setup({ id: 'e1', version: '0', timestamp: 'ts', item: 'Milk', amountInr: '450', category: 'Groceries', date: '2026-09-04', notes: '', paymentMethod: 'bank', accountId: 'hdfc' })
+    fireEvent.press(utils.getByText('More'))
+    fireEvent.press(await utils.findByLabelText('💵 Wallet'))
+    await act(async () => { (globalThis as any).__submit(); await Promise.resolve(); await Promise.resolve() })
+    await act(async () => { jest.advanceTimersByTime(1) })
+    expect(utils.getByLabelText('Paid from, with your changes: Wallet')).toBeTruthy()
+    fireEvent.press(utils.getByText('Use latest instead'))
+    expect(utils.getByLabelText('🏦 HDFC').props.accessibilityState).toMatchObject({ checked: true })
+    ;(updateExpense as jest.Mock).mockClear()
+    await act(async () => { (globalThis as any).__submit(); await Promise.resolve(); await Promise.resolve() })
+    expect(updateExpense).not.toHaveBeenCalled()
+  })
 })
 
 it('moves the tip aside once a blocked save shows its toast in the same spot', () => {
@@ -629,4 +713,118 @@ it('shows an edited expense category even when the loaded list no longer has it'
   const utils = setup({ id: 'srv1', version: '0', timestamp: 'ts', item: 'Chips', amountInr: '40', category: 'Old Snacks', date: '2026-09-18' })
   expect(await utils.findByText('Old Snacks')).toBeTruthy()
   expect(utils.queryByText('Pick a category')).toBeNull()
+})
+
+describe('photo', () => {
+  const asset = { uri: 'file:///milk.jpg', base64: 'QUJD', mimeType: 'image/jpeg' }
+
+  afterEach(() => act(() => setOnline(true)))
+
+  async function openMore(utils: ReturnType<typeof setup>) {
+    fireEvent.press(utils.getByText('More'))
+    return utils.findByText('Photo (optional)')
+  }
+
+  async function pickFromLibrary(utils: ReturnType<typeof setup>) {
+    mockLaunchLibrary.mockResolvedValue({ canceled: false, assets: [asset] })
+    await act(async () => {
+      fireEvent.press(utils.getByLabelText('Choose photo'))
+    })
+  }
+
+  async function submitAndSettle() {
+    await act(async () => {
+      ;(globalThis as any).__submit()
+      for (let i = 0; i < 10; i++) await Promise.resolve()
+    })
+    await act(async () => {
+      jest.advanceTimersByTime(1100)
+    })
+  }
+
+  it('lives only inside the More sheet', async () => {
+    const utils = setup()
+    expect(utils.queryByText('Photo (optional)')).toBeNull()
+    expect(await openMore(utils)).toBeTruthy()
+  })
+
+  it('is disabled offline, with a note', async () => {
+    setOnline(false)
+    setOnline(false)
+    const utils = setup()
+    await openMore(utils)
+    expect(utils.getByText("You can add a photo once you're back online.")).toBeTruthy()
+    expect(utils.getByLabelText('Take photo')).toBeDisabled()
+    expect(utils.getByLabelText('Choose photo')).toBeDisabled()
+  })
+
+  it('shows a preview once picked, using the bill scan picker options', async () => {
+    const utils = setup()
+    await openMore(utils)
+    await pickFromLibrary(utils)
+    expect(mockLaunchLibrary).toHaveBeenCalledWith(expect.objectContaining({ quality: 0.5, base64: true }))
+    expect(utils.getByLabelText('View photo')).toBeTruthy()
+    expect(utils.getByLabelText('Remove photo')).toBeTruthy()
+  })
+
+  it('rejects a photo type the server cannot take instead of relabeling it', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {})
+    const utils = setup()
+    await openMore(utils)
+    mockLaunchLibrary.mockResolvedValue({ canceled: false, assets: [{ ...asset, mimeType: 'image/heic' }] })
+    await act(async () => {
+      fireEvent.press(utils.getByLabelText('Choose photo'))
+    })
+    expect(alert).toHaveBeenCalledWith("That photo type isn't supported", 'Try a JPEG or PNG.')
+    expect(utils.queryByLabelText('View photo')).toBeNull()
+    alert.mockRestore()
+  })
+
+  it('saves the expense, then uploads the photo to its server id', async () => {
+    ;(postExpensePayload as jest.Mock).mockResolvedValue({ id: 'srv1', timestamp: '2026-09-04T01:24:00' })
+    ;(uploadExpensePhoto as jest.Mock).mockResolvedValue('https://signed/url')
+    const utils = setup()
+    await fillValidForm(utils)
+    await openMore(utils)
+    await pickFromLibrary(utils)
+    await submitAndSettle()
+
+    expect(postExpensePayload).toHaveBeenCalled()
+    expect(uploadExpensePhoto).toHaveBeenCalledWith('srv1', 'QUJD', 'image/jpeg')
+    expect((postExpensePayload as jest.Mock).mock.invocationCallOrder[0]).toBeLessThan((uploadExpensePhoto as jest.Mock).mock.invocationCallOrder[0])
+    expect(mockReplace).toHaveBeenCalledWith(expect.objectContaining({ pathname: '/modals/expense-added' }))
+  })
+
+  it('keeps the expense saved and says so kindly when the upload fails', async () => {
+    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {})
+    ;(postExpensePayload as jest.Mock).mockResolvedValue({ id: 'srv1', timestamp: '2026-09-04T01:24:00' })
+    ;(uploadExpensePhoto as jest.Mock).mockRejectedValue(new Error('Failed to upload photo: 413'))
+    const utils = setup()
+    await fillValidForm(utils)
+    await openMore(utils)
+    await pickFromLibrary(utils)
+    await submitAndSettle()
+
+    expect(alert).toHaveBeenCalledWith("Photo didn't upload", "Your expense is saved, but the photo didn't upload. Try adding it again from Activity.")
+    expect(JSON.stringify(alert.mock.calls)).not.toContain('413')
+    expect(mockReplace).toHaveBeenCalledWith(expect.objectContaining({ pathname: '/modals/expense-added', params: expect.objectContaining({ id: 'srv1' }) }))
+    alert.mockRestore()
+  })
+
+  it('shows the saved photo when editing, and removing it deletes on save', async () => {
+    ;(getExpensePhotoUrl as jest.Mock).mockResolvedValue('https://signed/url')
+    ;(deleteExpensePhoto as jest.Mock).mockResolvedValue(undefined)
+    const utils = setup({ id: 'srv1', timestamp: '2026-09-04T01:24:00', item: 'Milk', amountInr: '450', category: 'Groceries', date: '2026-09-04', hasPhoto: '1', version: '1' })
+    await openMore(utils)
+    expect(await utils.findByLabelText('View photo')).toBeTruthy()
+    expect(getExpensePhotoUrl).toHaveBeenCalledWith('srv1')
+
+    fireEvent.press(utils.getByLabelText('Remove photo'))
+    expect(utils.queryByLabelText('View photo')).toBeNull()
+    await submitAndSettle()
+
+    expect(updateExpense).not.toHaveBeenCalled()
+    expect(deleteExpensePhoto).toHaveBeenCalledWith('srv1')
+    expect(mockBack).toHaveBeenCalled()
+  })
 })

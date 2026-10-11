@@ -10,6 +10,8 @@ export const HIDEABLE_FEATURES = [
   { key: 'insights', label: 'Insights', hint: 'Trends and breakdowns' },
   { key: 'investments', label: 'Investments', hint: 'Portfolio at a glance' },
   { key: 'billScan', label: 'Scan a bill', hint: 'Split a cart or receipt' },
+  { key: 'income', label: 'Income', hint: 'What comes in and when' },
+  { key: 'accounts', label: 'Accounts', hint: 'Bank, card and cash' },
   { key: 'recurring', label: 'Recurring expenses', hint: 'Plan upcoming payments' },
   { key: 'subscriptions', label: 'Subscriptions', hint: 'What renews and when' },
   { key: 'wrapped', label: 'Expense Wrapped', hint: 'Your monthly recap' },

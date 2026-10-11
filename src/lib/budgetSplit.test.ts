@@ -1,4 +1,4 @@
-import { allocate, bucketsOf, summarizeSplit, knownBucket, splitEvenly, suggestSplit, unknownCategories, type SplitItem } from './budgetSplit'
+import { allocate, bucketsOf, summarizeSplit, splitNote, knownBucket, splitEvenly, suggestSplit, unknownCategories, type SplitItem } from './budgetSplit'
 
 const sum = (r: Record<string, number>) => Object.values(r).reduce((a, b) => a + b, 0)
 
@@ -147,5 +147,19 @@ describe('summarizeSplit', () => {
 
   it('is null for no categories', () => {
     expect(summarizeSplit([], {})).toBeNull()
+  })
+})
+
+describe('splitNote', () => {
+  it('says nothing when all three buckets are picked', () => {
+    expect(splitNote([{ bucket: 'need', pct: 50 }, { bucket: 'want', pct: 30 }, { bucket: 'savings', pct: 20 }])).toBeNull()
+    expect(splitNote(null)).toBeNull()
+  })
+
+  it('explains where a missing bucket share went', () => {
+    expect(splitNote([{ bucket: 'need', pct: 100 }])).toBe('No wants or savings yet, so needs get it all.')
+    expect(splitNote([{ bucket: 'need', pct: 62.5 }, { bucket: 'want', pct: 37.5 }])).toBe(
+      'No savings yet, so needs and wants share it.',
+    )
   })
 })

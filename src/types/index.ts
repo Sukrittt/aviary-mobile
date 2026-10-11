@@ -29,6 +29,8 @@ export interface ExpenseRow {
   amount: string
   description: string
   payment_method: string
+  /** Absent from an older server. */
+  has_photo?: boolean
   /** One of the user's accounts, or '' / absent for an unlabelled row. */
   account_id?: string
 }

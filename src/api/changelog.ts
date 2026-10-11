@@ -24,3 +24,10 @@ export async function claimChangelog(id: string): Promise<ChangelogRelease | nul
   if (!resp.ok) throw new Error(`Failed to mark changelog seen: ${resp.status}`)
   return (await resp.json()).release
 }
+
+/** Every published mobile release, newest first. */
+export async function listChangelog(): Promise<ChangelogRelease[]> {
+  const resp = await apiFetch('/api/changelog?platform=mobile')
+  if (!resp.ok) throw new Error(`Failed to load changelog: ${resp.status}`)
+  return (await resp.json()).releases
+}

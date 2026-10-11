@@ -218,7 +218,8 @@ export async function verifyEmailChange(code: string): Promise<boolean> {
 }
 
 export async function resendEmailCode(): Promise<void> {
-  await apiFetch('/api/user/email/resend', { method: 'POST' })
+  const resp = await apiFetch('/api/user/email/resend', { method: 'POST' })
+  if (!resp.ok) throw new Error(`Failed to resend code: ${resp.status}`)
 }
 
 export async function getSessions(): Promise<SessionRow[]> {

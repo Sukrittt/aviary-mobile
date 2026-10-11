@@ -60,6 +60,7 @@ export default function SecurityScreen() {
 
   const [resending, setResending] = useState(false)
   const [resent, setResent] = useState(false)
+  const [resendFailed, setResendFailed] = useState(false)
 
   const openNameEdit = () => {
     setNameDraft(user?.name ?? '')
@@ -87,9 +88,15 @@ export default function SecurityScreen() {
   const resend = async () => {
     setResending(true)
     setResent(false)
-    await resendEmailCode()
-    setResending(false)
-    setResent(true)
+    setResendFailed(false)
+    try {
+      await resendEmailCode()
+      setResent(true)
+    } catch {
+      setResendFailed(true)
+    } finally {
+      setResending(false)
+    }
   }
 
   const onRevoke = async (id: string) => {
@@ -244,7 +251,7 @@ export default function SecurityScreen() {
                   </Pressable>
                   <Pressable onPress={resend} disabled={resending}>
                     <Text style={[styles.warnAction, { color: tokens.accent, fontFamily: fontFamily.bodyBold }]}>
-                      {resending ? 'Sending…' : resent ? 'Code resent' : 'Resend code'}
+                      {resending ? 'Sending…' : resent ? 'Code resent' : resendFailed ? "Couldn't send. Try again" : 'Resend code'}
                     </Text>
                   </Pressable>
                 </View>

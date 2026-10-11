@@ -43,7 +43,7 @@ import { BottomSheet } from "@/src/components/shared/Modal";
 import { DatePicker, type DateRange } from "@/src/components/shared/DatePicker";
 import { useRefresh } from "@/src/hooks/useRefresh";
 import { SwipeableRow } from "@/src/components/activity/SwipeableRow";
-import { SelectCheck, SelectTint } from "@/src/components/shared/SelectCheck";
+import { SelectCheck, SelectInset, SelectTint } from "@/src/components/shared/SelectCheck";
 import { DeletingRow } from "@/src/components/activity/DeletingRow";
 import { LoadingCaption } from "@/src/components/shared/LoadingCaption";
 import { OfflineScreen } from "@/src/components/shared/OfflineScreen";
@@ -60,6 +60,8 @@ type PeriodKey = "all" | "week" | "month" | "custom";
 const CHIP_TRANSITION = LinearTransition.springify().damping(64).stiffness(700);
 const PAGE_SIZE = 30;
 const ROW_GAP = 12;
+// Breathing room inside the select tint, which has no row padding to sit in.
+const SELECT_INSET = 12;
 
 
 function toDateInput(d: Date): string {
@@ -152,7 +154,9 @@ export default function ActivityScreen() {
     date?: string;
     category?: string;
     period?: string;
+    account?: string;
   }>();
+  const paramAccount = typeof params.account === "string" ? params.account : "";
   const paramDate = typeof params.date === "string" ? params.date : "";
   const paramCategory =
     typeof params.category === "string" ? params.category : "";
@@ -201,7 +205,12 @@ export default function ActivityScreen() {
   const [removedKeys, setRemovedKeys] = useState<ReadonlySet<string>>(() => new Set());
   const [categorySheetOpen, setCategorySheetOpen] = useState(false);
   const [categoryPickerOpen, setCategoryPickerOpen] = useState(false);
-  const [selectedAccount, setSelectedAccount] = useState("");
+  // Account drill-in from the Accounts screen's transactions action.
+  const [selectedAccount, setSelectedAccount] = useState(paramAccount);
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- syncs local (user-clearable) filter to an incoming route param, not derivable from render
+    if (paramAccount) setSelectedAccount(paramAccount);
+  }, [paramAccount]);
   const accountsQ = useAccounts();
   const accountOptions = liveAccounts(accountsQ.data);
   const incomesQ = useIncomes();
@@ -382,6 +391,7 @@ export default function ActivityScreen() {
         date: t.date,
         notes: t.notes,
         paymentMethod: t.payment_method,
+        hasPhoto: t.has_photo ? "1" : "",
         accountId: t.account_id ?? "",
       },
     });
@@ -688,7 +698,7 @@ export default function ActivityScreen() {
                   style={[styles.row, { backgroundColor: tokens.bg }]}
                 >
                   <SelectTint selected={isSelected} style={styles.rowTint} />
-                  <SelectCheck selecting={selecting} selected={isSelected} gap={ROW_GAP} />
+                  <SelectCheck selecting={selecting} selected={isSelected} gap={ROW_GAP} inset={SELECT_INSET} />
                   <View style={[styles.icon, { backgroundColor: avatarBg }]}>
                     <Text style={{ fontSize: 15 }}>
                       {categoryEmoji(txn.category)}
@@ -719,6 +729,7 @@ export default function ActivityScreen() {
                     >
                       {formatShortDate(txn.date)} ·{" "}
                       {splitEmoji(txn.category).text}
+                      {txn.has_photo ? " · Photo" : ""}
                     </Text>
                   </View>
                   <Text
@@ -735,6 +746,7 @@ export default function ActivityScreen() {
                       hideAmounts,
                     )}
                   </Text>
+                  <SelectInset selecting={selecting} gap={ROW_GAP} inset={SELECT_INSET} />
                 </Pressable>
               );
               return (

@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { notifyManager, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   addCategory,
   deleteCategory,
@@ -97,7 +97,43 @@ export function useUpdateCategory() {
   return useMutation({
     mutationFn: (params: { name: string; updates: { newName?: string; group?: string; alertPcts?: number[] | null } }) =>
       updateCategory(params.name, params.updates),
-    onSuccess: () => qc.invalidateQueries({ queryKey: key }),
+    onSuccess: async (_data, { name, updates }) => {
+      const newName = updates.newName
+      if (!newName || newName === name) {
+        await qc.invalidateQueries({ queryKey: key })
+        return
+      }
+
+      // The server cascades a rename. Reconcile the cached joins together before
+      // refetching, so Home and widgets retain the same amounts even offline.
+      const prefixes = [key, ['budgets'], ['expenses'], ['recurring-expenses'],
+        ['bill-scans'], ['category-map'], ['recurring-suggestions'], ['ai-brief']]
+      await Promise.all(prefixes.map((queryKey) => qc.cancelQueries({ queryKey })))
+      notifyManager.batch(() => {
+        qc.setQueriesData<CategoryRow[]>({ queryKey: key }, (rows) =>
+          rows?.map((row) => row.name === name ? {
+            ...row,
+            name: newName,
+            ...(updates.group !== undefined ? { group: updates.group } : {}),
+            ...(updates.alertPcts !== undefined ? {
+              alertPcts: updates.alertPcts === null ? undefined : [...updates.alertPcts].sort((a, b) => a - b),
+            } : {}),
+          } : row),
+        )
+        for (const queryKey of prefixes.slice(1, -1)) {
+          qc.setQueriesData({ queryKey }, (data: unknown) => renameCategoryReferences(data, name, newName))
+        }
+      })
+      const categories = qc.getQueryData<CategoryRow[]>(key)
+      if (categories) {
+        // A transport failure during revalidation falls back to this disk list.
+        // Persist the rename first so that fallback cannot restore the old join.
+        try { await writeCategoryCache(categories) } catch (err) {
+          if (__DEV__) console.log('[offline-cache] WRITE FAILED', err)
+        }
+      }
+      await Promise.all(prefixes.map((queryKey) => qc.invalidateQueries({ queryKey })))
+    },
   })
 }
 
@@ -128,4 +164,24 @@ export function useMoveCategory() {
     },
     onSettled: () => qc.invalidateQueries({ queryKey: key }),
   })
+}
+
+/** Rows, recent/page wrappers, duplicate pairs, and suggestion inputs share category fields. */
+function renameCategoryReferences(data: unknown, name: string, newName: string): unknown {
+  if (Array.isArray(data)) return data.map((row) => renameCategoryReferences(row, name, newName))
+  if (!data || typeof data !== 'object') return data
+  return Object.fromEntries(Object.entries(data).map(([field, value]) => {
+    if (field === 'category' && value === name) return [field, newName]
+    if (field === 'lastSpent' && value && typeof value === 'object') {
+      return [field, Object.fromEntries(Object.entries(value).map(([category, date]) =>
+        [category === name ? newName : category, date],
+      ))]
+    }
+    if (field === 'words' && value && typeof value === 'object') {
+      return [field, Object.fromEntries(Object.entries(value).map(([word, category]) =>
+        [word, category === name ? newName : category],
+      ))]
+    }
+    return [field, renameCategoryReferences(value, name, newName)]
+  }))
 }

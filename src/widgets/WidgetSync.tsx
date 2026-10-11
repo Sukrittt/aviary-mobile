@@ -92,6 +92,7 @@ export function WidgetSync() {
             {...data}
             tokens={tokens}
             scheme={scheme}
+            width={info.width}
             height={info.height}
           />
         )),

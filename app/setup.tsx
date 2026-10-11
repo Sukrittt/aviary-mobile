@@ -1,5 +1,7 @@
 import { CurrencyPicker } from "@/src/components/CurrencyPicker";
 import { CurrencyScope, useCurrency } from "@/src/context/CurrencyContext";
+import { resolveCurrency } from "@/src/lib/currencies";
+import { getLocales } from "expo-localization";
 import { useEffect, useRef, useState } from "react";
 import {
   View,
@@ -12,7 +14,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
-import { ArrowLeft, CopyX, LayoutGrid, Pencil, Plus } from "lucide-react-native";
+import { ArrowLeft, CopyX, Info, LayoutGrid, Pencil, Plus } from "lucide-react-native";
 import { Toast } from "@/src/components/ui/Toast";
 import Animated, {
   useSharedValue,
@@ -42,6 +44,9 @@ import {
   BUCKET_PLURALS,
   bucketsOf,
   summarizeSplit,
+  splitNote,
+  BUCKET_SHARES,
+  BUCKETS,
   type Bucket,
   normName,
   splitEvenly,
@@ -184,8 +189,14 @@ const TITLES: Record<number, [string, string]> = {
   ],
   4: [
     "Assign your money",
-    "We suggested a split based on what each category is for. Tap any amount to change it. Anything you leave waits in Ready to Assign.",
+    "We split it with the 50/30/20 rule: half to needs, 30% to wants, 20% to savings. Tap any amount to change it. Anything you leave waits in Ready to Assign.",
   ],
+};
+
+const SPLIT_INFO: Record<Bucket, string> = {
+  need: "Rent, groceries, bills. The stuff you can't skip.",
+  want: "Eating out, shopping, fun. Nice, not needed.",
+  savings: "Emergency fund, goals, future you.",
 };
 
 function remainderColors(
@@ -198,8 +209,11 @@ function remainderColors(
 }
 
 export default function SetupScreen() {
-  const current = useCurrency();
-  const [currencyCode, setCurrencyCode] = useState(current.currencyCode);
+  // Start on the device region's currency (US → USD, MX → MXN); the profile's
+  // seeded INR is only a placeholder until this step saves a real choice.
+  const [currencyCode, setCurrencyCode] = useState(() =>
+    resolveCurrency(getLocales()[0]?.currencyCode),
+  );
   return (
     <CurrencyScope code={currencyCode}>
       <CurrencyWizard
@@ -256,6 +270,7 @@ function CurrencyWizard({
   const [nameDraft, setNameDraft] = useState("");
   // The assign sheet swaps its numpad for the emoji grid while this is on.
   const [sheetEmojiOpen, setSheetEmojiOpen] = useState(false);
+  const [splitInfoOpen, setSplitInfoOpen] = useState(false);
   const [pending, setPending] = useState(false);
   // Real save progress for the Finish button: the step being written and a
   // fill that grows as each write lands, so a slow save visibly moves.
@@ -812,6 +827,7 @@ function CurrencyWizard({
   // Need/want/savings per category, labelled on the assign step so the suggested split explains itself.
   const buckets = bucketsOf(liveCats(), bucketTags);
   const summary = summarizeSplit(liveCats(), bucketTags);
+  const note = splitNote(summary);
   // Same colours on the split line and each row's label, so the two read together.
   const bucketColors: Record<Bucket, { fg: string; bg: string }> = {
     need: { fg: tokens.blue, bg: tokens.blueSoft },
@@ -862,7 +878,7 @@ function CurrencyWizard({
         {
           backgroundColor: tokens.bg,
           paddingTop: insets.top + 20,
-          paddingBottom: Math.max(insets.bottom, 12),
+          paddingBottom: insets.bottom + 20,
         },
       ]}
     >
@@ -1105,7 +1121,12 @@ function CurrencyWizard({
             />
           </View>
           {summary && (
-            <View style={styles.splitWhy}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityHint="Shows how the suggested split works"
+              onPress={() => setSplitInfoOpen(true)}
+              style={styles.splitWhy}
+            >
               {summary.map((s) => (
                 <View key={s.bucket} style={styles.splitKey}>
                   <View
@@ -1124,10 +1145,22 @@ function CurrencyWizard({
                   </Text>
                 </View>
               ))}
-            </View>
+              <Info size={13} color={tokens.text3} strokeWidth={2.4} />
+              {note && (
+                <Text
+                  style={[
+                    styles.splitKeyLabel,
+                    styles.splitNote,
+                    { color: tokens.text3 },
+                  ]}
+                >
+                  {note}
+                </Text>
+              )}
+            </Pressable>
           )}
           <ScrollView
-            contentContainerStyle={[styles.sectionList, { paddingTop: 22 }]}
+            contentContainerStyle={[styles.sectionList, { paddingTop: 16 }]}
             showsVerticalScrollIndicator={false}
           >
             {selectedGroups.map((g) => {
@@ -1424,6 +1457,70 @@ function CurrencyWizard({
         )}
       </BottomSheet>
 
+      <BottomSheet
+        visible={splitInfoOpen}
+        onClose={() => setSplitInfoOpen(false)}
+      >
+        <View style={{ gap: 14 }}>
+          <View
+            style={[
+              styles.sheetGrabber,
+              { backgroundColor: tokens.borderStrong },
+            ]}
+          />
+          <Text
+            style={[
+              styles.sheetName,
+              { color: tokens.text, fontFamily: fontFamily.displaySemiBold },
+            ]}
+          >
+            How we split it
+          </Text>
+          <Text style={[styles.splitInfoBody, { color: tokens.text2 }]}>
+            We tag each category as a need, a want or savings, then follow the
+            50/30/20 rule.
+          </Text>
+          {BUCKETS.map((b) => (
+            <View key={b} style={styles.splitInfoRow}>
+              <View
+                style={[
+                  styles.splitInfoPct,
+                  { backgroundColor: bucketColors[b].bg },
+                ]}
+              >
+                <Text
+                  style={{
+                    color: bucketColors[b].fg,
+                    fontFamily: fontFamily.displaySemiBold,
+                    fontSize: 15,
+                  }}
+                >
+                  {BUCKET_SHARES[b]}%
+                </Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={{
+                    color: tokens.text,
+                    fontFamily: fontFamily.bodyBold,
+                    fontSize: 14,
+                  }}
+                >
+                  {BUCKET_PLURALS[b]}
+                </Text>
+                <Text style={[styles.splitInfoBody, { color: tokens.text3 }]}>
+                  {SPLIT_INFO[b]}
+                </Text>
+              </View>
+            </View>
+          ))}
+          <Text style={[styles.splitInfoBody, { color: tokens.text3 }]}>
+            Missing a group? Its share goes to the others. Tap any amount to
+            change it.
+          </Text>
+        </View>
+      </BottomSheet>
+
       <BottomSheet visible={!!emojiFor} onClose={() => setEmojiFor(null)}>
         {emojiFor && (
           <View style={{ gap: 14 }}>
@@ -1509,6 +1606,7 @@ function QuickPickChip({
         ]}
       >
         <Text
+          numberOfLines={1}
           style={[
             styles.quickPickLabel,
             { color: on ? tokens.accent : tokens.text2 },
@@ -1635,7 +1733,7 @@ const styles = StyleSheet.create({
     borderRadius: 100,
     borderWidth: 1,
   },
-  quickPickLabel: { fontSize: 12, fontWeight: "700" },
+  quickPickLabel: { fontSize: 12, fontFamily: fontFamily.bodyBold },
   rowList: { gap: 8, paddingTop: 12 },
   addRow: {
     flexDirection: "row",
@@ -1671,7 +1769,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderStyle: "dashed",
   },
-  addPillLabel: { fontSize: 12, fontWeight: "700" },
+  addPillLabel: { fontSize: 12, fontFamily: fontFamily.bodyBold },
   errorText: { fontSize: 13, textAlign: "center", marginTop: 8 },
   cta: {
     marginTop: 12,
@@ -1715,7 +1813,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
   },
-  remLabel: { fontSize: 12, fontWeight: "800" },
+  remLabel: { fontSize: 12, fontFamily: fontFamily.bodyExtraBold },
   remValue: { fontSize: 20 },
   splitRow: { flexDirection: "row", gap: 7, marginTop: 10 },
   splitButton: {
@@ -1726,7 +1824,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: "center",
   },
-  splitButtonLabel: { fontSize: 12, fontWeight: "700" },
+  splitButtonLabel: { fontSize: 12, fontFamily: fontFamily.bodyBold },
   assignRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -1759,12 +1857,22 @@ const styles = StyleSheet.create({
     alignItems: "center",
     columnGap: 12,
     rowGap: 4,
-    marginTop: 10,
+    marginTop: 16,
     paddingHorizontal: 2,
   },
   splitKey: { flexDirection: "row", alignItems: "center", gap: 5 },
   splitDot: { width: 8, height: 8, borderRadius: 4 },
   splitKeyLabel: { fontSize: 12 },
+  splitNote: { flexBasis: "100%", fontFamily: fontFamily.bodyMedium },
+  splitInfoRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  splitInfoPct: {
+    width: 52,
+    height: 40,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  splitInfoBody: { fontSize: 13, lineHeight: 18, fontFamily: fontFamily.bodyMedium },
 
   emojiGrid: {
     flexDirection: "row",
@@ -1822,7 +1930,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
   },
-  remLabelSmall: { fontSize: 10, fontWeight: "800" },
+  remLabelSmall: { fontSize: 10, fontFamily: fontFamily.bodyExtraBold },
   remValueSmall: { fontSize: 13 },
   sheetAmount: {
     fontSize: 38,
@@ -1837,7 +1945,7 @@ const styles = StyleSheet.create({
     borderRadius: 100,
     borderWidth: 1,
   },
-  fillButtonLabel: { fontSize: 12, fontWeight: "700" },
+  fillButtonLabel: { fontSize: 12, fontFamily: fontFamily.bodyBold },
   sheetDone: {
     minHeight: 50,
     borderRadius: 26,

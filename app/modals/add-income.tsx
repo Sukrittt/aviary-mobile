@@ -4,18 +4,22 @@ import { AmountText } from "@/src/components/ui/AmountText";
 import { Numpad } from "@/src/components/ui/Numpad";
 import { useAmountEntry } from "@/src/components/ui/useAmountEntry";
 import { useBudgets } from "@/src/hooks/useBudgets";
-import { useAddIncome } from "@/src/hooks/useIncomes";
+import { useCategories } from "@/src/hooks/useCategories";
+import { useAddIncome, useIncomes, useUpdateIncome } from "@/src/hooks/useIncomes";
+import type { IncomeRow } from "@/src/types";
 import { liveAccounts, useAccounts } from "@/src/hooks/useAccounts";
 import { AccountChips } from "@/src/components/shared/AccountChips";
+import { BottomSheet } from "@/src/components/shared/Modal";
 import * as Crypto from "expo-crypto";
+import * as Haptics from "expo-haptics";
 import { EMPTY } from "@/src/lib/constants";
 import { computeEnvelopeState, currentMonthKey, monthLabel } from "@/src/lib/envelope";
 import { usePrivacy } from "@/src/context/PrivacyContext";
 
 import { fontFamily } from "@/src/theme/fonts";
 import { useTheme } from "@/src/theme/ThemeProvider";
-import { useRouter } from "expo-router";
-import { X } from "lucide-react-native";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { ChevronDown, X } from "lucide-react-native";
 import { useEffect, useState } from "react";
 import {
   Animated,
@@ -32,8 +36,19 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 /** Opened from Home's Ready to Assign sheet and the Income screen. Records a
  * one-off in the income ledger; the server adds it to this month's income
  * extra in the same write, so Ready to Assign goes up by exactly that much and
- * next month doesn't repeat it. Same layout as edit-month-income.tsx. */
+ * next month doesn't repeat it. Same layout as edit-month-income.tsx.
+ * With `?id=`, edits that recorded income instead (the Income screen's pencil). */
 export default function AddIncomeModal() {
+  const { id } = useLocalSearchParams<{ id?: string }>();
+  const incomesQ = useIncomes();
+  if (!id) return <IncomeForm />;
+  const existing = incomesQ.data?.find((r) => r.id === id);
+  // The Income screen already loaded the list, so this is only a frame or two.
+  if (!existing) return null;
+  return <IncomeForm existing={existing} />;
+}
+
+function IncomeForm({ existing }: { existing?: IncomeRow }) {
   const month = currentMonthKey();
   const { formatCurrency, formatAmountInput } = useCurrency()
   const { hideAmounts } = usePrivacy();
@@ -41,12 +56,20 @@ export default function AddIncomeModal() {
   const { tokens, space, radius, type } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const budgets = useBudgets().data ?? EMPTY;
+  const budgetsQ = useBudgets();
+  const categoriesQ = useCategories();
+  const budgets = budgetsQ.data ?? EMPTY;
+  const categories = categoriesQ.data ?? EMPTY;
+  // Without both lists the preview would read as income plus the typed value.
+  const canPreview = budgetsQ.data !== undefined && categoriesQ.data !== undefined;
   const addIncome = useAddIncome();
+  const updateIncome = useUpdateIncome();
   const accounts = liveAccounts(useAccounts().data);
-  const [label, setLabel] = useState("");
-  const [accountId, setAccountId] = useState("");
+  const [label, setLabel] = useState(existing?.label ?? "");
+  const [accountId, setAccountId] = useState(existing?.account_id ?? "");
   const [clientId] = useState(() => Crypto.randomUUID());
+  // Label and account are optional, so they live behind "More" like log-expense.tsx.
+  const [showMore, setShowMore] = useState(false);
 
   const {
     amount: amountText,
@@ -54,18 +77,29 @@ export default function AddIncomeModal() {
     pushDigit,
     handleBackspace,
     shake,
-  } = useAmountEntry("");
+  } = useAmountEntry(existing ? String(Number(existing.amount) || "") : "");
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
 
   const value = Number(amountText) || 0;
-  // Expenses don't change income or what's assigned, so budgets alone are enough here.
-  const state = computeEnvelopeState(budgets, EMPTY, month, EMPTY, EMPTY);
+  // Expenses and groups don't change income or what's assigned, but the
+  // category list owns envelope membership, so without it nothing counts as
+  // assigned and Ready to Assign collapses to income.
+  const state = computeEnvelopeState(budgets, EMPTY, month, categories, EMPTY);
   const detail =
     state.incomeExtra === 0
       ? `${formatCurrency(state.incomeBase, hideAmounts)} monthly`
       : `${formatCurrency(state.incomeBase, hideAmounts)} monthly · ${formatCurrency(state.incomeExtra, hideAmounts)} extra`;
+
+  // A payday on the monthly schedule is already counted by the monthly income, so editing it moves nothing.
+  const countsAsExtra = !existing || existing.counted === "extra";
+  const change = value - (existing ? Number(existing.amount) || 0 : 0);
+  const hint = !countsAsExtra
+    ? "This only changes the record. Your monthly income still counts."
+    : value > 0 && canPreview
+      ? `Ready to Assign ${formatCurrency(state.readyToAssign + change, hideAmounts)} · This month only`
+      : "What came in on top of your monthly income";
 
   async function submit() {
     if (value <= 0 || saving) return;
@@ -74,14 +108,24 @@ export default function AddIncomeModal() {
     try {
       // The server records it and moves this month's extra in one write
       // (Web/lib/income.ts); the client id makes a retried save count once.
-      await addIncome.mutateAsync({
-        amount: value,
-        label: label.trim() || "Extra income",
-        ...(accountId ? { account_id: accountId } : {}),
-        client_id: clientId,
-      });
+      if (existing) {
+        await updateIncome.mutateAsync({
+          id: existing.id,
+          version: existing.version,
+          // The account goes only when it changed: an archived one the row still names would fail the save.
+          updates: { amount: value, label: label.trim() || existing.label, ...(accountId !== existing.account_id ? { account_id: accountId } : {}) },
+        });
+      } else {
+        await addIncome.mutateAsync({
+          amount: value,
+          label: label.trim() || "Extra income",
+          ...(accountId ? { account_id: accountId } : {}),
+          client_id: clientId,
+        });
+      }
       setSuccess(true);
     } catch {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
       setError("Couldn't save. Check your connection and try again.");
     } finally {
       setSaving(false);
@@ -135,7 +179,7 @@ export default function AddIncomeModal() {
             },
           ]}
         >
-          Add income
+          {existing ? "Edit income" : "Add income"}
         </Text>
       </View>
 
@@ -192,7 +236,7 @@ export default function AddIncomeModal() {
                 },
               ]}
             >
-              ADDING
+              {existing ? "EDITING" : "ADDING"}
             </Text>
             <Text
               style={{
@@ -246,35 +290,29 @@ export default function AddIncomeModal() {
               textAlign: "center",
             }}
           >
-            {value > 0
-              ? `Ready to Assign ${formatCurrency(state.readyToAssign + value, hideAmounts)} · this month only`
-              : "What came in on top of your monthly income"}
+            {hint}
           </Reanimated.Text>
         </View>
 
-        <TextInput
-          value={label}
-          onChangeText={setLabel}
-          placeholder="What was it? A bonus, a refund, a gift…"
-          placeholderTextColor={tokens.text3}
-          maxLength={200}
-          accessibilityLabel="What was it"
-          style={{
-            borderWidth: 1,
-            borderColor: tokens.border,
-            backgroundColor: tokens.inputBg,
-            borderRadius: radius.md,
-            paddingHorizontal: space.md,
-            paddingVertical: space.sm + 2,
-            color: tokens.text,
-            fontFamily: fontFamily.bodyMedium,
-            fontSize: type.body,
+        <Pressable
+          onPress={() => {
+            Haptics.selectionAsync().catch(() => {});
+            setShowMore(true);
           }}
-        />
-
-        {accounts.length > 0 && (
-          <AccountChips accounts={accounts} value={accountId} onChange={setAccountId} allowNone label="Paid into" />
-        )}
+          style={[styles.moreToggle, { gap: space.xs }]}
+          hitSlop={8}
+        >
+          <Text
+            style={{
+              color: tokens.accent,
+              fontFamily: fontFamily.bodySemiBold,
+              fontSize: type.caption,
+            }}
+          >
+            More
+          </Text>
+          <ChevronDown size={16} color={tokens.accent} />
+        </Pressable>
 
         {error !== "" && (
           <Text style={{ color: tokens.coral, fontSize: 12 }}>{error}</Text>
@@ -318,11 +356,46 @@ export default function AddIncomeModal() {
                 fontSize: type.body,
               }}
             >
-              {saving ? "Saving…" : "Add"}
+              {saving ? "Saving…" : existing ? "Save" : "Add"}
             </Text>
           )}
         </Pressable>
       </View>
+
+      <BottomSheet visible={showMore} onClose={() => setShowMore(false)}>
+        <Text
+          style={{
+            color: tokens.text,
+            fontFamily: fontFamily.displaySemiBold,
+            fontSize: type.bodyLg,
+            marginBottom: 12,
+          }}
+        >
+          More details
+        </Text>
+        <View style={{ gap: space.lg }}>
+          <TextInput
+            value={label}
+            onChangeText={setLabel}
+            placeholder="What was it? A bonus, a refund, a gift…"
+            placeholderTextColor={tokens.text3}
+            maxLength={200}
+            accessibilityLabel="What was it"
+            style={{
+              backgroundColor: tokens.inputBg,
+              borderRadius: radius.md,
+              paddingHorizontal: 14,
+              paddingVertical: 14,
+              color: tokens.text,
+              fontFamily: fontFamily.bodyMedium,
+              fontSize: type.body,
+            }}
+          />
+          {accounts.length > 0 && (
+            <AccountChips accounts={accounts} value={accountId} onChange={setAccountId} allowNone label="Paid into" />
+          )}
+        </View>
+      </BottomSheet>
     </View>
   );
 }
@@ -352,5 +425,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   amountWrap: { alignItems: "center", paddingVertical: 8 },
+  moreToggle: { flexDirection: "row", alignItems: "center", justifyContent: "center" },
   confirmButton: { paddingVertical: 15, alignItems: "center", justifyContent: "center" },
 });

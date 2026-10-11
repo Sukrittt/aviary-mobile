@@ -54,3 +54,17 @@ it('lists live accounts and restores an archived one', async () => {
   })
   await waitFor(() => expect(updateAccount).toHaveBeenCalledWith('a2', { archived: false }))
 })
+
+it("opens an account's transactions and deletes it by archiving after a confirm", async () => {
+  ;(getAccounts as jest.Mock).mockResolvedValue([{ id: 'a1', name: 'HDFC', type: 'bank', archived: false, created_at: '1' }])
+  const { findByText, getByLabelText, getByText } = renderWithProviders(<AccountsScreen />)
+  await findByText('Bank account')
+  fireEvent.press(getByLabelText('View HDFC transactions'))
+  expect(mockPush).toHaveBeenCalledWith({ pathname: '/(tabs)/activity', params: { account: 'a1' } })
+  fireEvent.press(getByLabelText('Delete HDFC'))
+  expect(updateAccount).not.toHaveBeenCalled()
+  await act(async () => {
+    fireEvent.press(getByText('Delete'))
+  })
+  await waitFor(() => expect(updateAccount).toHaveBeenCalledWith('a1', { archived: true }))
+})

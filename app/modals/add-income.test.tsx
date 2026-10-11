@@ -1,8 +1,9 @@
 import { act, fireEvent, waitFor } from '@testing-library/react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { getBudgets, updateBudget } from '@/src/api/budgets'
-import { addIncome } from '@/src/api/incomes'
+import { addIncome, getIncomes, updateIncome } from '@/src/api/incomes'
 import { getAccounts } from '@/src/api/accounts'
+import { getCategories } from '@/src/api/categories'
 import AddIncomeModal from './add-income'
 import { currentMonthKey } from '@/src/lib/envelope'
 
@@ -13,21 +14,27 @@ jest.mock('@/src/api/budgets', () => ({
   deleteBudget: jest.fn(),
   transferBudget: jest.fn(),
 }))
-jest.mock('@/src/api/incomes', () => ({ ...jest.requireActual('@/src/api/incomes'), addIncome: jest.fn() }))
+jest.mock('@/src/api/incomes', () => ({ ...jest.requireActual('@/src/api/incomes'), addIncome: jest.fn(), getIncomes: jest.fn(), updateIncome: jest.fn() }))
 jest.mock('@/src/api/accounts', () => ({ ...jest.requireActual('@/src/api/accounts'), getAccounts: jest.fn() }))
+jest.mock('@/src/api/categories', () => ({ getCategories: jest.fn() }))
 
 const mockBack = jest.fn()
+let mockParams: Record<string, string> = {}
 jest.mock('expo-router', () => ({
   useRouter: () => ({ back: mockBack, push: jest.fn(), replace: jest.fn(), navigate: jest.fn() }),
-  useLocalSearchParams: () => ({}),
+  useLocalSearchParams: () => mockParams,
 }))
 
 const MONTH = currentMonthKey()
 
 beforeEach(() => {
   jest.clearAllMocks()
+  mockParams = {}
+  ;(getIncomes as jest.Mock).mockResolvedValue([])
+  ;(updateIncome as jest.Mock).mockResolvedValue(5)
   ;(addIncome as jest.Mock).mockResolvedValue({ id: 'i1' })
   ;(getAccounts as jest.Mock).mockResolvedValue([])
+  ;(getCategories as jest.Mock).mockResolvedValue([])
   ;(getBudgets as jest.Mock).mockResolvedValue([
     { month: MONTH, category: '__income__', assigned: '100000', rolled_over: '0', extra: '500', version: 3 },
   ])
@@ -41,6 +48,7 @@ it('records a one-off in the ledger, which moves Ready to Assign server-side', a
   const { getByLabelText, getByText } = renderWithProviders(<AddIncomeModal />)
   await waitFor(() => expect(getByText('₹1,00,000 monthly · ₹500 extra')).toBeTruthy())
   typeAmount(getByLabelText, '10000')
+  fireEvent.press(getByText('More'))
   fireEvent.changeText(getByLabelText('What was it'), 'Diwali bonus')
   await act(async () => {
     fireEvent.press(getByText('Add'))
@@ -52,6 +60,7 @@ it('records a one-off in the ledger, which moves Ready to Assign server-side', a
 it('names an unnamed one-off and puts it on the picked account', async () => {
   ;(getAccounts as jest.Mock).mockResolvedValue([{ id: 'a1', name: 'HDFC', type: 'bank', archived: false, created_at: '' }])
   const { getByLabelText, getByText, findByLabelText } = renderWithProviders(<AddIncomeModal />)
+  fireEvent.press(getByText('More'))
   fireEvent.press(await findByLabelText('🏦 HDFC'))
   typeAmount(getByLabelText, '500')
   await act(async () => {
@@ -70,4 +79,45 @@ it('keeps the screen open with a written error when saving fails', async () => {
   })
   expect(await findByText("Couldn't save. Check your connection and try again.")).toBeTruthy()
   expect(mockBack).not.toHaveBeenCalled()
+})
+
+it('previews Ready to Assign plus the typed amount, not income plus it', async () => {
+  ;(getBudgets as jest.Mock).mockResolvedValue([
+    { month: MONTH, category: '__income__', assigned: '50000', rolled_over: '0', extra: '0', version: 1 },
+    { month: MONTH, category: 'Food', assigned: '40000', rolled_over: '0', extra: '0', version: 1 },
+  ])
+  ;(getCategories as jest.Mock).mockResolvedValue([{ name: 'Food', group: 'Everyday' }])
+  const { getByLabelText, findByText } = renderWithProviders(<AddIncomeModal />)
+  await findByText('₹50,000 monthly')
+  typeAmount(getByLabelText, '5000')
+  expect(await findByText('Ready to Assign ₹15,000 · This month only')).toBeTruthy()
+})
+
+it('holds the Ready to Assign preview until categories load', async () => {
+  ;(getBudgets as jest.Mock).mockResolvedValue([
+    { month: MONTH, category: '__income__', assigned: '50000', rolled_over: '0', extra: '0', version: 1 },
+    { month: MONTH, category: 'Food', assigned: '40000', rolled_over: '0', extra: '0', version: 1 },
+  ])
+  ;(getCategories as jest.Mock).mockReturnValue(new Promise(() => {}))
+  const { getByLabelText, findByText, queryByText } = renderWithProviders(<AddIncomeModal />)
+  await findByText('₹50,000 monthly')
+  typeAmount(getByLabelText, '5000')
+  expect(queryByText(/Ready to Assign/)).toBeNull()
+})
+
+it('edits a recorded income in place, keeping its name when the field is cleared', async () => {
+  mockParams = { id: 'r1' }
+  ;(getIncomes as jest.Mock).mockResolvedValue([
+    { id: 'r1', version: 4, date: `${MONTH}-05`, amount: '1000', label: 'Bonus', notes: '', account_id: '', recurring_id: '', source: 'manual', counted: 'extra', created_at: '' },
+  ])
+  const { getByLabelText, getByText, findByText } = renderWithProviders(<AddIncomeModal />)
+  expect(await findByText('Edit income')).toBeTruthy()
+  fireEvent.press(getByLabelText('5'))
+  fireEvent.press(getByText('More'))
+  fireEvent.changeText(getByLabelText('What was it'), '')
+  await act(async () => {
+    fireEvent.press(getByText('Save'))
+  })
+  expect(updateIncome).toHaveBeenCalledWith('r1', 4, { amount: 10005, label: 'Bonus' })
+  expect(addIncome).not.toHaveBeenCalled()
 })
