@@ -772,7 +772,7 @@ export default function EnvelopesScreen() {
   // A failed refresh keeps the last good data, so only a query with nothing to show is an error.
   const hasError = !FORCE_EMPTY_STATE_PREVIEW && [categoriesQ, groupsQ].some((q) => q.error && q.data === undefined)
 
-  if (hasError && !online) return <OfflineScreen />
+  if (!online) return <OfflineScreen />
 
   if (isLoading) {
     return (

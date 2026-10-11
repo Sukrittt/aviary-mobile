@@ -480,7 +480,7 @@ export default function ActivityScreen() {
   // A failed refresh keeps the last good data: only an error with no transactions to show replaces the list.
   const hasError = !FORCE_EMPTY_STATE_PREVIEW && !!(expensesQ.error || categoriesQ.error) && expensesQ.data === undefined;
 
-  if (hasError && !online) return <OfflineScreen />;
+  if (!online) return <OfflineScreen />;
 
   if (isLoading) {
     return (

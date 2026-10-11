@@ -27,9 +27,8 @@ let mockIncomes: Record<string, unknown>[] = []
 jest.mock('@/src/hooks/useIncomes', () => ({ useIncomes: () => ({ data: mockIncomes }) }))
 jest.mock('@/src/hooks/useAccounts', () => ({ useAccounts: () => ({ data: [] }), liveAccounts: () => [] }))
 
-let mockCategories: { data: unknown; isLoading: boolean; error: Error | null } = { data: [], isLoading: false, error: null }
 jest.mock('@/src/hooks/useCategories', () => ({
-  useCategories: () => mockCategories,
+  useCategories: () => ({ data: [], isLoading: false, error: null }),
 }))
 
 jest.mock('@/src/hooks/useGroups', () => ({
@@ -101,7 +100,6 @@ beforeEach(() => {
   mockPush.mockReset()
   mockDuplicates = []
   mockOnline = true
-  mockCategories = { data: [], isLoading: false, error: null }
 })
 
 it('shows duplicate review as a compact header action', () => {
@@ -337,12 +335,12 @@ describe('income', () => {
   })
 })
 
-it('keeps saved transactions on screen while offline', () => {
+it('blocks the screen while offline, even with saved transactions', async () => {
   mockOnline = false
-  mockUseExpensesPage.mockReturnValue({ data: pageResult({}), isLoading: false, error: new Error('Network request failed') })
-  const { getByText, queryByText } = renderWithProviders(<ActivityScreen />)
-  expect(getByText('Item 1')).toBeTruthy()
-  expect(queryByText("You're offline")).toBeNull()
+  mockUseExpensesPage.mockReturnValue({ data: pageResult({}), isLoading: false, error: null })
+  const { findByText, queryByText } = renderWithProviders(<ActivityScreen />)
+  expect(await findByText("You're offline")).toBeTruthy()
+  expect(queryByText('Item 1')).toBeNull()
 })
 
 it('keeps saved transactions on screen when a refresh fails online', () => {
@@ -352,17 +350,9 @@ it('keeps saved transactions on screen when a refresh fails online', () => {
   expect(queryByText("Couldn't load transactions")).toBeNull()
 })
 
-it('shows the offline screen only when there is nothing saved to show', async () => {
+it('shows the offline screen when there is nothing saved to show', async () => {
   mockOnline = false
   mockUseExpensesPage.mockReturnValue({ data: undefined, isLoading: false, error: new Error('Network request failed') })
   const { findByText } = renderWithProviders(<ActivityScreen />)
   expect(await findByText("You're offline")).toBeTruthy()
-})
-
-it('keeps saved transactions offline even when categories never loaded', () => {
-  mockOnline = false
-  mockCategories = { data: undefined, isLoading: false, error: new Error('Network request failed') }
-  mockUseExpensesPage.mockReturnValue({ data: pageResult({}), isLoading: false, error: null })
-  const { getByText } = renderWithProviders(<ActivityScreen />)
-  expect(getByText('Item 1')).toBeTruthy()
 })

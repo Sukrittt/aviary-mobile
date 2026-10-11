@@ -62,6 +62,27 @@ it('treats a request that could not reach the network as offline', async () => {
   ;(getValidToken as jest.Mock).mockResolvedValue('t')
   const fetch = jest.spyOn(global, 'fetch').mockRejectedValueOnce(new TypeError('Network request failed'))
   await expect(apiFetch('/api/expenses')).rejects.toThrow()
-  expect(setOnline).toHaveBeenCalledWith(false)
+  expect(setOnline).toHaveBeenCalledWith(false, expect.any(Function))
   fetch.mockRestore()
+})
+
+it('only confirms offline when a follow-up probe also cannot reach the server', async () => {
+  jest.useFakeTimers()
+  ;(getValidToken as jest.Mock).mockResolvedValue('t')
+  const fetch = jest.spyOn(global, 'fetch').mockRejectedValueOnce(new TypeError('Network request failed'))
+  await expect(apiFetch('/api/expenses')).rejects.toThrow()
+  const confirmOffline = (setOnline as jest.Mock).mock.calls.find(([v]) => v === false)[1] as () => Promise<boolean>
+
+  fetch.mockResolvedValueOnce(new Response(null, { status: 404 }))
+  const reachable = confirmOffline()
+  await jest.advanceTimersByTimeAsync(2_000)
+  await expect(reachable).resolves.toBe(false)
+
+  fetch.mockRejectedValueOnce(new TypeError('Network request failed'))
+  const unreachable = confirmOffline()
+  await jest.advanceTimersByTimeAsync(2_000)
+  await expect(unreachable).resolves.toBe(true)
+
+  fetch.mockRestore()
+  jest.useRealTimers()
 })

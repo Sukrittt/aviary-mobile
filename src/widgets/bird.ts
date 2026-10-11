@@ -79,14 +79,6 @@ export function birdBody(
       : "";
 
   let extra = "";
-  // Sweat sits on the temple, kissing the head's contour (centre ~250,238,
-  // r 110), not floating off it — detached, it read as a stray watermark.
-  if (mood === "tight" || mood === "over") {
-    extra += `<path d="M 340 124 Q 325 158 340 171 Q 355 158 340 124 Z" fill="${tokens.blue}"/>`;
-  }
-  if (mood === "over") {
-    extra += `<path d="M 374 160 Q 365 181 374 189 Q 383 181 374 160 Z" fill="${tokens.blue}" fill-opacity="0.7"/>`;
-  }
   if (mood === "stale") {
     // Two z's, drawn as strokes: AndroidSVG's <text> would need the font.
     const z = (x: number, y: number, s: number) =>

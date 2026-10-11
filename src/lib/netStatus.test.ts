@@ -37,3 +37,41 @@ describe('setOnline', () => {
     expect(isOnline()).toBe(true)
   })
 })
+
+describe('setOnline with a probe', () => {
+  const flush = () => new Promise((r) => setImmediate(r))
+
+  it('stays online when the probe still reaches the server (a blip, not an outage)', async () => {
+    const probe = jest.fn().mockResolvedValue(false)
+    setOnline(false, probe)
+    setOnline(false, probe)
+    await flush()
+    expect(probe).toHaveBeenCalledTimes(1)
+    expect(isOnline()).toBe(true)
+    // The streak was cleared, so one more failure doesn't flip it either.
+    setOnline(false, probe)
+    expect(isOnline()).toBe(true)
+  })
+
+  it('goes offline when the probe confirms the server is unreachable', async () => {
+    const probe = jest.fn().mockResolvedValue(true)
+    setOnline(false, probe)
+    setOnline(false, probe)
+    expect(isOnline()).toBe(true)
+    await flush()
+    expect(isOnline()).toBe(false)
+  })
+
+  it('a success landing while the probe runs wins', async () => {
+    let settle: (offline: boolean) => void = () => {}
+    const probe = jest.fn(() => new Promise<boolean>((r) => (settle = r)))
+    setOnline(false, probe)
+    setOnline(false, probe)
+    setOnline(false, probe)
+    expect(probe).toHaveBeenCalledTimes(1)
+    setOnline(true)
+    settle(true)
+    await flush()
+    expect(isOnline()).toBe(true)
+  })
+})

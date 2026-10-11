@@ -6,6 +6,7 @@ import { buildWidgetTree } from "react-native-android-widget/src/api/build-widge
 import { darkTokens, lightTokens } from "@/src/theme/tokens";
 import type { WidgetData } from "./data";
 import { birdFrames, birdRingFrames, birdRingSvg, birdSvg } from "./bird";
+import { doodlesSvg } from "./doodles";
 import { BIRD_EYE } from "@/src/components/splash/birdPath";
 import { EnvelopeWidget } from "./EnvelopeWidget";
 import { EnvelopeBarWidget } from "./EnvelopeBarWidget";
@@ -218,15 +219,10 @@ describe("birdSvg", () => {
     }
   });
 
-  it("keeps the sweat drop on the head, not floating off it", () => {
-    // Head: centre ~(250, 238), radius 110. The drop's tip must sit within
-    // a drop's width of the contour.
-    const drop = birdSvg({ ...args, mood: "tight" }).match(/<path d="M (\d+) (\d+) Q[^"]*" fill="#[0-9a-f]{6}"\/>/);
-    expect(drop).not.toBeNull();
-    const [x, y] = [Number(drop![1]), Number(drop![2])];
-    const fromCentre = Math.hypot(x - 250, y - 238);
-    expect(fromCentre).toBeGreaterThan(110);
-    expect(fromCentre).toBeLessThan(110 + 50);
+  it("draws no sweat drop, even when money is tight", () => {
+    for (const mood of ["tight", "over"] as const) {
+      expect(birdSvg({ ...args, mood })).not.toContain(lightTokens.blue);
+    }
   });
 
   it("blinks like the ring version and sleeps still", () => {
@@ -234,6 +230,16 @@ describe("birdSvg", () => {
     expect(frames.at(-1)).toBe(birdSvg({ ...args, mood: "ok", blink: true }));
     expect(frames.at(-1)).not.toBe(frames[0]);
     expect(birdFrames({ ...args, mood: "stale" })).toBeUndefined();
+  });
+});
+
+describe("doodlesSvg", () => {
+  it("draws hex-only strokes and picks the wide set for a wide band", () => {
+    const square = doodlesSvg(150, 150, lightTokens, "light");
+    const wide = doodlesSvg(300, 120, darkTokens, "dark");
+    expect(square).not.toMatch(/var\(|rgba\(/);
+    expect(square).not.toBe(wide);
+    expect(wide).toContain(`stroke="${darkTokens.text}"`);
   });
 });
 

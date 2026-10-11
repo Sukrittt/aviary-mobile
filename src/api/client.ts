@@ -57,7 +57,7 @@ export async function apiFetch(path: string, init?: RequestInit, expectedGenerat
     // A timeout or abort means the server was slow (or the caller gave up, like
     // the 5s AI category suggestion), not that the device lost its connection.
     // Counting those flipped the whole app to the offline screen while online.
-    if (!isAbort(err)) setOnline(false)
+    if (!isAbort(err)) setOnline(false, serverUnreachable)
     throw err
   }
   // Every answered request, for latency percentiles and error rates per
@@ -99,6 +99,26 @@ function reportRequestFailure(phase: 'token_refresh' | 'fetch', path: string, er
     error: err instanceof Error ? err.name : 'unknown',
     elapsed_ms: Date.now() - startedAt,
   })
+}
+
+const PROBE_DELAY_MS = 2_000
+const PROBE_TIMEOUT_MS = 8_000
+
+/**
+ * netStatus's last check before showing the offline screen: after a short
+ * pause (long enough for a resumed app's radio to come back), is the server
+ * still unreachable? Any HTTP answer, even a 404, means it's reachable, and so
+ * does a timeout (slow, not gone, same as apiFetch above). Only fetch's own
+ * network error confirms it.
+ */
+async function serverUnreachable(): Promise<boolean> {
+  await new Promise((r) => setTimeout(r, PROBE_DELAY_MS))
+  try {
+    await fetch(BASE_URL, { method: 'HEAD', signal: AbortSignal.timeout(PROBE_TIMEOUT_MS) })
+    return false
+  } catch (err) {
+    return !isAbort(err)
+  }
 }
 
 function isAbort(err: unknown): boolean {
