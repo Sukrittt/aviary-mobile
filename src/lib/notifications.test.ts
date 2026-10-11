@@ -149,3 +149,9 @@ it('goes back to log expense from the evening check instead of stacking a second
  expect(mockDismissTo).toHaveBeenCalledWith('/modals/log-expense')
  expect(mockPush).not.toHaveBeenCalled()
 })
+it('tags a come-back nudge tap with its kind and step', () => {
+ jest.mocked(track).mockClear()
+ addNotificationResponseListener()
+ responseListener!({notification:{request:{content:{data:{route:'/modals/log-expense', kind:'reengage', step:7}}}}})
+ expect(track).toHaveBeenCalledWith('notification_opened', { target: '/modals/log-expense', kind: 'reengage', step: 7 })
+})
