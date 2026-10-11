@@ -46,6 +46,16 @@ it('shows what comes in on repeat and what was recorded this month', async () =>
   expect(getByText(/Added by you/)).toBeTruthy()
 })
 
+it('splits the header by cadence and shows how much was recorded', async () => {
+  ;(getRecurringIncomes as jest.Mock).mockResolvedValue([schedule(), schedule({ id: 'r2', label: 'Tutoring', amount: '1200', frequency: 'weekly' })])
+  ;(getIncomes as jest.Mock).mockResolvedValue([income({ amount: '1200', label: 'Tutoring', source: 'recurring', recurring_id: 'r2' })])
+  const { findByLabelText, getByText, getByLabelText } = renderWithProviders(<IncomeScreen />)
+  const tiles = await findByLabelText('Income by schedule')
+  expect(tiles).toHaveTextContent(/Every month.*50,000.*1 source.*Every week.*1,200.*1 source/)
+  expect(getByText(/1,200 of .*55,200 recorded in/)).toBeTruthy()
+  expect(getByLabelText(/^Recorded in/).props.accessibilityValue).toEqual({ min: 0, max: 100, now: 2 })
+})
+
 it('opens a schedule to edit it', async () => {
   ;(getRecurringIncomes as jest.Mock).mockResolvedValue([schedule()])
   const { findByLabelText } = renderWithProviders(<IncomeScreen />)
