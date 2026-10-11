@@ -15,6 +15,7 @@ import { useTheme } from "@/src/theme/ThemeProvider";
 import { usePrivacy } from "@/src/context/PrivacyContext";
 import { fontFamily } from "@/src/theme/fonts";
 import { formatDateShort } from "@/src/lib/format"
+import { toLocalDateString } from "@/src/lib/date"
 import { AmountText } from "@/src/components/ui/AmountText";
 import {
   AllocationBar,
@@ -138,29 +139,33 @@ function cleanCycle(cycle: string): string {
   return cycle;
 }
 
-function rollForward(dateStr: string, cycle: string): string {
-  const d = new Date(dateStr);
-  if (Number.isNaN(d.getTime())) return "";
-  if (/yearly|annual/i.test(cycle)) d.setFullYear(d.getFullYear() + 1);
-  else if (/quarterly/i.test(cycle)) d.setMonth(d.getMonth() + 3);
-  else if (/weekly/i.test(cycle)) d.setDate(d.getDate() + 7);
-  else d.setMonth(d.getMonth() + 1);
-  return d.toISOString().slice(0, 10);
+/** `dateStr` advanced `n` cycles on calendar parts, clamping the day to the
+ *  target month's length so the 31st lands on Feb 28, then back on Mar 31. */
+function rollForward(dateStr: string, cycle: string, n: number): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(dateStr);
+  if (!m) return "";
+  const [y, mo, d] = [Number(m[1]), Number(m[2]) - 1, Number(m[3])];
+  if (/weekly/i.test(cycle)) {
+    return new Date(Date.UTC(y, mo, d + 7 * n)).toISOString().slice(0, 10);
+  }
+  const step = /yearly|annual/i.test(cycle) ? 12 : /quarterly/i.test(cycle) ? 3 : 1;
+  const target = new Date(Date.UTC(y, mo + step * n, 1));
+  const lastDay = new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + 1, 0)).getUTCDate();
+  target.setUTCDate(Math.min(d, lastDay));
+  return target.toISOString().slice(0, 10);
 }
 
 // ponytail: skips web's renewal_or_end_month/timestamp fallback chain for subs
 // missing next_due_date — add if mobile-added subs start missing that field.
 function effectiveDueDate(sub: SubscriptionRow): string {
-  if (!sub.next_due_date) return "";
-  let d = new Date(sub.next_due_date);
-  if (Number.isNaN(d.getTime())) return "";
-  const now = new Date();
-  while (d <= now) {
-    const rolled = rollForward(d.toISOString().slice(0, 10), sub.billing_cycle);
-    if (!rolled) break;
-    d = new Date(rolled);
+  const today = toLocalDateString();
+  let due = rollForward(sub.next_due_date, sub.billing_cycle, 0);
+  if (!due || due >= today) return due;
+  if (/one-time/i.test(sub.billing_cycle)) return "";
+  for (let n = 1; due < today; n++) {
+    due = rollForward(sub.next_due_date, sub.billing_cycle, n);
   }
-  return d.toISOString().slice(0, 10);
+  return due;
 }
 
 function capitalize(s: string): string {
@@ -181,7 +186,10 @@ function nextCharge(
   for (const sub of active) {
     const due = effectiveDueDate(sub);
     if (!due) continue;
-    const days = Math.round((new Date(due).getTime() - Date.now()) / 86400000);
+    // Both are UTC midnights of calendar dates, so this is an exact day count.
+    const days = Math.round(
+      (Date.parse(due) - Date.parse(toLocalDateString())) / 86400000,
+    );
     if (days < 0) continue;
     if (!best || days < best.days) best = { service: sub.service, days };
   }

@@ -117,3 +117,37 @@ describe('category link', () => {
     expect(mockPush).toHaveBeenCalledWith({ pathname: '/(tabs)/activity', params: { category: 'Entertainment', period: 'month' } })
   })
 })
+
+describe('next due date', () => {
+  afterEach(() => jest.useRealTimers())
+
+  function metaAt(now: string, overrides: Partial<SubscriptionRow>) {
+    jest.useFakeTimers({ now: new Date(now) })
+    return renderWithProviders(<SubscriptionsPanel subscriptions={[sub(overrides)]} />)
+  }
+
+  it.each([
+    ['monthly from the 31st clamps to month-end', '2026-02-02T09:00:00Z', 'monthly', '2026-01-31', 'Monthly · Next 28 Feb'],
+    ['monthly from the 30th clamps to month-end', '2026-02-02T09:00:00Z', 'monthly', '2026-01-30', 'Monthly · Next 28 Feb'],
+    ['a clamped month keeps the original day after', '2026-03-02T09:00:00Z', 'monthly', '2026-01-31', 'Monthly · Next 31 Mar'],
+    ['yearly from a leap day clamps to Feb 28', '2028-03-01T09:00:00Z', 'yearly', '2028-02-29', 'Yearly · Next 28 Feb'],
+    ['quarterly from the 30th clamps to month-end', '2026-12-01T09:00:00Z', 'quarterly', '2026-11-30', 'Quarterly · Next 28 Feb'],
+  ])('%s', (_name, now, billing_cycle, next_due_date, meta) => {
+    const { getByText } = metaAt(now, { billing_cycle, next_due_date })
+    expect(getByText(meta)).toBeTruthy()
+  })
+
+  it("doesn't roll a past one-time charge forward", () => {
+    const { getByText, queryByText } = metaAt('2026-02-02T09:00:00Z', {
+      billing_cycle: 'one-time',
+      next_due_date: '2026-01-15',
+    })
+    expect(getByText('One-time')).toBeTruthy()
+    expect(queryByText(/Next/)).toBeNull()
+  })
+
+  it('says tomorrow for a sub due tomorrow, late in the evening', () => {
+    const { getByText } = metaAt('2026-10-11T18:00:00Z', { next_due_date: '2026-10-12' })
+    expect(getByText(/Next: Netflix tomorrow/)).toBeTruthy()
+  })
+})
