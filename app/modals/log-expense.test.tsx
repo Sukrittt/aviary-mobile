@@ -629,6 +629,14 @@ describe('accounts', () => {
     })
   })
 
+  it('offers the add account sheet instead of a payment toggle while the user has none', async () => {
+    const utils = setup()
+    fireEvent.press(utils.getByText('More'))
+    expect(utils.queryByText('Credit Card')).toBeNull()
+    fireEvent.press(await utils.findByText('Add account'))
+    expect(mockPush).toHaveBeenCalledWith('/modals/account')
+  })
+
   it('sends no account while the user has none', async () => {
     ;(postExpensePayload as jest.Mock).mockResolvedValue({ id: 'srv1', timestamp: '2026-09-04T01:24:00' })
     const utils = setup()

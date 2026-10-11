@@ -16,7 +16,6 @@ import { CategoryPickerSheet } from "@/src/components/shared/CategoryPickerSheet
 import { DatePicker } from "@/src/components/shared/DatePicker";
 import { BottomSheet } from "@/src/components/shared/Modal";
 import { AmountText } from "@/src/components/ui/AmountText";
-import { Chip } from "@/src/components/ui/Chip";
 import { Numpad } from "@/src/components/ui/Numpad";
 import { Nudge } from "@/src/components/ui/Nudge";
 import { Toast } from "@/src/components/ui/Toast";
@@ -162,6 +161,8 @@ export default function LogExpenseScreen() {
   );
   const [date, setDate] = useState(draft?.date ?? (str(params.date).slice(0, 10) || todayLocal()));
   const [notes, setNotes] = useState(draft?.notes ?? str(params.notes));
+  // No picker for this without accounts (Web does the same): new expenses log
+  // as bank, and an edit keeps the row's own method.
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>(
     draft?.paymentMethod ?? paymentMethodOf(str(params.paymentMethod)),
   );
@@ -774,23 +775,27 @@ export default function LogExpenseScreen() {
                 { color: tokens.text3, fontFamily: fontFamily.bodySemiBold },
               ]}
             >
-              {accounts.length > 0 ? "Paid from" : "Payment Method"}
+              Paid from
             </Text>
             {accounts.length > 0 ? (
               // Accounts replace the toggle once there are some; the server
               // takes the payment method from the account's type.
               <AccountChips accounts={accounts} value={accountId} onChange={setAccountPick} allowNone={isEdit && !accountId} showLabel={false} label="Paid from" />
-            ) : (
-              <View style={{ flexDirection: "row", gap: space.sm }}>
-                {(["bank", "credit_card"] as const).map((m) => (
-                  <Chip
-                    key={m}
-                    selected={paymentMethod === m}
-                    label={m === "bank" ? "Bank/UPI" : "Credit Card"}
-                    onPress={() => setPaymentMethod(m)}
-                  />
-                ))}
-              </View>
+            ) : accountsQ.isSuccess && (
+              // No accounts yet: offer one right here. A new one is the only
+              // live account, so it becomes the default pick on its own.
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => {
+                  Keyboard.dismiss();
+                  router.push("/modals/account");
+                }}
+                disabled={!online}
+                style={{ alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: space.xs, paddingHorizontal: space.md, paddingVertical: space.sm, borderRadius: radius.full, backgroundColor: tokens.inputBg, opacity: online ? 1 : 0.5 }}
+              >
+                <Plus size={16} color={tokens.accentInk} />
+                <Text style={{ color: tokens.accentInk, fontFamily: fontFamily.bodySemiBold }}>Add account</Text>
+              </Pressable>
             )}
           </View>
 
