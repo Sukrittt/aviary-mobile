@@ -7,8 +7,7 @@ import { useQuery } from '@tanstack/react-query'
 import { requestPinWidget } from 'react-native-android-widget'
 import * as ImagePicker from 'expo-image-picker'
 import * as Haptics from 'expo-haptics'
-import * as StoreReview from 'expo-store-review'
-import { Gift, Brain, Wallet, Landmark, TrendingUp, Lock, Database, Archive, Repeat, CreditCard, MessageCircle, Compass, LayoutGrid, ChevronRight, ScanLine, Camera, Images, FileText, Receipt, LineChart, History, Globe, Star, ScrollText, type LucideIcon } from 'lucide-react-native'
+import { Gift, Brain, Wallet, Landmark, TrendingUp, Lock, Database, Archive, Repeat, CreditCard, MessageCircle, LayoutGrid, ChevronRight, ScanLine, Camera, Images, FileText, Receipt, LineChart, History, Plus, type LucideIcon } from 'lucide-react-native'
 import { AnimatedTabContent } from '@/src/components/nav/AnimatedTabContent'
 import { Screen } from '@/src/components/ui/Screen'
 import { Alert } from '@/src/components/ui/AlertHost'
@@ -36,7 +35,7 @@ import type { UserProfile } from '@/src/api/account'
 import type { WrappedStatus } from '@/src/api/wrapped'
 import appJson from '@/app.json'
 import { isVersionNewer } from '@/src/lib/version'
-import { hiddenFeatures, isHidden } from '@/src/lib/features'
+import { hiddenFeatures, isHidden, OPT_IN_FEATURES } from '@/src/lib/features'
 import { FEEDBACK_BOARD_URL } from '@/src/lib/constants'
 
 const THEME_OPTIONS = [
@@ -84,8 +83,6 @@ export default function MoreScreen() {
   const scanOff = !!systemStatusQ.data?.aiDisabled
   const installedVersion = appJson.expo.version
   const androidUpdate = Platform.OS === 'android' ? systemStatusQ.data?.appUpdate?.android : undefined
-  // app.json's android.playStoreUrl; null on iOS, which has no App Store listing.
-  const rateUrl = StoreReview.storeUrl()
   const updateAvailable = !!androidUpdate && isVersionNewer(androidUpdate.latestVersion, installedVersion)
 
   async function doSignOut() {
@@ -173,6 +170,7 @@ export default function MoreScreen() {
   const displayName = user?.name || user?.email || 'You'
   const initial = displayName.trim().charAt(0).toUpperCase() || '?'
   const wrappedCard = wrappedCardProps(wrappedStatus, tokens)
+  const extrasOff = OPT_IN_FEATURES.filter((k) => isHidden(user, k)).length
 
   return (
     <AnimatedTabContent>
@@ -229,12 +227,50 @@ export default function MoreScreen() {
             </View>
           </Pressable>
 
-          {/* FEATURES */}
+          {/* BUDGET */}
           <View style={styles.section}>
-            <View style={styles.sectionHeadRow}>
-              <Text style={[styles.sectionLabel, { color: tokens.text3, fontFamily: fontFamily.bodyBold }]}>FEATURES</Text>
-            </View>
+            <Text style={[styles.sectionLabel, { color: tokens.text3, fontFamily: fontFamily.bodyBold }]}>BUDGET</Text>
             <View style={styles.featureGrid}>
+              {!isHidden(user, 'income') && <FeatureCard
+                icon={Wallet}
+                label="Income"
+                blurb="What comes in and when"
+                iconBg={tokens.mintSoft}
+                iconColor={tokens.mint}
+                onPress={() => router.push('/account/income')}
+              />}
+              {!isHidden(user, 'accounts') && <FeatureCard
+                icon={Landmark}
+                label="Accounts"
+                blurb="Bank, card and cash"
+                iconBg={tokens.accentSoft}
+                iconColor={tokens.accent}
+                onPress={() => router.push('/account/accounts')}
+              />}
+              {!isHidden(user, 'recurring') && <FeatureCard
+                icon={Repeat}
+                label="Recurring expenses"
+                blurb="Plan upcoming payments"
+                iconBg={tokens.violetSoft}
+                iconColor={tokens.violet}
+                onPress={() => router.push('/account/recurring')}
+              />}
+              <FeatureCard
+                icon={Archive}
+                label="Archive"
+                blurb="Restore deleted items"
+                iconBg={tokens.blueSoft}
+                iconColor={tokens.blue}
+                onPress={() => router.push('/account/archive')}
+              />
+            </View>
+          </View>
+
+          {/* EXTRAS: only what's switched on, plus one way to switch on the rest. */}
+          <View style={styles.section}>
+            <Text style={[styles.sectionLabel, { color: tokens.text3, fontFamily: fontFamily.bodyBold }]}>EXTRAS</Text>
+            {/* Waits for the profile: until it loads every extra reads as on, and a new account's would flash in and out. */}
+            {user && extrasOff < OPT_IN_FEATURES.length && <View style={styles.featureGrid}>
               {!isHidden(user, 'wrapped') && <FeatureCard
                 icon={wrappedCard.icon}
                 label="Expense Wrapped"
@@ -268,38 +304,6 @@ export default function MoreScreen() {
                 iconColor={tokens.mint}
                 onPress={openScanPicker}
               />}
-              {!isHidden(user, 'income') && <FeatureCard
-                icon={Wallet}
-                label="Income"
-                blurb="What comes in and when"
-                iconBg={tokens.mintSoft}
-                iconColor={tokens.mint}
-                onPress={() => router.push('/account/income')}
-              />}
-              {!isHidden(user, 'accounts') && <FeatureCard
-                icon={Landmark}
-                label="Accounts"
-                blurb="Bank, card and cash"
-                iconBg={tokens.accentSoft}
-                iconColor={tokens.accent}
-                onPress={() => router.push('/account/accounts')}
-              />}
-              {!isHidden(user, 'recurring') && <FeatureCard
-                icon={Repeat}
-                label="Recurring expenses"
-                blurb="Plan upcoming payments"
-                iconBg={tokens.violetSoft}
-                iconColor={tokens.violet}
-                onPress={() => router.push('/account/recurring')}
-              />}
-              <FeatureCard
-                icon={Archive}
-                label="Archive"
-                blurb="Restore deleted items"
-                iconBg={tokens.blueSoft}
-                iconColor={tokens.blue}
-                onPress={() => router.push('/account/archive')}
-              />
               {!isHidden(user, 'subscriptions') && <FeatureCard
                 icon={Receipt}
                 label="Subscriptions"
@@ -316,7 +320,18 @@ export default function MoreScreen() {
                 iconColor={tokens.blue}
                 onPress={() => router.push('/insights')}
               />}
-            </View>
+            </View>}
+            {user && extrasOff > 0 && (
+              <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
+                <AccountRow
+                  icon={Plus}
+                  label="Turn on more"
+                  hint={extrasOff === 1 ? '1 more you can switch on' : `${extrasOff} more you can switch on`}
+                  onPress={() => router.push('/account/features')}
+                  tokens={tokens}
+                />
+              </View>
+            )}
           </View>
 
           {/* PREFERENCES */}
@@ -385,12 +400,6 @@ export default function MoreScreen() {
               <AccountRow icon={Lock} label="Account & security" onPress={() => router.push('/account/security')} tokens={tokens} />
               <View style={[styles.divider, { backgroundColor: tokens.border }]} />
               <AccountRow icon={Database} label="Your data" onPress={() => router.push('/account/data')} tokens={tokens} />
-              {!isHidden(user, 'billScan') && (
-                <>
-                  <View style={[styles.divider, { backgroundColor: tokens.border }]} />
-                  <AccountRow icon={History} label="Bills Scanned" onPress={() => router.push('/account/bill-scans')} tokens={tokens} />
-                </>
-              )}
               {Platform.OS === 'android' && (
                 <>
                   <View style={[styles.divider, { backgroundColor: tokens.border }]} />
@@ -419,19 +428,7 @@ export default function MoreScreen() {
                 </Pressable>
               </Pressable>
               <View style={[styles.divider, { backgroundColor: tokens.border }]} />
-              <AccountRow icon={Compass} label="How this works" onPress={() => router.push('/account/guided-tour')} tokens={tokens} />
-              <View style={[styles.divider, { backgroundColor: tokens.border }]} />
-              <AccountRow icon={ScrollText} label="Changelog" onPress={() => router.push('/account/changelog')} tokens={tokens} />
-              <View style={[styles.divider, { backgroundColor: tokens.border }]} />
-              <AccountRow icon={MessageCircle} label="Help & feedback" hint="We read every one" onPress={() => router.push('/account/help')} tokens={tokens} />
-              <View style={[styles.divider, { backgroundColor: tokens.border }]} />
-              {rateUrl && (
-                <>
-                  <AccountRow icon={Star} label="Rate Aviary" hint="Helps other people find us" onPress={() => Linking.openURL(rateUrl)} tokens={tokens} />
-                  <View style={[styles.divider, { backgroundColor: tokens.border }]} />
-                </>
-              )}
-              <AccountRow icon={Globe} label="Open web app" onPress={() => Linking.openURL(WEB_URL)} tokens={tokens} />
+              <AccountRow icon={MessageCircle} label="Help & feedback" hint="Tour, changelog and more" onPress={() => router.push('/account/help')} tokens={tokens} />
               <View style={[styles.divider, { backgroundColor: tokens.border }]} />
               <AccountRow
                 icon={FileText}
