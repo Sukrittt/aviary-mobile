@@ -83,7 +83,7 @@ it('selects currency before income, preserves it on back, and saves it with onbo
   expect(getByText('Want any extras?')).toBeTruthy()
   expect(onFinished).not.toHaveBeenCalled()
   fireEvent.press(getByText('Skip for now'))
-  expect(onFinished).toHaveBeenCalledTimes(1)
+  await waitFor(() => expect(onFinished).toHaveBeenCalledTimes(1))
   unsubscribe()
   unmount()
 })

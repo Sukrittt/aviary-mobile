@@ -44,15 +44,21 @@ export function PickExtras({ onDone }: { onDone: () => void }) {
     })
   }
 
-  const finish = () => {
+  const [saving, setSaving] = useState(false)
+
+  // Waits for the save before leaving: setup unmounts on onDone, which would drop a failure silently.
+  const finish = async () => {
+    if (saving) return
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+    setSaving(true)
     // Saved even when nothing's picked, so the choice sticks whatever the account's age.
     const coreHidden = hiddenFeatures(user).filter((k) => !OPT_IN_FEATURES.includes(k))
     track('onboarding_extras_chosen', { extras: [...on].join(','), count: on.size })
-    updateUser.mutate(
-      { hiddenFeatures: [...coreHidden, ...OPT_IN_FEATURES.filter((k) => !on.has(k))] },
-      { onError: () => Alert.alert("Couldn't save your extras", 'Turn them on anytime from You, then Features.') },
-    )
+    try {
+      await updateUser.mutateAsync({ hiddenFeatures: [...coreHidden, ...OPT_IN_FEATURES.filter((k) => !on.has(k))] })
+    } catch {
+      Alert.alert("Couldn't save your extras", 'Turn them on anytime from You, then Features.')
+    }
     onDone()
   }
 
@@ -82,9 +88,9 @@ export function PickExtras({ onDone }: { onDone: () => void }) {
         })}
       </ScrollView>
 
-      <Pressable accessibilityRole="button" onPress={finish} style={[styles.cta, { backgroundColor: tokens.accent }]}>
+      <Pressable accessibilityRole="button" onPress={finish} disabled={saving} style={[styles.cta, { backgroundColor: tokens.accent, opacity: saving ? 0.6 : 1 }]}>
         <Text style={[styles.ctaText, { color: tokens.onAccent, fontFamily: fontFamily.displaySemiBold }]}>
-          {on.size ? 'Start budgeting' : 'Skip for now'}
+          {saving ? 'Saving…' : on.size ? 'Start budgeting' : 'Skip for now'}
         </Text>
       </Pressable>
     </View>
