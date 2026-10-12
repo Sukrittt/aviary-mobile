@@ -57,10 +57,11 @@ export function IncomeForm({ existing, flood = false }: { existing?: IncomeRow; 
 
   const { tokens: theme, space, radius, type } = useTheme();
   // On the flood everything goes white on green, the way log-expense goes white on accent.
+  // The green itself is quick-income.tsx's disc, drawn behind this transparent form.
   const onFlood = "rgba(255, 255, 255, 0.7)";
   const fieldBg = "rgba(255, 255, 255, 0.16)";
   const tokens = flood
-    ? { ...theme, bg: INCOME_FLOOD, text: "#ffffff", text2: onFlood, text3: onFlood, card: fieldBg, border: "transparent", accent: "#ffffff", accentSoft: fieldBg, coral: "#ffffff" }
+    ? { ...theme, bg: "transparent", text: "#ffffff", text2: onFlood, text3: onFlood, card: fieldBg, border: "transparent", accent: "#ffffff", accentSoft: fieldBg, coral: "#ffffff" }
     : theme;
   const insets = useSafeAreaInsets();
   const router = useRouter();

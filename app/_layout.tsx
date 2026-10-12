@@ -9,7 +9,6 @@ import { subscribeExchanging } from '@/src/api/useSignIn'
 import { AlertHost } from '@/src/components/ui/AlertHost'
 import { PrivacyProvider } from '@/src/context/PrivacyContext'
 import { MaintenanceBanner } from '@/src/components/shared/MaintenanceBanner'
-import { INCOME_FLOOD } from '@/src/theme/tokens'
 import { LogExpenseNavigation } from '@/src/features/log-expense/LogExpenseNavigation'
 import { clearLogExpenseDraft } from '@/src/features/log-expense/draft'
 import { LOG_EXPENSE_PATH,LogExpenseSubmitProvider } from '@/src/features/log-expense/SubmitContext'
@@ -400,7 +399,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
           <Stack.Screen name="modals/edit-ready-to-assign" options={{ presentation: 'modal' }} />
           <Stack.Screen name="modals/edit-month-income" options={{ presentation: 'modal' }} />
           <Stack.Screen name="modals/add-income" options={{ presentation: 'modal' }} />
-          <Stack.Screen name="modals/quick-income" options={{ presentation: 'card', animation: 'fade', contentStyle: { backgroundColor: INCOME_FLOOD } }} />
+          <Stack.Screen name="modals/quick-income" options={{ presentation: 'transparentModal', animation: 'none', gestureEnabled: false, contentStyle: { backgroundColor: 'transparent' } }} />
           <Stack.Screen name="modals/holding-action" options={{ presentation: 'modal' }} />
           <Stack.Screen name="modals/add-holding" options={{ presentation: 'modal' }} />
           <Stack.Screen name="modals/subscription" options={{ presentation: 'modal' }} />

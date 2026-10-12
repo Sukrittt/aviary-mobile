@@ -1,84 +1,32 @@
-import { useEffect, useRef, useState } from 'react'
-import { Pressable, StyleSheet, View, useWindowDimensions } from 'react-native'
-import Reanimated, { Easing, runOnJS, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated'
-import { useIsFocused, useRouter } from 'expo-router'
+import { Pressable, StyleSheet, useWindowDimensions } from 'react-native'
+import { useRouter } from 'expo-router'
 import * as Haptics from 'expo-haptics'
 import { HandCoins } from 'lucide-react-native'
-import { INCOME_FLOOD } from '@/src/theme/tokens'
-import { navFloodCover } from '@/src/components/nav/TabBar'
 
 const SIZE = 36
 export const QUICK_INCOME_PATH = '/modals/quick-income'
 
 /**
- * Log-expense's top-right switch to income: a green disc grows out of the
- * button until it covers the screen, then quick-income fades in over the same
- * green. Rendered last in the screen so the disc draws over everything else.
+ * Log-expense's top-right switch to income. Opens quick-income straight away
+ * with this button's centre, so its green disc grows out of here (and shrinks
+ * back here on close).
  */
 export function IncomeFloodButton({ top, right }: { top: number; right: number }) {
   const router = useRouter()
-  const focused = useIsFocused()
-  const reduceMotion = useReducedMotion()
-  const { width, height } = useWindowDimensions()
-  const scale = useSharedValue(0)
-  const going = useRef(false)
-  // Swallows taps while the disc grows, so nothing else on the screen fires under it.
-  const [flooding, setFlooding] = useState(false)
-
-  // Back from income: clear the flood so the accent screen is underneath again.
-  useEffect(() => {
-    if (!focused) return
-    going.current = false
-    scale.value = 0
-    navFloodCover.value = 0
-  }, [focused, scale])
-
-  // Centre of the button, and a radius reaching the farthest corner from it.
-  const cx = width - right - SIZE / 2
-  const cy = top + SIZE / 2
-  const r = Math.hypot(Math.max(cx, width - cx), Math.max(cy, height - cy))
-
-  const discStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }))
-
-  const stop = () => {
-    going.current = false
-    navFloodCover.value = withTiming(0, { duration: 150 })
-    setFlooding(false)
-  }
-  const go = () => {
-    setFlooding(false)
-    router.push(QUICK_INCOME_PATH)
-  }
-
+  const { width } = useWindowDimensions()
   return (
-    <>
-      <Pressable
-        onPress={() => {
-          if (going.current) return
-          going.current = true
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
-          if (reduceMotion) return go()
-          setFlooding(true)
-          navFloodCover.value = withTiming(1, { duration: 150 })
-          scale.value = withTiming(1, { duration: 650, easing: Easing.inOut(Easing.cubic) }, (done) => {
-            // Interrupted: hand the screen back rather than leave it blocked.
-            runOnJS(done ? go : stop)()
-          })
-        }}
-        style={[styles.button, { top, right }]}
-        hitSlop={8}
-        accessibilityRole="button"
-        accessibilityLabel="Add income"
-      >
-        <HandCoins size={18} color="#ffffff" />
-      </Pressable>
-      <Reanimated.View
-        testID="income-flood"
-        pointerEvents="none"
-        style={[styles.disc, { left: cx - r, top: cy - r, width: r * 2, height: r * 2, borderRadius: r }, discStyle]}
-      />
-      {flooding && <View testID="income-flood-blocker" style={StyleSheet.absoluteFill} />}
-    </>
+    <Pressable
+      onPress={() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+        router.push({ pathname: QUICK_INCOME_PATH, params: { ox: String(width - right - SIZE / 2), oy: String(top + SIZE / 2) } })
+      }}
+      style={[styles.button, { top, right }]}
+      hitSlop={8}
+      accessibilityRole="button"
+      accessibilityLabel="Add income"
+    >
+      <HandCoins size={18} color="#ffffff" />
+    </Pressable>
   )
 }
 
@@ -92,5 +40,4 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.16)',
   },
-  disc: { position: 'absolute', backgroundColor: INCOME_FLOOD },
 })

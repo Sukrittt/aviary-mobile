@@ -1,31 +1,12 @@
 import { fireEvent } from '@testing-library/react-native'
-import * as Reanimated from 'react-native-reanimated'
-import { navFloodCover } from '@/src/components/nav/TabBar'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { IncomeFloodButton, QUICK_INCOME_PATH } from './IncomeFloodButton'
 
 const mockPush = jest.fn()
-afterEach(() => jest.restoreAllMocks())
-jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: mockPush }),
-  useIsFocused: () => true,
-}))
+jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }))
 
-it('floods the screen green, then opens quick income once', () => {
-  // The mock's withTiming jumps straight to the end; finish the animation too.
-  jest.spyOn(Reanimated, 'withTiming').mockImplementation(((v: number, _c: unknown, done?: (f: boolean) => void) => (done?.(true), v)) as never)
-  const { getByLabelText } = renderWithProviders(<IncomeFloodButton top={0} right={0} />)
+it('opens quick income with its own centre as the flood origin', () => {
+  const { getByLabelText } = renderWithProviders(<IncomeFloodButton top={10} right={20} />)
   fireEvent.press(getByLabelText('Add income'))
-  fireEvent.press(getByLabelText('Add income'))
-  expect(mockPush).toHaveBeenCalledTimes(1)
-  expect(mockPush).toHaveBeenCalledWith(QUICK_INCOME_PATH)
-})
-
-it('blocks taps on the screen while the disc grows', () => {
-  jest.spyOn(Reanimated, 'withTiming').mockImplementation(((v: number) => v) as never)
-  const { getByLabelText, getByTestId } = renderWithProviders(<IncomeFloodButton top={0} right={0} />)
-  fireEvent.press(getByLabelText('Add income'))
-  expect(getByTestId('income-flood-blocker')).toBeTruthy()
-  // The nav fades out with the flood rather than waiting for the route change.
-  expect(navFloodCover.value).toBe(1)
+  expect(mockPush).toHaveBeenCalledWith({ pathname: QUICK_INCOME_PATH, params: { ox: expect.any(String), oy: '28' } })
 })

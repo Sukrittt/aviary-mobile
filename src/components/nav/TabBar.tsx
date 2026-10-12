@@ -10,9 +10,6 @@ import Reanimated, { makeMutable, useAnimatedStyle, useSharedValue, withTiming }
  */
 export const tabsNavCover = makeMutable(0)
 
-/** 1 while log-expense's income flood grows: the nav fades out with it instead of waiting for the route change. */
-export const navFloodCover = makeMutable(0)
-
 /** Persistent animated nav container; feature actions and hints are supplied by its caller. */
 export function TabBar({ visible, overrideContent }: { visible: boolean; overrideContent: ReactNode }) {
   const visibility = useSharedValue(visible ? 1 : 0)
@@ -23,6 +20,6 @@ export function TabBar({ visible, overrideContent }: { visible: boolean; overrid
     visibility.value = shown.current ? withTiming(visible ? 1 : 0, { duration: 160 }) : visible ? 1 : 0
     if (visible) shown.current = true
   }, [visible, visibility])
-  const style = useAnimatedStyle(() => ({ opacity: visibility.value * (1 - tabsNavCover.value) * (1 - navFloodCover.value) }))
+  const style = useAnimatedStyle(() => ({ opacity: visibility.value * (1 - tabsNavCover.value) }))
   return <Reanimated.View style={[StyleSheet.absoluteFill, style]} pointerEvents={visible ? 'box-none' : 'none'}>{overrideContent}</Reanimated.View>
 }
