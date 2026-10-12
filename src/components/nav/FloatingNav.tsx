@@ -117,6 +117,7 @@ const NAV_BOTTOM_GAP = 10
 // Fade above the backdrop so scrolled content dissolves into it instead of
 // being cut off at a hard edge.
 const BACKDROP_FADE = 24
+const FLOOD_RING = 'rgba(255, 255, 255, 0.35)'
 
 /**
  * Detached navigation: free-floating circles laid over the page in one fixed
@@ -226,7 +227,9 @@ export function FloatingNav({
                 selected={addActive}
                 background={addActive ? activeFill : idle}
                 color={addActive ? activeIcon : idleIcon}
-                ringColor={tokens.accent}
+                // Only ever selected on the accent flood, where an accent ring
+                // disappears. A soft white tint, like the idle circles there.
+                ringColor={addActive ? FLOOD_RING : tokens.accent}
                 onPress={handleAdd}
                 onLongPress={addActive ? undefined : onAddLongPress}
                 disabled={addActive && (addDisabled || addSaving || addSuccess)}
@@ -432,7 +435,7 @@ function NavCircle({
   return (
     <View style={styles.slot}>
       <View style={styles.ringBox}>
-        <Reanimated.View pointerEvents="none" style={[styles.ring, ringStyle]} />
+        <Reanimated.View testID={`nav-ring-${label}`} pointerEvents="none" style={[styles.ring, ringStyle]} />
         <AnimatedPressable
           accessibilityRole="tab"
           accessibilityLabel={label}

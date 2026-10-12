@@ -1,6 +1,6 @@
 import { act, fireEvent } from '@testing-library/react-native'
 import * as Haptics from 'expo-haptics'
-import { Animated } from 'react-native'
+import { Animated, StyleSheet } from 'react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import {
   FloatingNav,
@@ -66,6 +66,16 @@ describe('FloatingNav', () => {
       <FloatingNav active={null} addActive onSelect={jest.fn()} onAdd={jest.fn()} />,
     )
     expect(getByLabelText('Log expense').props.accessibilityState.selected).toBe(true)
+  })
+
+  // On log-expense the selected add circle sits on the accent flood, so an
+  // accent ring would vanish into it.
+  it('draws the add ring as a soft white tint, not accent, on the log-expense flood', () => {
+    const { getByTestId } = renderWithProviders(
+      <FloatingNav active={null} addActive onSelect={jest.fn()} onAdd={jest.fn()} />,
+    )
+    const ring = StyleSheet.flatten(getByTestId('nav-ring-Log expense').props.style)
+    expect(ring.borderColor).toBe('rgba(255, 255, 255, 0.35)')
   })
 
   it('tapping the add circle while addActive still fires onAdd (submit, not back)', () => {
