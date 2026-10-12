@@ -1,6 +1,8 @@
-import { fireEvent } from '@testing-library/react-native'
+import { fireEvent, waitFor } from '@testing-library/react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
-import { resendEmailCode } from '@/src/api/account'
+import { clearAccess } from '@/src/api/accessMode'
+import { deleteAccount, resendEmailCode } from '@/src/api/account'
+import { clearAll } from '@/src/lib/pendingExpenses'
 import SecurityScreen from './security'
 
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: jest.fn(), back: jest.fn(), replace: jest.fn() }) }))
@@ -15,6 +17,11 @@ jest.mock('@/src/hooks/useUser', () => ({
   useSessions: () => ({ data: [], refetch: jest.fn() }),
   usePrivacyProof: () => ({ data: undefined }),
 }))
+jest.mock('@/src/api/accessMode', () => ({
+  ...jest.requireActual('@/src/api/accessMode'),
+  clearAccess: jest.fn(),
+}))
+jest.mock('@/src/lib/pendingExpenses', () => ({ clearAll: jest.fn(() => Promise.resolve()) }))
 jest.mock('@/src/api/account', () => ({
   resendEmailCode: jest.fn(),
   deleteAccount: jest.fn(),
@@ -29,4 +36,18 @@ it('lets you retry the resend when it fails', async () => {
 
   fireEvent.press(await findByText("Couldn't send. Try again"))
   expect(resendEmailCode).toHaveBeenCalledTimes(2)
+})
+
+// Deletion has a restore grace window. Signing back in and restoring syncs the
+// offline queue, so delete must leave it on disk.
+it('keeps the offline queue when deleting the account', async () => {
+  ;(deleteAccount as jest.Mock).mockResolvedValue(undefined)
+  const { getAllByText, getByPlaceholderText } = renderWithProviders(<SecurityScreen />)
+  fireEvent.press(getAllByText('Delete account')[1])
+  fireEvent.changeText(getByPlaceholderText('a@b.co'), 'a@b.co')
+  const buttons = getAllByText('Delete account')
+  fireEvent.press(buttons[buttons.length - 1])
+
+  await waitFor(() => expect(clearAccess).toHaveBeenCalled())
+  expect(clearAll).not.toHaveBeenCalled()
 })
