@@ -77,6 +77,9 @@ const SlideInDown = layoutAnimation()
 const SlideOutUp = layoutAnimation()
 const ZoomIn = layoutAnimation()
 const ZoomOut = layoutAnimation()
+function Keyframe() {
+  return layoutAnimation()
+}
 
 const Animated = {
   View: RN.View,
@@ -127,4 +130,5 @@ module.exports = {
   SlideOutUp,
   ZoomIn,
   ZoomOut,
+  Keyframe,
 }

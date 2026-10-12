@@ -5,6 +5,7 @@ import { useIsFocused, useRouter } from 'expo-router'
 import * as Haptics from 'expo-haptics'
 import { HandCoins } from 'lucide-react-native'
 import { INCOME_FLOOD } from '@/src/theme/tokens'
+import { navFloodCover } from '@/src/components/nav/TabBar'
 
 const SIZE = 36
 export const QUICK_INCOME_PATH = '/modals/quick-income'
@@ -29,6 +30,7 @@ export function IncomeFloodButton({ top, right }: { top: number; right: number }
     if (!focused) return
     going.current = false
     scale.value = 0
+    navFloodCover.value = 0
   }, [focused, scale])
 
   // Centre of the button, and a radius reaching the farthest corner from it.
@@ -40,6 +42,7 @@ export function IncomeFloodButton({ top, right }: { top: number; right: number }
 
   const stop = () => {
     going.current = false
+    navFloodCover.value = withTiming(0, { duration: 150 })
     setFlooding(false)
   }
   const go = () => {
@@ -56,6 +59,7 @@ export function IncomeFloodButton({ top, right }: { top: number; right: number }
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
           if (reduceMotion) return go()
           setFlooding(true)
+          navFloodCover.value = withTiming(1, { duration: 150 })
           scale.value = withTiming(1, { duration: 650, easing: Easing.inOut(Easing.cubic) }, (done) => {
             // Interrupted: hand the screen back rather than leave it blocked.
             runOnJS(done ? go : stop)()

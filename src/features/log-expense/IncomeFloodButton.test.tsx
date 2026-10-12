@@ -1,5 +1,6 @@
 import { fireEvent } from '@testing-library/react-native'
 import * as Reanimated from 'react-native-reanimated'
+import { navFloodCover } from '@/src/components/nav/TabBar'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { IncomeFloodButton, QUICK_INCOME_PATH } from './IncomeFloodButton'
 
@@ -25,4 +26,6 @@ it('blocks taps on the screen while the disc grows', () => {
   const { getByLabelText, getByTestId } = renderWithProviders(<IncomeFloodButton top={0} right={0} />)
   fireEvent.press(getByLabelText('Add income'))
   expect(getByTestId('income-flood-blocker')).toBeTruthy()
+  // The nav fades out with the flood rather than waiting for the route change.
+  expect(navFloodCover.value).toBe(1)
 })
