@@ -1,5 +1,5 @@
 import { ExpenseWriteError } from '@/src/lib/expenseConflict'
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { act, fireEvent } from '@testing-library/react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import type { ExpensesPage, ExpensesPageParams } from '@/src/api/expenses'
@@ -192,6 +192,43 @@ it('pages through the Activity list via server-side pagination', () => {
 
   expect(getByText('Page 2 of 3')).toBeTruthy()
   expect(getByLabelText('Previous page').props.accessibilityState.disabled).toBe(false)
+})
+
+it('steps back to the new last page when its only row is deleted', () => {
+  let pageCount = 3
+  mockUseExpensesPage.mockImplementation((params: ExpensesPageParams) => {
+    if (params.limit === 1) return { data: pageResult({}), isLoading: false, error: null }
+    const page = params.page
+    return {
+      data: pageResult({
+        rows: page > pageCount ? [] : [row(page, `2026-06-0${page}`)],
+        total: pageCount,
+        page,
+        pageCount,
+        totalAmount: 100 * pageCount,
+      }),
+      isLoading: false,
+      error: null,
+    }
+  })
+
+  let refetch = () => {}
+  function Harness() {
+    const [, setTick] = useState(0)
+    refetch = () => setTick((n) => n + 1)
+    return <ActivityScreen />
+  }
+  const { getByText, getByLabelText } = renderWithProviders(<Harness />)
+  fireEvent.press(getByLabelText('Next page'))
+  fireEvent.press(getByLabelText('Next page'))
+  expect(getByText('Page 3 of 3')).toBeTruthy()
+
+  // The refetch after deleting page 3's only row: page 3 is gone.
+  pageCount = 2
+  act(() => refetch())
+
+  expect(getByText('Page 2 of 2')).toBeTruthy()
+  expect(getByText('Item 2')).toBeTruthy()
 })
 
 
