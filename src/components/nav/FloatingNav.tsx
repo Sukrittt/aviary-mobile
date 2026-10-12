@@ -17,6 +17,7 @@ import Reanimated, {
   interpolateColor,
   withRepeat,
   cancelAnimation,
+  runOnJS,
   useReducedMotion,
   Easing,
   type SharedValue,
@@ -258,6 +259,7 @@ export function FloatingNav({
               color={active === slot.name ? activeIcon : idleIcon}
               ringColor={tokens.accent}
               onPress={() => onSelect(slot.name)}
+              selectOnPressIn
               onFlood={addActive}
             />
           ),
@@ -350,7 +352,10 @@ function NavIcon({ icon: Icon, color, size }: { icon: NavIconComponent; color: s
     setPrevColor(currentColorRef.current)
     currentColorRef.current = color
     progress.value = 0
-    progress.value = withTiming(1, { duration: 200 })
+    // Unmount the old-colour layer once it has faded out, rather than keeping a second SVG per icon forever.
+    progress.value = withTiming(1, { duration: 200 }, (finished) => {
+      if (finished) runOnJS(setPrevColor)(null)
+    })
   }, [color, progress])
 
   const topStyle = useAnimatedStyle(() => ({ opacity: progress.value }))
@@ -384,6 +389,7 @@ function NavCircle({
   pressHaptic = true,
   overrideContent,
   onFlood = false,
+  selectOnPressIn = false,
   style,
 }: {
   glyph: NavIconComponent
@@ -401,10 +407,20 @@ function NavCircle({
   overrideContent?: React.ReactNode
   /** Sitting on the log-expense accent flood: no distance fade (the tint is already translucent) and no shadow. */
   onFlood?: boolean
+  /** Fire on touch-down like a native tab bar. The add slot keeps release, since it also long-presses. */
+  selectOnPressIn?: boolean
   style?: object
 }) {
   const { motion, tokens } = useTheme()
   const pressScale = useSharedValue(1)
+  // Set when touch-down already fired, so the release that follows doesn't
+  // fire again. A screen reader's activate only calls onPress, so that path
+  // still works.
+  const firedOnPressIn = useRef(false)
+  const fire = () => {
+    if (pressHaptic) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+    onPress()
+  }
   const bgFade = useColorFade(background)
   const selProgress = useSharedValue(selected ? 1 : 0)
 
@@ -444,13 +460,20 @@ function NavCircle({
           hitSlop={{ left: (SLOT - CIRCLE) / 2, right: (SLOT - CIRCLE) / 2, top: 8, bottom: 8 }}
           onPressIn={() => {
             pressScale.value = withSpring(0.88, motion.springTight)
+            if (selectOnPressIn) {
+              firedOnPressIn.current = true
+              fire()
+            }
           }}
           onPressOut={() => {
             pressScale.value = withSpring(1, motion.spring)
           }}
           onPress={() => {
-            if (pressHaptic) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
-            onPress()
+            if (firedOnPressIn.current) {
+              firedOnPressIn.current = false
+              return
+            }
+            fire()
           }}
           onLongPress={
             onLongPress &&

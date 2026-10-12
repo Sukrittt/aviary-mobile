@@ -44,6 +44,27 @@ describe('FloatingNav', () => {
     expect(onSelect).toHaveBeenCalledWith('envelopes')
   })
 
+  // Tab bars switch on touch-down; waiting for the finger to lift added ~100ms to every switch.
+  it('selects a route on touch-down, without firing again on release', () => {
+    const onSelect = jest.fn()
+    const { getByLabelText } = renderWithProviders(
+      <FloatingNav active="index" onSelect={onSelect} onAdd={jest.fn()} />,
+    )
+    fireEvent(getByLabelText('Activity'), 'pressIn')
+    expect(onSelect).toHaveBeenCalledWith('activity')
+    fireEvent.press(getByLabelText('Activity'))
+    expect(onSelect).toHaveBeenCalledTimes(1)
+  })
+
+  it('keeps the add circle on release, so long-press still opens the menu', () => {
+    const onAdd = jest.fn()
+    const { getByLabelText } = renderWithProviders(
+      <FloatingNav active="index" onSelect={jest.fn()} onAdd={onAdd} />,
+    )
+    fireEvent(getByLabelText('Log expense'), 'pressIn')
+    expect(onAdd).not.toHaveBeenCalled()
+  })
+
   it('taps the add circle and calls onAdd', () => {
     const onAdd = jest.fn()
     const { getByLabelText } = renderWithProviders(
