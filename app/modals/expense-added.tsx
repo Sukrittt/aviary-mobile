@@ -268,6 +268,12 @@ export default function ExpenseAddedScreen() {
   // nothing to show at all offline, since the envelope balance is computed
   // from server data this screen doesn't have yet.
   const showEnvelope = !pending && isCurrentMonth && envelope != null && funded > 0;
+  // An unfunded envelope has no card to show, so the screen offers the next
+  // step instead of ending on the tick alone.
+  const showFundNudge = !pending && isCurrentMonth && envelope != null && funded === 0;
+  // A negative "left" and a negative per-day pace read as a broken number.
+  // Say what happened and offer the fix instead.
+  const over = left < 0;
   const spentPct = funded > 0 ? Math.min(100, (spent / funded) * 100) : 0;
   // Where the bar stood before this expense — the DeltaBar tweens its base
   // fill to here, then eases in the delta on top.
@@ -475,28 +481,53 @@ export default function ExpenseAddedScreen() {
               categoryName={categoryName}
             />
 
-            <View
-              style={[styles.leftRow, { gap: space.xs, marginTop: space.md }]}
-            >
-              <AmountText
-                value={shownLeft}
-                size={32}
-                weight="displayBold"
-                animate
-              />
-              <Text
-                style={[
-                  styles.line,
-                  {
-                    color: tokens.text2,
-                    fontFamily: fontFamily.bodyBold,
-                    fontSize: type.caption,
-                  },
-                ]}
+            {over ? (
+              <View
+                style={[styles.leftRow, { gap: space.xs, marginTop: space.md }]}
               >
-                {`left of ${formatMoney(Math.round(funded))}`}
-              </Text>
-            </View>
+                <Text
+                  style={[
+                    styles.line,
+                    {
+                      color: tokens.coral,
+                      fontFamily: fontFamily.bodyBold,
+                      fontSize: type.caption,
+                    },
+                  ]}
+                >
+                  Over by
+                </Text>
+                <AmountText
+                  value={-left}
+                  size={32}
+                  color={tokens.coral}
+                  weight="displayBold"
+                />
+              </View>
+            ) : (
+              <View
+                style={[styles.leftRow, { gap: space.xs, marginTop: space.md }]}
+              >
+                <AmountText
+                  value={shownLeft}
+                  size={32}
+                  weight="displayBold"
+                  animate
+                />
+                <Text
+                  style={[
+                    styles.line,
+                    {
+                      color: tokens.text2,
+                      fontFamily: fontFamily.bodyBold,
+                      fontSize: type.caption,
+                    },
+                  ]}
+                >
+                  {`left of ${formatMoney(Math.round(funded))}`}
+                </Text>
+              </View>
+            )}
 
             <View style={{ marginTop: space.lg }}>
               <DeltaBar from={prevPct} to={spentPct} amount={amount} />
@@ -518,27 +549,78 @@ export default function ExpenseAddedScreen() {
                 style={[
                   styles.line,
                   {
-                    color: tokens.text3,
+                    color: over ? tokens.text : tokens.text3,
                     fontFamily: fontFamily.bodyExtraBold,
                     fontSize: type.caption,
                   },
                 ]}
               >
-                {daysLeft === 0 ? "Less than 24 hrs" : `${daysLeft} days left`}
+                {over
+                  ? "Cover it from another envelope?"
+                  : daysLeft === 0 ? "Less than 24 hrs" : `${daysLeft} days left`}
               </Text>
-              <Text
-                style={[
-                  styles.line,
-                  {
-                    color: tokens.text,
-                    fontFamily: fontFamily.bodyExtraBold,
-                    fontSize: type.caption,
-                  },
-                ]}
-              >
-                {`${formatMoney(perDay)}/day to stay on track`}
-              </Text>
+              {over ? (
+                // replace, not push: like Done, nothing should sit behind the
+                // next screen but Home.
+                <Text
+                  accessibilityRole="button"
+                  onPress={() => router.replace({ pathname: "/modals/move-money", params: { fromCategory: category } })}
+                  style={[
+                    styles.line,
+                    {
+                      color: tokens.accent,
+                      fontFamily: fontFamily.bodyExtraBold,
+                      fontSize: type.caption,
+                    },
+                  ]}
+                >
+                  Cover it
+                </Text>
+              ) : (
+                <Text
+                  style={[
+                    styles.line,
+                    {
+                      color: tokens.text,
+                      fontFamily: fontFamily.bodyExtraBold,
+                      fontSize: type.caption,
+                    },
+                  ]}
+                >
+                  {`${formatMoney(perDay)}/day to stay on track`}
+                </Text>
+              )}
             </Reanimated.View>
+          </Reanimated.View>
+        )}
+
+        {showFundNudge && (
+          <Reanimated.View
+            entering={FadeInDown.delay(STAGGER.card).duration(460)}
+            style={[
+              styles.card,
+              {
+                borderRadius: radius.lg,
+                padding: space.lg + space.xs,
+                marginTop: space.xxl,
+                gap: space.xs,
+              },
+            ]}
+          >
+            <RevealHaptic delay={STAGGER.card} />
+            <Text style={{ color: tokens.text, fontFamily: fontFamily.bodyExtraBold, fontSize: type.bodyLg }}>
+              {`Give ${categoryName} a budget?`}
+            </Text>
+            <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodySemiBold, fontSize: type.caption }}>
+              Nothing&apos;s assigned to it this month.
+            </Text>
+            <Text
+              accessibilityRole="button"
+              onPress={() => router.replace({ pathname: "/modals/edit-assigned-amount", params: { category } })}
+              style={{ color: tokens.accent, fontFamily: fontFamily.bodyExtraBold, fontSize: type.caption, marginTop: space.sm }}
+            >
+              Set a budget
+            </Text>
           </Reanimated.View>
         )}
       </View>
