@@ -1,8 +1,14 @@
 import { FloatingNav, NAV_HREF, navStateFor } from '@/src/components/nav/FloatingNav'
 import { TabBar } from '@/src/components/nav/TabBar'
+import { QuickAddMenu, type QuickAddItem } from '@/src/components/nav/QuickAddMenu'
+import { useTheme } from '@/src/theme/ThemeProvider'
+import { INCOME_FLOOD } from '@/src/theme/tokens'
 import { usePathname, useRouter } from 'expo-router'
+import { HandCoins, Plus, ScanLine } from 'lucide-react-native'
+import { useState } from 'react'
 import { useCachedUser } from '@/src/hooks/useUser'
 import { isHidden } from '@/src/lib/features'
+import { QUICK_INCOME_PATH } from './IncomeFloodButton'
 import { LOG_EXPENSE_PATH, useLogExpenseSubmitState } from './SubmitContext'
 
 /**
@@ -24,9 +30,18 @@ export function LogExpenseNavigation() {
   // First expense ever, form ready: point at + as the save button, which
   // otherwise only reads as "go to log expense". Gone once the save lands.
   const addHint = addActive && !addInvalid && !addDisabled && !!user && !user.manualTransactionCompletedAt
+  const { tokens } = useTheme()
+  // Remembers where it opened, so any navigation (back gesture, deep link) closes it.
+  const [menuPath, setMenuPath] = useState<string | null>(null)
+  const closeMenu = () => setMenuPath(null)
+  const menuItems: QuickAddItem[] = [
+    { label: 'Log expense', icon: Plus, tint: tokens.accent, onPress: () => router.push(LOG_EXPENSE_PATH) },
+    ...(isHidden(user, 'billScan') ? [] : [{ label: 'Scan a bill', icon: ScanLine, tint: tokens.blue, onPress: () => router.push('/modals/scan-bill') }]),
+    ...(isHidden(user, 'income') ? [] : [{ label: 'Add income', icon: HandCoins, tint: INCOME_FLOOD, onPress: () => router.push(QUICK_INCOME_PATH) }]),
+  ]
 
   return (
-    <TabBar visible={visible} overrideContent={
+    <TabBar visible={visible} overrideContent={<>
       <FloatingNav
         active={active}
         addActive={addActive}
@@ -38,8 +53,9 @@ export function LogExpenseNavigation() {
         onSelect={(name) => (addActive ? router.replace(NAV_HREF[name]) : router.navigate(NAV_HREF[name]))}
         onAdd={() => (addActive ? submitState.submit() : router.push(LOG_EXPENSE_PATH))}
         onAddInvalid={submitState.onInvalid}
-        onAddLongPress={isHidden(user, 'billScan') ? undefined : () => router.push('/modals/scan-bill')}
+        onAddLongPress={() => setMenuPath(pathname)}
       />
-    } />
+      {menuPath === pathname && visible && <QuickAddMenu items={menuItems} onClose={closeMenu} />}
+    </>} />
   )
 }
