@@ -56,8 +56,10 @@ let refreshTimer: ReturnType<typeof setTimeout> | null = null
 function scheduleRefresh(next: WorkOSTokens | null): void {
   if (refreshTimer) clearTimeout(refreshTimer)
   refreshTimer = null
-  const delay = next ? next.expiresAt - REFRESH_MARGIN_MS - Date.now() : NaN
-  if (!Number.isFinite(delay)) return
+  // A token already past expiry (or with no readable `exp`, so 0) is left to
+  // the next request: scheduling it would refresh again every second.
+  if (!next || !(next.expiresAt > Date.now())) return
+  const delay = next.expiresAt - REFRESH_MARGIN_MS - Date.now()
   refreshTimer = setTimeout(() => { void getValidToken().catch(() => {}) }, Math.max(delay, 0) + 1000)
 }
 

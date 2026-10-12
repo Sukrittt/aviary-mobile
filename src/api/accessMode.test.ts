@@ -173,3 +173,15 @@ it('refreshes ahead of expiry so a mid-session request never waits on WorkOS', a
     jest.useRealTimers()
   }
 })
+
+it('does not schedule a refresh for a token with no usable expiry', async () => {
+  jest.useFakeTimers()
+  try {
+    await persistSession({ accessToken: fakeToken(), refreshToken: 'r1', expiresAt: 0 })
+    jest.advanceTimersByTime(10 * 60_000)
+    expect(refreshTokens).not.toHaveBeenCalled()
+  } finally {
+    await clearAccess()
+    jest.useRealTimers()
+  }
+})
