@@ -35,10 +35,10 @@ const SQUARE: Spot[] = [
  *  right, pills across the full width underneath. Only the strip above and
  *  beside the number is free, so the band gets fewer, bigger glyphs. */
 const WIDE: Spot[] = [
-  { glyph: "star", x: 0.92, y: 0.14, size: 26, rotate: -14 },
-  { glyph: "arc", x: 0.74, y: 0.18, size: 24, rotate: 32 },
-  { glyph: "ring", x: 0.96, y: 0.5, size: 18, rotate: 0 },
-  { glyph: "stripes", x: 0.33, y: 0.09, size: 18, rotate: 0 },
+  { glyph: "star", x: 0.93, y: 0.12, size: 20, rotate: -14 },
+  { glyph: "arc", x: 0.76, y: 0.2, size: 18, rotate: 32 },
+  { glyph: "ring", x: 0.97, y: 0.48, size: 14, rotate: 0 },
+  { glyph: "stripes", x: 0.34, y: 0.08, size: 14, rotate: 0 },
 ];
 
 /** The bar: bird off the left edge, number and label in the middle, + at
@@ -58,13 +58,15 @@ export function doodlesSvg(
 ): string {
   const spots = width > height * 3 ? STRIP : width > height * 1.4 ? WIDE : SQUARE;
   // Dark surfaces swallow a hairline; light ones show it at half the strength.
-  // The square card's whisper vanished on the wider cards, so those go bolder.
-  const opacity = (scheme === "dark" ? 0.2 : 0.14) * (spots === SQUARE ? 1 : 1.6);
+  const opacity = scheme === "dark" ? 0.2 : 0.14;
   const glyphs = spots
     .map(({ glyph, x, y, size, rotate }) => {
       const s = size / 100;
       return `<path d="${GLYPH[glyph]}" transform="translate(${(x * width).toFixed(1)} ${(y * height).toFixed(1)}) rotate(${rotate}) scale(${s.toFixed(3)}) translate(-50 -50)"/>`;
     })
     .join("");
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" fill="none" stroke="${tokens.text}" stroke-opacity="${opacity}" stroke-width="${(2.4 / 0.2).toFixed(1)}" stroke-linecap="round" stroke-linejoin="round">${glyphs}</svg>`;
+  // width/height are load-bearing: without them AndroidSVG's renderToPicture()
+  // draws on a 512x512 canvas, and the widget's ImageView then fits that
+  // square into a wide band, shrinking the doodles to a blob in the middle.
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" fill="none" stroke="${tokens.text}" stroke-opacity="${opacity}" stroke-width="${(2.4 / 0.2).toFixed(1)}" stroke-linecap="round" stroke-linejoin="round">${glyphs}</svg>`;
 }

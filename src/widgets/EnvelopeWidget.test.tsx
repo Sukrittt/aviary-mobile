@@ -241,6 +241,12 @@ describe("doodlesSvg", () => {
     expect(square).not.toBe(wide);
     expect(wide).toContain(`stroke="${darkTokens.text}"`);
   });
+
+  it("sizes the picture to the card, so a wide band isn't letterboxed into a square", () => {
+    // Without width/height, AndroidSVG's renderToPicture() draws on a 512x512
+    // canvas and the ImageView then shrinks that square into the band.
+    expect(doodlesSvg(300, 120, lightTokens, "light")).toMatch(/^<svg [^>]*width="300" height="120"/);
+  });
 });
 
 describe("the large widget's pill row", () => {
