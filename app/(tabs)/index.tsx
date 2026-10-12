@@ -406,7 +406,6 @@ export default function HomeScreen() {
           <Reanimated.View
             entering={FadeInDown.duration(420).springify().damping(22).stiffness(200)}
             exiting={FadeOut.duration(200)}
-            layout={LinearTransition.springify().damping(44).stiffness(400)}
           >
             <GetStartedCard
               incomeDone={incomeDone}
@@ -432,7 +431,10 @@ export default function HomeScreen() {
             linking: a prompt when one is due, else the logged meter. */}
         {BALANCE_CHECK_ENABLED && <BalanceCheckCard />}
 
-        <Reanimated.View layout={LinearTransition.springify().damping(64).stiffness(900)}>
+        {/* No layout transitions on this column: on Fabric a sibling springing in
+            above (Get started) could leave this card drawn over it
+            while its touch targets stayed at the real layout, so nothing tapped. */}
+        <View>
           <Card elevated={false} style={envelopesEmpty && styles.emptyEnvelopesCard}>
             <View style={styles.cardHeadRow}>
               <Text style={[styles.cardTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: type.bodyLg }]}>
@@ -491,16 +493,16 @@ export default function HomeScreen() {
               )}
             </View>
           </Card>
-        </Reanimated.View>
+        </View>
 
-        {!isHidden(user, 'insights') && <Reanimated.View layout={LinearTransition.springify().damping(44).stiffness(400)}>
+        {!isHidden(user, 'insights') && <View>
           <Pressable onPress={() => router.push('/insights')} style={[styles.insightsLink, { borderRadius: radius.lg }]}>
             <Text style={{ color: tokens.text2, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>
               Trends, daily spend and subscriptions
             </Text>
             <Icon icon={ChevronRight} size={16} color={tokens.text2} />
           </Pressable>
-        </Reanimated.View>}
+        </View>}
       </Screen>
       {/* No room for a pencil on the hero, so tapping it opens this. With RTA
           often at 0, the title is the only place Home shows income. */}
