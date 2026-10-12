@@ -4,6 +4,7 @@ import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { IncomeFloodButton, QUICK_INCOME_PATH } from './IncomeFloodButton'
 
 const mockPush = jest.fn()
+afterEach(() => jest.restoreAllMocks())
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: mockPush }),
   useIsFocused: () => true,
@@ -17,4 +18,11 @@ it('floods the screen green, then opens quick income once', () => {
   fireEvent.press(getByLabelText('Add income'))
   expect(mockPush).toHaveBeenCalledTimes(1)
   expect(mockPush).toHaveBeenCalledWith(QUICK_INCOME_PATH)
+})
+
+it('blocks taps on the screen while the disc grows', () => {
+  jest.spyOn(Reanimated, 'withTiming').mockImplementation(((v: number) => v) as never)
+  const { getByLabelText, getByTestId } = renderWithProviders(<IncomeFloodButton top={0} right={0} />)
+  fireEvent.press(getByLabelText('Add income'))
+  expect(getByTestId('income-flood-blocker')).toBeTruthy()
 })

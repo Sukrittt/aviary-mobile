@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react'
-import { Pressable, StyleSheet, useWindowDimensions } from 'react-native'
+import { useEffect, useRef, useState } from 'react'
+import { Pressable, StyleSheet, View, useWindowDimensions } from 'react-native'
 import Reanimated, { Easing, runOnJS, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated'
 import { useIsFocused, useRouter } from 'expo-router'
 import * as Haptics from 'expo-haptics'
@@ -21,6 +21,8 @@ export function IncomeFloodButton({ top, right }: { top: number; right: number }
   const { width, height } = useWindowDimensions()
   const scale = useSharedValue(0)
   const going = useRef(false)
+  // Swallows taps while the disc grows, so nothing else on the screen fires under it.
+  const [flooding, setFlooding] = useState(false)
 
   // Back from income: clear the flood so the accent screen is underneath again.
   useEffect(() => {
@@ -36,7 +38,14 @@ export function IncomeFloodButton({ top, right }: { top: number; right: number }
 
   const discStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }))
 
-  const go = () => router.push(QUICK_INCOME_PATH)
+  const stop = () => {
+    going.current = false
+    setFlooding(false)
+  }
+  const go = () => {
+    setFlooding(false)
+    router.push(QUICK_INCOME_PATH)
+  }
 
   return (
     <>
@@ -46,8 +55,10 @@ export function IncomeFloodButton({ top, right }: { top: number; right: number }
           going.current = true
           Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
           if (reduceMotion) return go()
+          setFlooding(true)
           scale.value = withTiming(1, { duration: 650, easing: Easing.inOut(Easing.cubic) }, (done) => {
-            if (done) runOnJS(go)()
+            // Interrupted: hand the screen back rather than leave it blocked.
+            runOnJS(done ? go : stop)()
           })
         }}
         style={[styles.button, { top, right }]}
@@ -62,6 +73,7 @@ export function IncomeFloodButton({ top, right }: { top: number; right: number }
         pointerEvents="none"
         style={[styles.disc, { left: cx - r, top: cy - r, width: r * 2, height: r * 2, borderRadius: r }, discStyle]}
       />
+      {flooding && <View testID="income-flood-blocker" style={StyleSheet.absoluteFill} />}
     </>
   )
 }
