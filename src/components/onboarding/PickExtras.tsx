@@ -1,11 +1,10 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native'
-import Animated, { FadeIn } from 'react-native-reanimated'
+import Animated, { Easing, FadeIn, useAnimatedStyle, useReducedMotion, useSharedValue, withSpring, withTiming } from 'react-native-reanimated'
 import * as Haptics from 'expo-haptics'
-import { Brain, Gift, LineChart, Receipt, ScanLine, TrendingUp, type LucideIcon } from 'lucide-react-native'
+import { Brain, Check, Gift, LineChart, Receipt, ScanLine, TrendingUp, type LucideIcon } from 'lucide-react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
-import { Toggle } from '@/src/components/ui/Toggle'
 import { Alert } from '@/src/components/ui/AlertHost'
 import { useUser, useUpdateUser } from '@/src/hooks/useUser'
 import { HIDEABLE_FEATURES, OPT_IN_FEATURES, hiddenFeatures, type HideableFeature } from '@/src/lib/features'
@@ -72,20 +71,16 @@ export function PickExtras({ onDone }: { onDone: () => void }) {
       </Animated.Text>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.list}>
-        {EXTRAS.map(({ key, icon: ExtraIcon, pitch }) => {
-          return (
-            <View key={key} style={[styles.row, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
-              <View style={[styles.icon, { backgroundColor: tokens.accentSoft }]}>
-                <ExtraIcon size={16} color={tokens.accentInk} strokeWidth={2.2} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.label, { color: tokens.text, fontFamily: fontFamily.bodyExtraBold }]}>{labelOf(key)}</Text>
-                <Text style={[styles.pitch, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>{pitch}</Text>
-              </View>
-              <Toggle accessibilityLabel={`Turn on ${labelOf(key)}`} value={on.has(key)} onValueChange={(v) => flip(key, v)} />
-            </View>
-          )
-        })}
+        {EXTRAS.map(({ key, icon: ExtraIcon, pitch }) => (
+            <ExtraRow
+              key={key}
+              icon={ExtraIcon}
+              label={labelOf(key)}
+              pitch={pitch}
+              on={on.has(key)}
+              onToggle={() => flip(key, !on.has(key))}
+            />
+        ))}
       </ScrollView>
 
       <Pressable accessibilityRole="button" onPress={finish} disabled={saving} style={[styles.cta, { backgroundColor: tokens.accent, opacity: saving ? 0.6 : 1 }]}>
@@ -97,11 +92,81 @@ export function PickExtras({ onDone }: { onDone: () => void }) {
   )
 }
 
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable)
+
+/**
+ * One extra, tappable anywhere. Same check and motion as setup's group and
+ * category rows (PickRow.tsx): a quick timed check and a small press-in bounce.
+ */
+function ExtraRow({ icon: ExtraIcon, label, pitch, on, onToggle }: { icon: LucideIcon; label: string; pitch: string; on: boolean; onToggle: () => void }) {
+  const { tokens, motion } = useTheme()
+  const reduceMotion = useReducedMotion()
+  const mounted = useRef(false)
+  const rowScale = useSharedValue(1)
+  const checkScale = useSharedValue(1)
+  const checkProgress = useSharedValue(on ? 1 : 0)
+  const tapSpring = { duration: motion.fast, dampingRatio: 1 } as const
+
+  useEffect(() => {
+    if (!mounted.current) {
+      mounted.current = true
+      return
+    }
+    checkProgress.value = withTiming(on ? 1 : 0, { duration: motion.fast, easing: Easing.bezier(0.23, 1, 0.32, 1) })
+  }, [checkProgress, motion.fast, on])
+
+  const rowStyle = useAnimatedStyle(() => ({ transform: [{ scale: reduceMotion ? 1 : rowScale.value }] }))
+  const checkBoxStyle = useAnimatedStyle(() => ({ transform: [{ scale: reduceMotion ? 1 : checkScale.value }] }))
+  const checkIconStyle = useAnimatedStyle(() => ({
+    opacity: checkProgress.value,
+    transform: [{ scaleX: reduceMotion ? 1 : checkProgress.value }],
+  }))
+
+  return (
+    <AnimatedPressable
+      accessibilityRole="checkbox"
+      accessibilityLabel={`Turn on ${label}`}
+      accessibilityState={{ checked: on }}
+      onPress={() => {
+        Haptics.selectionAsync().catch(() => {})
+        onToggle()
+      }}
+      onPressIn={() => {
+        if (reduceMotion) return
+        rowScale.value = withSpring(0.985, tapSpring)
+        checkScale.value = withSpring(0.9, tapSpring)
+      }}
+      onPressOut={() => {
+        rowScale.value = reduceMotion ? 1 : withSpring(1, tapSpring)
+        checkScale.value = reduceMotion ? 1 : withSpring(1, tapSpring)
+      }}
+      style={[styles.row, { backgroundColor: on ? tokens.card : 'transparent', borderColor: on ? tokens.accent : tokens.border }, rowStyle]}
+    >
+      <View style={[styles.icon, { backgroundColor: tokens.accentSoft }]}>
+        <ExtraIcon size={16} color={tokens.accentInk} strokeWidth={2.2} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.label, { color: tokens.text, fontFamily: fontFamily.bodyExtraBold }]}>{label}</Text>
+        <Text style={[styles.pitch, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>{pitch}</Text>
+      </View>
+      <Animated.View
+        style={[styles.check, { borderColor: on ? tokens.accent : tokens.borderStrong, backgroundColor: on ? tokens.accent : 'transparent' }, checkBoxStyle]}
+      >
+        <Animated.View style={[styles.checkIcon, checkIconStyle]}>
+          <Check size={16} color={tokens.onAccent} strokeWidth={3} />
+        </Animated.View>
+      </Animated.View>
+    </AnimatedPressable>
+  )
+}
+
 const styles = StyleSheet.create({
   title: { fontSize: 32, fontWeight: '600', lineHeight: 37, letterSpacing: -0.3 },
   blurb: { fontSize: 15, lineHeight: 23, marginTop: 7, maxWidth: 320 },
   list: { gap: 8, paddingTop: 20, paddingBottom: 8 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 14, borderRadius: 18, borderWidth: 1 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 14, borderRadius: 18, borderWidth: 1.5 },
+  check: { width: 26, height: 26, borderRadius: 13, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  checkIcon: { width: 16, height: 16, transformOrigin: 'left' },
   icon: { width: 30, height: 30, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   label: { fontSize: 14 },
   pitch: { fontSize: 12, lineHeight: 16, marginTop: 2 },

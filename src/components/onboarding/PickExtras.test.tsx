@@ -60,3 +60,11 @@ it('says so when saving fails, and still finishes setup', async () => {
   await waitFor(() => expect(onDone).toHaveBeenCalled())
   expect(Alert.alert).toHaveBeenCalledWith("Couldn't save your extras", 'Turn them on anytime from You, then Features.')
 })
+
+it('turns an extra on from a tap anywhere on its row', () => {
+  const { getByText, getByLabelText } = renderWithProviders(<PickExtras onDone={jest.fn()} />)
+  fireEvent.press(getByText('Trends, a daily heatmap and where it all went'))
+  expect(getByLabelText('Turn on Insights').props.accessibilityState.checked).toBe(true)
+  fireEvent.press(getByText('Insights'))
+  expect(getByLabelText('Turn on Insights').props.accessibilityState.checked).toBe(false)
+})
