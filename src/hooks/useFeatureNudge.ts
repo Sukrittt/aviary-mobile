@@ -24,7 +24,7 @@ export function useFeatureNudge(user: UserProfile | undefined, expenses: readonl
   const wantWrapped = hidden.includes('wrapped') && wrappedDismissed === false
   const suggestionsQ = useRecurringSuggestions(6, wantSubs)
   const suggestions = suggestionsQ.data?.suggestions
-  const wrapped = useWrappedStatus(wantWrapped).data
+  const wrappedQ = useWrappedStatus(wantWrapped)
 
   const feature = firstBanner<NudgeFeature>([
     // Still loading counts as unknown, so a lower offer doesn't show and then get swapped out.
@@ -33,7 +33,7 @@ export function useFeatureNudge(user: UserProfile | undefined, expenses: readonl
       hidden.includes('subscriptions') && (suggestionsQ.isLoading || !!suggestions?.some((s) => s.kind === 'subscription')),
       suggestionsQ.isLoading ? null : subsDismissed,
     ],
-    ['wrapped', hidden.includes('wrapped') && !!wrapped?.available, wrappedDismissed],
+    ['wrapped', hidden.includes('wrapped') && (wrappedQ.isLoading || !!wrappedQ.data?.available), wrappedQ.isLoading ? null : wrappedDismissed],
     ['insights', hidden.includes('insights') && expenses.length >= INSIGHTS_NUDGE_AT, insightsDismissed],
     ['askAviary', hidden.includes('askAviary') && loggedDays >= ASK_NUDGE_DAYS, askDismissed],
     ['billScan', hidden.includes('billScan') && expenses.length >= SCAN_NUDGE_AT, scanDismissed],

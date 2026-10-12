@@ -47,7 +47,8 @@ jest.mock('@/src/hooks/useUser', () => ({
   useUpdateUser: () => ({ mutate: mockMutate }),
 }))
 jest.mock('@/src/hooks/useBillingStatus', () => ({ useBillingStatus: () => ({ data: mockBilling }) }))
-jest.mock('@/src/hooks/useWrapped', () => ({ useWrappedStatus: () => ({ data: mockWrappedStatus }) }))
+let mockWrappedLoading = false
+jest.mock('@/src/hooks/useWrapped', () => ({ useWrappedStatus: () => ({ data: mockWrappedStatus, isLoading: mockWrappedLoading }) }))
 let mockSuggestionsLoading = false
 jest.mock('@/src/hooks/useRecurringSuggestions', () => ({ useRecurringSuggestions: () => ({ data: mockSuggestions, isLoading: mockSuggestionsLoading }) }))
 jest.mock('@/src/components/ui/AlertHost', () => ({ Alert: { alert: jest.fn() } }))
@@ -352,6 +353,7 @@ describe('HomeScreen · one banner at a time', () => {
     mockWrappedStatus = undefined
     mockSuggestions = undefined
     mockSuggestionsLoading = false
+    mockWrappedLoading = false
     mockBudgets = [
       { month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' },
       { month: PREV, category: '__income__', assigned: '5000', rolled_over: '0' },
@@ -398,6 +400,15 @@ describe('HomeScreen · one banner at a time', () => {
     const { queryByText } = renderHome()
     await act(async () => {})
     expect(queryByText(/Insights can show you/)).toBeNull()
+  })
+
+  it('holds the slot while Wrapped status is still loading', async () => {
+    mockBudgets = [{ month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' }]
+    mockExpenses = expenses(30)
+    mockWrappedLoading = true
+    const { queryByText } = renderHome()
+    await act(async () => {})
+    expect(queryByText('Turn on')).toBeNull()
   })
 
   it('says so when turning a feature on fails', async () => {
