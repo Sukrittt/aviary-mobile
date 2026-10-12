@@ -141,6 +141,31 @@ describe('HomeScreen · Ready to Assign', () => {
     expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/modals/recurring-income', params: { label: 'Monthly income', frequency: 'monthly', amount: '' } })
   })
 
+  it('shrinks Ready to Assign to a slim row once every rupee is assigned', () => {
+    mockBudgets = [
+      { month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' },
+      { month: MONTH, category: 'Food', assigned: '20000', rolled_over: '0' },
+    ]
+    const { getByTestId, queryByTestId, getByLabelText, getByText } = renderHome()
+    expect(getByTestId('rta-slim')).toBeTruthy()
+    expect(queryByTestId('rta-hero')).toBeNull()
+
+    // Same tap target and income options as the full hero.
+    fireEvent.press(getByLabelText('Ready to Assign options'))
+    expect(getByText('Change income')).toBeTruthy()
+  })
+
+  it('keeps the full hero while money is left to assign, or before income is set', () => {
+    const first = renderHome()
+    expect(first.getByTestId('rta-hero')).toBeTruthy()
+    first.unmount()
+
+    mockBudgets = []
+    const second = renderHome()
+    expect(second.getByTestId('rta-hero')).toBeTruthy()
+    expect(second.queryByTestId('rta-slim')).toBeNull()
+  })
+
   it('uses the app icon as the home header brand', () => {
     const { getByLabelText, queryByText, UNSAFE_getAllByType } = renderHome()
 

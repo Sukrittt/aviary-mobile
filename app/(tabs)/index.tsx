@@ -5,7 +5,7 @@ import { useMemo, useRef, useState } from 'react'
 import { View, Text, Pressable, RefreshControl, StyleSheet, Linking, Platform } from 'react-native'
 import { useQuery } from '@tanstack/react-query'
 import { useRouter, useIsFocused } from 'expo-router'
-import { ChevronRight, LineChart } from 'lucide-react-native'
+import { Check, ChevronRight, LineChart } from 'lucide-react-native'
 import Reanimated, { FadeInDown, FadeOut, LinearTransition } from 'react-native-reanimated'
 import * as Haptics from 'expo-haptics'
 import { rippleHaptic } from '@/src/lib/haptics'
@@ -196,6 +196,11 @@ export default function HomeScreen() {
   }
 
   const incomeDone = envelopeState.income > 0
+  // At zero, Ready to Assign has nothing to ask of you, so it shrinks to a
+  // slim row and the envelopes (what you open Home for) move up. Off zero
+  // either way, it's back to the full hero since there's a job to do.
+  const rtaSettled = incomeDone && Math.abs(displayedReadyToAssign) < 0.005
+  const monthLine = `${monthLabel(month)} · ${daysLeftInMonth() === 0 ? 'Less than 24 hrs' : `${daysLeftInMonth()} days left`}`
   // Every rupee has a job once Ready to Assign is spent down, the whole point
   // of the method, so Get started holds out for that, not one funded envelope.
   const fundDone = incomeDone && envelopeState.readyToAssign <= 0
@@ -289,13 +294,13 @@ export default function HomeScreen() {
         }
       >
         {/* Ready to Assign is the one number the envelope method is about, so it
-            is the hero rather than one tile among four. */}
-        <View style={[styles.hero, { paddingVertical: space.xl }]}>
-          <Text style={[styles.heroLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>READY TO ASSIGN</Text>
+            is the hero rather than one tile among four, until it's zero. */}
+        {rtaSettled ? (
           <AnimatedPressable
+            testID="rta-slim"
             accessibilityRole="button"
             accessibilityLabel="Ready to Assign options"
-            accessibilityHint="Change or add income, or set Ready to Assign"
+            accessibilityHint="Everything's assigned. Change or add income, or set Ready to Assign"
             onPress={() => {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
               setIncomeSheetOpen(true)
@@ -303,42 +308,77 @@ export default function HomeScreen() {
             onPressIn={heroPress.onPressIn}
             onPressOut={heroPress.onPressOut}
             style={heroPress.style}
-            hitSlop={8}
           >
-            <AmountText
-              value={displayedReadyToAssign}
-              size={type.hero}
-              color={displayedReadyToAssign < 0 ? tokens.coral : tokens.text}
-              weight="displayBold"
-              animate
-              settle
-              id="ready-to-assign"
-            />
+            <Card elevated={false} style={styles.slimRta}>
+              <View style={styles.slimCol}>
+                <Text style={[styles.heroLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>READY TO ASSIGN</Text>
+                <Text style={{ color: tokens.text2, fontSize: type.caption, fontFamily: fontFamily.bodyMedium }}>{monthLine}</Text>
+              </View>
+              <View style={[styles.slimCol, styles.slimRight]}>
+                <View style={styles.slimAmount}>
+                  <Icon icon={Check} size={16} color={tokens.mint} />
+                  <AmountText value={displayedReadyToAssign} size={type.bodyLg} color={tokens.text} weight="displayBold" />
+                </View>
+                <View style={styles.slimAmount}>
+                  <Text style={{ color: tokens.text2, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>
+                    {`Income · ${formatCurrency(envelopeState.income, hideAmounts)}`}
+                  </Text>
+                  <Icon icon={ChevronRight} size={14} color={tokens.text2} />
+                </View>
+              </View>
+            </Card>
           </AnimatedPressable>
-          <Text style={{ color: tokens.text2, fontSize: type.caption, fontFamily: fontFamily.bodyMedium }}>
-            {monthLabel(month)} · {daysLeftInMonth() === 0 ? 'Less than 24 hrs' : `${daysLeftInMonth()} days left`}
-          </Text>
-          {/* The hero tap is invisible, so this pill names where the number
-              comes from. With no income yet it goes straight to setting it. */}
-          <AnimatedPressable
-            accessibilityRole="button"
-            onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
-              if (envelopeState.income === 0) {
-                router.push(changeIncomeHref)
-              } else setIncomeSheetOpen(true)
-            }}
-            onPressIn={pillPress.onPressIn}
-            onPressOut={pillPress.onPressOut}
-            hitSlop={8}
-            style={[styles.incomePill, { backgroundColor: envelopeState.income === 0 ? tokens.accentSoft : tokens.inputBg, borderRadius: radius.full }, pillPress.style]}
-          >
-            <Text style={{ color: envelopeState.income === 0 ? tokens.accentInk : tokens.text, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>
-              {envelopeState.income === 0 ? 'Set your income' : `Income · ${formatCurrency(envelopeState.income, hideAmounts)}`}
+        ) : (
+          <View testID="rta-hero" style={[styles.hero, { paddingVertical: space.lg }]}>
+            <Text style={[styles.heroLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>READY TO ASSIGN</Text>
+            <AnimatedPressable
+              accessibilityRole="button"
+              accessibilityLabel="Ready to Assign options"
+              accessibilityHint="Change or add income, or set Ready to Assign"
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+                setIncomeSheetOpen(true)
+              }}
+              onPressIn={heroPress.onPressIn}
+              onPressOut={heroPress.onPressOut}
+              style={heroPress.style}
+              hitSlop={8}
+            >
+              <AmountText
+                value={displayedReadyToAssign}
+                size={type.hero}
+                color={displayedReadyToAssign < 0 ? tokens.coral : tokens.text}
+                weight="displayBold"
+                animate
+                settle
+                id="ready-to-assign"
+              />
+            </AnimatedPressable>
+            <Text style={{ color: tokens.text2, fontSize: type.caption, fontFamily: fontFamily.bodyMedium }}>
+              {monthLine}
             </Text>
-            <Icon icon={ChevronRight} size={14} color={envelopeState.income === 0 ? tokens.accentInk : tokens.text2} />
-          </AnimatedPressable>
-        </View>
+            {/* The hero tap is invisible, so this pill names where the number
+                comes from. With no income yet it goes straight to setting it. */}
+            <AnimatedPressable
+              accessibilityRole="button"
+              onPress={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+                if (envelopeState.income === 0) {
+                  router.push(changeIncomeHref)
+                } else setIncomeSheetOpen(true)
+              }}
+              onPressIn={pillPress.onPressIn}
+              onPressOut={pillPress.onPressOut}
+              hitSlop={8}
+              style={[styles.incomePill, { backgroundColor: envelopeState.income === 0 ? tokens.accentSoft : tokens.inputBg, borderRadius: radius.full }, pillPress.style]}
+            >
+              <Text style={{ color: envelopeState.income === 0 ? tokens.accentInk : tokens.text, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>
+                {envelopeState.income === 0 ? 'Set your income' : `Income · ${formatCurrency(envelopeState.income, hideAmounts)}`}
+              </Text>
+              <Icon icon={ChevronRight} size={14} color={envelopeState.income === 0 ? tokens.accentInk : tokens.text2} />
+            </AnimatedPressable>
+          </View>
+        )}
 
         {/* The lasting record lives in Insights' "Where it went" card (any
             month, not just last), so this banner can stay a dismissable
@@ -542,6 +582,10 @@ const styles = StyleSheet.create({
   sheetBtn: { paddingVertical: 12 },
   sheetBtnText: { fontSize: 14 },
   heroLabel: { fontSize: 10, letterSpacing: 0.6 },
+  slimRta: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  slimCol: { gap: 4 },
+  slimRight: { alignItems: 'flex-end' },
+  slimAmount: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   rolloverCard: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   cardHeadRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   cardTitle: {},
