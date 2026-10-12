@@ -6,19 +6,20 @@ import { fontFamily } from '@/src/theme/fonts'
 
 import { splitEmoji } from '@/src/lib/emoji'
 import { parseLocalDate, toLocalDateString } from '@/src/lib/date'
-import { ProgressBar, fillColor, fillSoftColor } from './ProgressBar'
+import { ProgressBar } from './ProgressBar'
 import { BottomSheet } from '@/src/components/shared/Modal'
 import type { Envelope } from '@/src/lib/envelope'
 import type { ThemeTokens } from '@/src/theme/tokens'
 
 const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-/** Tinted pill for what's left, matching the progress bar's color for the
- * same spend. Amber text uses warnInk: plain warn is unreadable on its tint. */
+/** Tinted pill for what's left, on the progress bar's thresholds. Fully spent
+ * (not over) gets no pill at all: empty is fine, so it shouldn't read as a badge. */
 export function availablePill(e: Envelope, tokens: ThemeTokens): { color: string; bg: string } {
-  if (e.isOverspent) return { color: tokens.coral, bg: tokens.coralSoft }
-  const color = fillColor(e.spentPct, tokens)
-  return { color: color === tokens.warn ? tokens.warnInk : color, bg: fillSoftColor(e.spentPct, tokens) }
+  if (e.isOverspent || (e.spentPct > 90 && e.spentPct < 100)) return { color: tokens.pillOver, bg: tokens.pillOverBg }
+  if (e.spentPct === 100) return { color: tokens.text3, bg: 'transparent' }
+  if (e.spentPct > 75) return { color: tokens.pillLow, bg: tokens.pillLowBg }
+  return { color: tokens.pillGood, bg: tokens.pillGoodBg }
 }
 
 /** Mirrors Web's EnvelopeGrid usedPct(): spend as % of assigned, ∞ if spending with nothing assigned. */
@@ -170,7 +171,7 @@ const styles = StyleSheet.create({
   name: { fontSize: 13, flexShrink: 1 },
   metaLine: { fontSize: 10, marginTop: 2 },
   spentOf: { marginLeft: 'auto', fontSize: 12 },
-  availablePill: { minWidth: 60, alignItems: 'center', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
+  availablePill: { minWidth: 60, alignItems: 'center', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
   available: { fontSize: 12 },
   sheetTitle: { fontSize: 16, marginBottom: 8 },
   sheetBtn: { paddingVertical: 12 },

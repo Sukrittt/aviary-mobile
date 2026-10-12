@@ -50,6 +50,14 @@ export interface ThemeTokens {
   toastBg: string
   toastText: string
   toastEdge: string
+  /** Home's "left" pills. Solid in light mode: an alpha tint of mint/warn/coral
+   *  over white reads muddy grey. Dark keeps the alpha tints. */
+  pillGood: string
+  pillGoodBg: string
+  pillLow: string
+  pillLowBg: string
+  pillOver: string
+  pillOverBg: string
 }
 
 export const darkTokens: ThemeTokens = {
@@ -92,6 +100,12 @@ export const darkTokens: ThemeTokens = {
   toastBg: '#291c16',
   toastText: '#ffeadb',
   toastEdge: '#50372a',
+  pillGood: '#26e085',
+  pillGoodBg: 'rgba(38, 224, 133, 0.16)',
+  pillLow: '#fde047',
+  pillLowBg: 'rgba(250, 204, 21, 0.16)',
+  pillOver: '#ff646f',
+  pillOverBg: 'rgba(255, 100, 111, 0.16)',
 }
 
 export const lightTokens: ThemeTokens = {
@@ -134,6 +148,12 @@ export const lightTokens: ThemeTokens = {
   toastBg: '#fff4e6',
   toastText: '#482510',
   toastEdge: '#eed7bd',
+  pillGood: '#15803d',
+  pillGoodBg: '#dcfce7',
+  pillLow: '#b45309',
+  pillLowBg: '#fef3c7',
+  pillOver: '#b91c1c',
+  pillOverBg: '#fee2e2',
 }
 
 /** The quick-income flood. Fixed in both schemes like log-expense's accent: dark mode's mint is too bright to carry white text. */
