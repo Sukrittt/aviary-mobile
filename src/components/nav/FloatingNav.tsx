@@ -88,16 +88,10 @@ const NAV_SLOTS: NavSlot[] = [
   { kind: 'add' as const },
   ...NAV_ROUTES.slice(2).map((r) => ({ kind: 'route' as const, ...r })),
 ]
-const ADD_INDEX = 2
 
-function indexOfRoute(name: NavRoute | null): number {
-  if (name == null) return -1
-  return NAV_SLOTS.findIndex((s) => s.kind === 'route' && s.name === name)
-}
-
-/** Diameter of the slot at centre. Everything off-centre scales down from it. */
+/** Diameter of the selected circle. The rest scale down from it. */
 const CIRCLE = 56
-/** What an off-centre circle shrinks to: 56 * 0.82 ~= 46. */
+/** What an unselected circle shrinks to: 56 * 0.82 ~= 46. */
 const INACTIVE_SCALE = 0.82
 const ICON = 26
 const RING_GAP = 3
@@ -120,19 +114,6 @@ const BACKDROP_PAD = 7
 // testing — bumped so the strip visibly clears it.
 const NAV_BOTTOM_GAP = 10
 
-/** x-offset of slot `i` along the row. */
-export const slotOffset = (i: number): number => i * SLOT
-
-/**
- * How far slot `index` sits from the focus, as 0 (on it) to 1 (a full slot
- * away or further). Drives both the size falloff and the ring hand-off, so
- * both glide across the row when the active tab changes.
- */
-export const slotProximity = (x: number, index: number): number => {
-  'worklet'
-  return Math.min(1, Math.abs(x / SLOT - index))
-}
-
 /**
  * Detached navigation: free-floating circles laid over the page in one fixed
  * row, with no bar, border or scrim behind them. Content scrolls underneath,
@@ -140,7 +121,8 @@ export const slotProximity = (x: number, index: number): number => {
  * useNavPadding).
  *
  * Every slot is always on screen. The selected one is drawn larger than its
- * neighbours and wears the ring; switching tabs glides both to the new slot.
+ * neighbours and wears the ring; switching tabs shrinks the old one and grows
+ * the new one at once, leaving every slot in between still.
  * (This used to be a swipeable carousel with the active slot centred, which
  * pushed tabs off screen. Testers couldn't find them.)
  *
@@ -187,7 +169,7 @@ export function FloatingNav({
   addHint?: boolean
   children?: React.ReactNode
 }) {
-  const { tokens, elevation, motion } = useTheme()
+  const { tokens, elevation } = useTheme()
   const insets = useSafeAreaInsets()
   const { shake: invalidAddShake, triggerInvalidFeedback } = useInvalidFeedback()
 
@@ -208,18 +190,6 @@ export function FloatingNav({
   const activeFill = tokens.accent
   const activeIcon = tokens.onAccent
 
-  const activeIndex = addActive ? ADD_INDEX : indexOfRoute(active)
-
-  // Captured once at mount. The nav mounts on /loading (no active slot) and
-  // the app lands on log-expense, so rest on the add slot rather than gliding
-  // over from Home on first show.
-  const [initialIndex] = useState(() => (activeIndex === -1 ? ADD_INDEX : activeIndex))
-  const focusX = useSharedValue(slotOffset(initialIndex))
-  useEffect(() => {
-    if (activeIndex === -1) return
-    focusX.value = withSpring(slotOffset(activeIndex), motion.spring)
-  }, [activeIndex, focusX, motion.spring])
-
   return (
     <View
       pointerEvents="box-none"
@@ -235,7 +205,7 @@ export function FloatingNav({
         </View>
       )}
       <View pointerEvents="box-none" style={[styles.row, { height: ROW_HEIGHT + insets.bottom }]}>
-        {NAV_SLOTS.map((slot, i) =>
+        {NAV_SLOTS.map((slot) =>
           slot.kind === 'add' ? (
             <Animated.View
               key="add"
@@ -269,8 +239,6 @@ export function FloatingNav({
                     </View>
                   ) : undefined
                 }
-                focusX={focusX}
-                index={i}
                 style={elevation.floating}
               />
             </Animated.View>
@@ -284,8 +252,6 @@ export function FloatingNav({
               color={active === slot.name ? activeIcon : idleIcon}
               ringColor={tokens.accent}
               onPress={() => onSelect(slot.name)}
-              focusX={focusX}
-              index={i}
               onFlood={addActive}
             />
           ),
@@ -410,8 +376,6 @@ function NavCircle({
   dimmed = disabled,
   pressHaptic = true,
   overrideContent,
-  focusX,
-  index,
   onFlood = false,
   style,
 }: {
@@ -428,8 +392,6 @@ function NavCircle({
   pressHaptic?: boolean
   /** Replaces the glyph entirely (e.g. a spinner or check) when set. */
   overrideContent?: React.ReactNode
-  focusX: SharedValue<number>
-  index: number
   /** Sitting on the log-expense accent flood: no distance fade (the tint is already translucent) and no shadow. */
   onFlood?: boolean
   style?: object
@@ -443,8 +405,10 @@ function NavCircle({
     selProgress.value = withTiming(selected ? 1 : 0, { duration: 200 })
   }, [selected, selProgress])
 
+  // t: 0 when selected, 1 when not. Drives the size and fade, so only the
+  // slots actually changing state move.
   const circleStyle = useAnimatedStyle(() => {
-    const t = slotProximity(focusX.value, index)
+    const t = 1 - selProgress.value
     return {
       backgroundColor: bgFade.value,
       opacity: onFlood ? 1 : 1 - t * 0.35,
@@ -452,10 +416,8 @@ function NavCircle({
     }
   })
 
-  // Sized off the focus like the circle, so it grows/shrinks in transit, but
-  // only ever visible on the committed slot.
   const ringStyle = useAnimatedStyle(() => {
-    const t = slotProximity(focusX.value, index)
+    const t = 1 - selProgress.value
     return {
       borderColor: ringColor,
       opacity: selProgress.value,

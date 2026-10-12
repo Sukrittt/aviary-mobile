@@ -4,8 +4,6 @@ import { Animated } from 'react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import {
   FloatingNav,
-  slotOffset,
-  slotProximity,
   navStateFor,
   nextNavCover,
   type NavCover,
@@ -18,33 +16,6 @@ jest.mock('expo-haptics', () => ({
   ImpactFeedbackStyle: { Light: 'light', Medium: 'medium' },
   NotificationFeedbackType: { Error: 'error' },
 }))
-
-// Drives both the size falloff and the ring hand-off, so a break here means
-// the wrong circle is big / ringed while the focus glides between tabs.
-describe('slotProximity', () => {
-  it('is 0 for the focused slot', () => {
-    for (let i = 0; i < 5; i++) {
-      expect(slotProximity(slotOffset(i), i)).toBe(0)
-    }
-  })
-
-  it('is 1 for a neighbouring slot and stays clamped beyond it', () => {
-    expect(slotProximity(slotOffset(2), 1)).toBe(1)
-    expect(slotProximity(slotOffset(2), 3)).toBe(1)
-    expect(slotProximity(slotOffset(2), 0)).toBe(1)
-    expect(slotProximity(slotOffset(2), 4)).toBe(1)
-  })
-
-  it('hands over linearly and symmetrically between slots', () => {
-    const midway = slotOffset(1) + (slotOffset(2) - slotOffset(1)) / 2
-    expect(slotProximity(midway, 1)).toBeCloseTo(0.5)
-    expect(slotProximity(midway, 2)).toBeCloseTo(0.5)
-    // A quarter of the way from slot 1 to slot 2: slot 1 still dominates.
-    const quarter = slotOffset(1) + (slotOffset(2) - slotOffset(1)) / 4
-    expect(slotProximity(quarter, 1)).toBeCloseTo(0.25)
-    expect(slotProximity(quarter, 2)).toBeCloseTo(0.75)
-  })
-})
 
 describe('navStateFor', () => {
   it('is visible with the matching route active on a tab path', () => {
