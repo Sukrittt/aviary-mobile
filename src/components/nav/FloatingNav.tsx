@@ -104,11 +104,6 @@ const SLOT = 72
 const ROW_TOP_BLEED = 10
 const ROW_BOTTOM_BLEED = 24
 const ROW_HEIGHT = RING_SIZE + ROW_TOP_BLEED + ROW_BOTTOM_BLEED
-// Opaque backdrop behind the whole nav strip, from just above the ring down
-// to the screen edge: content scrolls underneath, and the circles alone
-// don't cover the gaps between slots or the safe-area strip below them, so
-// without this a scrolled row (or the home-indicator area) shows through.
-const BACKDROP_PAD = 7
 // Gap between the ring and the screen edge, on top of the safe-area inset.
 // 4px (space.xs) read as flush against the Android 3-button nav bar in
 // testing — bumped so the strip visibly clears it.
@@ -275,32 +270,6 @@ function AddHalo({ color }: { color: string }) {
     transform: [{ scale: reduceMotion ? 1.2 : 1 + 0.45 * t.value }],
   }))
   return <Reanimated.View testID="nav-add-hint" pointerEvents="none" style={[styles.halo, { backgroundColor: color }, style]} />
-}
-
-/**
- * The opaque strip behind the nav, rendered by the (tabs) layout rather than
- * by FloatingNav itself: the nav is a root overlay that switches state the
- * instant the pathname changes, while the screens underneath fade. Owned by
- * the screen, the strip fades with it instead of flipping color early.
- * Log-expense has no strip; its accent flood already fills the area.
- */
-export function NavBackdrop() {
-  const { tokens, radius } = useTheme()
-  const insets = useSafeAreaInsets()
-  return (
-    <View
-      pointerEvents="none"
-      style={[
-        styles.backdrop,
-        {
-          height: ROW_HEIGHT - (ROW_TOP_BLEED - BACKDROP_PAD) + insets.bottom + NAV_BOTTOM_GAP,
-          backgroundColor: tokens.bg,
-          borderTopLeftRadius: radius.xl,
-          borderTopRightRadius: radius.xl,
-        },
-      ]}
-    />
-  )
 }
 
 /**
@@ -477,12 +446,6 @@ const styles = StyleSheet.create({
     bottom: 0,
   },
   row: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
-  backdrop: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
   slot: { width: SLOT, alignItems: 'center', justifyContent: 'center' },
   ringBox: { width: RING_SIZE, height: RING_SIZE, alignItems: 'center', justifyContent: 'center' },
   ring: {

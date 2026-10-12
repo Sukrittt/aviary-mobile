@@ -18,6 +18,8 @@ import { NAV_HEIGHT } from '@/src/theme/scale'
 export const Screen = forwardRef<ScrollView, {
   title?: ReactNode
   actions?: ReactNode
+  /** Centred in the header between the title and actions, regardless of their widths. */
+  center?: ReactNode
   /** Rendered between the header and the scrolling content, outside the
    *  ScrollView — so it stays pinned while the rest of the screen scrolls,
    *  with no scroll listener or animation needed. */
@@ -32,6 +34,7 @@ export const Screen = forwardRef<ScrollView, {
 }>(function Screen({
   title,
   actions,
+  center,
   subheader,
   children,
   scroll = true,
@@ -57,6 +60,11 @@ export const Screen = forwardRef<ScrollView, {
       ) : (
         title
       )}
+      {center ? (
+        <View pointerEvents="box-none" style={[styles.center, { top: insets.top + space.md, bottom: space.md }]}>
+          {center}
+        </View>
+      ) : null}
       {actions ? <View style={[styles.actions, { gap: space.sm }]}>{actions}</View> : null}
     </View>
   ) : null
@@ -96,4 +104,5 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   title: { flexShrink: 1, letterSpacing: -0.5 },
   actions: { flexDirection: 'row', alignItems: 'center' },
+  center: { position: 'absolute', left: 0, right: 0, alignItems: 'center', justifyContent: 'center' },
 })

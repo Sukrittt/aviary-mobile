@@ -3,7 +3,7 @@ import { act, fireEvent, waitFor } from '@testing-library/react-native'
 import * as SecureStore from 'expo-secure-store'
 import { Path } from 'react-native-svg'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
-import { currentMonthKey } from '@/src/lib/envelope'
+import { currentMonthKey, monthAbbrev } from '@/src/lib/envelope'
 import { getSystemStatus } from '@/src/api/systemStatus'
 import appJson from '@/app.json'
 import HomeScreen from './index'
@@ -153,6 +153,11 @@ describe('HomeScreen · Ready to Assign', () => {
     // Same tap target and income options as the full hero.
     fireEvent.press(getByLabelText('Ready to Assign options'))
     expect(getByText('Change income')).toBeTruthy()
+  })
+
+  it('shows the month in the header', () => {
+    const { getByText } = renderHome()
+    expect(getByText(monthAbbrev(MONTH))).toBeTruthy()
   })
 
   it('keeps the full hero while money is left to assign, or before income is set', () => {

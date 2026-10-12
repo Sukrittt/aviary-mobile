@@ -3,7 +3,7 @@ import { useNavigation, usePathname } from 'expo-router'
 import { useEffect, useLayoutEffect, useState } from 'react'
 import { StyleSheet, View } from 'react-native'
 
-import { FloatingNav, NavBackdrop, activeRouteFor, nextNavCover, type NavCover } from '@/src/components/nav/FloatingNav'
+import { FloatingNav, activeRouteFor, nextNavCover, type NavCover } from '@/src/components/nav/FloatingNav'
 import { tabsNavCover } from '@/src/components/nav/TabBar'
 import { LOG_EXPENSE_PATH } from '@/src/features/log-expense/SubmitContext'
 import { useTheme } from '@/src/theme/ThemeProvider'
@@ -82,7 +82,6 @@ export default function TabsLayout() {
         <Tabs.Screen name="envelopes" />
         <Tabs.Screen name="more" />
       </Tabs>
-      <NavBackdrop />
       <TabsNavStandIn />
     </View>
   )

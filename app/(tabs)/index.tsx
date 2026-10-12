@@ -24,7 +24,7 @@ import {
   currentMonthKey,
   prevMonthKey,
   daysLeftInMonth,
-  monthLabel,
+  monthAbbrev,
   type Envelope,
 } from '@/src/lib/envelope'
 
@@ -200,7 +200,7 @@ export default function HomeScreen() {
   // slim row and the envelopes (what you open Home for) move up. Off zero
   // either way, it's back to the full hero since there's a job to do.
   const rtaSettled = incomeDone && Math.abs(displayedReadyToAssign) < 0.005
-  const monthLine = `${monthLabel(month)} · ${daysLeftInMonth() === 0 ? 'Less than 24 hrs' : `${daysLeftInMonth()} days left`}`
+  const daysLeftLabel = daysLeftInMonth() === 0 ? 'Less than 24 hrs' : `${daysLeftInMonth()} days left`
   // Every rupee has a job once Ready to Assign is spent down, the whole point
   // of the method, so Get started holds out for that, not one funded envelope.
   const fundDone = incomeDone && envelopeState.readyToAssign <= 0
@@ -285,6 +285,12 @@ export default function HomeScreen() {
             <BirdLandingMark ref={birdMarkRef} size={56} color={scheme === 'light' ? '#000000' : tokens.text} autoplay={false} perched />
           </Pressable>
         }
+        center={
+          <View style={styles.headerMonth}>
+            <Text style={{ color: tokens.text, fontSize: type.bodyLg, fontFamily: fontFamily.displaySemiBold }}>{monthAbbrev(month)}</Text>
+            <Text style={{ color: tokens.text2, fontSize: type.micro, fontFamily: fontFamily.bodyMedium }}>{daysLeftLabel}</Text>
+          </View>
+        }
         actions={
           isHidden(user, 'insights') ? undefined : <IconButton icon={LineChart} accessibilityLabel="Insights" onPress={() => router.push('/insights')} />
         }
@@ -310,21 +316,11 @@ export default function HomeScreen() {
             style={heroPress.style}
           >
             <Card elevated={false} style={styles.slimRta}>
-              <View style={styles.slimCol}>
-                <Text style={[styles.heroLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>READY TO ASSIGN</Text>
-                <Text style={{ color: tokens.text2, fontSize: type.caption, fontFamily: fontFamily.bodyMedium }}>{monthLine}</Text>
-              </View>
-              <View style={[styles.slimCol, styles.slimRight]}>
-                <View style={styles.slimAmount}>
-                  <Icon icon={Check} size={16} color={tokens.mint} />
-                  <AmountText value={displayedReadyToAssign} size={type.bodyLg} color={tokens.text} weight="displayBold" />
-                </View>
-                <View style={styles.slimAmount}>
-                  <Text style={{ color: tokens.text2, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>
-                    {`Income · ${formatCurrency(envelopeState.income, hideAmounts)}`}
-                  </Text>
-                  <Icon icon={ChevronRight} size={14} color={tokens.text2} />
-                </View>
+              <Text style={{ color: tokens.text, fontSize: type.body, fontFamily: fontFamily.bodySemiBold }}>Ready to Assign</Text>
+              <View style={styles.slimAmount}>
+                <Icon icon={Check} size={16} color={tokens.mint} />
+                <AmountText value={displayedReadyToAssign} size={type.body} color={tokens.text} weight="displayBold" />
+                <Icon icon={ChevronRight} size={16} color={tokens.text2} />
               </View>
             </Card>
           </AnimatedPressable>
@@ -354,9 +350,6 @@ export default function HomeScreen() {
                 id="ready-to-assign"
               />
             </AnimatedPressable>
-            <Text style={{ color: tokens.text2, fontSize: type.caption, fontFamily: fontFamily.bodyMedium }}>
-              {monthLine}
-            </Text>
             {/* The hero tap is invisible, so this pill names where the number
                 comes from. With no income yet it goes straight to setting it. */}
             <AnimatedPressable
@@ -582,10 +575,9 @@ const styles = StyleSheet.create({
   sheetBtn: { paddingVertical: 12 },
   sheetBtnText: { fontSize: 14 },
   heroLabel: { fontSize: 10, letterSpacing: 0.6 },
-  slimRta: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  slimCol: { gap: 4 },
-  slimRight: { alignItems: 'flex-end' },
+  slimRta: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14 },
   slimAmount: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  headerMonth: { alignItems: 'center' },
   rolloverCard: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   cardHeadRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   cardTitle: {},
