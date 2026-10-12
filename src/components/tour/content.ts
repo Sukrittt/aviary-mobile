@@ -27,7 +27,7 @@ export const CHAPTERS: Chapter[] = [
     title: 'Envelopes & Ready to Assign',
     blurb: 'Money gets a job before it gets spent.',
     kicker: 'CHAPTER 1 OF 7',
-    lede: "Every category is an envelope. Your income shows up as one number, Ready to Assign, and you hand it out until there's nothing left to hand out.",
+    lede: "An envelope is money set aside for one thing, like Groceries. Your income lands as one number, Ready to Assign. Hand it out to your envelopes until there's nothing left.",
     nudge: 'Fund all four. Get Ready to Assign to zero.',
     linkLabel: 'Open Home',
     href: '/(tabs)',
@@ -142,7 +142,7 @@ export const QUIZ_OPTIONS = [
   },
   {
     id: 'b',
-    label: 'It is gone. October starts fresh, with the same ₹5,000 plan',
+    label: "It's gone. October starts fresh, with the same ₹5,000 plan",
     correct: true,
     feedback:
       "Exactly. Clean slate on the 1st: the leftover disappears, but your ₹5,000 plan is already sitting there waiting, so you're not budgeting from zero.",
