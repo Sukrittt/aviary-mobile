@@ -4,8 +4,9 @@ import { LogExpenseNavigation } from './LogExpenseNavigation'
 import { QUICK_INCOME_PATH } from './IncomeFloodButton'
 
 const mockPush = jest.fn()
+const mockNavigate = jest.fn()
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: mockPush, navigate: jest.fn(), replace: jest.fn() }),
+  useRouter: () => ({ push: mockPush, navigate: mockNavigate, replace: jest.fn() }),
   usePathname: () => '/',
 }))
 
@@ -17,4 +18,11 @@ it('long-pressing + opens the quick-add menu', () => {
   fireEvent.press(getByLabelText('Add income'))
   expect(mockPush).toHaveBeenCalledWith(QUICK_INCOME_PATH)
   expect(queryByLabelText('Add income')).toBeNull()
+})
+
+it('sends scan a bill through the photo picker on More', () => {
+  const { getByRole, getByLabelText } = renderWithProviders(<LogExpenseNavigation />)
+  fireEvent(getByRole('tab', { name: 'Log expense' }), 'longPress')
+  fireEvent.press(getByLabelText('Scan a bill'))
+  expect(mockNavigate).toHaveBeenCalledWith({ pathname: '/more', params: { scan: '1' } })
 })

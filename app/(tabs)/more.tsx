@@ -2,7 +2,7 @@ import { CurrencySetting } from '@/src/components/CurrencyPicker'
 import { useState, type ReactNode } from 'react'
 import { View, Text, Image, Pressable, RefreshControl, Linking, Platform, StyleSheet } from 'react-native'
 import { Toggle } from '@/src/components/ui/Toggle'
-import { useRouter } from 'expo-router'
+import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useQuery } from '@tanstack/react-query'
 import { requestPinWidget } from 'react-native-android-widget'
 import * as ImagePicker from 'expo-image-picker'
@@ -58,7 +58,14 @@ export default function MoreScreen() {
   const { refreshing, onRefresh } = useRefresh()
 
   const [signingOut, setSigningOut] = useState(false)
-  const [scanPickerOpen, setScanPickerOpen] = useState(false)
+  const [scanPickerSheet, setScanPickerOpen] = useState(false)
+  // The nav's quick-add menu lands here with ?scan=1: the scan route needs a photo picked first.
+  const { scan } = useLocalSearchParams<{ scan?: string }>()
+  const scanPickerOpen = scanPickerSheet || scan === '1'
+  const closeScanPicker = () => {
+    setScanPickerOpen(false)
+    if (scan) router.setParams({ scan: undefined })
+  }
   const online = useOnline()
 
   const userQuery = useUser()
@@ -125,7 +132,7 @@ export default function MoreScreen() {
         ? await ImagePicker.requestCameraPermissionsAsync()
         : await ImagePicker.requestMediaLibraryPermissionsAsync()
     if (!perm.granted) {
-      setScanPickerOpen(false)
+      closeScanPicker()
       Alert.alert('Permission needed', 'Camera/photo access is off. Enable it in Settings, or enter this expense manually.')
       return
     }
@@ -134,13 +141,13 @@ export default function MoreScreen() {
     const result =
       source === 'camera' ? await ImagePicker.launchCameraAsync(options) : await ImagePicker.launchImageLibraryAsync(options)
     if (result.canceled || !result.assets?.[0]) {
-      setScanPickerOpen(false)
+      closeScanPicker()
       return
     }
 
     const asset = result.assets[0]
     if (!asset.base64) {
-      setScanPickerOpen(false)
+      closeScanPicker()
       Alert.alert("Couldn't read that image", 'Try again or enter this expense manually.')
       return
     }
@@ -153,13 +160,13 @@ export default function MoreScreen() {
       categories = (await categoriesQ.refetch()).data
     }
     if ((categories ?? []).length === 0) {
-      setScanPickerOpen(false)
+      closeScanPicker()
       Alert.alert('No categories yet', 'Add one first, or enter this expense manually.')
       return
     }
 
     setPendingScanImage({ base64: asset.base64, mimeType: asset.mimeType ?? 'image/jpeg' })
-    setScanPickerOpen(false)
+    closeScanPicker()
     router.push('/modals/scan-bill')
   }
 
@@ -479,7 +486,7 @@ export default function MoreScreen() {
           </View>
       </Screen>
 
-      <BottomSheet visible={scanPickerOpen} onClose={() => setScanPickerOpen(false)}>
+      <BottomSheet visible={scanPickerOpen} onClose={closeScanPicker}>
         <Text style={[styles.sheetTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Scan a bill</Text>
         <View style={{ gap: 8 }}>
           <Pressable
@@ -502,7 +509,7 @@ export default function MoreScreen() {
           </Pressable>
           <Pressable
             onPress={() => {
-              setScanPickerOpen(false)
+              closeScanPicker()
               router.push('/account/bill-scans')
             }}
             style={[styles.sourceRow, { backgroundColor: tokens.inputBg }]}

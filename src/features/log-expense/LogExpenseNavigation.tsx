@@ -34,9 +34,11 @@ export function LogExpenseNavigation() {
   // Remembers where it opened, so any navigation (back gesture, deep link) closes it.
   const [menuPath, setMenuPath] = useState<string | null>(null)
   const closeMenu = () => setMenuPath(null)
+  // Cleared during render rather than just hidden, so coming back to that path doesn't reopen it.
+  if (menuPath !== null && menuPath !== pathname) setMenuPath(null)
   const menuItems: QuickAddItem[] = [
     { label: 'Log expense', icon: Plus, tint: tokens.accent, onPress: () => router.push(LOG_EXPENSE_PATH) },
-    ...(isHidden(user, 'billScan') ? [] : [{ label: 'Scan a bill', icon: ScanLine, tint: tokens.blue, onPress: () => router.push('/modals/scan-bill') }]),
+    ...(isHidden(user, 'billScan') ? [] : [{ label: 'Scan a bill', icon: ScanLine, tint: tokens.blue, onPress: () => router.navigate({ pathname: '/more', params: { scan: '1' } }) }]),
     ...(isHidden(user, 'income') ? [] : [{ label: 'Add income', icon: HandCoins, tint: INCOME_FLOOD, onPress: () => router.push(QUICK_INCOME_PATH) }]),
   ]
 
