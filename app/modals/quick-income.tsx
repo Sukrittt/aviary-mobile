@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { StyleSheet, useWindowDimensions } from "react-native";
+import { Dimensions, StyleSheet } from "react-native";
 import Reanimated, { Easing, interpolate, runOnJS, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useNavigation } from "expo-router";
@@ -18,7 +18,9 @@ export default function QuickIncomeModal() {
   const navigation = useNavigation();
   const reduceMotion = useReducedMotion();
   const insets = useSafeAreaInsets();
-  const { width, height } = useWindowDimensions();
+  // The screen, not the window: on Android the window leaves out the system bars
+  // the app draws behind, so a disc sized to it stops short of the bottom corners.
+  const { width, height } = Dimensions.get("screen");
   const progress = useSharedValue(reduceMotion ? 1 : 0);
   const leaving = useRef(false);
 
