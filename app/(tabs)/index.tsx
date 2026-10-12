@@ -49,10 +49,12 @@ import { BirdLandingMark, type BirdLandingMarkHandle } from '@/src/components/sp
 import { getSystemStatus } from '@/src/api/systemStatus'
 import { isVersionNewer } from '@/src/lib/version'
 import appJson from '@/app.json'
-import { useUser } from '@/src/hooks/useUser'
+import { useUser, useUpdateUser } from '@/src/hooks/useUser'
+import { useFeatureNudge } from '@/src/hooks/useFeatureNudge'
+import { firstBanner } from '@/src/lib/homeBanner'
+import { Alert } from '@/src/components/ui/AlertHost'
 import { isHidden } from '@/src/lib/features'
 import { GetStartedCard } from '@/src/components/home/GetStartedCard'
-import { LearningCard } from '@/src/components/home/LearningCard'
 import { EmptyState } from '@/src/components/shared/EmptyState'
 import { FORCE_EMPTY_STATE_PREVIEW, emptyForPreview } from '@/src/lib/emptyStatePreview'
 
@@ -81,13 +83,13 @@ export default function HomeScreen() {
   const month = currentMonthKey()
   const prevMonth = prevMonthKey(month)
   const [rolloverDismissed, setRolloverDismissed] = useDismissedRolloverBanner(prevMonth)
-  // Trial reminders at 7, 3 and 1 days left. Same dismiss-once storage as the
-  // rollover banner, keyed by threshold, so dismissing at 7 days still lets
-  // the 3-day reminder through.
+  // Trial reminders at 3 and 1 days left (7 days out is too early to spend
+  // Home's one banner on). Same dismiss-once storage as the rollover banner,
+  // keyed by threshold, so dismissing at 3 days still lets the 1-day through.
   const billing = useBillingStatus().data
   const trialBucket = trialReminderBucket(billing)
   const [trialDismissed, setTrialDismissed] = useDismissedRolloverBanner(`trial-${trialBucket}`)
-  const showTrialBanner = trialBucket !== null && trialDismissed === false
+  const updateUser = useUpdateUser()
   const [getStartedSkipped, setGetStartedSkipped] = useDismissedRolloverBanner('get-started')
   // OTA updates cover JS changes, so this only fires when the admin raises the
   // minimum after a native build older installs can't get over the air. Not
@@ -193,7 +195,6 @@ export default function HomeScreen() {
     setCollapsedGroups(allGroupsCollapsed ? new Set() : new Set(allGroupNames))
   }
 
-  const showRolloverBanner = rolloverDismissed === false && prevMonthLeftover > 0
   const incomeDone = envelopeState.income > 0
   // Every rupee has a job once Ready to Assign is spent down, the whole point
   // of the method, so Get started holds out for that, not one funded envelope.
@@ -205,6 +206,17 @@ export default function HomeScreen() {
     getStartedSkipped === false &&
     !!user?.getStartedAt &&
     !(incomeDone && fundDone && user.manualTransactionCompletedAt && user.guidedTourCompletedAt)
+
+  const featureNudge = useFeatureNudge(user, expenses.length)
+  // One banner at a time, most urgent first. A feature offer waits until
+  // Get started is out of the way, so a new account isn't sold extras yet.
+  const banner = firstBanner([
+    ['update', showUpdateBanner && !!androidUpdate, false],
+    ['trial', trialBucket !== null && trialBucket <= 3 && !!billing, trialDismissed],
+    ['rollover', prevMonthLeftover > 0, rolloverDismissed],
+    ['nudge', !!featureNudge.nudge && !showGetStarted, false],
+  ])
+  const nudge = banner === 'nudge' ? featureNudge.nudge : null
 
   function handleEditAmount(category: string) {
     router.push({ pathname: '/modals/edit-assigned-amount', params: { category } })
@@ -331,7 +343,7 @@ export default function HomeScreen() {
         {/* The lasting record lives in Insights' "Where it went" card (any
             month, not just last), so this banner can stay a dismissable
             one-time heads-up rather than growing into one. */}
-        {showUpdateBanner && androidUpdate && (
+        {banner === 'update' && androidUpdate && (
           <Card style={styles.rolloverCard} elevated={false}>
             <Text style={{ color: tokens.text, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold, flex: 1 }}>
               {"There's a new version of Aviary. Update to keep getting fixes."}
@@ -342,7 +354,7 @@ export default function HomeScreen() {
           </Card>
         )}
 
-        {showTrialBanner && billing && (
+        {banner === 'trial' && billing && (
           <Card style={styles.rolloverCard} elevated={false}>
             <Pressable onPress={() => router.push('/account/plan')} style={{ flex: 1 }}>
               <Text style={{ color: tokens.text, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>
@@ -355,13 +367,37 @@ export default function HomeScreen() {
           </Card>
         )}
 
-        {showRolloverBanner && (
+        {banner === 'rollover' && (
           <Card style={styles.rolloverCard} elevated={false}>
             <Text style={{ color: tokens.text, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold, flex: 1 }}>
               {formatCurrency(prevMonthLeftover, hideAmounts)} left over from last month.
             </Text>
             <Pressable onPress={() => setRolloverDismissed(true)} hitSlop={8}>
               <Text style={{ color: tokens.accentInk, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>Okay</Text>
+            </Pressable>
+          </Card>
+        )}
+
+        {nudge && (
+          <Card style={styles.rolloverCard} elevated={false}>
+            <Text style={{ color: tokens.text, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold, flex: 1 }}>
+              {nudge.message}
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => {
+                updateUser.mutate(
+                  { hiddenFeatures: featureNudge.hidden.filter((k) => k !== featureNudge.feature) },
+                  { onError: () => Alert.alert("Couldn't turn that on", 'Check your connection and try again.') },
+                )
+                router.push(nudge.href)
+              }}
+              hitSlop={8}
+            >
+              <Text style={{ color: tokens.accent, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>Turn on</Text>
+            </Pressable>
+            <Pressable accessibilityRole="button" onPress={featureNudge.dismiss} hitSlop={8}>
+              <Text style={{ color: tokens.accentInk, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>Not now</Text>
             </Pressable>
           </Card>
         )}
@@ -391,8 +427,6 @@ export default function HomeScreen() {
             />
           </Reanimated.View>
         )}
-
-        <LearningCard />
 
         {/* The weekly balance check keeps these totals honest without bank
             linking: a prompt when one is due, else the logged meter. */}
