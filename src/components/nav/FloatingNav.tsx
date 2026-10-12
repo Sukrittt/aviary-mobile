@@ -234,7 +234,7 @@ export function FloatingNav({
           <Text style={[styles.hintText, { color: tokens.onAccent, fontFamily: fontFamily.bodySemiBold }]}>Tap + to save</Text>
         </View>
       )}
-      <View style={[styles.row, { height: ROW_HEIGHT + insets.bottom }]}>
+      <View pointerEvents="box-none" style={[styles.row, { height: ROW_HEIGHT + insets.bottom }]}>
         {NAV_SLOTS.map((slot, i) =>
           slot.kind === 'add' ? (
             <Animated.View
