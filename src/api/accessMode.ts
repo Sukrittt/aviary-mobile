@@ -45,6 +45,22 @@ function notify() {
   for (const fn of subs) fn(mode)
 }
 
+let refreshTimer: ReturnType<typeof setTimeout> | null = null
+
+/**
+ * Refresh ahead of expiry while the app is open, so a request mid-session never
+ * waits on WorkOS for a new token (that wait was a p90 of ~750ms per request).
+ * Timers don't run in the background; one that's overdue fires on return, and
+ * the first requests share its in-flight refresh.
+ */
+function scheduleRefresh(next: WorkOSTokens | null): void {
+  if (refreshTimer) clearTimeout(refreshTimer)
+  refreshTimer = null
+  const delay = next ? next.expiresAt - REFRESH_MARGIN_MS - Date.now() : NaN
+  if (!Number.isFinite(delay)) return
+  refreshTimer = setTimeout(() => { void getValidToken().catch(() => {}) }, Math.max(delay, 0) + 1000)
+}
+
 async function store(next: WorkOSTokens | null): Promise<void> {
   // A token refresh rotates the pair but keeps the same user. Subscribers treat
   // a notification as an identity switch (the root layout clears every cached
@@ -52,6 +68,7 @@ async function store(next: WorkOSTokens | null): Promise<void> {
   const prevUserId = currentUserId()
   session = next
   mode = next ? 'real' : 'guest'
+  scheduleRefresh(next)
   if (!prevUserId || currentUserId() !== prevUserId) notify()
   // Serialize disk writes so a slow refresh cannot overwrite a later logout.
   storageWrite = storageWrite.then(async () => {
@@ -90,6 +107,7 @@ export async function initAccessMode(): Promise<AccessMode | null> {
     session = parsed
     mode = 'real'
     notify()
+    scheduleRefresh(parsed)
     void getValidToken().catch(() => {})
     return 'real'
   } catch {

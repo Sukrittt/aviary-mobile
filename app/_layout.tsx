@@ -29,14 +29,14 @@ import { WidgetSync, lockWidgets } from '@/src/widgets/WidgetSync'
 import { billingKey, useBillingStatus } from '@/src/hooks/useBillingStatus'
 import { accessAllowed } from '@/src/lib/billingStatus'
 import { onAiAllowanceExceeded } from '@/src/lib/aiAllowance'
-import { QueryClient } from '@tanstack/react-query'
+import { QueryClient, focusManager } from '@tanstack/react-query'
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client'
 import { PERSIST_MAX_AGE, persistOptions, queryPersister } from '@/src/lib/queryPersist'
 import { setAudioModeAsync } from 'expo-audio'
 import { Stack,useGlobalSearchParams,usePathname,useRouter,useSegments,type Href } from 'expo-router'
 import * as SplashScreen from 'expo-splash-screen'
 import { useEffect,useRef,useState } from 'react'
-import { StyleSheet,View } from 'react-native'
+import { AppState,StyleSheet,View } from 'react-native'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 
@@ -59,8 +59,20 @@ function isAuthError(error: unknown): boolean {
 
 // gcTime matches the persisted maxAge: an unused query outliving the 5 min
 // default is what makes going back to a tab instant instead of a spinner.
+// Refetch on focus is opt-in per query: the few that need a fresh answer on
+// every return to the app set `refetchOnWindowFocus` themselves.
 const queryClient = new QueryClient({
-  defaultOptions: { queries: { retry: 1, gcTime: PERSIST_MAX_AGE } },
+  defaultOptions: { queries: { retry: 1, gcTime: PERSIST_MAX_AGE, refetchOnWindowFocus: false } },
+})
+
+// React Query has no idea of "focus" in RN until it's told about AppState.
+// One listener here refetches each opted-in query once per foreground. A
+// listener per hook instance fired one request per mounted copy instead
+// (about 3 per foreground for billing status).
+focusManager.setEventListener((handleFocus) => {
+  handleFocus(AppState.currentState === 'active')
+  const sub = AppState.addEventListener('change', state => handleFocus(state === 'active'))
+  return () => sub.remove()
 })
 
 /**

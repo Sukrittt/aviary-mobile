@@ -13,8 +13,9 @@ if (__DEV__ && !process.env.EXPO_PUBLIC_API_URL) {
   throw new Error('EXPO_PUBLIC_API_URL is not set. Set it in Mobile/.env for local development.')
 }
 
-export const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'https://useaviary.com'
-export const WEB_URL = 'https://useaviary.com'
+export const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'https://www.useaviary.com'
+// The apex answers a 308 to www, an extra round trip on every request.
+export const WEB_URL = 'https://www.useaviary.com'
 
 const REQUEST_TIMEOUT_MS = 15_000
 
