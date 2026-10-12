@@ -6,11 +6,20 @@ import { fontFamily } from '@/src/theme/fonts'
 
 import { splitEmoji } from '@/src/lib/emoji'
 import { parseLocalDate, toLocalDateString } from '@/src/lib/date'
-import { ProgressBar } from './ProgressBar'
+import { ProgressBar, fillColor, fillSoftColor } from './ProgressBar'
 import { BottomSheet } from '@/src/components/shared/Modal'
 import type { Envelope } from '@/src/lib/envelope'
+import type { ThemeTokens } from '@/src/theme/tokens'
 
 const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+/** Tinted pill for what's left, matching the progress bar's color for the
+ * same spend. Amber text uses warnInk: plain warn is unreadable on its tint. */
+export function availablePill(e: Envelope, tokens: ThemeTokens): { color: string; bg: string } {
+  if (e.isOverspent) return { color: tokens.coral, bg: tokens.coralSoft }
+  const color = fillColor(e.spentPct, tokens)
+  return { color: color === tokens.warn ? tokens.warnInk : color, bg: fillSoftColor(e.spentPct, tokens) }
+}
 
 /** Mirrors Web's EnvelopeGrid usedPct(): spend as % of assigned, ∞ if spending with nothing assigned. */
 function usedPctLabel(e: Envelope): string {
@@ -79,7 +88,7 @@ export function EnvelopeRow({
     onSheetOpenChange?.(false)
   }, [onSheetOpenChange])
 
-  const availableColor = envelope.isOverspent ? tokens.coral : tokens.mint
+  const pill = availablePill(envelope, tokens)
   const name = displayName ?? splitEmoji(envelope.category).text
 
   return (
@@ -104,9 +113,11 @@ export function EnvelopeRow({
           </Text>
         )}
       </Pressable>
-      <Text style={[styles.available, { color: availableColor, fontFamily: fontFamily.bodySemiBold }]}>
-        {formatCurrency(envelope.available, hideAmounts)}
-      </Text>
+      <View style={[styles.availablePill, { backgroundColor: pill.bg }]}>
+        <Text style={[styles.available, { color: pill.color, fontFamily: fontFamily.bodySemiBold }]}>
+          {formatCurrency(envelope.available, hideAmounts)}
+        </Text>
+      </View>
 
       <BottomSheet visible={sheetOpen} onClose={closeSheet}>
         <Text style={[styles.sheetTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
@@ -159,7 +170,8 @@ const styles = StyleSheet.create({
   name: { fontSize: 13, flexShrink: 1 },
   metaLine: { fontSize: 10, marginTop: 2 },
   spentOf: { marginLeft: 'auto', fontSize: 12 },
-  available: { fontSize: 12, minWidth: 60, textAlign: 'right' },
+  availablePill: { minWidth: 60, alignItems: 'center', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
+  available: { fontSize: 12 },
   sheetTitle: { fontSize: 16, marginBottom: 8 },
   sheetBtn: { paddingVertical: 12 },
   sheetBtnText: { fontSize: 14 },

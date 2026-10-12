@@ -5,7 +5,7 @@ import { useMemo, useRef, useState } from 'react'
 import { View, Text, Pressable, RefreshControl, StyleSheet, Linking, Platform } from 'react-native'
 import { useQuery } from '@tanstack/react-query'
 import { useRouter, useIsFocused } from 'expo-router'
-import { Check, ChevronRight, LineChart } from 'lucide-react-native'
+import { ChevronRight, LineChart } from 'lucide-react-native'
 import Reanimated, { FadeInDown, FadeOut, LinearTransition } from 'react-native-reanimated'
 import * as Haptics from 'expo-haptics'
 import { rippleHaptic } from '@/src/lib/haptics'
@@ -317,10 +317,9 @@ export default function HomeScreen() {
             style={heroPress.style}
           >
             <Card elevated={false} style={styles.slimRta}>
-              <Text style={{ color: tokens.text, fontSize: type.body, fontFamily: fontFamily.bodySemiBold }}>Ready to Assign</Text>
+              <Text style={{ color: tokens.text, fontSize: type.body, fontFamily: fontFamily.bodySemiBold }}>💸  Ready to Assign</Text>
               <View style={styles.slimAmount}>
-                <Icon icon={Check} size={16} color={tokens.mint} />
-                <AmountText value={displayedReadyToAssign} size={type.body} color={tokens.text} weight="displayBold" />
+                <AmountText value={displayedReadyToAssign} size={type.body} color={tokens.mint} weight="displayBold" />
                 <Icon icon={ChevronRight} size={16} color={tokens.text2} />
               </View>
             </Card>
