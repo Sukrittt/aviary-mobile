@@ -57,8 +57,12 @@ export function EnvelopeGroup({
             {splitEmoji(group).text}
           </Text>
         </View>
-        <Text style={[styles.available, { color: tokens.mint, fontFamily: fontFamily.bodySemiBold }]}>
-          {formatCurrency(totalAvailable, hideAmounts)} left
+        {/* A summary, so neutral: color is the rows' pills' job. Red only when
+            the group as a whole is over. */}
+        <Text style={[styles.available, { color: totalAvailable < 0 ? tokens.pillOver : tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
+          {totalAvailable < 0
+            ? `${formatCurrency(-totalAvailable, hideAmounts)} over`
+            : `${formatCurrency(totalAvailable, hideAmounts)} left`}
         </Text>
       </Pressable>
       {expanded && (
