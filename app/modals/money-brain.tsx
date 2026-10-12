@@ -266,6 +266,8 @@ export default function MoneyBrainModal() {
     const elapsed = startTimer()
     const answered = (ok: boolean, reason?: string) =>
       track('money_brain_answered', { ok, seconds: elapsed(), ...(reason ? { reason } : {}) })
+    // The chat this stream writes to, learned as soon as the server saves it, so a failed reply doesn't orphan it.
+    let streamSessionId = sessionId
 
     streamChat(
       sessionId,
@@ -279,6 +281,11 @@ export default function MoneyBrainModal() {
         if (!ownsRequest()) return
         track('capture_proposed', { rows: proposal.items.length })
         updateReply((reply) => ({ ...reply, proposal }))
+      },
+      (id) => {
+        if (!ownsRequest()) return
+        streamSessionId = id
+        setSessionId(id)
       },
     )
       .then((resolvedSessionId) => {
@@ -310,7 +317,7 @@ export default function MoneyBrainModal() {
         streamingRef.current = false
         setSending(false)
         // Cards logged mid-stream whose stream then failed: record them on the chat they came from, if it was saved.
-        for (const p of pendingSettles.current.splice(0)) if (sessionId) persistSettle(sessionId, p)
+        for (const p of pendingSettles.current.splice(0)) if (streamSessionId) persistSettle(streamSessionId, p)
       })
   }
 

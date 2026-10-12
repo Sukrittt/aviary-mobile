@@ -188,6 +188,7 @@ it('keeps the generic message for any other failure', async () => {
 type ChatCall = {
   delta: Parameters<typeof streamChat>[2]
   proposal: NonNullable<Parameters<typeof streamChat>[4]>
+  session: NonNullable<Parameters<typeof streamChat>[5]>
   signal: AbortSignal
   resolve: (id: string) => void
   reject: (error: Error) => void
@@ -195,8 +196,8 @@ type ChatCall = {
 
 function holdStreams() {
   const calls: ChatCall[] = []
-  mockStreamChat.mockImplementation((_session, _messages, delta, signal, onProposal) =>
-    new Promise<string>((resolve, reject) => calls.push({ delta, proposal: onProposal, signal, resolve, reject })),
+  mockStreamChat.mockImplementation((_session, _messages, delta, signal, onProposal, onSession) =>
+    new Promise<string>((resolve, reject) => calls.push({ delta, proposal: onProposal, session: onSession, signal, resolve, reject })),
   )
   return calls
 }
@@ -340,4 +341,19 @@ it('ignores a saved-chat response arriving after New', async () => {
   await sendQuestion(utils, 'New question')
   expect(mockStreamChat.mock.calls[0][0]).toBeNull()
   await act(async () => { calls[0].resolve('new-session') })
+})
+
+it('keeps the new chat and its logged card when the first reply fails after the server saved it', async () => {
+  const calls = holdStreams()
+  const utils = renderWithProviders(<MoneyBrainModal />)
+  await sendQuestion(utils, 'Log lunch')
+  await act(async () => { calls[0].session('s1'); calls[0].proposal(proposal) })
+  fireEvent.press(utils.getByText('Review card: 2 rows'))
+  await act(async () => { calls[0].reject(new Error('stream dropped')) })
+
+  expect(utils.getByText('Something went wrong. Try again.')).toBeTruthy()
+  expect(mockUpdateProposalStatus).toHaveBeenCalledWith('s1', 'p1', 'submitted', ['e1', 'e2'], expect.any(String))
+  await sendQuestion(utils, 'Try again')
+  expect(mockStreamChat.mock.calls[1][0]).toBe('s1')
+  await act(async () => { calls[1].resolve('s1') })
 })
