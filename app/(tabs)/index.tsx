@@ -288,7 +288,7 @@ export default function HomeScreen() {
         }
         center={
           <View style={styles.headerMonth}>
-            <Text style={{ color: tokens.text, fontSize: type.bodyLg, fontFamily: fontFamily.displaySemiBold }}>{monthAbbrev(month)}</Text>
+            <Text style={{ color: tokens.text, fontSize: type.bodyLg, fontFamily: fontFamily.displaySemiBold }}>{`${monthAbbrev(month)} ${month.slice(0, 4)}`}</Text>
             <Text style={{ color: tokens.text2, fontSize: type.micro, fontFamily: fontFamily.bodyMedium }}>{daysLeftLabel}</Text>
           </View>
         }

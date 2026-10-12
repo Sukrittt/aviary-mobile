@@ -159,7 +159,7 @@ describe('HomeScreen · Ready to Assign', () => {
 
   it('shows the month in the header', () => {
     const { getByText } = renderHome()
-    expect(getByText(monthAbbrev(MONTH))).toBeTruthy()
+    expect(getByText(`${monthAbbrev(MONTH)} ${MONTH.slice(0, 4)}`)).toBeTruthy()
   })
 
   it('keeps the full hero while money is left to assign, or before income is set', () => {
