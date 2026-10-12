@@ -282,7 +282,7 @@ export default function HomeScreen() {
             onPress={() => birdMarkRef.current?.replay()}
             style={styles.appIconButton}
           >
-            <BirdLandingMark ref={birdMarkRef} size={56} color={tokens.accent} autoplay={false} perched />
+            <BirdLandingMark ref={birdMarkRef} size={40} color={tokens.accent} autoplay={false} perched />
           </Pressable>
         }
         center={
@@ -292,7 +292,7 @@ export default function HomeScreen() {
           </View>
         }
         actions={
-          isHidden(user, 'insights') ? undefined : <IconButton icon={LineChart} color={tokens.accentInk} accessibilityLabel="Insights" onPress={() => router.push('/insights')} />
+          isHidden(user, 'insights') ? undefined : <IconButton icon={LineChart} color={tokens.accentInk} background={tokens.accentSoft} accessibilityLabel="Insights" onPress={() => router.push('/insights')} />
         }
         contentContainerStyle={{ gap: space.lg }}
         refreshControl={
@@ -567,7 +567,7 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  appIconButton: { width: 56, height: 56 },
+  appIconButton: { width: 40, height: 40 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   hero: { alignItems: 'center', gap: 6 },
   incomePill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 6, marginTop: 4 },
