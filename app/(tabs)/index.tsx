@@ -212,7 +212,7 @@ export default function HomeScreen() {
     !!user?.getStartedAt &&
     !(incomeDone && fundDone && user.manualTransactionCompletedAt && user.guidedTourCompletedAt)
 
-  const featureNudge = useFeatureNudge(user, expenses.length)
+  const featureNudge = useFeatureNudge(user, expenses)
   // One banner at a time, most urgent first. A feature offer waits until
   // Get started is out of the way, so a new account isn't sold extras yet.
   const banner = firstBanner([
@@ -423,7 +423,8 @@ export default function HomeScreen() {
                   { hiddenFeatures: featureNudge.hidden.filter((k) => k !== featureNudge.feature) },
                   { onError: () => Alert.alert("Couldn't turn that on", 'Check your connection and try again.') },
                 )
-                router.push(nudge.href)
+                // navigate, not push: Scan a bill opens on the More tab.
+                router.navigate(nudge.href)
               }}
               hitSlop={8}
             >
