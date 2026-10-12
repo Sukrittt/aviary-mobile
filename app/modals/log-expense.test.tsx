@@ -58,14 +58,18 @@ const mockPush = jest.fn()
 const mockTip: { reason: 'batch' | 'gap' | null; close: jest.Mock } = { reason: null, close: jest.fn() }
 jest.mock('@/src/hooks/useCaptureTip', () => ({ useCaptureTip: () => mockTip }))
 let mockParams: Record<string, string> = {}
+// One screen instance's params and focus; unset means the single focused screen most tests render.
+const mockScreen = require('react').createContext(null) as import('react').Context<{ params: Record<string, string>; focused: boolean } | null>
 jest.mock('expo-router', () => ({
   useRouter: () => ({ replace: mockReplace, back: mockBack, push: mockPush, navigate: jest.fn() }),
-  useLocalSearchParams: () => mockParams,
+  useLocalSearchParams: () => require('react').useContext(mockScreen)?.params ?? mockParams,
+  useIsFocused: () => require('react').useContext(mockScreen)?.focused ?? true,
 }))
 
 // Mirror the screen and nav as siblings sharing the root submit context.
 function Harness() {
-  const { submit, onInvalid } = useLogExpenseSubmitState()
+  const { submit, onInvalid, canSubmit } = useLogExpenseSubmitState()
+  ;(globalThis as any).__canSubmit = canSubmit
   ;(globalThis as any).__submit = submit
   ;(globalThis as any).__onInvalid = onInvalid
   return null
@@ -827,4 +831,29 @@ describe('photo', () => {
     expect(deleteExpensePhoto).toHaveBeenCalledWith('srv1')
     expect(mockBack).toHaveBeenCalled()
   })
+})
+
+// A habit nudge pushes a prefilled log-expense over the launch one. The nav
+// circle must drive the screen on top, not the empty one underneath.
+it('submits the focused prefilled screen, not the blank launch screen under it', async () => {
+  ;(getRecentExpenses as jest.Mock).mockResolvedValue({ rows: [], lastSpent: {} })
+  ;(getCategories as jest.Mock).mockResolvedValue([{ name: '🛵 Travel', group: 'Transport' }])
+  ;(getGroups as jest.Mock).mockResolvedValue(['Transport'])
+  ;(getCategoryMap as jest.Mock).mockResolvedValue({ words: {} })
+  const queryClient = createTestQueryClient()
+  queryClient.setQueryData(accountsKey, mockAccounts)
+  renderWithProviders(
+    <LogExpenseSubmitProvider>
+      <mockScreen.Provider value={{ params: { item: 'Bike to home', amountInr: '76', category: '🛵 Travel', paymentMethod: 'upi' }, focused: true }}>
+        <LogExpenseScreen />
+      </mockScreen.Provider>
+      <mockScreen.Provider value={{ params: {}, focused: false }}>
+        <LogExpenseScreen />
+      </mockScreen.Provider>
+      <Harness />
+    </LogExpenseSubmitProvider>,
+    { queryClient },
+  )
+
+  await waitFor(() => expect((globalThis as any).__canSubmit).toBe(true))
 })

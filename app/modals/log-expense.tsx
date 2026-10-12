@@ -47,7 +47,7 @@ import { useOnline } from "@/src/lib/netStatus";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { fontFamily } from "@/src/theme/fonts";
 import { NAV_HEIGHT } from "@/src/theme/scale";
-import { useLocalSearchParams,useRouter } from "expo-router";
+import { useIsFocused,useLocalSearchParams,useRouter } from "expo-router";
 import { ChevronDown, MessageSquareText, Plus, Tag, TriangleAlert, WalletMinimal } from "lucide-react-native";
 import { useCaptureTip } from "@/src/hooks/useCaptureTip";
 import { noteManualLog, type CaptureTipReason } from "@/src/lib/captureTip";
@@ -124,6 +124,7 @@ export default function LogExpenseScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const params = useLocalSearchParams();
+  const isFocused = useIsFocused();
   const online = useOnline();
 
   const origId = str(params.id) || undefined;
@@ -453,17 +454,16 @@ export default function LogExpenseScreen() {
     }
   }, [canSubmit, unusual, unusualWarnedFor, base, amount, expectedVersion, isEdit, origId, origTimestamp, origItem, origAmountInr, item, savedItem, parsedAmount, date, category, notes, paymentMethod, accountId, accounts, editedDraft, router, addMutate, updateMutate, autoPicked, syncPhoto]);
 
-  // Publish only when the action or its visible state changes.
+  // Publish only when the action or its visible state changes, and only while
+  // focused: a prefilled log-expense (habit nudge) stacks over the launch one,
+  // and a blank screen underneath re-publishing would point the nav circle at
+  // its empty form. Clear on the way out only if the snapshot is still ours.
   useEffect(() => {
-    publishLogExpenseSubmit({
-      canSubmit,
-      saving,
-      success: logSuccess,
-      submit: handleSubmit,
-      onInvalid,
-    });
-  }, [canSubmit, saving, logSuccess, handleSubmit, onInvalid, publishLogExpenseSubmit]);
-  useEffect(() => () => publishLogExpenseSubmit(EMPTY_SUBMIT), [publishLogExpenseSubmit]);
+    if (!isFocused) return;
+    const snapshot = { canSubmit, saving, success: logSuccess, submit: handleSubmit, onInvalid };
+    publishLogExpenseSubmit(snapshot);
+    return () => publishLogExpenseSubmit((current) => (current === snapshot ? EMPTY_SUBMIT : current));
+  }, [isFocused, canSubmit, saving, logSuccess, handleSubmit, onInvalid, publishLogExpenseSubmit]);
 
   function reviewLatest(keepDraft: boolean) {
     if (!conflict) return;
