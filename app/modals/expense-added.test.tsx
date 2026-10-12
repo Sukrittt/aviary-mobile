@@ -190,8 +190,8 @@ it('moves the percentage badge colors through the same old-to-new thresholds', a
   await waitFor(
     () => {
       expect(getByText('97% used')).toBeTruthy()
-      expect(StyleSheet.flatten(dot.props.style).backgroundColor).toBe('rgba(215, 14, 58, 1)')
-      expect(StyleSheet.flatten(pill.props.style).backgroundColor).toBe('rgba(215, 14, 58, 0.18)')
+      expect(StyleSheet.flatten(dot.props.style).backgroundColor).toBe('rgba(234, 179, 8, 1)')
+      expect(StyleSheet.flatten(pill.props.style).backgroundColor).toBe('rgba(234, 179, 8, 0.18)')
     },
     COUNTDOWN_SLOW,
   )

@@ -13,19 +13,14 @@ import type { ThemeTokens } from '@/src/theme/tokens'
 
 const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-/** Tinted pill for what's left, on the progress bar's thresholds. Fully spent
- * (not over) gets no pill at all: empty is fine, so it shouldn't read as a badge. */
+/** Tinted pill for what's left, on the progress bar's thresholds. Red is only
+ * for overspent. Fully spent (not over) gets no pill at all: empty is fine, so
+ * it shouldn't read as a badge. */
 export function availablePill(e: Envelope, tokens: ThemeTokens): { color: string; bg: string } {
-  if (e.isOverspent || (e.spentPct > 90 && e.spentPct < 100)) return { color: tokens.pillOver, bg: tokens.pillOverBg }
+  if (e.isOverspent) return { color: tokens.pillOver, bg: tokens.pillOverBg }
   if (e.spentPct === 100) return { color: tokens.text3, bg: 'transparent' }
   if (e.spentPct > 75) return { color: tokens.pillLow, bg: tokens.pillLowBg }
   return { color: tokens.pillGood, bg: tokens.pillGoodBg }
-}
-
-/** Mirrors Web's EnvelopeGrid usedPct(): spend as % of assigned, ∞ if spending with nothing assigned. */
-function usedPctLabel(e: Envelope): string {
-  if (e.assigned > 0) return `${Math.round((e.spent / e.assigned) * 100)}%`
-  return e.spent > 0 ? '∞' : '—'
 }
 
 /** Mirrors Web's EnvelopeGrid lastSpentLabel(), written by hand (no Intl) per this app's date-formatting convention. */
@@ -91,6 +86,8 @@ export function EnvelopeRow({
 
   const pill = availablePill(envelope, tokens)
   const name = displayName ?? splitEmoji(envelope.category).text
+  // Spending with nothing assigned: "₹713/₹0" and "Used ∞" said nothing useful.
+  const unbudgeted = envelope.assigned === 0 && envelope.spent > 0
 
   return (
     <View style={styles.row}>
@@ -104,20 +101,28 @@ export function EnvelopeRow({
             {name}
           </Text>
           <Text style={[styles.spentOf, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
-            {formatCurrency(envelope.spent, hideAmounts)}/{formatCurrency(envelope.assigned, hideAmounts)}
+            {unbudgeted
+              ? `${formatCurrency(envelope.spent, hideAmounts)} spent`
+              : `${formatCurrency(envelope.spent, hideAmounts)}/${formatCurrency(envelope.assigned, hideAmounts)}`}
           </Text>
         </View>
-        <ProgressBar pct={envelope.spentPct} />
+        <ProgressBar pct={envelope.spentPct} over={envelope.isOverspent} />
         {!envelope.isCreditCardPayment && (
           <Text style={[styles.metaLine, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>
-            Used {usedPctLabel(envelope)} · Last spent {lastSpentLabel(envelope.lastSpentDate)}
+            {unbudgeted ? 'Not budgeted · ' : ''}Last spent {lastSpentLabel(envelope.lastSpentDate)}
           </Text>
         )}
       </Pressable>
-      <View style={[styles.availablePill, { backgroundColor: pill.bg }]}>
-        <Text style={[styles.available, { color: pill.color, fontFamily: fontFamily.bodySemiBold }]}>
-          {formatCurrency(envelope.available, hideAmounts)}
-        </Text>
+      <View style={styles.availableCol}>
+        <View style={[styles.availablePill, { backgroundColor: pill.bg }]}>
+          <Text
+            style={[styles.available, { color: pill.color, fontFamily: fontFamily.bodySemiBold }]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+          >
+            {formatCurrency(envelope.available, hideAmounts)}
+          </Text>
+        </View>
       </View>
 
       <BottomSheet visible={sheetOpen} onClose={closeSheet}>
@@ -170,9 +175,11 @@ const styles = StyleSheet.create({
   topLine: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   name: { fontSize: 13, flexShrink: 1 },
   metaLine: { fontSize: 10, marginTop: 2 },
-  spentOf: { marginLeft: 'auto', fontSize: 12 },
-  availablePill: { minWidth: 60, alignItems: 'center', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
-  available: { fontSize: 12 },
+  spentOf: { marginLeft: 'auto', fontSize: 12, fontVariant: ['tabular-nums'] },
+  // Fixed width so every row's bar ends at the same x, whatever the amount.
+  availableCol: { width: 84, alignItems: 'flex-end' },
+  availablePill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
+  available: { fontSize: 12, fontVariant: ['tabular-nums'] },
   sheetTitle: { fontSize: 16, marginBottom: 8 },
   sheetBtn: { paddingVertical: 12 },
   sheetBtnText: { fontSize: 14 },

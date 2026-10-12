@@ -7,8 +7,8 @@ import { ProgressBar } from './ProgressBar'
 // react-native's jest preset defaults useColorScheme() to 'light', so the
 // default render in tests uses lightTokens.
 
-function fillStyle(pct: number) {
-  const { getByTestId } = renderWithProviders(<ProgressBar pct={pct} />)
+function fillStyle(pct: number, over?: boolean) {
+  const { getByTestId } = renderWithProviders(<ProgressBar pct={pct} over={over} />)
   const flat = getByTestId('progress-bar-fill').props.style.flat()
   return Object.assign({}, ...flat)
 }
@@ -18,12 +18,14 @@ describe('ProgressBar', () => {
     expect(fillStyle(100).backgroundColor).toBe(lightTokens.text3)
   })
 
-  it('uses coral above 90%', () => {
-    expect(fillStyle(95).backgroundColor).toBe(lightTokens.coral)
+  // Red means overspent and nothing else, so almost-out stays amber.
+  it('uses warn above 75%, right up to empty', () => {
+    expect(fillStyle(80).backgroundColor).toBe(lightTokens.warn)
+    expect(fillStyle(95).backgroundColor).toBe(lightTokens.warn)
   })
 
-  it('uses warn above 75%', () => {
-    expect(fillStyle(80).backgroundColor).toBe(lightTokens.warn)
+  it('uses coral when overspent', () => {
+    expect(fillStyle(100, true).backgroundColor).toBe(lightTokens.coral)
   })
 
   it('uses mint at or below 75%', () => {

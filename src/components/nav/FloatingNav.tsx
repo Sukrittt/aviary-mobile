@@ -7,6 +7,7 @@ import {
   Text,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { LinearGradient } from 'expo-linear-gradient'
 import Reanimated, {
   useSharedValue,
   useAnimatedStyle,
@@ -113,6 +114,9 @@ const BACKDROP_PAD = 7
 // 4px (space.xs) read as flush against the Android 3-button nav bar in
 // testing — bumped so the strip visibly clears it.
 const NAV_BOTTOM_GAP = 10
+// Fade above the backdrop so scrolled content dissolves into it instead of
+// being cut off at a hard edge.
+const BACKDROP_FADE = 24
 
 /**
  * Detached navigation: free-floating circles laid over the page in one fixed
@@ -169,7 +173,7 @@ export function FloatingNav({
   addHint?: boolean
   children?: React.ReactNode
 }) {
-  const { tokens, elevation } = useTheme()
+  const { tokens } = useTheme()
   const insets = useSafeAreaInsets()
   const { shake: invalidAddShake, triggerInvalidFeedback } = useInvalidFeedback()
 
@@ -239,7 +243,6 @@ export function FloatingNav({
                     </View>
                   ) : undefined
                 }
-                style={elevation.floating}
               />
             </Animated.View>
           ) : (
@@ -285,7 +288,7 @@ function AddHalo({ color }: { color: string }) {
  * Log-expense has no strip; its accent flood already fills the area.
  */
 export function NavBackdrop() {
-  const { tokens, radius } = useTheme()
+  const { tokens } = useTheme()
   const insets = useSafeAreaInsets()
   return (
     <View
@@ -295,11 +298,12 @@ export function NavBackdrop() {
         {
           height: ROW_HEIGHT - (ROW_TOP_BLEED - BACKDROP_PAD) + insets.bottom + NAV_BOTTOM_GAP,
           backgroundColor: tokens.bg,
-          borderTopLeftRadius: radius.xl,
-          borderTopRightRadius: radius.xl,
         },
       ]}
-    />
+    >
+      {/* tokens.bg is #rrggbb in both schemes; fading to 'transparent' would go through grey on iOS. */}
+      <LinearGradient colors={[`${tokens.bg}00`, tokens.bg]} style={styles.backdropFade} />
+    </View>
   )
 }
 
@@ -396,7 +400,7 @@ function NavCircle({
   onFlood?: boolean
   style?: object
 }) {
-  const { motion, elevation } = useTheme()
+  const { motion, tokens } = useTheme()
   const pressScale = useSharedValue(1)
   const bgFade = useColorFade(background)
   const selProgress = useSharedValue(selected ? 1 : 0)
@@ -455,7 +459,9 @@ function NavCircle({
           style={[
             styles.circle,
             { width: CIRCLE, height: CIRCLE, borderRadius: CIRCLE / 2 },
-            selected ? elevation.floating : onFlood ? null : elevation.card,
+            // Flat circles: the ring marks the selected one and a hairline
+            // separates the idle ones from the page, so no drop shadows.
+            selected || onFlood ? null : { borderWidth: 1, borderColor: tokens.borderStrong },
             style,
             circleStyle,
             dimmed ? styles.disabled : null,
@@ -483,6 +489,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
   },
+  backdropFade: { position: 'absolute', left: 0, right: 0, top: -BACKDROP_FADE, height: BACKDROP_FADE },
   slot: { width: SLOT, alignItems: 'center', justifyContent: 'center' },
   ringBox: { width: RING_SIZE, height: RING_SIZE, alignItems: 'center', justifyContent: 'center' },
   ring: {
