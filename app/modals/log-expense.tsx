@@ -52,6 +52,9 @@ import { ChevronDown, MessageSquareText, Plus, Tag, TriangleAlert, WalletMinimal
 import { useCaptureTip } from "@/src/hooks/useCaptureTip";
 import { noteManualLog, type CaptureTipReason } from "@/src/lib/captureTip";
 import { CaptureTipBubble } from "@/src/features/log-expense/CaptureTipBubble";
+import { IncomeFloodButton } from "@/src/features/log-expense/IncomeFloodButton";
+import { useCachedUser } from "@/src/hooks/useUser";
+import { isHidden } from "@/src/lib/features";
 import { useBounce } from "@/src/hooks/useBounce";
 import * as Haptics from "expo-haptics";
 import Reanimated from "react-native-reanimated";
@@ -131,6 +134,8 @@ export default function LogExpenseScreen() {
   const origTimestamp = str(params.timestamp);
   const isEdit = origTimestamp !== "";
   const captureTip = useCaptureTip(!isEdit && online);
+  const cachedUser = useCachedUser();
+  const showIncome = !isEdit && !isHidden(cachedUser, "income");
   const severalBounce = useBounce(-3);
   const origItem = str(params.item);
   const origAmountInr = Number(params.amountInr) || 0;
@@ -839,6 +844,7 @@ export default function LogExpenseScreen() {
           )}
         </View>
       </BottomSheet>
+      {showIncome && <IncomeFloodButton top={insets.top + space.xs} right={space.lg} />}
     </View>
   );
 }

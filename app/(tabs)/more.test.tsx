@@ -24,11 +24,14 @@ jest.mock('@/src/api/systemStatus', () => ({ getSystemStatus: jest.fn() }))
 // display Aviary's app.json version instead.
 jest.mock('expo-application', () => ({ nativeApplicationVersion: '57.0.9', nativeBuildVersion: '57' }))
 const mockPush = jest.fn()
+const mockSetParams = jest.fn()
+let mockParams: Record<string, string> = {}
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: mockPush, back: jest.fn(), replace: jest.fn() }),
+  useRouter: () => ({ push: mockPush, back: jest.fn(), replace: jest.fn(), setParams: mockSetParams }),
   useIsFocused: () => true,
   // AnimatedTabContent derives the swipe's current slot from the pathname.
   usePathname: () => '/more',
+  useLocalSearchParams: () => mockParams,
 }))
 jest.mock('@/src/api/accessMode', () => ({
   clearAccess: jest.fn(() => Promise.resolve()),
@@ -96,6 +99,7 @@ beforeEach(() => {
     assets: [{ uri: 'file://cart.png', base64: 'abc123', mimeType: 'image/png', width: 100, height: 100 }],
   })
   takePendingScanImage() // drain anything a prior test left queued
+  mockParams = {}
 })
 
 describe('More tab · app version', () => {
@@ -284,6 +288,14 @@ describe('More tab · Scan a bill sheet', () => {
     expect(getByText('Choose a screenshot')).toBeTruthy()
     // The screen behind the sheet is still this one — no navigation yet.
     expect(mockPush).not.toHaveBeenCalled()
+  })
+
+  it('opens straight onto the sheet from the quick-add menu, and clears the param on close', async () => {
+    mockParams = { scan: '1' }
+    const { getByText } = renderWithProviders(<MoreScreen />)
+    expect(getByText('Take a photo')).toBeTruthy()
+    fireEvent.press(getByText('Previous scans'))
+    expect(mockSetParams).toHaveBeenCalledWith({ scan: undefined })
   })
 
   it('closes the sheet and opens Bills Scanned from the Previous scans link', async () => {

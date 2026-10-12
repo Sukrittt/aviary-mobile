@@ -130,3 +130,6 @@ export const lightTokens: ThemeTokens = {
   toastText: '#482510',
   toastEdge: '#eed7bd',
 }
+
+/** The quick-income flood. Fixed in both schemes like log-expense's accent: dark mode's mint is too bright to carry white text. */
+export const INCOME_FLOOD = lightTokens.mint
