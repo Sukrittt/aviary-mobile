@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Animated, Linking, Platform } from 'react-native'
 import { act, fireEvent, waitFor } from '@testing-library/react-native'
 import * as SecureStore from 'expo-secure-store'
@@ -156,6 +157,29 @@ describe('HomeScreen · Ready to Assign', () => {
     // Same tap target and income options as the full hero.
     fireEvent.press(getByLabelText('Ready to Assign options'))
     expect(getByText('Change income')).toBeTruthy()
+  })
+
+  it('celebrates the moment Ready to Assign reaches zero, not a load that starts there', () => {
+    // A budget save refetches into the same mounted screen; a rerender with new data stands in for it.
+    let refetched = () => {}
+    function Harness() {
+      const [, setTick] = useState(0)
+      refetched = () => setTick((n) => n + 1)
+      return <HomeScreen />
+    }
+    const view = renderWithProviders(<Harness />)
+    expect(view.queryByText('Every rupee has a job.')).toBeNull()
+    mockBudgets = [
+      { month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' },
+      { month: MONTH, category: 'Food', assigned: '20000', rolled_over: '0' },
+    ]
+    act(() => refetched())
+    expect(view.getByText('Every rupee has a job.')).toBeTruthy()
+    view.unmount()
+
+    const fresh = renderHome()
+    expect(fresh.getByTestId('rta-slim')).toBeTruthy()
+    expect(fresh.queryByText('Every rupee has a job.')).toBeNull()
   })
 
   it('shows the month in the header', () => {
@@ -395,13 +419,13 @@ describe('HomeScreen · one banner at a time', () => {
     mockBilling = trial(3)
     const { findByText, queryByText } = renderHome()
     expect(await findByText(/Free trial · 3 days left/)).toBeTruthy()
-    expect(queryByText(/left over from last month/)).toBeNull()
+    expect(queryByText(/went to savings last month/)).toBeNull()
   })
 
   it('skips the 7-day trial reminder and shows the rollover banner', async () => {
     mockBilling = trial(7)
     const { findByText, queryByText } = renderHome()
-    expect(await findByText(/left over from last month/)).toBeTruthy()
+    expect(await findByText(/went to savings last month/)).toBeTruthy()
     expect(queryByText(/Free trial/)).toBeNull()
   })
 

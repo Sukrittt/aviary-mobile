@@ -1,7 +1,7 @@
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { useRecurringIncomes } from '@/src/hooks/useIncomes'
 import { useAccounts } from '@/src/hooks/useAccounts'
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { View, Text, Pressable, RefreshControl, StyleSheet, Linking, Platform } from 'react-native'
 import { useQuery } from '@tanstack/react-query'
 import { useRouter, useIsFocused } from 'expo-router'
@@ -11,6 +11,8 @@ import * as Haptics from 'expo-haptics'
 import { rippleHaptic } from '@/src/lib/haptics'
 import { AnimatedTabContent } from '@/src/components/nav/AnimatedTabContent'
 import { Icon } from '@/src/components/shared/Icon'
+import { CheckIcon } from '@/src/components/shared/CheckIcon'
+import { track } from '@/src/lib/analytics'
 import { BottomSheet } from '@/src/components/shared/Modal'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { usePrivacy } from '@/src/context/PrivacyContext'
@@ -155,9 +157,22 @@ export default function HomeScreen() {
   const [displayedReadyToAssign, setDisplayedReadyToAssign] = useState(envelopeState.readyToAssign)
   // Adjusting state during render (not in an effect) so the sync happens in
   // the same commit as the value that triggered it, with no extra render.
+  // Spending Ready to Assign down to zero is the method's payoff, so the
+  // moment it lands (not a later load that's already at zero) gets a beat of
+  // celebration before the slim row settles in.
+  const [rtaCelebrating, setRtaCelebrating] = useState(false)
   if (!covered && displayedReadyToAssign !== envelopeState.readyToAssign) {
+    if (envelopeState.income > 0 && Math.abs(envelopeState.readyToAssign) < 0.005 && Math.abs(displayedReadyToAssign) >= 0.005) {
+      setRtaCelebrating(true)
+    }
     setDisplayedReadyToAssign(envelopeState.readyToAssign)
   }
+  useEffect(() => {
+    if (!rtaCelebrating) return
+    track('rta_zero_celebrated')
+    const t = setTimeout(() => setRtaCelebrating(false), 2500)
+    return () => clearTimeout(t)
+  }, [rtaCelebrating])
 
   const groupedEnvelopes = useMemo(() => {
     const byGroup = new Map<string, Envelope[]>()
@@ -315,11 +330,13 @@ export default function HomeScreen() {
             onPressOut={heroPress.onPressOut}
             style={heroPress.style}
           >
-            <Card elevated={false} style={styles.slimRta}>
-              <Text style={{ color: tokens.text, fontSize: type.body, fontFamily: fontFamily.bodySemiBold }}>💸  Ready to Assign</Text>
+            <Card elevated={false} style={[styles.slimRta, rtaCelebrating && { backgroundColor: tokens.mintSoft }]}>
+              <Text style={{ color: tokens.text, fontSize: type.body, fontFamily: fontFamily.bodySemiBold }}>
+                {rtaCelebrating ? 'Every rupee has a job.' : '💸  Ready to Assign'}
+              </Text>
               <View style={styles.slimAmount}>
                 <AmountText value={displayedReadyToAssign} size={type.body} color={tokens.mint} weight="displayBold" />
-                <Icon icon={ChevronRight} size={16} color={tokens.text2} />
+                {rtaCelebrating ? <CheckIcon color={tokens.mint} size={16} /> : <Icon icon={ChevronRight} size={16} color={tokens.text2} />}
               </View>
             </Card>
           </AnimatedPressable>
@@ -400,12 +417,12 @@ export default function HomeScreen() {
         )}
 
         {banner === 'rollover' && (
-          <Card style={styles.rolloverCard} elevated={false}>
+          <Card style={[styles.rolloverCard, { backgroundColor: tokens.mintSoft }]} elevated={false}>
             <Text style={{ color: tokens.text, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold, flex: 1 }}>
-              {formatCurrency(prevMonthLeftover, hideAmounts)} left over from last month.
+              🌱 {formatCurrency(prevMonthLeftover, hideAmounts)} went to savings last month.
             </Text>
             <Pressable onPress={() => setRolloverDismissed(true)} hitSlop={8}>
-              <Text style={{ color: tokens.accentInk, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>Okay</Text>
+              <Text style={{ color: tokens.accentInk, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>Nice</Text>
             </Pressable>
           </Card>
         )}
