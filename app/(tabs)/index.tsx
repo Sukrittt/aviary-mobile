@@ -66,7 +66,7 @@ import { FORCE_EMPTY_STATE_PREVIEW, emptyForPreview } from '@/src/lib/emptyState
 export default function HomeScreen() {
   const { formatCurrency } = useCurrency()
 
-  const { scheme, tokens, space, type, radius } = useTheme()
+  const { tokens, space, type, radius } = useTheme()
   const { refreshing, onRefresh } = useRefresh()
   const router = useRouter()
   const isFocused = useIsFocused()
@@ -282,17 +282,17 @@ export default function HomeScreen() {
             onPress={() => birdMarkRef.current?.replay()}
             style={styles.appIconButton}
           >
-            <BirdLandingMark ref={birdMarkRef} size={56} color={scheme === 'light' ? '#000000' : tokens.text} autoplay={false} perched />
+            <BirdLandingMark ref={birdMarkRef} size={56} color={tokens.accent} autoplay={false} perched />
           </Pressable>
         }
         center={
           <View style={styles.headerMonth}>
-            <Text style={{ color: tokens.text, fontSize: type.bodyLg, fontFamily: fontFamily.displaySemiBold }}>{`${monthAbbrev(month)} ${month.slice(0, 4)}`}</Text>
+            <Text style={{ color: tokens.accentInk, fontSize: type.bodyLg, fontFamily: fontFamily.displaySemiBold }}>{`${monthAbbrev(month)} ${month.slice(0, 4)}`}</Text>
             <Text style={{ color: tokens.text2, fontSize: type.micro, fontFamily: fontFamily.bodyMedium }}>{daysLeftLabel}</Text>
           </View>
         }
         actions={
-          isHidden(user, 'insights') ? undefined : <IconButton icon={LineChart} accessibilityLabel="Insights" onPress={() => router.push('/insights')} />
+          isHidden(user, 'insights') ? undefined : <IconButton icon={LineChart} color={tokens.accentInk} accessibilityLabel="Insights" onPress={() => router.push('/insights')} />
         }
         contentContainerStyle={{ gap: space.lg }}
         refreshControl={

@@ -5,6 +5,7 @@ import { Path } from 'react-native-svg'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { currentMonthKey, monthAbbrev } from '@/src/lib/envelope'
 import { getSystemStatus } from '@/src/api/systemStatus'
+import { lightTokens } from '@/src/theme/tokens'
 import appJson from '@/app.json'
 import HomeScreen from './index'
 
@@ -178,7 +179,7 @@ describe('HomeScreen · Ready to Assign', () => {
 
     expect(getByLabelText('Aviary app icon')).toBeTruthy()
     expect(queryByText('Aviary')).toBeNull()
-    expect(UNSAFE_getAllByType(Path).some((path) => path.props.fill === '#000000')).toBe(true)
+    expect(UNSAFE_getAllByType(Path).some((path) => path.props.fill === lightTokens.accent)).toBe(true)
   })
 
   it('fades the settled bird out before resetting the landing choreography', async () => {
