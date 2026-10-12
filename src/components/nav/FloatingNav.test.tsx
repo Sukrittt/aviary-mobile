@@ -5,9 +5,7 @@ import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import {
   FloatingNav,
   slotOffset,
-  indexFromOffset,
   slotProximity,
-  addSlotShift,
   navStateFor,
   nextNavCover,
   type NavCover,
@@ -21,31 +19,10 @@ jest.mock('expo-haptics', () => ({
   NotificationFeedbackType: { Error: 'error' },
 }))
 
-// RNTL can't simulate a real drag/snap gesture, so drag-to-navigate is
-// covered by hand (see the plan's verification steps), not here.
-
-describe('slotOffset / indexFromOffset', () => {
-  it('round-trips slot offsets back to their index', () => {
-    for (let i = 0; i < 5; i++) {
-      expect(indexFromOffset(slotOffset(i), 5)).toBe(i)
-    }
-  })
-
-  it('rounds a mid-drag offset to the nearest slot', () => {
-    expect(indexFromOffset(slotOffset(1) + 1, 5)).toBe(1)
-    expect(indexFromOffset(slotOffset(2) - 30, 5)).toBe(2)
-  })
-
-  it('clamps below the first and above the last slot', () => {
-    expect(indexFromOffset(-1000, 5)).toBe(0)
-    expect(indexFromOffset(1000, 5)).toBe(4)
-  })
-})
-
 // Drives both the size falloff and the ring hand-off, so a break here means
-// the wrong circle is big / ringed mid-drag.
+// the wrong circle is big / ringed while the focus glides between tabs.
 describe('slotProximity', () => {
-  it('is 0 for the slot sitting at centre', () => {
+  it('is 0 for the focused slot', () => {
     for (let i = 0; i < 5; i++) {
       expect(slotProximity(slotOffset(i), i)).toBe(0)
     }
@@ -58,7 +35,7 @@ describe('slotProximity', () => {
     expect(slotProximity(slotOffset(2), 4)).toBe(1)
   })
 
-  it('hands over linearly and symmetrically across a drag', () => {
+  it('hands over linearly and symmetrically between slots', () => {
     const midway = slotOffset(1) + (slotOffset(2) - slotOffset(1)) / 2
     expect(slotProximity(midway, 1)).toBeCloseTo(0.5)
     expect(slotProximity(midway, 2)).toBeCloseTo(0.5)
@@ -66,23 +43,6 @@ describe('slotProximity', () => {
     const quarter = slotOffset(1) + (slotOffset(2) - slotOffset(1)) / 4
     expect(slotProximity(quarter, 1)).toBeCloseTo(0.25)
     expect(slotProximity(quarter, 2)).toBeCloseTo(0.75)
-  })
-})
-
-describe('addSlotShift', () => {
-  it('is positive (add slot to the right) for slots left of the add slot', () => {
-    expect(addSlotShift('index')).toBeGreaterThan(0)
-    expect(addSlotShift('activity')).toBeGreaterThan(0)
-  })
-
-  it('is negative (add slot to the left) for slots right of the add slot', () => {
-    expect(addSlotShift('envelopes')).toBeLessThan(0)
-    expect(addSlotShift('more')).toBeLessThan(0)
-  })
-
-  it('is a fixed multiple of the slot width, and shrinks with distance to the add slot', () => {
-    expect(addSlotShift('index')).toBe(144)
-    expect(addSlotShift('activity')).toBe(72)
   })
 })
 

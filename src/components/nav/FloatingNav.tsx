@@ -5,21 +5,15 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  useWindowDimensions,
-  type NativeSyntheticEvent,
-  type NativeScrollEvent,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Reanimated, {
   useSharedValue,
   useAnimatedStyle,
-  useAnimatedRef,
-  useAnimatedScrollHandler,
   useDerivedValue,
   withSpring,
   withTiming,
   interpolateColor,
-  runOnJS,
   withRepeat,
   cancelAnimation,
   useReducedMotion,
@@ -109,13 +103,10 @@ const ICON = 26
 const RING_GAP = 3
 const RING_WIDTH = 3
 const RING_SIZE = CIRCLE + 2 * (RING_GAP + RING_WIDTH)
-/** Fixed carousel step: distance between two slot centres. */
+/** Distance between two slot centres. 5 slots = 360, the narrowest common Android width. */
 const SLOT = 72
 // Room for the "floating" shadow (radius 16, vertical offset 6 => ~10px of
-// bleed above the ring, ~24px below) to render inside the ScrollView's own
-// bounds instead of getting clipped by it. Asymmetric and top-anchored
-// (see contentContainerStyle below) rather than centred, so padding the
-// bottom for the shadow doesn't also push the ring itself upward.
+// bleed above the ring, ~24px below) inside the row's own bounds.
 const ROW_TOP_BLEED = 10
 const ROW_BOTTOM_BLEED = 24
 const ROW_HEIGHT = RING_SIZE + ROW_TOP_BLEED + ROW_BOTTOM_BLEED
@@ -129,47 +120,29 @@ const BACKDROP_PAD = 7
 // testing — bumped so the strip visibly clears it.
 const NAV_BOTTOM_GAP = 10
 
-/** Carousel x-offset that puts slot `i` at the centre of the screen. */
+/** x-offset of slot `i` along the row. */
 export const slotOffset = (i: number): number => i * SLOT
 
-/** Nearest slot index for a given scroll offset, clamped to the slot range. */
-export const indexFromOffset = (x: number, count: number): number => {
-  'worklet'
-  return Math.min(count - 1, Math.max(0, Math.round(x / SLOT)))
-}
-
 /**
- * How far slot `index` sits from the centre of the screen, as 0 (dead centre)
- * to 1 (a full slot away or further). Drives both the size falloff and the
- * ring hand-off, so those track the finger continuously instead of waiting for
- * the drag to commit.
+ * How far slot `index` sits from the focus, as 0 (on it) to 1 (a full slot
+ * away or further). Drives both the size falloff and the ring hand-off, so
+ * both glide across the row when the active tab changes.
  */
 export const slotProximity = (x: number, index: number): number => {
   'worklet'
   return Math.min(1, Math.abs(x / SLOT - index))
 }
 
-/** How far (px) the centre "add" slot sits from the given active route's slot. */
-export function addSlotShift(active: NavRoute | null): number {
-  const routeIndex = indexOfRoute(active)
-  return (ADD_INDEX - (routeIndex === -1 ? 0 : routeIndex)) * SLOT
-}
-
-const tickHaptic = () => {
-  Haptics.selectionAsync().catch(() => {})
-}
-
 /**
- * Detached navigation: free-floating circles laid over the page in a
- * horizontal carousel, with no bar, border or scrim behind them. Content
- * scrolls underneath, so every screen reserves NAV_HEIGHT of bottom padding
- * (see Screen / useNavPadding).
+ * Detached navigation: free-floating circles laid over the page in one fixed
+ * row, with no bar, border or scrim behind them. Content scrolls underneath,
+ * so every screen reserves NAV_HEIGHT of bottom padding (see Screen /
+ * useNavPadding).
  *
- * The selected slot always sits at screen centre, drawn larger than its
- * neighbours and wearing the ring. Dragging the row hands both the size and
- * the ring to whichever slot is nearest centre, ticking once per slot crossed
- * so the release point is felt rather than guessed; on release the nearest
- * slot snaps to centre and navigates to it.
+ * Every slot is always on screen. The selected one is drawn larger than its
+ * neighbours and wears the ring; switching tabs glides both to the new slot.
+ * (This used to be a swipeable carousel with the active slot centred, which
+ * pushed tabs off screen. Testers couldn't find them.)
  *
  * The centre slot is an action, not a destination — logging an expense — but
  * sized and colored like every other circle until pressed, so it doesn't
@@ -196,7 +169,7 @@ export function FloatingNav({
   active: NavRoute | null
   onSelect: (name: NavRoute) => void
   onAdd: () => void
-  /** Long-press shortcut on the add slot only — the carousel-commit path (drag to centre) stays press-only. */
+  /** Long-press shortcut on the add slot only. */
   onAddLongPress?: () => void
   /** Called alongside the shake when an incomplete active add is tapped, so the form can point at what's missing. */
   onAddInvalid?: () => void
@@ -214,9 +187,8 @@ export function FloatingNav({
   addHint?: boolean
   children?: React.ReactNode
 }) {
-  const { tokens, elevation } = useTheme()
+  const { tokens, elevation, motion } = useTheme()
   const insets = useSafeAreaInsets()
-  const { width } = useWindowDimensions()
   const { shake: invalidAddShake, triggerInvalidFeedback } = useInvalidFeedback()
 
   const handleAdd = useCallback(() => {
@@ -238,71 +210,15 @@ export function FloatingNav({
 
   const activeIndex = addActive ? ADD_INDEX : indexOfRoute(active)
 
-  const scrollRef = useAnimatedRef<Reanimated.ScrollView>()
-  // Captured once at mount, for the initial contentOffset below. The nav mounts
-  // on /loading (no active slot) and the app lands on log-expense, so rest on
-  // the add slot rather than scrolling over from Home on first show.
+  // Captured once at mount. The nav mounts on /loading (no active slot) and
+  // the app lands on log-expense, so rest on the add slot rather than gliding
+  // over from Home on first show.
   const [initialIndex] = useState(() => (activeIndex === -1 ? ADD_INDEX : activeIndex))
-  // Seeded to match contentOffset: the initial offset fires no onScroll on
-  // Android, so a 0 here leaves Home sized/lit as the centre slot until the
-  // first touch.
-  const scrollX = useSharedValue(slotOffset(initialIndex))
-  // Tracks the slot the carousel is actually resting on, so a route change
-  // that only mirrors our own snap (see onMomentumScrollEnd) doesn't scroll
-  // again, and a real external change (tap, deep link) does.
-  const mountedIndexRef = useRef(initialIndex)
-
-  // Detent ticks are gated on an actual drag, so the programmatic scrollTo
-  // below (tap, deep link) glides across slots silently.
-  const dragging = useSharedValue(false)
-  const tickIndex = useSharedValue(initialIndex)
-
-  const scrollHandler = useAnimatedScrollHandler({
-    onBeginDrag: () => {
-      dragging.value = true
-    },
-    onScroll: (e) => {
-      scrollX.value = e.contentOffset.x
-      if (!dragging.value) return
-      const idx = indexFromOffset(e.contentOffset.x, NAV_SLOTS.length)
-      if (idx === tickIndex.value) return
-      tickIndex.value = idx
-      runOnJS(tickHaptic)()
-    },
-    onMomentumEnd: () => {
-      dragging.value = false
-    },
-  })
-
-  // Re-centres the carousel whenever the committed slot changes from outside
-  // a drag (tap, deep link). A change that only mirrors our own snap (see
-  // onMomentumScrollEnd, which updates mountedIndexRef first) is a no-op here.
+  const focusX = useSharedValue(slotOffset(initialIndex))
   useEffect(() => {
-    if (activeIndex === -1 || activeIndex === mountedIndexRef.current) return
-    mountedIndexRef.current = activeIndex
-    tickIndex.value = activeIndex
-    scrollRef.current?.scrollTo({ x: slotOffset(activeIndex), animated: true })
-  }, [activeIndex, scrollRef, tickIndex])
-
-  // ponytail: selection only fires on momentum end; a drag released with no
-  // momentum can settle without firing on some Android builds. Add an
-  // onScrollEndDrag fallback if that shows up in testing.
-  const onMomentumScrollEnd = useCallback(
-    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-      const idx = indexFromOffset(e.nativeEvent.contentOffset.x, NAV_SLOTS.length)
-      if (idx === mountedIndexRef.current) return
-      mountedIndexRef.current = idx
-      const slot = NAV_SLOTS[idx]
-      // Heavier than the drag ticks: this one means "landed", not "passing".
-      // An invalid active add uses the error haptic from handleAdd instead.
-      if (!(slot.kind === 'add' && addActive && addInvalid)) {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
-      }
-      if (slot.kind === 'add') handleAdd()
-      else onSelect(slot.name)
-    },
-    [addActive, addInvalid, handleAdd, onSelect],
-  )
+    if (activeIndex === -1) return
+    focusX.value = withSpring(slotOffset(activeIndex), motion.spring)
+  }, [activeIndex, focusX, motion.spring])
 
   return (
     <View
@@ -318,23 +234,7 @@ export function FloatingNav({
           <Text style={[styles.hintText, { color: tokens.onAccent, fontFamily: fontFamily.bodySemiBold }]}>Tap + to save</Text>
         </View>
       )}
-      <Reanimated.ScrollView
-        ref={scrollRef}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        decelerationRate="fast"
-        snapToInterval={SLOT}
-        snapToAlignment="start"
-        contentOffset={{ x: slotOffset(initialIndex), y: 0 }}
-        onScroll={scrollHandler}
-        scrollEventThrottle={16}
-        onMomentumScrollEnd={onMomentumScrollEnd}
-        contentContainerStyle={{
-          paddingHorizontal: (width - SLOT) / 2,
-          alignItems: 'center',
-        }}
-        style={[styles.scroll, { height: ROW_HEIGHT + insets.bottom }]}
-      >
+      <View style={[styles.row, { height: ROW_HEIGHT + insets.bottom }]}>
         {NAV_SLOTS.map((slot, i) =>
           slot.kind === 'add' ? (
             <Animated.View
@@ -369,7 +269,7 @@ export function FloatingNav({
                     </View>
                   ) : undefined
                 }
-                scrollX={scrollX}
+                focusX={focusX}
                 index={i}
                 style={elevation.floating}
               />
@@ -384,13 +284,13 @@ export function FloatingNav({
               color={active === slot.name ? activeIcon : idleIcon}
               ringColor={tokens.accent}
               onPress={() => onSelect(slot.name)}
-              scrollX={scrollX}
+              focusX={focusX}
               index={i}
               onFlood={addActive}
             />
           ),
         )}
-      </Reanimated.ScrollView>
+      </View>
     </View>
   )
 }
@@ -510,7 +410,7 @@ function NavCircle({
   dimmed = disabled,
   pressHaptic = true,
   overrideContent,
-  scrollX,
+  focusX,
   index,
   onFlood = false,
   style,
@@ -528,7 +428,7 @@ function NavCircle({
   pressHaptic?: boolean
   /** Replaces the glyph entirely (e.g. a spinner or check) when set. */
   overrideContent?: React.ReactNode
-  scrollX: SharedValue<number>
+  focusX: SharedValue<number>
   index: number
   /** Sitting on the log-expense accent flood: no distance fade (the tint is already translucent) and no shadow. */
   onFlood?: boolean
@@ -544,7 +444,7 @@ function NavCircle({
   }, [selected, selProgress])
 
   const circleStyle = useAnimatedStyle(() => {
-    const t = slotProximity(scrollX.value, index)
+    const t = slotProximity(focusX.value, index)
     return {
       backgroundColor: bgFade.value,
       opacity: onFlood ? 1 : 1 - t * 0.35,
@@ -552,10 +452,10 @@ function NavCircle({
     }
   })
 
-  // Sized off the drag like the circle, so it still grows/shrinks in transit,
-  // but only ever visible on the committed slot — no pop mid-drag elsewhere.
+  // Sized off the focus like the circle, so it grows/shrinks in transit, but
+  // only ever visible on the committed slot.
   const ringStyle = useAnimatedStyle(() => {
-    const t = slotProximity(scrollX.value, index)
+    const t = slotProximity(focusX.value, index)
     return {
       borderColor: ringColor,
       opacity: selProgress.value,
@@ -607,14 +507,14 @@ function NavCircle({
 }
 
 const styles = StyleSheet.create({
-  // Absolute so the carousel overlays content rather than reserving a strip of it.
+  // Absolute so the row overlays content rather than reserving a strip of it.
   wrap: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
   },
-  scroll: { height: ROW_HEIGHT },
+  row: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
   backdrop: {
     position: 'absolute',
     left: 0,
