@@ -45,3 +45,6 @@ export function pushAmountKey(prev: string, key: string): string {
   const next = (seg + key).replace(/^0+(?=\d)/, '')
   return next.length > 9 ? prev : head + next
 }
+
+/** A saved amount as numpad text: rounded to cents, and never negative since the numpad has no minus key. */
+export const amountSeed = (n: number) => String(Math.max(0, Math.round(n * 100) / 100))

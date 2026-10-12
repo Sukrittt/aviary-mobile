@@ -104,3 +104,28 @@ it('reviews a stale Ready to Assign draft on the shared full-screen conflict scr
   await act(async () => { fireEvent.press(getByText('Save')) })
   await waitFor(() => expect(updateBudget).toHaveBeenLastCalledWith(MONTH, '__income__', { extra: '5000' }, 2))
 })
+
+describe('using the latest Ready to Assign after a conflict', () => {
+  async function useLatest(assigned: string) {
+    ;(updateBudget as jest.Mock).mockRejectedValueOnce(new BudgetWriteError(409, 'changed', {
+      month: MONTH, category: '__income__', assigned, rolled_over: '0', version: 2,
+    }))
+    const utils = setup()
+    await waitFor(() => expect(utils.getByLabelText('₹15,000')).toBeTruthy())
+    await typeAmount(utils.getByLabelText, '25000')
+    await act(async () => { fireEvent.press(utils.getByText('Save')) })
+    fireEvent.press(await waitFor(() => utils.getByRole('button', { name: 'Use latest instead' })))
+    return utils
+  }
+
+  it('rounds float noise out of the seeded amount', async () => {
+    // 10000.2 income minus 5000 assigned is 5000.200000000001 in floats.
+    const { getByLabelText } = await useLatest('10000.2')
+    expect(getByLabelText('₹5,000.2')).toBeTruthy()
+  })
+
+  it('starts an over-assigned latest month from 0', async () => {
+    const { getByLabelText } = await useLatest('3500')
+    expect(getByLabelText('₹0')).toBeTruthy()
+  })
+})
