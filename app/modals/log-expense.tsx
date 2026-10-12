@@ -136,6 +136,8 @@ export default function LogExpenseScreen() {
   const captureTip = useCaptureTip(!isEdit && online);
   const cachedUser = useCachedUser();
   const showIncome = !isEdit && !isHidden(cachedUser, "income");
+  // "Several at once" runs through Ask Aviary, so it goes when that does.
+  const showCapture = !isEdit && !isHidden(cachedUser, "askAviary");
   const severalBounce = useBounce(-3);
   const origItem = str(params.item);
   const origAmountInr = Number(params.amountInr) || 0;
@@ -512,7 +514,7 @@ export default function LogExpenseScreen() {
         >
           {isEdit ? "Edit expense" : "Log expense"}
         </Text>
-        {!isEdit && (
+        {showCapture && (
           // Several spends at once go through the money brain: type them,
           // review the list it reads out, log them together. Kept as a quiet
           // header icon; the capture tip points at it at the right moment.
@@ -537,7 +539,7 @@ export default function LogExpenseScreen() {
         )}
       </View>
 
-      {!isEdit && captureTip.reason && nudge === 0 && unusualNudge === 0 && (
+      {showCapture && captureTip.reason && nudge === 0 && unusualNudge === 0 && (
         // The moment it would help (src/lib/captureTip.ts): logging a few by
         // hand, or back after a couple of days with a backlog. Pops out of the
         // header icon so it teaches where the feature lives. Steps aside for

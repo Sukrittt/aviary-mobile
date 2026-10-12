@@ -50,4 +50,13 @@ describe('Features screen', () => {
     expect(getByLabelText('Show Insights').props.accessibilityState.checked).toBe(true)
     expect(Alert.alert).toHaveBeenCalledWith("Couldn't save", 'Check your connection and try again.')
   })
+
+  it('starts a new account with only the core features on', () => {
+    ;(useUser as jest.Mock).mockReturnValue({ data: { email: 'a@b.com', emailVerified: true, createdAt: '2026-11-01T09:00:00.000Z' } })
+    const { getByLabelText } = renderWithProviders(<FeaturesScreen />)
+    expect(getByLabelText('Show Insights').props.accessibilityState.checked).toBe(false)
+    expect(getByLabelText('Show Income').props.accessibilityState.checked).toBe(true)
+    fireEvent.press(getByLabelText('Show Insights'))
+    expect(mutate).toHaveBeenCalledWith({ hiddenFeatures: ['askAviary', 'billScan', 'wrapped', 'investments', 'subscriptions'] }, expect.anything())
+  })
 })

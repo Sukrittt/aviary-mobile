@@ -13,6 +13,7 @@ jest.mock('expo-router', () => ({
 }))
 jest.mock('@/src/hooks/useUser', () => ({
   useCompleteGuidedTour: () => ({ mutate: mockCompleteGuidedTour }),
+  useUser: () => ({ data: undefined }),
 }))
 jest.mock('expo-secure-store', () => ({
   getItemAsync: jest.fn(() => Promise.resolve(null)),
