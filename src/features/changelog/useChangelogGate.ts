@@ -1,5 +1,4 @@
 import { useEffect } from 'react'
-import { AppState } from 'react-native'
 import { router } from 'expo-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import appJson from '@/app.json'
@@ -30,14 +29,8 @@ const attempted = new Set<string>()
 export function useChangelogGate(): void {
   const qc = useQueryClient()
   const recap = useWeekRecap()
-  const { data: release, dataUpdatedAt, refetch } = useQuery({ queryKey: changelogKey, queryFn: getLatestChangelog, staleTime: Infinity, retry: false })
-
-  useEffect(() => {
-    const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'active') void refetch()
-    })
-    return () => sub.remove()
-  }, [refetch])
+  // 'always': staleTime is Infinity, but every return to the app rechecks.
+  const { data: release, dataUpdatedAt } = useQuery({ queryKey: changelogKey, queryFn: getLatestChangelog, staleTime: Infinity, retry: false, refetchOnWindowFocus: 'always' })
 
   const recapBusy = recap.isPending || !!recap.data?.due
   useEffect(() => {

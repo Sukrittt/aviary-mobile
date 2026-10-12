@@ -1,5 +1,4 @@
 import { useEffect } from 'react'
-import { AppState } from 'react-native'
 import { router } from 'expo-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { getWeekRecap, markWeekRecapSeen } from '@/src/api/weekRecap'
@@ -9,7 +8,7 @@ export const weekRecapKey = ['week-recap'] as const
 
 export function useWeekRecap() {
   // Also every 15 minutes, so Home left open across midnight moves on to the next day (or to the recap).
-  return useQuery({ queryKey: weekRecapKey, queryFn: getWeekRecap, staleTime: Infinity, refetchInterval: 15 * 60_000, retry: false })
+  return useQuery({ queryKey: weekRecapKey, queryFn: getWeekRecap, staleTime: Infinity, refetchInterval: 15 * 60_000, retry: false, refetchOnWindowFocus: 'always' })
 }
 
 /** Marks it seen, retrying a few times, then drops the cached `due` so nothing in this session reopens it. */
@@ -37,14 +36,8 @@ export function markRecapOpened(): void {
  * spans day 7 still gets it.
  */
 export function useWeekRecapGate(): void {
-  const { data, refetch } = useWeekRecap()
-
-  useEffect(() => {
-    const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'active') void refetch()
-    })
-    return () => sub.remove()
-  }, [refetch])
+  // Rechecks on every return to the app via useWeekRecap's refetchOnWindowFocus.
+  const { data } = useWeekRecap()
 
   useEffect(() => {
     if (!data?.due || !data.recap || openedFor === currentUserId()) return

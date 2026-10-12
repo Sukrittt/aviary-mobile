@@ -156,3 +156,32 @@ describe('refresh ownership', () => {
     expect(currentUserId()).toBe('user_1')
   })
 })
+
+it('refreshes ahead of expiry so a mid-session request never waits on WorkOS', async () => {
+  jest.useFakeTimers()
+  try {
+    jest.mocked(refreshTokens).mockResolvedValue({ accessToken: fakeToken(), refreshToken: 'r2', expiresAt: Date.now() + 3_600_000 })
+    await persistSession({ accessToken: fakeToken(), refreshToken: 'r1', expiresAt: Date.now() + 5 * 60_000 })
+
+    jest.advanceTimersByTime(3 * 60_000)
+    expect(refreshTokens).not.toHaveBeenCalled()
+
+    jest.advanceTimersByTime(60_000 + 1000)
+    expect(refreshTokens).toHaveBeenCalledWith('r1')
+  } finally {
+    await clearAccess()
+    jest.useRealTimers()
+  }
+})
+
+it('does not schedule a refresh for a token with no usable expiry', async () => {
+  jest.useFakeTimers()
+  try {
+    await persistSession({ accessToken: fakeToken(), refreshToken: 'r1', expiresAt: 0 })
+    jest.advanceTimersByTime(10 * 60_000)
+    expect(refreshTokens).not.toHaveBeenCalled()
+  } finally {
+    await clearAccess()
+    jest.useRealTimers()
+  }
+})

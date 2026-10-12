@@ -1,5 +1,4 @@
 import { useEffect, useSyncExternalStore } from 'react'
-import { AppState } from 'react-native'
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { getBillingStatus, syncBilling, type BillingStatus } from '@/src/api/billing'
 import { isAccessBlocked, onAccessChange } from '@/src/lib/accessGate'
@@ -25,7 +24,9 @@ export function useBillingStatus(enabled = true) {
   const qc = useQueryClient()
   // Guests (the shared demo account) have no billing, and the server answers
   // them with a 401 — which the root layout would read as a dead session.
-  const query = useQuery({ queryKey: billingKey, queryFn: getBillingStatus, staleTime: 30_000, enabled: enabled && currentUserId() !== null })
+  // 'always' on focus: a subscription can lapse, renew, or be restored while
+  // the app sits in the background, and nothing else would notice.
+  const query = useQuery({ queryKey: billingKey, queryFn: getBillingStatus, staleTime: 30_000, refetchOnWindowFocus: 'always', enabled: enabled && currentUserId() !== null })
 
   // Every event carries the plan it happened on, so a chart can split trial
   // users from paying ones without a join.
@@ -40,15 +41,6 @@ export function useBillingStatus(enabled = true) {
   useEffect(() => {
     if (blocked) void qc.invalidateQueries({ queryKey: billingKey })
   }, [blocked, qc])
-
-  // A subscription can lapse, renew, or be restored while the app sits in the
-  // background — none of which produce a request for this app to notice.
-  useEffect(() => {
-    const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'active') void qc.invalidateQueries({ queryKey: billingKey })
-    })
-    return () => sub.remove()
-  }, [qc])
 
   return query
 }
