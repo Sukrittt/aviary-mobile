@@ -133,11 +133,12 @@ export default function LogExpenseScreen() {
   const origId = str(params.id) || undefined;
   const origTimestamp = str(params.timestamp);
   const isEdit = origTimestamp !== "";
-  const captureTip = useCaptureTip(!isEdit && online);
   const cachedUser = useCachedUser();
   const showIncome = !isEdit && !isHidden(cachedUser, "income");
   // "Several at once" runs through Ask Aviary, so it goes when that does.
   const showCapture = !isEdit && !isHidden(cachedUser, "askAviary");
+  // Off while hidden too, so unseen visits don't use up the tip's showings.
+  const captureTip = useCaptureTip(showCapture && online);
   const severalBounce = useBounce(-3);
   const origItem = str(params.item);
   const origAmountInr = Number(params.amountInr) || 0;
