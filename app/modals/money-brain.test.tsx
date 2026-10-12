@@ -35,13 +35,23 @@ jest.mock('@/src/api/ai', () => ({
   updateProposalStatus: (...args: unknown[]) => mockUpdateProposalStatus(...args),
 }))
 jest.mock('@/src/components/brain/CaptureReview', () => {
-  const { Pressable, Text } = jest.requireActual('react-native')
+  const { useState } = jest.requireActual('react')
+  const { Pressable, Text, View } = jest.requireActual('react-native')
   return {
-    CaptureReview: ({ proposal, onSettled }: { proposal: CaptureProposal; onSettled: (status: string, ids: string[]) => void }) => (
-      <Pressable accessibilityRole="button" onPress={() => onSettled('submitted', ['e1', 'e2'])}>
-        <Text>{`Review card: ${proposal.items.length} rows`}</Text>
-      </Pressable>
-    ),
+    CaptureReview: ({ proposal, onSettled }: { proposal: CaptureProposal; onSettled: (status: string, ids: string[]) => void }) => {
+      // Stands in for the card's local edits (renamed rows, picked envelopes), lost if the card remounts.
+      const [edited, setEdited] = useState(false)
+      return (
+        <View>
+          <Pressable accessibilityRole="button" onPress={() => onSettled('submitted', ['e1', 'e2'])}>
+            <Text>{`Review card: ${proposal.items.length} rows`}</Text>
+          </Pressable>
+          <Pressable onPress={() => setEdited(true)}>
+            <Text>{edited ? `Edited ${proposal.id}` : `Edit ${proposal.id}`}</Text>
+          </Pressable>
+        </View>
+      )
+    },
   }
 })
 
@@ -272,6 +282,19 @@ it('keeps deltas on the current reply when an older card settles mid-stream abov
   await act(async () => { calls[1].delta(' and part two'); calls[1].resolve('s1') })
   expect(utils.getByText('Part one and part two')).toBeTruthy()
   expect(utils.getByText(ack)).toBeTruthy()
+})
+
+it('keeps edits on a later card when an earlier card is logged above it', async () => {
+  const calls = holdStreams()
+  const utils = renderWithProviders(<MoneyBrainModal />)
+  await sendQuestion(utils, 'Log lunch')
+  await act(async () => { calls[0].proposal(proposal); calls[0].resolve('s1') })
+  await sendQuestion(utils, 'Log auto')
+  await act(async () => { calls[1].proposal({ ...proposal, id: 'p2', items: proposal.items.slice(0, 1) }); calls[1].resolve('s1') })
+  fireEvent.press(utils.getByText('Edit p2'))
+  fireEvent.press(utils.getByText('Review card: 2 rows'))
+  expect(ACK_PHRASES.some((text) => utils.queryByText(text))).toBe(true)
+  expect(utils.getByText('Edited p2')).toBeTruthy()
 })
 
 it('revokes stream ownership on unmount', async () => {

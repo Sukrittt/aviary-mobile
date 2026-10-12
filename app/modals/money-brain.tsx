@@ -582,7 +582,8 @@ export default function MoneyBrainModal() {
             {messages.map((m, i) => {
               if (!m.text && !m.proposal) return null // empty placeholder while streaming hasn't started — BrainThinking covers it below
               return (
-              <View key={i} style={{ gap: 8 }}>
+              // Stable key: an ack spliced in above shifts indexes, and an index key would remount later cards and drop their edits.
+              <View key={m.replyId != null ? `r${m.replyId}` : m.proposal ? `p${m.proposal.id}` : `i${i}`} style={{ gap: 8 }}>
                 {m.text !== '' && (
                   <View
                     style={[
