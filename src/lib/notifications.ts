@@ -79,15 +79,25 @@ export async function registerForPushNotificationsAsync(): Promise<void> {
   }
 }
 
+let lastDeviceToken: string | null = null
+
 /**
- * Re-register whenever Expo rotates the push token (rare, but happens).
+ * Re-register whenever the device's push token rotates (rare, but happens).
  * Returns the subscription so callers can `.remove()` it on unmount.
+ *
+ * The listener hands over the raw FCM/APNs token, not the Expo token the API
+ * takes, so posting it got a 400 every time. It also fires on every launch,
+ * when sign-in's registration fetches that token. So the first one is only
+ * remembered, and a token that actually changed reruns the full registration,
+ * which turns it into the matching Expo token.
  */
 export function addPushTokenListener(): NotificationsType.Subscription | undefined {
   const Notifications = getNotifications()
   if (!Notifications) return undefined
-  return Notifications.addPushTokenListener((token) => {
-    registerToken(token.data).catch((err) => console.warn('Push token re-registration failed', err))
+  return Notifications.addPushTokenListener(({ data }) => {
+    const rotated = lastDeviceToken !== null && data !== lastDeviceToken
+    lastDeviceToken = data
+    if (rotated) void registerForPushNotificationsAsync()
   })
 }
 
