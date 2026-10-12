@@ -12,6 +12,7 @@ import { Icon } from '@/src/components/shared/Icon'
 import { useUser, useUpdateUser } from '@/src/hooks/useUser'
 import { useRefresh } from '@/src/hooks/useRefresh'
 import type { UserProfile } from '@/src/api/account'
+import { isHidden } from '@/src/lib/features'
 import { useRecentExpenses } from '@/src/hooks/useExpenses'
 import { habitNudgesEnabled, setHabitNudgesEnabled } from '@/src/lib/habitNudges'
 
@@ -191,21 +192,23 @@ export default function NotificationsScreen() {
           </View>
         </View>
 
-        <View style={styles.section}>
-          <Text style={[styles.sectionLabel, { color: tokens.text3, fontFamily: fontFamily.bodyBold }]}>WRAPPED</Text>
-          <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
-            <View style={styles.row}>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.rowLabel, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>New edition unlocked</Text>
-                <Text style={[styles.rowHint, { color: tokens.text2 }]}>A ping when last month&apos;s Wrapped is ready</Text>
+        {!isHidden(user, 'wrapped') && (
+          <View style={styles.section}>
+            <Text style={[styles.sectionLabel, { color: tokens.text3, fontFamily: fontFamily.bodyBold }]}>WRAPPED</Text>
+            <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
+              <View style={styles.row}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.rowLabel, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>New edition unlocked</Text>
+                  <Text style={[styles.rowHint, { color: tokens.text2 }]}>A ping when last month&apos;s Wrapped is ready</Text>
+                </View>
+                <Toggle
+                  value={wrapped}
+                  onValueChange={(v) => updateUser.mutate({ notifyWrapped: v })}
+                />
               </View>
-              <Toggle
-                value={wrapped}
-                onValueChange={(v) => updateUser.mutate({ notifyWrapped: v })}
-              />
             </View>
           </View>
-        </View>
+        )}
       </ScrollView>
     </View>
   )

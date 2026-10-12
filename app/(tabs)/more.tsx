@@ -36,7 +36,7 @@ import type { UserProfile } from '@/src/api/account'
 import type { WrappedStatus } from '@/src/api/wrapped'
 import appJson from '@/app.json'
 import { isVersionNewer } from '@/src/lib/version'
-import { isHidden } from '@/src/lib/features'
+import { hiddenFeatures, isHidden } from '@/src/lib/features'
 import { FEEDBACK_BOARD_URL } from '@/src/lib/constants'
 
 const THEME_OPTIONS = [
@@ -370,7 +370,7 @@ export default function MoreScreen() {
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.rowLabel, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>Features</Text>
                   <Text style={[styles.rowHint, { color: tokens.text2 }]}>
-                    {user?.hiddenFeatures?.length ? `${user.hiddenFeatures.length} hidden` : 'Hide what you don\'t use'}
+                    {hiddenFeatures(user).length ? `${hiddenFeatures(user).length} hidden` : 'Hide what you don\'t use'}
                   </Text>
                 </View>
                 <ChevronRight size={16} color={tokens.text3} strokeWidth={2} />

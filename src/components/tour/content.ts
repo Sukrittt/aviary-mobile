@@ -2,6 +2,8 @@
 // Every number here is fake. Nothing in this file reads or writes real money,
 // which is what lets each chapter be poked at without consequence.
 
+import type { HideableFeature } from '@/src/lib/features'
+
 export interface Chapter {
   /** Row title on the hub, and the header subtitle while the chapter is open. */
   title: string
@@ -16,6 +18,8 @@ export interface Chapter {
   /** Overrides the row's default subtitle — for a chapter whose real screen
    * needs an extra step spelled out (e.g. tapping into it from elsewhere). */
   linkNote?: string
+  /** The hideable feature `href` opens. The real-screen link is dropped while it's hidden. */
+  feature?: HideableFeature
 }
 
 export const CHAPTERS: Chapter[] = [
@@ -56,6 +60,7 @@ export const CHAPTERS: Chapter[] = [
     nudge: 'Answer, then flip to October 1.',
     linkLabel: 'Open Insights',
     href: '/insights',
+    feature: 'insights',
   },
   {
     title: 'Understanding your money',
@@ -65,6 +70,7 @@ export const CHAPTERS: Chapter[] = [
     nudge: 'Ask it something nosy.',
     linkLabel: 'Open Ask Aviary',
     href: '/modals/money-brain',
+    feature: 'askAviary',
   },
   {
     title: 'Notifications',

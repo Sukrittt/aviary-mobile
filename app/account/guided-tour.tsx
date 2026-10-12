@@ -14,7 +14,8 @@ import { useTourProgress } from '@/src/hooks/useTourProgress'
 import { StepDot } from '@/src/components/onboarding/StepDot'
 import { useTourContent } from '@/src/components/tour/useTourContent'
 import { track } from '@/src/lib/analytics'
-import { useCompleteGuidedTour } from '@/src/hooks/useUser'
+import { useCompleteGuidedTour, useUser } from '@/src/hooks/useUser'
+import { isHidden } from '@/src/lib/features'
 import { BirdLandingMark } from '@/src/components/splash/BirdLandingMark'
 
 import { AssignDemo } from '@/src/components/tour/demos/AssignDemo'
@@ -39,6 +40,7 @@ export default function GuidedTourScreen() {
   const insets = useSafeAreaInsets()
   const router = useRouter()
   const { mutate: completeGuidedTour } = useCompleteGuidedTour()
+  const user = useUser().data
   // Read by exitTour to tell a skip from leaving the finished tour, without
   // making the back handler below re-register on every chapter change.
   const progress = useRef({ finished: false, chaptersDone: 0 })
@@ -186,7 +188,7 @@ export default function GuidedTourScreen() {
               <ChapterDemo index={chapter} onComplete={() => complete(chapter)} />
             </Reanimated.View>
 
-            {!isLast && (
+            {!isLast && !(current.feature && isHidden(user, current.feature)) && (
               <Pressable
                 accessibilityRole="button"
                 onPress={() => {

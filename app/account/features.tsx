@@ -9,7 +9,7 @@ import { Icon } from '@/src/components/shared/Icon'
 import { Toggle } from '@/src/components/ui/Toggle'
 import { Alert } from '@/src/components/ui/AlertHost'
 import { useUser, useUpdateUser } from '@/src/hooks/useUser'
-import { HIDEABLE_FEATURES, type HideableFeature } from '@/src/lib/features'
+import { HIDEABLE_FEATURES, hiddenFeatures, type HideableFeature } from '@/src/lib/features'
 
 export default function FeaturesScreen() {
   const { tokens } = useTheme()
@@ -21,7 +21,7 @@ export default function FeaturesScreen() {
   // Local copy so a flip shows instantly and rapid flips build on each other,
   // not on a server response that's still in flight.
   const [local, setLocal] = useState<HideableFeature[] | null>(null)
-  const hidden = local ?? (user ? (user.hiddenFeatures ?? []) : null)
+  const hidden = local ?? (user ? hiddenFeatures(user) : null)
 
   const setShown = (key: HideableFeature, shown: boolean) => {
     const rest = (hidden ?? []).filter((k) => k !== key)

@@ -28,7 +28,9 @@ export interface UserProfile {
   notifyBillLeadDays?: number
   notifyCoach?: boolean
   notifyWrapped?: boolean
-  /** Features hidden from the app, see src/lib/features.ts. Absent = everything shown. */
+  /** ISO time the account was created. Picks the default feature set, see src/lib/features.ts. */
+  createdAt?: string
+  /** Features hidden from the app, see src/lib/features.ts. Absent = the default for the account's age. */
   hiddenFeatures?: HideableFeature[]
   /** Set while the account is within its post-delete grace window — null once active or purged. */
   deletionScheduledFor?: string | null
