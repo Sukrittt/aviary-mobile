@@ -27,7 +27,7 @@ export const CHAPTERS: Chapter[] = [
     title: 'Envelopes & Ready to Assign',
     blurb: 'Money gets a job before it gets spent.',
     kicker: 'CHAPTER 1 OF 7',
-    lede: "An envelope is a spending limit for one thing, like Groceries. Your income lands as one number, Ready to Assign. Hand it out to your envelopes until there's nothing left.",
+    lede: "An envelope is money set aside for one thing, like Groceries. Your income lands as one number, Ready to Assign. Hand it out to your envelopes until there's nothing left.",
     nudge: 'Fund all four. Get Ready to Assign to zero.',
     linkLabel: 'Open Home',
     href: '/(tabs)',
