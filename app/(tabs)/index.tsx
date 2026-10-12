@@ -273,6 +273,7 @@ export default function HomeScreen() {
   return (
     <AnimatedTabContent>
       <Screen
+        style={{ backgroundColor: tokens.homeBg }}
         title={
           <Pressable
             accessibilityRole="button"

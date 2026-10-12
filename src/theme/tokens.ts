@@ -10,6 +10,9 @@
 
 export interface ThemeTokens {
   bg: string
+  /** Home's page background. Pure white in light mode while the background
+   *  refresh is tried there first; same as `bg` in dark. */
+  homeBg: string
   text: string
   text2: string
   text3: string
@@ -51,6 +54,7 @@ export interface ThemeTokens {
 
 export const darkTokens: ThemeTokens = {
   bg: '#121214',
+  homeBg: '#121214',
   text: '#f5f5f5',
   text2: '#a1a1a6',
   text3: '#8e8e94',
@@ -92,6 +96,7 @@ export const darkTokens: ThemeTokens = {
 
 export const lightTokens: ThemeTokens = {
   bg: '#faf8f5',
+  homeBg: '#ffffff',
   text: '#060606',
   text2: '#424242',
   text3: '#717171',
