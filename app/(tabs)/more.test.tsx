@@ -8,7 +8,6 @@ import { revokeSession } from '@/src/api/account'
 import { getCategories } from '@/src/api/categories'
 import { takePendingScanImage } from '@/src/lib/pendingScanImage'
 import { getSystemStatus } from '@/src/api/systemStatus'
-import { WEB_URL } from '@/src/api/client'
 import { FEEDBACK_BOARD_URL } from '@/src/lib/constants'
 import appJson from '@/app.json'
 import MoreScreen from './more'
@@ -16,9 +15,6 @@ import MoreScreen from './more'
 jest.mock('@/src/hooks/useUser', () => ({
   useUpdateUser: () => ({ mutate: jest.fn(), isPending: false, isError: false }), useUser: jest.fn() }))
 jest.mock('@/src/hooks/useWrapped', () => ({ useWrappedStatus: jest.fn() }))
-const PLAY_URL = 'https://play.google.com/store/apps/details?id=com.sukrit04.envelope'
-const mockStoreUrl = jest.fn<string | null, []>(() => PLAY_URL)
-jest.mock('expo-store-review', () => ({ storeUrl: () => mockStoreUrl() }))
 jest.mock('@/src/api/systemStatus', () => ({ getSystemStatus: jest.fn() }))
 // Expo Go reports its own host version. The More screen must ignore it and
 // display Aviary's app.json version instead.
@@ -143,38 +139,6 @@ describe('More tab · early access card', () => {
 
     expect(openUrl).toHaveBeenCalledWith(FEEDBACK_BOARD_URL)
     openUrl.mockRestore()
-  })
-})
-
-describe('More tab · web app row', () => {
-  it('opens the web app in the browser', async () => {
-    const openUrl = jest.spyOn(Linking, 'openURL').mockResolvedValue(true)
-
-    const { findByText } = renderWithProviders(<MoreScreen />)
-    fireEvent.press(await findByText('Open web app'))
-
-    expect(openUrl).toHaveBeenCalledWith(WEB_URL)
-    openUrl.mockRestore()
-  })
-})
-
-describe('More tab · rate row', () => {
-  it('opens the Play listing', async () => {
-    const openUrl = jest.spyOn(Linking, 'openURL').mockResolvedValue(true)
-
-    const { findByText } = renderWithProviders(<MoreScreen />)
-    fireEvent.press(await findByText('Rate Aviary'))
-
-    expect(openUrl).toHaveBeenCalledWith(PLAY_URL)
-    openUrl.mockRestore()
-  })
-
-  it('hides when there is no store listing', async () => {
-    mockStoreUrl.mockReturnValue(null)
-    const { findByText, queryByText } = renderWithProviders(<MoreScreen />)
-    await findByText('Open web app')
-    expect(queryByText('Rate Aviary')).toBeNull()
-    mockStoreUrl.mockReturnValue(PLAY_URL)
   })
 })
 
@@ -368,13 +332,15 @@ describe('More tab · feature shortcuts', () => {
   })
 })
 
-it('opens the guided tour from the account list', async () => {
-  const { getByText } = renderWithProviders(<MoreScreen />)
+it('keeps the account list to the essentials, with the rest under Help', async () => {
+  const { getByText, queryByText } = renderWithProviders(<MoreScreen />)
   await flushCategories()
 
-  fireEvent.press(getByText('How this works'))
-
-  expect(mockPush).toHaveBeenCalledWith('/account/guided-tour')
+  for (const gone of ['How this works', 'Changelog', 'Rate Aviary', 'Open web app', 'Bills Scanned']) {
+    expect(queryByText(gone)).toBeNull()
+  }
+  fireEvent.press(getByText('Help & feedback'))
+  expect(mockPush).toHaveBeenCalledWith('/account/help')
 })
 
 describe('More tab · hidden features', () => {
@@ -396,6 +362,25 @@ describe('More tab · hidden features', () => {
     expect(queryByText('Income')).toBeNull()
     expect(queryByText('Accounts')).toBeNull()
     expect(getByText('Insights')).toBeTruthy()
+  })
+
+  it('shows a new account only its budget tiles and one way to turn on more', async () => {
+    mockUseUser.mockReturnValue({ data: { email: 'a@b.com', emailVerified: true, createdAt: '2026-11-01T00:00:00.000Z' } })
+    const { queryByText, getByText } = renderWithProviders(<MoreScreen />)
+    await flushCategories()
+    for (const on of ['Income', 'Accounts', 'Recurring expenses', 'Archive']) expect(getByText(on)).toBeTruthy()
+    for (const off of ['Expense Wrapped', 'Ask Aviary', 'Investments', 'Scan a bill', 'Subscriptions', 'Insights']) {
+      expect(queryByText(off)).toBeNull()
+    }
+    expect(getByText('6 more you can switch on')).toBeTruthy()
+    fireEvent.press(getByText('Turn on more'))
+    expect(mockPush).toHaveBeenCalledWith('/account/features')
+  })
+
+  it('has no Turn on more row once every extra is on', async () => {
+    const { queryByText } = renderWithProviders(<MoreScreen />)
+    await flushCategories()
+    expect(queryByText('Turn on more')).toBeNull()
   })
 
   it('opens the Features screen from Preferences', async () => {
