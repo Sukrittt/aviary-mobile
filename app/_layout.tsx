@@ -26,7 +26,8 @@ import { cancelHabitNudges } from '@/src/lib/habitNudges'
 import { useAppFonts } from '@/src/theme/fonts'
 import { ThemeProvider,useTheme } from '@/src/theme/ThemeProvider'
 import { WidgetSync, lockWidgets } from '@/src/widgets/WidgetSync'
-import { useAccessAllowed } from '@/src/hooks/useBillingStatus'
+import { billingKey, useBillingStatus } from '@/src/hooks/useBillingStatus'
+import { accessAllowed } from '@/src/lib/billingStatus'
 import { onAiAllowanceExceeded } from '@/src/lib/aiAllowance'
 import { QueryClient } from '@tanstack/react-query'
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client'
@@ -191,6 +192,9 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
   useEffect(
     () =>
       onOnboarded(() => {
+        // Drop a cached setup_incomplete answer, or the check below would send
+        // the user straight back to setup before the fresh status lands.
+        void queryClient.resetQueries({ queryKey: billingKey })
         setJustOnboarded(true)
         setLandOnHome(true)
         setOnboarded(true)
@@ -225,7 +229,17 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
   const signedIn = !resolving && hasSession && onboarded === true
   // Subscription access. Unknown counts as allowed (see accessAllowed), so
   // this never holds a paying user on a lock screen while the status loads.
-  const accessOk = useAccessAllowed(signedIn)
+  const { data: billing } = useBillingStatus(signedIn)
+  const accessOk = accessAllowed(billing)
+
+  // No trial on the server means setup never finished, even if the fail-open
+  // /api/user path above let the user past it. That's not a lapsed
+  // subscription, so it goes back to setup, never to the Plan & billing lock.
+  const setupIncomplete = billing?.mode === 'setup_incomplete' && !billing.allowed
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- the server's billing answer overrides the fail-open onboarding guess
+    if (setupIncomplete) setOnboarded(false)
+  }, [setupIncomplete])
 
   useEffect(() => {
     if (signedIn && !accessOk) void lockWidgets(preference)
