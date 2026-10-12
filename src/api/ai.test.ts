@@ -97,6 +97,15 @@ describe('streamChat', () => {
       "I couldn't read that one. Try again, or add it with the + button.",
     )
   })
+
+  it('reports the new session as soon as its frame arrives, even if the stream then fails', async () => {
+    mockedFetch.mockResolvedValue(sse('data: {"sessionId":"s1"}\n\n', 'data: {"error":"model blew up"}\n\n'))
+    const onSession = jest.fn()
+
+    await expect(streamChat(null, [{ role: 'user', text: 'hi' }], jest.fn(), undefined, undefined, onSession)).rejects.toThrow()
+
+    expect(onSession).toHaveBeenCalledWith('s1')
+  })
 })
 
 describe('updateProposalStatus', () => {
