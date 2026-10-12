@@ -40,12 +40,15 @@ export function SnoozingBird({
   color,
   accent,
   eyeColor,
+  zs = true,
 }: {
   size?: number
   color: string
   accent: string
   /** The surface the bird sits on, so the shut eye reads as a cut-out like the open one. */
   eyeColor: string
+  /** Off when a scene draws its own prop above the head instead. */
+  zs?: boolean
 }) {
   const reduceMotion = useReducedMotion()
   const nod = useSharedValue(0)
@@ -89,16 +92,20 @@ export function SnoozingBird({
           <Path d="M 288 216 Q 306 234 324 216" fill="none" stroke={eyeColor} strokeWidth={10} strokeLinecap="round" />
         </Svg>
       </Animated.View>
-      <Animated.View style={[StyleSheet.absoluteFill, zBigStyle]}>
-        <Svg width={size} height={size} viewBox={VIEW_BOX}>
-          <Path d="M 380 140 H 420 L 380 180 H 420" fill="none" stroke={accent} strokeWidth={13} strokeLinecap="round" strokeLinejoin="round" />
-        </Svg>
-      </Animated.View>
-      <Animated.View style={[StyleSheet.absoluteFill, zSmallStyle]}>
-        <Svg width={size} height={size} viewBox={VIEW_BOX}>
-          <Path d="M 416 120 H 442 L 416 146 H 442" fill="none" stroke={accent} strokeWidth={10} strokeLinecap="round" strokeLinejoin="round" />
-        </Svg>
-      </Animated.View>
+      {zs ? (
+        <>
+          <Animated.View style={[StyleSheet.absoluteFill, zBigStyle]}>
+            <Svg width={size} height={size} viewBox={VIEW_BOX}>
+              <Path d="M 380 140 H 420 L 380 180 H 420" fill="none" stroke={accent} strokeWidth={13} strokeLinecap="round" strokeLinejoin="round" />
+            </Svg>
+          </Animated.View>
+          <Animated.View style={[StyleSheet.absoluteFill, zSmallStyle]}>
+            <Svg width={size} height={size} viewBox={VIEW_BOX}>
+              <Path d="M 416 120 H 442 L 416 146 H 442" fill="none" stroke={accent} strokeWidth={10} strokeLinecap="round" strokeLinejoin="round" />
+            </Svg>
+          </Animated.View>
+        </>
+      ) : null}
     </View>
   )
 }
