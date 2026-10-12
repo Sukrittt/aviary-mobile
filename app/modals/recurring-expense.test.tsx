@@ -5,13 +5,14 @@ import RecurringExpenseModal from './recurring-expense'
 
 const mockMutation = { isPending: false, mutate: jest.fn() }
 let mockParams: Record<string, string> = {}
+let mockRecurring: Record<string, unknown>[] = []
 
 jest.mock('@/src/api/categoryMap', () => ({ suggestCategoryLLM: jest.fn() }))
 jest.mock('@/src/hooks/useCategories', () => ({
   useCategories: () => ({ data: [{ name: 'Groceries' }, { name: 'Rent' }, { name: 'Eating out' }] }),
 }))
 jest.mock('@/src/hooks/useRecurringExpenses', () => ({
-  useRecurringExpenses: () => ({ data: [] }),
+  useRecurringExpenses: () => ({ data: mockRecurring }),
   useAddRecurringExpense: () => mockMutation,
   useUpdateRecurringExpense: () => mockMutation,
   usePauseRecurringExpense: () => mockMutation,
@@ -47,6 +48,7 @@ beforeEach(() => {
   jest.clearAllMocks()
   jest.useFakeTimers({ legacyFakeTimers: false })
   mockParams = {}
+  mockRecurring = []
   suggest.mockResolvedValue('')
 })
 
@@ -95,4 +97,18 @@ it('keeps a prefilled category without requesting a replacement', async () => {
 
   expect(suggest).not.toHaveBeenCalled()
   expect(utils.getByLabelText('Category: Rent')).toBeTruthy()
+})
+
+it('keeps in-progress edits when the list refetches', () => {
+  const row = { id: 'r1', item: 'Rent', amount_inr: '20000', frequency: 'monthly', start_date: '2026-01-01', status: 'active', category: 'Rent' }
+  mockParams = { id: 'r1' }
+  mockRecurring = [row]
+  const utils = renderWithProviders(<RecurringExpenseModal />)
+
+  fireEvent.changeText(utils.getByDisplayValue('20000'), '25000')
+  // Refetch lands: same row, new object. Any re-render now sees it.
+  mockRecurring = [{ ...row }]
+  fireEvent.changeText(utils.getByDisplayValue('Rent'), 'Flat rent')
+
+  expect(utils.getByDisplayValue('25000')).toBeTruthy()
 })

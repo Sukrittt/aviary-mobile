@@ -1,5 +1,5 @@
 import { useCurrency } from '@/src/context/CurrencyContext'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { View, Text, TextInput, Pressable, ScrollView, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native'
 import Reanimated, { LinearTransition } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -83,9 +83,12 @@ export default function RecurringExpenseModal() {
   const [confirmSheet, setConfirmSheet] = useState<'delete' | null>(null)
 
   // existing loads async on first mount (query cache may be cold) — backfill once it arrives.
+  // Ref-guarded like add-holding.tsx: a refetch hands back a new `existing` object and
+  // would otherwise reset fields the user is already editing.
+  const backfilledRef = useRef(false)
   useEffect(() => {
-    if (!existing) return
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- backfilling an editable form once an async query result arrives, not derivable from render
+    if (!existing || backfilledRef.current) return
+    backfilledRef.current = true
     setItem(existing.item)
     setAmount(existing.amount_inr)
     setFrequency(existing.frequency || 'monthly')
