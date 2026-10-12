@@ -377,6 +377,15 @@ describe('More tab · hidden features', () => {
     expect(mockPush).toHaveBeenCalledWith('/account/features')
   })
 
+  it('holds the extras until the profile loads', async () => {
+    mockUseUser.mockReturnValue({ data: undefined })
+    const { queryByText, getByText } = renderWithProviders(<MoreScreen />)
+    await flushCategories()
+    expect(getByText('Archive')).toBeTruthy()
+    expect(queryByText('Insights')).toBeNull()
+    expect(queryByText('Turn on more')).toBeNull()
+  })
+
   it('has no Turn on more row once every extra is on', async () => {
     const { queryByText } = renderWithProviders(<MoreScreen />)
     await flushCategories()

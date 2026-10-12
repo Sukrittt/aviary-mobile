@@ -269,7 +269,8 @@ export default function MoreScreen() {
           {/* EXTRAS: only what's switched on, plus one way to switch on the rest. */}
           <View style={styles.section}>
             <Text style={[styles.sectionLabel, { color: tokens.text3, fontFamily: fontFamily.bodyBold }]}>EXTRAS</Text>
-            {extrasOff < OPT_IN_FEATURES.length && <View style={styles.featureGrid}>
+            {/* Waits for the profile: until it loads every extra reads as on, and a new account's would flash in and out. */}
+            {user && extrasOff < OPT_IN_FEATURES.length && <View style={styles.featureGrid}>
               {!isHidden(user, 'wrapped') && <FeatureCard
                 icon={wrappedCard.icon}
                 label="Expense Wrapped"
@@ -320,7 +321,7 @@ export default function MoreScreen() {
                 onPress={() => router.push('/insights')}
               />}
             </View>}
-            {extrasOff > 0 && (
+            {user && extrasOff > 0 && (
               <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
                 <AccountRow
                   icon={Plus}
