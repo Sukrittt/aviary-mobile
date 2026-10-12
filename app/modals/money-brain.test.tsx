@@ -83,8 +83,8 @@ it('opens as a focused composer in capture mode, without the brief', async () =>
   expect(utils.queryByText('New')).toBeNull()
 
   // An example chip fills the composer so the grammar can be read before it's sent.
-  fireEvent.press(utils.getByText('turf 1200 split 6'))
-  expect(utils.getByPlaceholderText('What did you spend?').props.value).toBe('turf 1200 split 6')
+  fireEvent.press(utils.getByText('dinner 1200 split 6'))
+  expect(utils.getByPlaceholderText('What did you spend?').props.value).toBe('dinner 1200 split 6')
   expect(mockStreamChat).not.toHaveBeenCalled()
 })
 

@@ -108,7 +108,7 @@ export default function AccountModal() {
           <TextInput
             value={name}
             onChangeText={setName}
-            placeholder="e.g. HDFC"
+            placeholder="e.g. Main bank"
             placeholderTextColor={tokens.text3}
             maxLength={30}
             accessibilityLabel="Name"

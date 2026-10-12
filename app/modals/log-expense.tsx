@@ -113,8 +113,8 @@ function suggestCategory(
  * starts on the existing amount and backspaces from there.
  */
 const CAPTURE_TIP_COPY: Record<CaptureTipReason, { title: string; body: string }> = {
-  batch: { title: "Logging a few?", body: "Type them all at once in Ask Aviary, like “auto 240, lunch 150”." },
-  gap: { title: "Been a couple of days?", body: "Type whatever you remember in Ask Aviary, like “auto 240, lunch 150”." },
+  batch: { title: "Logging a few?", body: "Type them all at once in Ask Aviary, like “taxi 240, lunch 150”." },
+  gap: { title: "Been a couple of days?", body: "Type whatever you remember in Ask Aviary, like “taxi 240, lunch 150”." },
 };
 
 export default function LogExpenseScreen() {

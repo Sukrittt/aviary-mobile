@@ -66,7 +66,7 @@ type BrainMessage = ChatMessage & { captureFailed?: boolean; replyId?: number }
 type PendingSettle = { proposalId: string; status: 'submitted' | 'dismissed'; expenseIds: string[]; reply?: string }
 
 /** Tappable examples on the empty capture screen; each one teaches a bit of the grammar. */
-const CAPTURE_EXAMPLES = ['auto 240', 'lunch 150, coffee 80', 'turf 1200 split 6']
+const CAPTURE_EXAMPLES = ['taxi 240', 'lunch 150, coffee 80', 'dinner 1200 split 6']
 
 /** The line over Ask Aviary's reply to logged rows; a reopened chat may not know the count. */
 function loggedLabel(count: number | undefined) {

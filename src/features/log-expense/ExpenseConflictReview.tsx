@@ -13,7 +13,7 @@ interface Props {
   onClose: () => void
 }
 
-const paymentLabel = (m: PaymentMethod) => (m === 'bank' ? 'Bank/UPI' : 'Credit Card')
+const paymentLabel = (m: PaymentMethod) => (m === 'bank' ? 'Bank' : 'Credit Card')
 
 /** Full-screen native presentation keeps the editor mounted and its draft intact. */
 export function ExpenseConflictReview({ latest, original, draft, accounts = [], onChoose, onClose }: Props) {

@@ -283,8 +283,8 @@ function EnterBalance({ status: fetched, closing, onClose, onMeasured }: {
             </Text>
             <Text style={text.body}>
               {first
-                ? 'Add each account you pay from with UPI. Check them in GPay, PhonePe or your bank app.'
-                : 'Check it in GPay, PhonePe or your bank app.'}
+                ? 'Add each account you pay from. Check them in your bank app.'
+                : 'Check it in your bank app.'}
             </Text>
           </View>
         </View>

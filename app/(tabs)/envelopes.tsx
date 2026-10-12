@@ -855,7 +855,7 @@ export default function EnvelopesScreen() {
             <EmptyState
               subject="envelopes"
               title="Your envelopes are waiting"
-              description="Make a group, add a category, and give every rupee a place to land."
+              description="Make a group, add a category, and give all your money a place to land."
               action={{ label: "Create your first group", onPress: openAddGroup }}
             />
           ) : (
