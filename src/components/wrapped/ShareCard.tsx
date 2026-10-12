@@ -1,6 +1,7 @@
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { useRef, useState } from 'react'
 import { View, Text, Pressable, StyleSheet } from 'react-native'
+import { useRouter } from 'expo-router'
 import { captureRef } from 'react-native-view-shot'
 import * as Sharing from 'expo-sharing'
 import type { WrappedData } from '@/src/api/wrapped'
@@ -24,6 +25,7 @@ export function ShareCard({
   onRestart?: () => void
 }) {
   const { formatCurrency } = useCurrency()
+  const router = useRouter()
 
   const captureTarget = useRef<View>(null)
   const [sharing, setSharing] = useState(false)
@@ -97,6 +99,16 @@ export function ShareCard({
           <Text style={[styles.shareButtonText, { fontFamily: fontFamily.bodyBlack }]}>
             {sharing ? 'Preparing…' : 'Share your wrapped'}
           </Text>
+        </Pressable>
+        {/* Wrapped looks back; this last button turns the ending toward the month ahead. */}
+        <Pressable
+          onPress={() => {
+            track('wrapped_plan_tapped')
+            router.navigate('/(tabs)')
+          }}
+          style={[styles.restartButton, { borderColor: `${onColor}66` }]}
+        >
+          <Text style={[styles.restartButtonText, { color: onColor, fontFamily: fontFamily.bodyExtraBold }]}>Plan this month</Text>
         </Pressable>
         {onRestart && (
           <Pressable onPress={onRestart} style={[styles.restartButton, { borderColor: `${onColor}66` }]}>
