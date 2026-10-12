@@ -15,6 +15,7 @@ import { EMPTY } from '@/src/lib/constants'
 import { categoryEmoji,splitEmoji } from '@/src/lib/emoji'
 import { computeEnvelopeState,currentMonthKey,prevMonthKey } from '@/src/lib/envelope'
 import { BudgetWriteError } from '@/src/lib/budgetConflict'
+import { amountSeed } from '@/src/lib/calcAmount'
 import type { BudgetRow } from '@/src/types'
 
 import { fontFamily } from '@/src/theme/fonts'
@@ -130,7 +131,7 @@ function EditAmountBody({
   const name = isCreditCardPayment ? 'Credit Card Payment' : splitEmoji(category).text
   const emoji = isCreditCardPayment ? '💳' : categoryEmoji(category, group)
 
-  const { amount: amountText, setAmount: setAmountText, pushDigit, handleBackspace, shake } = useAmountEntry(String(currentAssigned))
+  const { amount: amountText, setAmount: setAmountText, pushDigit, handleBackspace, shake } = useAmountEntry(amountSeed(currentAssigned))
   const [saving, setSaving] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState('')
@@ -143,8 +144,10 @@ function EditAmountBody({
   const value = Number(amountText) || 0
   const delta = value - baseAssigned
   const projectedRTA = baseReadyToAssign - delta
+  // An untouched 0 has nothing to project, so it just shows what's left.
+  const untouchedZero = value === 0 && delta === 0
   const impactText =
-    value === 0
+    untouchedZero
       ? `${formatCurrency(baseReadyToAssign, hideAmounts)} left in Ready to Assign`
       : delta === 0
         ? `${formatCurrency(baseAssigned, hideAmounts)} already assigned this month`
@@ -195,7 +198,7 @@ function EditAmountBody({
     setBaseReadyToAssign(baseReadyToAssign - (latest - baseAssigned))
     setBaseAssigned(latest)
     setExpectedVersion(conflict.version)
-    if (!keepDraft) setAmountText(String(latest))
+    if (!keepDraft) setAmountText(amountSeed(latest))
     setConflict(null)
     setError('')
   }
@@ -281,15 +284,15 @@ function EditAmountBody({
             key={impactText}
             entering={FadeIn.duration(150)}
             style={{
-              color: (value === 0 ? baseReadyToAssign : projectedRTA) < 0 ? tokens.coral : tokens.text2,
+              color: projectedRTA < 0 ? tokens.coral : tokens.text2,
               fontSize: type.caption,
               fontFamily: fontFamily.bodyMedium,
             }}
           >
             {impactText}
-            {value > 0 && projectedRTA < 0 ? ` · ${formatCurrency(-projectedRTA, hideAmounts)} over` : ''}
+            {!untouchedZero && projectedRTA < 0 ? ` · ${formatCurrency(-projectedRTA, hideAmounts)} over` : ''}
           </Reanimated.Text>
-          {value > 0 && projectedRTA >= 0 && (
+          {!untouchedZero && projectedRTA >= 0 && (
             <Text style={{ color: tokens.text3, fontSize: type.caption, fontFamily: fontFamily.bodyMedium }}>
               {formatCurrency(projectedRTA, hideAmounts)} left to assign
             </Text>

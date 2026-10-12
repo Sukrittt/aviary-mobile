@@ -11,6 +11,7 @@ import { useRecentExpenses } from "@/src/hooks/useExpenses";
 import { useGroups } from "@/src/hooks/useGroups";
 import { EMPTY } from "@/src/lib/constants";
 import { BudgetWriteError } from "@/src/lib/budgetConflict";
+import { amountSeed } from "@/src/lib/calcAmount";
 import type { BudgetRow } from "@/src/types";
 import {
   computeEnvelopeState,
@@ -112,14 +113,13 @@ function EditReadyToAssignBody({
   const router = useRouter();
   const updateBudget = useUpdateBudget();
 
-  // The numpad has no minus key, so an over-assigned month starts from 0.
   const {
     amount: amountText,
     setAmount: setAmountText,
     pushDigit,
     handleBackspace,
     shake,
-  } = useAmountEntry(String(Math.max(0, readyToAssign)));
+  } = useAmountEntry(amountSeed(readyToAssign));
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
@@ -167,7 +167,7 @@ function EditReadyToAssignBody({
     setIncomeBase(latestBase);
     setBaseIncome(latestIncome);
     setExpectedVersion(conflict.version);
-    if (!keepDraft) setAmountText(String(latestIncome - totalAssigned));
+    if (!keepDraft) setAmountText(amountSeed(latestIncome - totalAssigned));
     setConflict(null);
     setError("");
   }
