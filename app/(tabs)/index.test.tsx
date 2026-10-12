@@ -55,8 +55,9 @@ jest.mock('@/src/api/systemStatus', () => ({ getSystemStatus: jest.fn(() => new 
 // Covered by its own test; it fetches and reads SecureStore, neither of which this screen's tests are about.
 jest.mock('@/src/components/balance/BalanceCheckCard', () => ({ BalanceCheckCard: () => null }))
 const mockPush = jest.fn()
+const mockNavigate = jest.fn()
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: mockPush, back: jest.fn(), replace: jest.fn(), navigate: jest.fn() }),
+  useRouter: () => ({ push: mockPush, back: jest.fn(), replace: jest.fn(), navigate: mockNavigate }),
   useIsFocused: () => true,
 }))
 
@@ -378,7 +379,7 @@ describe('HomeScreen · one banner at a time', () => {
     expect(await findByText(/Insights can show you where it all goes/)).toBeTruthy()
     fireEvent.press(await findByText('Turn on'))
     expect(mockMutate).toHaveBeenCalledWith({ hiddenFeatures: ['askAviary', 'billScan', 'wrapped', 'investments', 'subscriptions'] }, expect.anything())
-    expect(mockPush).toHaveBeenCalledWith('/insights')
+    expect(mockNavigate).toHaveBeenCalledWith('/insights')
   })
 
   it('offers Subscriptions first when a scan found one', async () => {
@@ -415,6 +416,22 @@ describe('HomeScreen · one banner at a time', () => {
     fireEvent.press(await findByText('Not now'))
     await waitFor(() => expect(queryByText(/Wrapped is ready/)).toBeNull())
     expect(SecureStore.setItemAsync).toHaveBeenCalledWith('mc-rollover-dismissed-nudge-wrapped', '1')
+  })
+
+  it('offers Scan a bill after 10 expenses, opening the scan sheet', async () => {
+    mockBudgets = [{ month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' }]
+    mockExpenses = expenses(10)
+    const { findByText } = renderHome()
+    expect(await findByText(/Got a receipt/)).toBeTruthy()
+    fireEvent.press(await findByText('Turn on'))
+    expect(mockNavigate).toHaveBeenCalledWith({ pathname: '/more', params: { scan: '1' } })
+  })
+
+  it('offers Ask Aviary after a week of logging days', async () => {
+    mockBudgets = [{ month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' }]
+    mockExpenses = Array.from({ length: 7 }, (_, i) => ({ category: 'Food', amountInr: 10, date: `${MONTH}-0${i + 1}` }))
+    const { findByText } = renderHome()
+    expect(await findByText(/Ask Aviary can answer questions/)).toBeTruthy()
   })
 
   it('never offers a feature that is already on', async () => {

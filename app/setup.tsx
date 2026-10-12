@@ -29,6 +29,7 @@ import type { ThemeTokens } from "@/src/theme/tokens";
 import { fontFamily } from "@/src/theme/fonts";
 import { Numpad } from "@/src/components/ui/Numpad";
 import { StepDot } from "@/src/components/onboarding/StepDot";
+import { PickExtras } from "@/src/components/onboarding/PickExtras";
 import { PickRow } from "@/src/components/onboarding/PickRow";
 import { SetupDone } from "@/src/components/onboarding/SetupDone";
 import { AmountTicker } from "@/src/components/onboarding/AmountTicker";
@@ -816,8 +817,25 @@ function CurrencyWizard({
           income={result.income}
           groupCount={result.groupCount}
           categoryCount={result.categoryCount}
-          onFinish={signalOnboarded}
+          onFinish={() => setStep(6)}
         />
+      </View>
+    );
+  }
+
+  if (step === 6) {
+    return (
+      <View
+        style={[
+          styles.container,
+          {
+            backgroundColor: tokens.bg,
+            paddingTop: insets.top + 60,
+            paddingBottom: insets.bottom + 20,
+          },
+        ]}
+      >
+        <PickExtras onDone={signalOnboarded} />
       </View>
     );
   }
