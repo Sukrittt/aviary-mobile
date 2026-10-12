@@ -52,6 +52,7 @@ import appJson from '@/app.json'
 import { useUser, useUpdateUser } from '@/src/hooks/useUser'
 import { useFeatureNudge } from '@/src/hooks/useFeatureNudge'
 import { firstBanner } from '@/src/lib/homeBanner'
+import { Alert } from '@/src/components/ui/AlertHost'
 import { isHidden } from '@/src/lib/features'
 import { GetStartedCard } from '@/src/components/home/GetStartedCard'
 import { EmptyState } from '@/src/components/shared/EmptyState'
@@ -385,7 +386,10 @@ export default function HomeScreen() {
             <Pressable
               accessibilityRole="button"
               onPress={() => {
-                updateUser.mutate({ hiddenFeatures: featureNudge.hidden.filter((k) => k !== featureNudge.feature) })
+                updateUser.mutate(
+                  { hiddenFeatures: featureNudge.hidden.filter((k) => k !== featureNudge.feature) },
+                  { onError: () => Alert.alert("Couldn't turn that on", 'Check your connection and try again.') },
+                )
                 router.push(nudge.href)
               }}
               hitSlop={8}

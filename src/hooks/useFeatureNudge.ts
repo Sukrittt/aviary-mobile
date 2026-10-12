@@ -19,11 +19,17 @@ export function useFeatureNudge(user: UserProfile | undefined, expenseCount: num
 
   const wantSubs = hidden.includes('subscriptions') && subsDismissed === false
   const wantWrapped = hidden.includes('wrapped') && wrappedDismissed === false
-  const suggestions = useRecurringSuggestions(6, wantSubs).data?.suggestions
+  const suggestionsQ = useRecurringSuggestions(6, wantSubs)
+  const suggestions = suggestionsQ.data?.suggestions
   const wrapped = useWrappedStatus(wantWrapped).data
 
   const feature = firstBanner<NudgeFeature>([
-    ['subscriptions', hidden.includes('subscriptions') && !!suggestions?.some((s) => s.kind === 'subscription'), subsDismissed],
+    // Still loading counts as unknown, so a lower offer doesn't show and then get swapped out.
+    [
+      'subscriptions',
+      hidden.includes('subscriptions') && (suggestionsQ.isLoading || !!suggestions?.some((s) => s.kind === 'subscription')),
+      suggestionsQ.isLoading ? null : subsDismissed,
+    ],
     ['insights', hidden.includes('insights') && expenseCount >= INSIGHTS_NUDGE_AT, insightsDismissed],
     ['wrapped', hidden.includes('wrapped') && !!wrapped?.available, wrappedDismissed],
   ])

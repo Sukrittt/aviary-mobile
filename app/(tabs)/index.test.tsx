@@ -48,7 +48,9 @@ jest.mock('@/src/hooks/useUser', () => ({
 }))
 jest.mock('@/src/hooks/useBillingStatus', () => ({ useBillingStatus: () => ({ data: mockBilling }) }))
 jest.mock('@/src/hooks/useWrapped', () => ({ useWrappedStatus: () => ({ data: mockWrappedStatus }) }))
-jest.mock('@/src/hooks/useRecurringSuggestions', () => ({ useRecurringSuggestions: () => ({ data: mockSuggestions }) }))
+let mockSuggestionsLoading = false
+jest.mock('@/src/hooks/useRecurringSuggestions', () => ({ useRecurringSuggestions: () => ({ data: mockSuggestions, isLoading: mockSuggestionsLoading }) }))
+jest.mock('@/src/components/ui/AlertHost', () => ({ Alert: { alert: jest.fn() } }))
 jest.mock('@/src/api/systemStatus', () => ({ getSystemStatus: jest.fn(() => new Promise(() => {})) }))
 // Covered by its own test; it fetches and reads SecureStore, neither of which this screen's tests are about.
 jest.mock('@/src/components/balance/BalanceCheckCard', () => ({ BalanceCheckCard: () => null }))
@@ -348,6 +350,7 @@ describe('HomeScreen · one banner at a time', () => {
     mockBilling = undefined
     mockWrappedStatus = undefined
     mockSuggestions = undefined
+    mockSuggestionsLoading = false
     mockBudgets = [
       { month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' },
       { month: PREV, category: '__income__', assigned: '5000', rolled_over: '0' },
@@ -374,7 +377,7 @@ describe('HomeScreen · one banner at a time', () => {
     const { findByText } = renderHome()
     expect(await findByText(/Insights can show you where it all goes/)).toBeTruthy()
     fireEvent.press(await findByText('Turn on'))
-    expect(mockMutate).toHaveBeenCalledWith({ hiddenFeatures: ['askAviary', 'billScan', 'wrapped', 'investments', 'subscriptions'] })
+    expect(mockMutate).toHaveBeenCalledWith({ hiddenFeatures: ['askAviary', 'billScan', 'wrapped', 'investments', 'subscriptions'] }, expect.anything())
     expect(mockPush).toHaveBeenCalledWith('/insights')
   })
 
@@ -385,6 +388,24 @@ describe('HomeScreen · one banner at a time', () => {
     const { findByText, queryByText } = renderHome()
     expect(await findByText(/pay for a few subscriptions/)).toBeTruthy()
     expect(queryByText(/Insights can show you/)).toBeNull()
+  })
+
+  it('holds the slot while the subscription check is still loading', async () => {
+    mockBudgets = [{ month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' }]
+    mockExpenses = expenses(30)
+    mockSuggestionsLoading = true
+    const { queryByText } = renderHome()
+    await act(async () => {})
+    expect(queryByText(/Insights can show you/)).toBeNull()
+  })
+
+  it('says so when turning a feature on fails', async () => {
+    mockBudgets = [{ month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' }]
+    mockExpenses = expenses(30)
+    const { findByText } = renderHome()
+    fireEvent.press(await findByText('Turn on'))
+    act(() => mockMutate.mock.calls[0][1].onError(new Error('offline')))
+    expect(jest.requireMock('@/src/components/ui/AlertHost').Alert.alert).toHaveBeenCalledWith("Couldn't turn that on", 'Check your connection and try again.')
   })
 
   it('offers Wrapped when last month unlocks, and remembers Not now', async () => {
