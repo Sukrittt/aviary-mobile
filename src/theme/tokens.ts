@@ -53,7 +53,7 @@ export const darkTokens: ThemeTokens = {
   bg: '#121214',
   text: '#f5f5f5',
   text2: '#a1a1a6',
-  text3: '#7f7f85',
+  text3: '#8e8e94',
   onAccent: '#1a0500',
   card: 'rgba(30, 30, 33, 0.85)',
   cardSolid: '#1e1e21',
