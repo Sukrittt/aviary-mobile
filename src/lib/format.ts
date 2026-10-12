@@ -1,4 +1,5 @@
 import { formatMoney, formatMoneyInput, createCurrencyFormat } from './currencies'
+import { parseLocalDate } from './date'
 
 /** Legacy pure formatter for INR fixtures and non-user demo data. */
 export const formatINR = formatMoney
@@ -43,14 +44,14 @@ export function formatDateTime(ts: string): string {
 /** e.g. "12 Aug 2026" — date-only, no time. */
 export function formatDate(dateStr: string): string {
   if (!dateStr) return ''
-  const d = new Date(dateStr)
+  const d = parseLocalDate(dateStr)
   if (Number.isNaN(d.getTime())) return dateStr
   return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}`
 }
 
 export function formatDateShort(dateStr: string): string {
   if (!dateStr) return ''
-  const d = new Date(dateStr)
+  const d = parseLocalDate(dateStr)
   if (Number.isNaN(d.getTime())) return dateStr
   return `${d.getDate()} ${MONTHS[d.getMonth()]}`
 }
