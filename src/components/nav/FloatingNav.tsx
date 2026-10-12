@@ -284,7 +284,7 @@ function AddHalo({ color }: { color: string }) {
  * the screen, the strip fades with it instead of flipping color early.
  * Log-expense has no strip; its accent flood already fills the area.
  */
-export function NavBackdrop({ color }: { color?: string }) {
+export function NavBackdrop() {
   const { tokens, radius } = useTheme()
   const insets = useSafeAreaInsets()
   return (
@@ -294,7 +294,7 @@ export function NavBackdrop({ color }: { color?: string }) {
         styles.backdrop,
         {
           height: ROW_HEIGHT - (ROW_TOP_BLEED - BACKDROP_PAD) + insets.bottom + NAV_BOTTOM_GAP,
-          backgroundColor: color ?? tokens.bg,
+          backgroundColor: tokens.bg,
           borderTopLeftRadius: radius.xl,
           borderTopRightRadius: radius.xl,
         },

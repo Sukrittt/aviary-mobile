@@ -10,9 +10,6 @@
 
 export interface ThemeTokens {
   bg: string
-  /** Home's page background. Pure white in light mode while the background
-   *  refresh is tried there first; same as `bg` in dark. */
-  homeBg: string
   text: string
   text2: string
   text3: string
@@ -62,7 +59,6 @@ export interface ThemeTokens {
 
 export const darkTokens: ThemeTokens = {
   bg: '#121214',
-  homeBg: '#121214',
   text: '#f5f5f5',
   text2: '#a1a1a6',
   text3: '#8e8e94',
@@ -109,8 +105,7 @@ export const darkTokens: ThemeTokens = {
 }
 
 export const lightTokens: ThemeTokens = {
-  bg: '#faf8f5',
-  homeBg: '#ffffff',
+  bg: '#ffffff',
   text: '#060606',
   text2: '#424242',
   text3: '#717171',
@@ -120,10 +115,10 @@ export const lightTokens: ThemeTokens = {
   sidebarBox: 'rgba(242, 238, 232, 0.7)',
   inputBg: '#f2eee8',
   pillBg: 'rgba(255, 255, 255, 0.9)',
-  modalBg: 'rgba(250, 248, 245, 0.98)',
-  modalStrong: 'rgba(250, 248, 245, 0.96)',
-  tabbarBg: 'rgba(250, 248, 245, 0.92)',
-  headerBg: 'rgba(250, 248, 245, 0.92)',
+  modalBg: 'rgba(255, 255, 255, 0.98)',
+  modalStrong: 'rgba(255, 255, 255, 0.96)',
+  tabbarBg: 'rgba(255, 255, 255, 0.92)',
+  headerBg: 'rgba(255, 255, 255, 0.92)',
   heroA: 'rgba(255, 232, 220, 0.65)',
   heroB: 'rgba(245, 238, 234, 0.7)',
   border: 'rgba(60, 40, 20, 0.08)',

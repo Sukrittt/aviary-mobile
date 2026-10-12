@@ -67,7 +67,6 @@ function TabsNavStandIn() {
 
 export default function TabsLayout() {
   const { tokens } = useTheme()
-  const onHome = activeRouteFor(usePathname()) === 'index'
   useHabitNudges()
   useWeekRecapGate()
   useChangelogGate()
@@ -83,7 +82,7 @@ export default function TabsLayout() {
         <Tabs.Screen name="envelopes" />
         <Tabs.Screen name="more" />
       </Tabs>
-      <NavBackdrop color={onHome ? tokens.homeBg : tokens.bg} />
+      <NavBackdrop />
       <TabsNavStandIn />
     </View>
   )
