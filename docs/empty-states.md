@@ -29,7 +29,7 @@ The image above is the original concept sheet; the scenes below are what ships.
 
 A subject shows its own scene in its usual mood. Pass a different `mood` (a
 filter with no results, a list that hasn't started) and it shows the plain mood
-scene instead (`sceneFor` in `EmptyState.tsx`).
+scene instead (`sceneFor` in `EmptyState.tsx`). An awake mood on a subject that usually dozes or searches gets a plain bobbing bird.
 
 | Scene | Looks like | Motion |
 | --- | --- | --- |

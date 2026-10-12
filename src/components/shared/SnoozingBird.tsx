@@ -64,14 +64,16 @@ export function SnoozingBird({
       return
     }
     nod.value = withRepeat(withTiming(1, NOD), -1, true)
-    zBig.value = withRepeat(withTiming(1, Z_DRIFT), -1)
-    zSmall.value = withDelay(Z_DRIFT.duration / 2, withRepeat(withTiming(1, Z_DRIFT), -1))
+    if (zs) {
+      zBig.value = withRepeat(withTiming(1, Z_DRIFT), -1)
+      zSmall.value = withDelay(Z_DRIFT.duration / 2, withRepeat(withTiming(1, Z_DRIFT), -1))
+    }
     return () => {
       cancelAnimation(nod)
       cancelAnimation(zBig)
       cancelAnimation(zSmall)
     }
-  }, [nod, zBig, zSmall, reduceMotion])
+  }, [nod, zBig, zSmall, reduceMotion, zs])
 
   const bodyStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: `${nod.value * 7}deg` }, { translateY: nod.value * size * 0.012 }],

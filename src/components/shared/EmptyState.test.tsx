@@ -49,6 +49,7 @@ it('keeps each subject on its own scene and falls back to the mood scene', () =>
   expect(sceneFor('expenses', 'searching')).toBe('searching')
   expect(sceneFor('archive', 'searching')).toBe('searching')
   expect(sceneFor('chat', 'searching')).toBe('searching')
+  expect(sceneFor('subscriptions', 'clear')).toBe('clear')
 })
 
 it.each(['expenses', 'subscriptions', 'holdings', 'recurring', 'scans', 'chat', 'archive', 'envelopes', 'insights'] as const)(

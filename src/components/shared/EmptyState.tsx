@@ -32,7 +32,7 @@ type Subject =
   | 'archive'
   | 'envelopes'
   | 'insights'
-type SceneKey = Exclude<Subject, 'recurring'> | 'searching' | 'snoozing'
+type SceneKey = Exclude<Subject, 'recurring'> | Mood
 
 const SUBJECT_MOODS: Record<Subject, Mood> = {
   expenses: 'clear',
@@ -50,7 +50,7 @@ const SUBJECT_MOODS: Record<Subject, Mood> = {
  * with no results, a list that hasn't started) shows the plain mood scene. */
 export function sceneFor(subject: Subject, mood?: Mood): SceneKey {
   const resolved = mood ?? SUBJECT_MOODS[subject]
-  if (resolved !== SUBJECT_MOODS[subject]) return resolved === 'clear' ? 'expenses' : resolved
+  if (resolved !== SUBJECT_MOODS[subject]) return resolved
   return subject === 'recurring' ? 'snoozing' : subject
 }
 
@@ -227,6 +227,20 @@ function Dozing({ ink, eye, accent, zs = true }: SceneProps & { zs?: boolean }) 
 
 function SnoozingScene(props: SceneProps) {
   return <Dozing {...props} />
+}
+
+function ClearScene({ ink, eye }: SceneProps) {
+  const bobStyle = useBob(WIDE)
+  return (
+    <>
+      <Layer f={WIDE}>
+        <Perch ink={ink} />
+      </Layer>
+      <Layer f={WIDE} style={bobStyle}>
+        <Body ink={ink} eye={eye} />
+      </Layer>
+    </>
+  )
 }
 
 function ExpensesScene({ ink, eye, accent }: SceneProps) {
@@ -419,7 +433,7 @@ function ArchiveScene({ ink, eye, accent }: SceneProps) {
       <Layer f={f}>
         <Path
           d="M 118 300 H 382 V 392 A 20 20 0 0 1 362 412 H 138 A 20 20 0 0 1 118 392 Z"
-          fill={eye}
+          fill="none"
           stroke={accent}
           strokeWidth={13}
           strokeLinejoin="round"
@@ -451,7 +465,7 @@ function EnvelopesScene({ ink, eye, accent }: SceneProps) {
         </G>
       </Layer>
       <Layer f={f}>
-        <Rect x={128} y={345} width={256} height={118} rx={20} fill={eye} stroke={accent} strokeWidth={13} />
+        <Rect x={128} y={345} width={256} height={118} rx={20} fill="none" stroke={accent} strokeWidth={13} />
         <Path
           d="M 136 358 L 256 420 L 376 358"
           fill="none"
@@ -493,6 +507,7 @@ function InsightsScene({ ink, eye, accent }: SceneProps) {
 const SCENES: Record<SceneKey, (props: SceneProps) => ReactNode> = {
   searching: SearchingScene,
   snoozing: SnoozingScene,
+  clear: ClearScene,
   expenses: ExpensesScene,
   subscriptions: SubscriptionsScene,
   holdings: HoldingsScene,
