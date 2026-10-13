@@ -337,7 +337,7 @@ describe('HomeScreen · Ready to Assign', () => {
       Promise.resolve(key === 'mc-rollover-dismissed-get-started' ? '1' : null),
     )
     const { queryByText, findByText } = renderHome()
-    await findByText('Envelopes')
+    await findByText('Categories')
     expect(queryByText('Get started')).toBeNull()
     ;(SecureStore.getItemAsync as jest.Mock).mockImplementation(() => Promise.resolve(null))
   })

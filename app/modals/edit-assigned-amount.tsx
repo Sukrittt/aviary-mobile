@@ -335,7 +335,7 @@ function EditAmountBody({
         onClose={() => setPickerOpen(false)}
         value={category}
         onSelect={switchTo}
-        title="Switch envelope"
+        title="Switch category"
         noneLabel={null}
       />
 
@@ -407,7 +407,7 @@ function EnvelopeCard({
       onPressOut={press.onPressOut}
       disabled={disabled}
       accessibilityRole="button"
-      accessibilityLabel={`Editing ${name}. Switch envelope`}
+      accessibilityLabel={`Editing ${name}. Switch category`}
       style={[
         styles.destCard,
         { backgroundColor: tokens.card, borderColor: tokens.border, borderRadius: radius.lg, padding: space.md, gap: space.md },

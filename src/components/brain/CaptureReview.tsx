@@ -60,7 +60,7 @@ export function blockerHint(kept: CaptureRow[]): string | null {
     const out: string[] = []
     if (!name) out.push('Name each spend')
     if (Number.isNaN(rowTotal(row))) out.push(name ? `Fix the amount for ${name}` : 'Fix the amounts')
-    if (!row.category) out.push(name ? `Pick an envelope for ${name}` : 'Pick an envelope for each spend')
+    if (!row.category) out.push(name ? `Pick a category for ${name}` : 'Pick a category for each spend')
     return out
   })
   if (fixes.length === 0) return null
@@ -252,14 +252,14 @@ export function CaptureReview({ proposal, onSettled, origin = CAPTURE_ORIGIN, lo
                 <Pressable
                   onPress={() => setPickingFor(row.id)}
                   disabled={busy || locked}
-                  accessibilityLabel={row.category ? `Envelope: ${row.category}. Change it` : 'Pick an envelope'}
+                  accessibilityLabel={row.category ? `Category: ${row.category}. Change it` : 'Pick a category'}
                   style={[styles.chip, { backgroundColor: row.category ? tokens.inputBg : tokens.warnSoft, borderRadius: radius.full }]}
                 >
                   <Text
                     numberOfLines={1}
                     style={{ flexShrink: 1, color: row.category ? tokens.text2 : tokens.warnInk, fontFamily: row.category ? fontFamily.bodySemiBold : fontFamily.bodyBold, fontSize: type.caption }}
                   >
-                    {row.category ? envelope : 'Pick an envelope'}
+                    {row.category ? envelope : 'Pick a category'}
                   </Text>
                   <Icon icon={CaretDown} size={13} color={row.category ? tokens.text3 : tokens.warnInk} />
                 </Pressable>
@@ -363,8 +363,8 @@ export function CaptureReview({ proposal, onSettled, origin = CAPTURE_ORIGIN, lo
           if (picking) update(picking.id, { category })
           setPickingFor(null)
         }}
-        title="Envelope"
-        noneLabel="No envelope"
+        title="Category"
+        noneLabel="No category"
       />
     </Reanimated.View>
   )

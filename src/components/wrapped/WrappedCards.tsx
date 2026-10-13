@@ -509,7 +509,7 @@ export function StreakCard({ data, color, onColor, moneySaved }: CardProps & { m
           <View style={[styles.panel, { backgroundColor: `${onColor}22`, borderColor: `${onColor}44` }]}>
             <Text style={[styles.panelEyebrow, { color: onColor, fontFamily: fontFamily.bodyExtraBold }]}>MONEY THAT STAYED PUT</Text>
             <Text style={[styles.panelBigSmall, { color: onColor, fontFamily: fontFamily.displayBold }]}>{formatCurrency(saved)}</Text>
-            <Text style={[styles.panelSub, { color: onColor, fontFamily: fontFamily.bodySemiBold }]}>left in envelopes, unspent. That&apos;s a flex.</Text>
+            <Text style={[styles.panelSub, { color: onColor, fontFamily: fontFamily.bodySemiBold }]}>left in categories, unspent. That&apos;s a flex.</Text>
           </View>
         </WRise>
       )}

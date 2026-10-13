@@ -548,7 +548,7 @@ export default function DataScreen() {
               {clearing ? "Clearing…" : "Clear all transactions"}
             </Text>
             <Text style={[styles.clearHint, { color: tokens.text2 }]}>
-              Keeps envelopes, wipes history
+              Keeps categories, wipes history
             </Text>
           </View>
         </Pressable>
@@ -572,7 +572,7 @@ export default function DataScreen() {
             { color: tokens.text2, fontFamily: fontFamily.bodyMedium },
           ]}
         >
-          Deletes every transaction. Your envelopes and their assigned amounts
+          Deletes every transaction. Your categories and their assigned amounts
           stay. This can&apos;t be undone.
         </Text>
         <View style={styles.sheetButtonRow}>

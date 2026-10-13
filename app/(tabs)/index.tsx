@@ -526,7 +526,7 @@ export default function HomeScreen() {
           <Card elevated={false} style={envelopesEmpty && styles.emptyEnvelopesCard}>
             <View style={styles.cardHeadRow}>
               <Text style={[styles.cardTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: type.bodyLg }]}>
-                Envelopes
+                Categories
               </Text>
               {!envelopesEmpty && (
                 <Pressable onPress={toggleCollapseAll} accessibilityRole="button" hitSlop={8}>
@@ -541,9 +541,9 @@ export default function HomeScreen() {
                 <EmptyState
                   compact
                   subject="envelopes"
-                  title="Your envelopes are waiting"
+                  title="Your categories are waiting"
                   description="Give every kind of spending a place to land."
-                  action={{ label: 'Add your first envelope', onPress: () => router.navigate('/(tabs)/envelopes') }}
+                  action={{ label: 'Add your first category', onPress: () => router.navigate('/(tabs)/envelopes') }}
                 />
               ) : groupedEnvelopes.map(({ group, envelopes }) => (
                 <EnvelopeGroup

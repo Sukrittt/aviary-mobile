@@ -49,12 +49,12 @@ export function GetStartedCard({
 
   const steps: Step[] = [
     incomeDone
-      ? { key: 'budget', icon: Cardholder, label: 'Set up your budget', hint: 'Your envelopes are ready', done: true }
+      ? { key: 'budget', icon: Cardholder, label: 'Set up your budget', hint: 'Your categories are ready', done: true }
       : {
           key: 'budget',
           icon: Cardholder,
           label: upcomingPayHint ? 'Add what you have now' : 'Add your income',
-          hint: upcomingPayHint ?? 'Give your envelopes money to hold',
+          hint: upcomingPayHint ?? 'Give your categories money to hold',
           done: false,
           onPress: onAddIncome,
         },
@@ -62,7 +62,7 @@ export function GetStartedCard({
       key: 'fund',
       icon: EnvelopeSimple,
       label: 'Assign all your income',
-      hint: fundHint ?? 'Give all of it an envelope',
+      hint: fundHint ?? 'Give all of it a category',
       done: fundDone,
       onPress: onFund,
     },

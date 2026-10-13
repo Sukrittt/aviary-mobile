@@ -116,7 +116,7 @@ export default function NotificationsScreen() {
             </View>
           </View>
           <Text style={[styles.footnote, { color: tokens.text3 }]}>
-            Set thresholds per category in Envelopes.
+            Set thresholds on the Categories tab.
           </Text>
         </View>
 

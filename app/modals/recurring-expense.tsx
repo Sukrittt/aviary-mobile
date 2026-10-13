@@ -342,7 +342,7 @@ export default function RecurringExpenseModal() {
           <Text style={[styles.hint, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>
             {category
               ? `We'll add this expense in ${splitEmoji(category).text} on every due date.`
-              : 'Pick one so we know which envelope to file it under.'}
+              : 'Pick one so we know which category to file it under.'}
           </Text>
         </Reanimated.View>
 

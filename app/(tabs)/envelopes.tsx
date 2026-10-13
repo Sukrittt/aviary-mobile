@@ -816,7 +816,7 @@ export default function EnvelopesScreen() {
   return (
     <AnimatedTabContent>
       <Screen
-        title="Envelopes"
+        title="Categories"
         actions={<IconButton icon={Plus} accessibilityLabel="New group" onPress={openAddGroup} />}
         scroll={false}
       >
@@ -854,7 +854,7 @@ export default function EnvelopesScreen() {
           {groupedCategories.length === 0 ? (
             <EmptyState
               subject="envelopes"
-              title="Your envelopes are waiting"
+              title="Your categories are waiting"
               description="Make a group, add a category, and give all your money a place to land."
               action={{ label: "Create your first group", onPress: openAddGroup }}
             />

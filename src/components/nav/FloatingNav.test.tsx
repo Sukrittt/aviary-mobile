@@ -40,7 +40,7 @@ describe('FloatingNav', () => {
     const { getByLabelText } = renderWithProviders(
       <FloatingNav active="index" onSelect={onSelect} onAdd={jest.fn()} />,
     )
-    fireEvent.press(getByLabelText('Envelopes'))
+    fireEvent.press(getByLabelText('Categories'))
     expect(onSelect).toHaveBeenCalledWith('envelopes')
   })
 
@@ -87,7 +87,7 @@ describe('FloatingNav', () => {
     const { getByLabelText } = renderWithProviders(
       <FloatingNav active="envelopes" onSelect={jest.fn()} onAdd={jest.fn()} />,
     )
-    expect(getByLabelText('Envelopes').props.accessibilityState.selected).toBe(true)
+    expect(getByLabelText('Categories').props.accessibilityState.selected).toBe(true)
     expect(getByLabelText('Home').props.accessibilityState.selected).toBe(false)
   })
 
