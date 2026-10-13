@@ -214,18 +214,19 @@ export function CategoryBreakdown({
                   groupForCategory(categoryGroupMap, row.key) === group.key,
               );
               if (members.length === 0) return null;
-              if (
-                members.length ===
-                eligibleCategoryRows.filter(
-                  (row) =>
-                    groupForCategory(categoryGroupMap, row.key) === group.key,
-                ).length
-              )
-                return group;
+              const excluded = eligibleCategoryRows.filter(
+                (row) =>
+                  groupForCategory(categoryGroupMap, row.key) === group.key &&
+                  !members.includes(row),
+              );
+              if (excluded.length === 0) return group;
               const spent = members.reduce((sum, row) => sum + row.spent, 0);
-              const previousSpent = members.reduce(
-                (sum, row) => sum + (row.prevSpent ?? 0),
-                0,
+              // Start from the group's real total, not the members' sum: a
+              // category with nothing spent this month has no row, but its
+              // spend last month still belongs in the baseline.
+              const previousSpent = excluded.reduce(
+                (sum, row) => sum - (row.prevSpent ?? 0),
+                group.prevSpent ?? 0,
               );
               return {
                 ...group,

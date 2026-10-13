@@ -251,4 +251,42 @@ describe('CategoryBreakdown group delta under a partial filter', () => {
     // Cook + Travel: ₹3,000 now vs ₹2,000 before.
     expect(screen.getByText('50%')).toBeTruthy()
   })
+
+  it('counts last month for categories with no spend this month, which have no row', () => {
+    // Snacks spent ₹1,000 last month and nothing now, so it only shows up in
+    // the group's prevSpent (₹3,000 = Snacks + Travel + Fuel).
+    const categoryRows: BreakdownRow[] = [
+      { key: 'Travel', label: 'Travel', emoji: '', spent: 3000, assigned: 0, assignedIsCarried: false, pct: 60, deltaPct: 200, prevSpent: 1000 },
+      { key: 'Fuel', label: 'Fuel', emoji: '', spent: 1000, assigned: 0, assignedIsCarried: false, pct: 20, deltaPct: 0, prevSpent: 1000 },
+      { key: 'Investments', label: 'Investments', emoji: '', spent: 1000, assigned: 0, assignedIsCarried: false, pct: 20, deltaPct: null, prevSpent: 0 },
+    ]
+    const groups: BreakdownRow[] = [
+      { key: 'Everyday', label: 'Everyday', emoji: '', spent: 4000, assigned: 0, assignedIsCarried: false, pct: 80, deltaPct: 33, prevSpent: 3000 },
+      { key: 'Savings', label: 'Savings', emoji: '', spent: 1000, assigned: 0, assignedIsCarried: false, pct: 20, deltaPct: null, prevSpent: 0 },
+    ]
+    const screen = renderWithProviders(
+      <CategoryBreakdown
+        rows={groups}
+        categoryRows={categoryRows}
+        groupRows={groups}
+        categoryGroupMap={new Map([['Snacks', 'Everyday'], ['Travel', 'Everyday'], ['Fuel', 'Everyday'], ['Investments', 'Savings']])}
+        mode="group"
+        onModeChange={jest.fn()}
+        selectedKey={null}
+        onSelectKey={jest.fn()}
+        comparison={null}
+        leftover={0}
+        monthLabel="September 2026"
+      />,
+    )
+    act(() => jest.advanceTimersByTime(500))
+    fireEvent.press(screen.getByLabelText('Filter chart'))
+    fireEvent.press(screen.getByRole('tab', { name: 'Categories' }))
+    fireEvent.press(screen.getByRole('checkbox', { name: 'Fuel' }))
+    fireEvent.press(screen.getByRole('button', { name: 'Apply' }))
+    act(() => jest.advanceTimersByTime(250))
+
+    // Travel (+ Snacks at zero): ₹3,000 now vs ₹2,000 before.
+    expect(screen.getByText('50%')).toBeTruthy()
+  })
 })
