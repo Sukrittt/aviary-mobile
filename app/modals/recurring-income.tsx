@@ -19,7 +19,14 @@ import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { DatePicker } from '@/src/components/shared/DatePicker'
 import { BottomSheet } from '@/src/components/shared/Modal'
 import { AccountChips } from '@/src/components/shared/AccountChips'
+import { Toggle } from '@/src/components/ui/Toggle'
 import { todayLocal } from '@/src/lib/date'
+import { useQueryClient } from '@tanstack/react-query'
+import { budgetsKey } from '@/src/hooks/useBudgets'
+import { getBudgets } from '@/src/api/budgets'
+import { EMPTY } from '@/src/lib/constants'
+import { computeEnvelopeState, currentMonthKey } from '@/src/lib/envelope'
+import { startingBalanceHref } from '@/src/lib/upcomingPay'
 
 // House spring, same as recurring-expense.tsx.
 const FIELD_TRANSITION = LinearTransition.springify().damping(64).stiffness(700)
@@ -52,6 +59,7 @@ export default function RecurringIncomeModal() {
   const add = useAddRecurringIncome()
   const update = useUpdateRecurringIncome()
   const remove = useDeleteRecurringIncome()
+  const qc = useQueryClient()
   const existing = recurringQ.data?.find((r) => r.id === id)
   const isActive = existing ? existing.status === 'active' : true
 
@@ -60,8 +68,12 @@ export default function RecurringIncomeModal() {
   const [frequency, setFrequency] = useState(existing?.frequency || str(params.frequency) || 'monthly')
   const [payday, setPayday] = useState(existing?.start_date || todayLocal())
   const [endDate, setEndDate] = useState(existing?.end_date ?? '')
+  // Most pay doesn't end, so the end date waits behind a switch.
+  const [hasEnd, setHasEnd] = useState(!!existing?.end_date)
   const [accountId, setAccountId] = useState(existing?.account_id ?? '')
   const [saved, setSaved] = useState(false)
+  // A saved pay whose first payday is in a later month, so it doesn't count this one.
+  const [upcomingPayday, setUpcomingPayday] = useState('')
   const [confirmDelete, setConfirmDelete] = useState(false)
 
   // existing loads async on a cold cache: backfill once it arrives.
@@ -73,13 +85,28 @@ export default function RecurringIncomeModal() {
     setFrequency(existing.frequency || 'monthly')
     setPayday(existing.start_date || todayLocal())
     setEndDate(existing.end_date ?? '')
+    setHasEnd(!!existing.end_date)
     setAccountId(existing.account_id ?? '')
   }, [existing])
 
   useEffect(() => {
     if (!saved) return
-    const timer = setTimeout(() => router.back(), 1100)
-    return () => clearTimeout(timer)
+    let cancelled = false
+    const timer = setTimeout(async () => {
+      // With nothing else counted this month, someone signing up mid-month
+      // goes on to add what they have now, or there'd be nothing to budget
+      // until payday. Read once the save has settled, loading budgets if
+      // they never were, so a slow first load doesn't skip it.
+      const budgets = upcomingPayday ? await qc.ensureQueryData({ queryKey: budgetsKey, queryFn: getBudgets }).catch(() => undefined) : undefined
+      if (cancelled) return
+      const empty = budgets !== undefined && computeEnvelopeState(budgets, EMPTY, currentMonthKey(), EMPTY, EMPTY).income === 0
+      if (empty) router.replace(startingBalanceHref(upcomingPayday))
+      else router.back()
+    }, 1100)
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [saved])
 
@@ -94,7 +121,12 @@ export default function RecurringIncomeModal() {
     // The account goes only when it changed: an archived one the schedule
     // still names would make every other edit fail.
     const fields = { label: label.trim(), amount: String(parsed), frequency, start_date: payday, end_date: endDate, ...(accountId !== (existing?.account_id ?? '') ? { account_id: accountId } : {}) }
-    const onSuccess = () => setSaved(true)
+    // A monthly pay counts from its first payday's month, and a paused or
+    // ended one not at all.
+    const onSuccess = () => {
+      if (frequency === 'monthly' && isActive && payday.slice(0, 7) > currentMonthKey()) setUpcomingPayday(payday)
+      setSaved(true)
+    }
     if (isEdit) {
       update.mutate({ id, updates: fields }, { onSuccess, onError: () => { buzzError(); Alert.alert("Couldn't save", 'Check your connection and try again.') } })
     } else {
@@ -196,13 +228,30 @@ export default function RecurringIncomeModal() {
           <DatePicker mode="single" value={payday} onChange={setPayday} disableFuture={false} />
         </View>
 
-        <Reanimated.View layout={FIELD_TRANSITION} style={styles.field}>
-          <Text style={[styles.fieldLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>Ends (optional)</Text>
-          <DatePicker mode="single" value={endDate} onChange={setEndDate} disableFuture={false} />
-          {endsBeforePayday ? (
-            <Text style={[styles.errorHint, { color: tokens.coral, fontFamily: fontFamily.bodyMedium }]}>The end date can&apos;t be before payday.</Text>
-          ) : null}
+        <Reanimated.View layout={FIELD_TRANSITION} style={styles.endRow}>
+          <View style={{ flex: 1, gap: 4 }}>
+            <Text style={[styles.fieldLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>Has an end date</Text>
+            <Text style={[styles.hint, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>For a contract or a gig that stops</Text>
+          </View>
+          <Toggle
+            value={hasEnd}
+            accessibilityLabel="Has an end date"
+            onValueChange={(on) => {
+              setHasEnd(on)
+              if (!on) setEndDate('')
+            }}
+          />
         </Reanimated.View>
+
+        {hasEnd ? (
+          <Reanimated.View layout={FIELD_TRANSITION} style={styles.field}>
+            <Text style={[styles.fieldLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>Ends</Text>
+            <DatePicker mode="single" value={endDate} onChange={setEndDate} disableFuture={false} />
+            {endsBeforePayday ? (
+              <Text style={[styles.errorHint, { color: tokens.coral, fontFamily: fontFamily.bodyMedium }]}>The end date can&apos;t be before payday.</Text>
+            ) : null}
+          </Reanimated.View>
+        ) : null}
 
         {accounts.length > 0 && (
           <Reanimated.View layout={FIELD_TRANSITION}>
@@ -219,10 +268,10 @@ export default function RecurringIncomeModal() {
             onPress={handleSubmit}
             disabled={!canSubmit || busy || saved}
             accessibilityRole="button"
-            style={[styles.confirmButton, { backgroundColor: saved ? tokens.mint : tokens.accent, opacity: !canSubmit || busy ? 0.5 : 1 }]}
+            style={[styles.confirmButton, { backgroundColor: saved ? tokens.successBg : tokens.accent, opacity: !canSubmit || busy ? 0.5 : 1 }]}
           >
             {saved ? (
-              <CheckIcon color={tokens.onAccent} />
+              <CheckIcon color={tokens.onSuccess} />
             ) : (
               <Text style={[styles.confirmText, { color: tokens.onAccent, fontFamily: fontFamily.bodyBold }]}>
                 {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Add income'}
@@ -279,6 +328,7 @@ const styles = StyleSheet.create({
   reviewBanner: { borderRadius: 14, padding: 12 },
   reviewBannerText: { fontSize: 12.5, lineHeight: 17 },
   field: { gap: 8 },
+  endRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 },
   fieldLabel: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5 },
   input: { borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 14, fontSize: 15 },
   inputRow: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, gap: 6 },

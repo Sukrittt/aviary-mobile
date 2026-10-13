@@ -119,13 +119,13 @@ export default function HoldingActionModal() {
           style={[
             styles.confirmButton,
             {
-              backgroundColor: confirmSuccess ? tokens.mint : tokens.accent,
+              backgroundColor: confirmSuccess ? tokens.successBg : tokens.accent,
               opacity: !canSubmit || performAction.isPending ? 0.5 : 1,
             },
           ]}
         >
           {confirmSuccess ? (
-            <CheckIcon color={tokens.onAccent} />
+            <CheckIcon color={tokens.onSuccess} />
           ) : (
             <Text style={[styles.confirmText, { color: tokens.onAccent, fontFamily: fontFamily.bodyBold }]}>
               {performAction.isPending ? 'Saving…' : 'Confirm'}

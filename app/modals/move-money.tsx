@@ -465,11 +465,11 @@ export default function MoveMoneyModal() {
               disabled={!ready || saving || moveSuccess}
               style={[
                 styles.confirmButton,
-                { backgroundColor: moveSuccess ? tokens.mint : ready ? tokens.accent : tokens.inputBg, borderRadius: radius.full, opacity: !ready || saving ? 0.5 : 1 },
+                { backgroundColor: moveSuccess ? tokens.successBg : ready ? tokens.accent : tokens.inputBg, borderRadius: radius.full, opacity: !ready || saving ? 0.5 : 1 },
               ]}
             >
               {moveSuccess ? (
-                <CheckIcon color={tokens.onAccent} />
+                <CheckIcon color={tokens.onSuccess} />
               ) : (
                 <Text style={[styles.confirmText, { color: ready ? tokens.onAccent : tokens.text3, fontFamily: fontFamily.bodyBold, fontSize: type.body }]}>
                   {saving

@@ -2,10 +2,10 @@ import { useCurrency } from '@/src/context/CurrencyContext'
 import { currencyUnit } from '@/src/lib/currencies'
 import { useRecurringIncomes } from '@/src/hooks/useIncomes'
 import { useAccounts } from '@/src/hooks/useAccounts'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { View, Text, Pressable, RefreshControl, StyleSheet, Linking, Platform } from 'react-native'
 import { useQuery } from '@tanstack/react-query'
-import { useRouter, useIsFocused } from 'expo-router'
+import { useRouter, useNavigation, useFocusEffect } from 'expo-router'
 import { ChevronRight, LineChart } from 'lucide-react-native'
 import Reanimated, { FadeIn, FadeInDown, FadeOut, LinearTransition } from 'react-native-reanimated'
 import * as Haptics from 'expo-haptics'
@@ -59,6 +59,7 @@ import { firstBanner } from '@/src/lib/homeBanner'
 import { Alert } from '@/src/components/ui/AlertHost'
 import { isHidden } from '@/src/lib/features'
 import { GetStartedCard } from '@/src/components/home/GetStartedCard'
+import { paydayLabel, startingBalanceHref, upcomingMonthlyPay } from '@/src/lib/upcomingPay'
 import { EmptyState } from '@/src/components/shared/EmptyState'
 import { FORCE_EMPTY_STATE_PREVIEW, emptyForPreview } from '@/src/lib/emptyStatePreview'
 
@@ -73,7 +74,7 @@ export default function HomeScreen() {
   const { tokens, space, type, radius } = useTheme()
   const { refreshing, onRefresh } = useRefresh()
   const router = useRouter()
-  const isFocused = useIsFocused()
+  const navigation = useNavigation()
   const online = useOnline()
 
   const budgetsQ = useBudgets()
@@ -139,6 +140,8 @@ export default function HomeScreen() {
     () => computeEnvelopeState(budgets, expenses, prevMonth, categories, groups),
     [budgets, expenses, prevMonth, categories, groups],
   )
+  // A first pay next month leaves nothing to budget this month until they add what they have now.
+  const upcomingPay = upcomingMonthlyPay(schedulesQ.data ?? [], month)
 
   // Money doesn't roll into envelopes anymore (see envelope.ts), so this is a
   // one-time heads-up on what was left unspent overall, not a running balance.
@@ -155,10 +158,21 @@ export default function HomeScreen() {
   // entirely off-screen, so reveal just shows the settled number. Holding the
   // displayed value frozen until Home is actually visible again defers that
   // roll to the moment it can be seen.
-  const covered = !isFocused || openSheetCount > 0
+  // Read on render rather than via useIsFocused(), which re-rendered all of
+  // Home on every tab blur and focus and held up the switch on the JS thread.
+  // The only render that needs focus is a change waiting to roll in, so focus
+  // asks for one just then.
+  const covered = !navigation.isFocused() || openSheetCount > 0
   const heroPress = usePressSpring()
   const pillPress = usePressSpring()
   const [displayedReadyToAssign, setDisplayedReadyToAssign] = useState(envelopeState.readyToAssign)
+  const [, setFocusTick] = useState(0)
+  const rtaPending = displayedReadyToAssign !== envelopeState.readyToAssign
+  useFocusEffect(
+    useCallback(() => {
+      if (rtaPending) setFocusTick((n) => n + 1)
+    }, [rtaPending]),
+  )
   // Adjusting state during render (not in an effect) so the sync happens in
   // the same commit as the value that triggered it, with no extra render.
   // Spending Ready to Assign down to zero is the method's payoff, so the
@@ -485,8 +499,9 @@ export default function HomeScreen() {
               fundDone={fundDone}
               manualTransactionDone={!!user.manualTransactionCompletedAt}
               guidedTourDone={!!user.guidedTourCompletedAt}
+              upcomingPayHint={upcomingPay ? `Your pay lands ${paydayLabel(upcomingPay.start_date)}. Budget what you have till then.` : undefined}
               onAddIncome={() =>
-                router.push(changeIncomeHref)
+                router.push(upcomingPay ? startingBalanceHref(upcomingPay.start_date) : changeIncomeHref)
               }
               fundHint={incomeDone ? `${formatCurrency(envelopeState.readyToAssign, hideAmounts)} still to assign` : undefined}
               onFund={() => (nextToFund ? handleEditAmount(nextToFund) : router.navigate('/(tabs)/envelopes'))}

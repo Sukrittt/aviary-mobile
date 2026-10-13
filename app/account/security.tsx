@@ -449,11 +449,11 @@ export default function SecurityScreen() {
           disabled={updateUser.isPending || nameSuccess}
           style={[
             styles.sheetSaveButton,
-            { backgroundColor: nameSuccess ? tokens.mint : tokens.accent, opacity: updateUser.isPending ? 0.5 : 1 },
+            { backgroundColor: nameSuccess ? tokens.successBg : tokens.accent, opacity: updateUser.isPending ? 0.5 : 1 },
           ]}
         >
           {nameSuccess ? (
-            <CheckIcon color={tokens.onAccent} />
+            <CheckIcon color={tokens.onSuccess} />
           ) : (
             <Text style={[styles.sheetSaveText, { color: tokens.onAccent, fontFamily: fontFamily.bodyBold }]}>
               {updateUser.isPending ? 'Saving…' : 'Save'}

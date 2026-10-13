@@ -232,7 +232,7 @@ export function FloatingNav({
                 // vanishes and a ring reads as a stray outline. Invert instead:
                 // solid white disc, accent plus, no ring. Success keeps the
                 // mint disc edge-to-edge so no white rim shows around it.
-                background={addActive ? (addSuccess ? tokens.mint : floodDisc) : idle}
+                background={addActive ? (addSuccess ? tokens.successBg : floodDisc) : idle}
                 color={addActive ? tokens.accent : idleIcon}
                 ringColor={addActive ? 'transparent' : tokens.accent}
                 onPress={handleAdd}
@@ -243,7 +243,7 @@ export function FloatingNav({
                 overrideContent={
                   addActive && addSuccess ? (
                     <View testID="nav-add-success">
-                      <AddCircleDone discColor={tokens.mint} checkColor={tokens.onAccent} />
+                      <AddCircleDone discColor={tokens.successBg} checkColor={tokens.onSuccess} />
                     </View>
                   ) : addActive && addSaving ? (
                     <View testID="nav-add-saving">

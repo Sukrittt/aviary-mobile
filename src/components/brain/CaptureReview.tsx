@@ -338,7 +338,7 @@ export function CaptureReview({ proposal, onSettled, origin = CAPTURE_ORIGIN, lo
           style={[
             styles.primary,
             {
-              backgroundColor: phase === 'success' ? tokens.mint : tokens.accent,
+              backgroundColor: phase === 'success' ? tokens.successBg : tokens.accent,
               borderRadius: radius.full,
               // Dimmed while it's logging too, so a second tap clearly won't do anything.
               opacity: phase === 'saving' || (!ready && phase === 'idle') ? 0.5 : 1,
@@ -346,7 +346,7 @@ export function CaptureReview({ proposal, onSettled, origin = CAPTURE_ORIGIN, lo
           ]}
         >
           {phase === 'success' ? (
-            <CheckIcon color={tokens.onAccent} />
+            <CheckIcon color={tokens.onSuccess} />
           ) : (
             <Text style={{ color: tokens.onAccent, fontFamily: fontFamily.bodyBold, fontSize: type.body - 1 }}>
               {phase === 'saving' ? 'Logging…' : kept.length ? `Log ${spendsLabel(kept.length)}` : 'Nothing to log'}

@@ -262,7 +262,7 @@ export default function EditMonthIncomeModal() {
           style={[
             styles.confirmButton,
             {
-              backgroundColor: success ? tokens.mint : tokens.accent,
+              backgroundColor: success ? tokens.successBg : tokens.accent,
               borderRadius: radius.full,
               opacity: saving || value <= 0 ? 0.5 : 1,
             },
@@ -271,7 +271,7 @@ export default function EditMonthIncomeModal() {
           disabled={saving || success || value <= 0}
         >
           {success ? (
-            <CheckIcon color={tokens.onAccent} size={16} />
+            <CheckIcon color={tokens.onSuccess} size={16} />
           ) : (
             <Text
               style={{

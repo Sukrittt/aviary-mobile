@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { Profiler, useState } from 'react'
+import * as mockReact from 'react'
 import { Animated, Linking, Platform } from 'react-native'
 import { act, fireEvent, waitFor } from '@testing-library/react-native'
 import * as SecureStore from 'expo-secure-store'
@@ -9,6 +10,8 @@ import { getSystemStatus } from '@/src/api/systemStatus'
 import { lightTokens } from '@/src/theme/tokens'
 import appJson from '@/app.json'
 import HomeScreen from './index'
+
+import { startingBalanceHref } from '@/src/lib/upcomingPay'
 
 const MONTH = currentMonthKey()
 
@@ -35,7 +38,7 @@ jest.mock('@/src/hooks/useExpenses', () => ({
   useRecentExpenses: () => ({ data: mockExpenses, isLoading: false, error: null, refetch: jest.fn() }),
   useLastSpent: () => ({ data: {} }),
 }))
-let mockSchedules: { id: string; frequency: string; status: string }[] | undefined = []
+let mockSchedules: { id: string; frequency: string; status: string; start_date: string }[] | undefined = []
 jest.mock('@/src/hooks/useIncomes', () => ({ useRecurringIncomes: () => ({ data: mockSchedules }) }))
 jest.mock('@/src/hooks/useAccounts', () => ({ useAccounts: () => ({ data: [] }) }))
 jest.mock('@/src/hooks/useCategories', () => ({
@@ -59,10 +62,49 @@ jest.mock('@/src/api/systemStatus', () => ({ getSystemStatus: jest.fn(() => new 
 jest.mock('@/src/components/balance/BalanceCheckCard', () => ({ BalanceCheckCard: () => null }))
 const mockPush = jest.fn()
 const mockNavigate = jest.fn()
+// A tab's focus as the navigator holds it: isFocused() reads it, and focus/blur
+// listeners hear it change without anything re-rendering on their own.
+const mockNav = {
+  focused: true,
+  listeners: new Set<(type: 'focus' | 'blur') => void>(),
+  isFocused: () => mockNav.focused,
+  emit(type: 'focus' | 'blur') {
+    mockNav.focused = type === 'focus'
+    mockNav.listeners.forEach((l) => l(type))
+  },
+}
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: mockPush, back: jest.fn(), replace: jest.fn(), navigate: mockNavigate }),
-  useIsFocused: () => true,
+  useNavigation: () => mockNav,
+  // Like React Navigation's: re-renders its caller on every blur and focus.
+  useIsFocused: () => {
+    const [focused, setFocused] = mockReact.useState(mockNav.focused)
+    mockReact.useEffect(() => {
+      const listener = (type: 'focus' | 'blur') => setFocused(type === 'focus')
+      mockNav.listeners.add(listener)
+      return () => { mockNav.listeners.delete(listener) }
+    }, [])
+    return focused
+  },
+  // Same contract as React Navigation's: runs on focus, cleans up on blur.
+  useFocusEffect: (effect: () => void | (() => void)) => {
+    mockReact.useEffect(() => {
+      let cleanup = mockNav.focused ? effect() : undefined
+      const listener = (type: 'focus' | 'blur') => {
+        cleanup?.()
+        cleanup = type === 'focus' ? effect() : undefined
+      }
+      mockNav.listeners.add(listener)
+      return () => {
+        mockNav.listeners.delete(listener)
+        cleanup?.()
+      }
+    }, [effect])
+  },
 }))
+
+// Its own focus re-render is cheap and not what the tab-switch test measures.
+jest.mock('@/src/components/nav/AnimatedTabContent', () => ({ AnimatedTabContent: ({ children }: any) => children }))
 
 function renderHome() {
   return renderWithProviders(<HomeScreen />)
@@ -70,6 +112,7 @@ function renderHome() {
 
 describe('HomeScreen · Ready to Assign', () => {
   beforeEach(() => {
+    mockNav.focused = true
     mockPush.mockClear()
     mockBudgetsError = null
     mockUser = { onboardedAt: '2026-10-01T00:00:00.000Z', getStartedAt: '2026-10-01T00:00:00.000Z' }
@@ -107,14 +150,14 @@ describe('HomeScreen · Ready to Assign', () => {
   })
 
   it('Change income edits the one monthly schedule, or sends you to pick among several', () => {
-    mockSchedules = [{ id: 'r1', frequency: 'monthly', status: 'active' }, { id: 'r2', frequency: 'weekly', status: 'active' }]
+    mockSchedules = [{ id: 'r1', frequency: 'monthly', status: 'active', start_date: '2026-01-01' }, { id: 'r2', frequency: 'weekly', status: 'active', start_date: '2026-01-01' }]
     const first = renderHome()
     fireEvent.press(first.getByLabelText('Ready to Assign options'))
     fireEvent.press(first.getByText('Change income'))
     expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/modals/recurring-income', params: { id: 'r1' } })
     first.unmount()
 
-    mockSchedules = [{ id: 'r1', frequency: 'monthly', status: 'active' }, { id: 'r3', frequency: 'monthly', status: 'active' }]
+    mockSchedules = [{ id: 'r1', frequency: 'monthly', status: 'active', start_date: '2026-01-01' }, { id: 'r3', frequency: 'monthly', status: 'active', start_date: '2026-01-01' }]
     const second = renderHome()
     fireEvent.press(second.getByLabelText('Ready to Assign options'))
     fireEvent.press(second.getByText('Change income'))
@@ -180,6 +223,36 @@ describe('HomeScreen · Ready to Assign', () => {
     const fresh = renderHome()
     expect(fresh.getByTestId('rta-slim')).toBeTruthy()
     expect(fresh.queryByText('Every rupee has a job.')).toBeNull()
+  })
+
+  it("doesn't re-render on a tab switch that changes nothing on screen", () => {
+    // Home is the heaviest tab; re-rendering it on every blur and focus held up
+    // the switch to Activity (and back) on the JS thread.
+    let renders = 0
+    renderWithProviders(<Profiler id="home" onRender={() => { renders++ }}><HomeScreen /></Profiler>)
+    const before = renders
+    act(() => mockNav.emit('blur'))
+    act(() => mockNav.emit('focus'))
+    expect(renders).toBe(before)
+  })
+
+  it('holds a Ready to Assign change made while covered until Home is back in view', () => {
+    let refetched = () => {}
+    function Harness() {
+      const [, setTick] = useState(0)
+      refetched = () => setTick((n) => n + 1)
+      return <HomeScreen />
+    }
+    const view = renderWithProviders(<Harness />)
+    act(() => mockNav.emit('blur'))
+    mockBudgets = [
+      { month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' },
+      { month: MONTH, category: 'Food', assigned: '8000', rolled_over: '0' },
+    ]
+    act(() => refetched())
+    expect(view.getByLabelText('₹15,000')).toBeTruthy()
+    act(() => mockNav.emit('focus'))
+    expect(view.getByLabelText('₹12,000')).toBeTruthy()
   })
 
   it('shows the month in the header', () => {
@@ -293,6 +366,19 @@ describe('HomeScreen · Ready to Assign', () => {
 
     fireEvent.press(await findByText('Add your income'))
     expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/modals/recurring-income', params: { label: 'Monthly income', frequency: 'monthly', amount: '' } })
+  })
+
+  // Signing up mid-month, the first pay lands next month and counts from then.
+  it('asks for what you have now when the first pay lands next month', async () => {
+    mockBudgets = [{ month: MONTH, category: 'Food', assigned: '0', rolled_over: '0' }]
+    const [y, m] = MONTH.split('-').map(Number)
+    const payday = m === 12 ? `${y + 1}-01-04` : `${y}-${String(m + 1).padStart(2, '0')}-04`
+    mockSchedules = [{ id: 'r1', frequency: 'monthly', status: 'active', start_date: payday }]
+    const { findByText } = renderHome()
+
+    fireEvent.press(await findByText('Add what you have now'))
+    expect(mockPush).toHaveBeenLastCalledWith(startingBalanceHref(payday))
+    mockSchedules = []
   })
 
   it('keeps Get started up without income, even with both other milestones done', async () => {

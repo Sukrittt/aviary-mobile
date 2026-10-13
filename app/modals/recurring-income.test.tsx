@@ -3,6 +3,8 @@ import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import RecurringIncomeModal from './recurring-income'
 import { addRecurringIncome, getRecurringIncomes, updateRecurringIncome } from '@/src/api/incomes'
 import { getAccounts } from '@/src/api/accounts'
+import { currentMonthKey } from '@/src/lib/envelope'
+import { startingBalanceHref } from '@/src/lib/upcomingPay'
 
 jest.mock('@/src/api/incomes', () => ({
   ...jest.requireActual('@/src/api/incomes'),
@@ -17,8 +19,10 @@ jest.mock('@/src/api/budgets', () => ({ getBudgets: jest.fn(async () => []) }))
 jest.mock('@/src/lib/netStatus', () => ({ ...jest.requireActual('@/src/lib/netStatus'), useOnline: () => true, isOnline: () => true }))
 
 let mockParams: Record<string, string> = {}
+const mockBack = jest.fn()
+const mockReplace = jest.fn()
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ back: jest.fn(), push: jest.fn(), replace: jest.fn(), navigate: jest.fn() }),
+  useRouter: () => ({ back: mockBack, push: jest.fn(), replace: mockReplace, navigate: jest.fn() }),
   useLocalSearchParams: () => mockParams,
 }))
 
@@ -80,4 +84,57 @@ it("leaves an archived account alone when editing something else", async () => {
   })
   await waitFor(() => expect(updateRecurringIncome).toHaveBeenCalled())
   expect((updateRecurringIncome as jest.Mock).mock.calls[0][1]).not.toHaveProperty('account_id')
+})
+
+describe('a first payday next month', () => {
+  const [y, m] = currentMonthKey().split('-').map(Number)
+  const payday = m === 12 ? `${y + 1}-01-04` : `${y}-${String(m + 1).padStart(2, '0')}-04`
+  const schedule = (status: string) => ({ id: 'r1', label: 'Salary', amount: '50000', frequency: 'monthly', start_date: payday, end_date: '', next_run_date: payday, account_id: '', status, created_at: '' })
+
+  async function save() {
+    const utils = renderWithProviders(<RecurringIncomeModal />)
+    await utils.findByDisplayValue('Salary')
+    await act(async () => {
+      fireEvent.press(utils.getByText('Save changes'))
+    })
+    await waitFor(() => expect(mockBack.mock.calls.length + mockReplace.mock.calls.length).toBe(1), { timeout: 3000 })
+  }
+
+  it('goes on to a starting balance when nothing counts this month', async () => {
+    mockParams = { id: 'r1' }
+    ;(getRecurringIncomes as jest.Mock).mockResolvedValue([schedule('active')])
+    await save()
+    expect(mockReplace).toHaveBeenCalledWith(startingBalanceHref(payday))
+  })
+
+  it('just closes for a paused one, which counts in no month', async () => {
+    mockParams = { id: 'r1' }
+    ;(getRecurringIncomes as jest.Mock).mockResolvedValue([schedule('paused')])
+    await save()
+    expect(mockBack).toHaveBeenCalled()
+  })
+})
+
+it('keeps the end date behind a switch, and clears it when switched off', async () => {
+  mockParams = { id: 'r1' }
+  ;(getRecurringIncomes as jest.Mock).mockResolvedValue([
+    { id: 'r1', label: 'Contract', amount: '30000', frequency: 'monthly', start_date: '2026-10-01', end_date: '2027-03-31', next_run_date: '2026-11-01', account_id: '', status: 'active', created_at: '' },
+  ])
+  const { findByDisplayValue, getByLabelText, getByText, queryByText } = renderWithProviders(<RecurringIncomeModal />)
+  await findByDisplayValue('Contract')
+  expect(getByText('Ends')).toBeTruthy()
+
+  fireEvent.press(getByLabelText('Has an end date'))
+  expect(queryByText('Ends')).toBeNull()
+  await act(async () => {
+    fireEvent.press(getByText('Save changes'))
+  })
+  await waitFor(() => expect(updateRecurringIncome).toHaveBeenCalledWith('r1', expect.objectContaining({ end_date: '' })))
+})
+
+it('hides the end date on a new income', () => {
+  const { queryByText, getByLabelText } = renderWithProviders(<RecurringIncomeModal />)
+  expect(queryByText('Ends')).toBeNull()
+  fireEvent.press(getByLabelText('Has an end date'))
+  expect(queryByText('Ends')).toBeTruthy()
 })

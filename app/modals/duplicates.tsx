@@ -191,14 +191,14 @@ export default function DuplicatesModal() {
               style={[
                 styles.primary,
                 {
-                  backgroundColor: phase === 'success' ? tokens.mint : tokens.accent,
+                  backgroundColor: phase === 'success' ? tokens.successBg : tokens.accent,
                   borderRadius: radius.full,
                   opacity: phase === 'saving' ? 0.5 : 1,
                 },
               ]}
             >
               {phase === 'success' ? (
-                <CheckIcon color={tokens.onAccent} size={16} />
+                <CheckIcon color={tokens.onSuccess} size={16} />
               ) : (
                 <Text style={{ color: tokens.onAccent, fontFamily: fontFamily.bodyBold, fontSize: type.body }}>
                   {phase === 'saving' ? 'Deleting…' : 'Delete the newer one'}

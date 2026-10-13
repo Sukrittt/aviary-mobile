@@ -1,4 +1,4 @@
-import { addNotificationResponseListener, addPushTokenListener, checkColdStartNotification, registerForPushNotificationsAsync } from './notifications'
+import { addNotificationResponseListener, addPushTokenListener, checkColdStartNotification, registerForPushNotificationsAsync, unregisterDevicePushToken } from './notifications'
 import { track } from '@/src/lib/analytics'
 import { registerPushToken } from '@/src/api/notifications'
 import { SessionChangedError } from '@/src/api/accessMode'
@@ -7,6 +7,8 @@ const mockPush = jest.fn()
 const mockDismissTo = jest.fn()
 jest.mock('expo-router', () => ({ router: { push: (...args: unknown[]) => mockPush(...args), dismissTo: (...args: unknown[]) => mockDismissTo(...args) } }))
 jest.mock('@/src/api/notifications', () => ({ registerPushToken: jest.fn() }))
+// Release builds may have no EXPO_PUBLIC_API_URL and lean on client.ts's fallback.
+jest.mock('@/src/api/client', () => ({ BASE_URL: 'https://base.test' }))
 jest.mock('@/src/lib/analytics', () => ({ track: jest.fn() }))
 jest.mock('expo-device', () => ({ isDevice: true }))
 
@@ -178,4 +180,38 @@ it('tags a come-back nudge tap with its kind and step', () => {
  addNotificationResponseListener()
  responseListener!({notification:{request:{content:{data:{route:'/modals/log-expense', kind:'reengage', step:7}}}}})
  expect(track).toHaveBeenCalledWith('notification_opened', { target: '/modals/log-expense', kind: 'reengage', step: 7 })
+})
+
+// After a denial Android 13 shows the prompt again every launch, and the opt-in
+// metric fired once per cold start.
+it('does not re-request permission the user already denied for good', async () => {
+  const Notifications = jest.requireMock('expo-notifications')
+  const original = Notifications.getPermissionsAsync
+  Notifications.getPermissionsAsync = () => Promise.resolve({ status: 'denied', canAskAgain: false })
+  Notifications.requestPermissionsAsync = jest.fn()
+  try {
+    jest.mocked(track).mockClear()
+    await registerForPushNotificationsAsync()
+    expect(Notifications.requestPermissionsAsync).not.toHaveBeenCalled()
+    expect(track).not.toHaveBeenCalledWith('push_permission_result', expect.anything())
+  } finally {
+    Notifications.getPermissionsAsync = original
+  }
+})
+it('unregisters the device token against BASE_URL', async () => {
+  const Notifications = jest.requireMock('expo-notifications')
+  const original = Notifications.getExpoPushTokenAsync
+  Notifications.getExpoPushTokenAsync = () => Promise.resolve({ data: 'ExponentPushToken[u]' })
+  const fetchMock = jest.fn().mockResolvedValue({ ok: true })
+  const originalFetch = global.fetch
+  global.fetch = fetchMock
+  try {
+    jest.mocked(registerPushToken).mockResolvedValueOnce()
+    await registerForPushNotificationsAsync()
+    await unregisterDevicePushToken('access')
+    expect(fetchMock).toHaveBeenCalledWith('https://base.test/api/notifications/register', expect.objectContaining({ method: 'DELETE' }))
+  } finally {
+    Notifications.getExpoPushTokenAsync = original
+    global.fetch = originalFetch
+  }
 })

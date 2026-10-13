@@ -1141,7 +1141,7 @@ export default function EnvelopesScreen() {
             style={[
               styles.saveBtn,
               {
-                backgroundColor: sheetSuccess ? tokens.mint : draftValid ? tokens.accent : tokens.inputBg,
+                backgroundColor: sheetSuccess ? tokens.successBg : draftValid ? tokens.accent : tokens.inputBg,
                 opacity: submitting ? 0.6 : 1,
               },
             ]}
@@ -1149,7 +1149,7 @@ export default function EnvelopesScreen() {
             disabled={submitting || !draftValid || sheetSuccess}
           >
             {sheetSuccess ? (
-              <CheckIcon color={tokens.onAccent} />
+              <CheckIcon color={tokens.onSuccess} />
             ) : (
               <Text style={{ color: draftValid ? tokens.onAccent : tokens.text3, fontFamily: fontFamily.bodyBold }}>
                 {saveLabel}
