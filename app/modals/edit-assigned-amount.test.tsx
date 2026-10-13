@@ -38,8 +38,10 @@ jest.mock('@/src/components/shared/CategoryPickerSheet', () => {
 
 const mockBack = jest.fn()
 let mockParams: Record<string, string> = {}
+let mockCanGoBack = true
+const mockReplace = jest.fn()
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ back: mockBack, push: jest.fn(), replace: jest.fn(), navigate: jest.fn() }),
+  useRouter: () => ({ back: mockBack, canGoBack: () => mockCanGoBack, push: jest.fn(), replace: mockReplace, navigate: jest.fn() }),
   useLocalSearchParams: () => mockParams,
 }))
 
@@ -248,4 +250,19 @@ describe('switching envelopes in place', () => {
     expect(await findByLabelText('Editing Rent. Switch envelope')).toBeTruthy()
     expect(updateBudget).not.toHaveBeenCalled()
   })
+})
+
+// Opened from "Added ₹50" (Set a budget / Cover it), which replaced Log expense,
+// which the app can launch straight into: there's nothing underneath to go back to.
+it('closes to Home when it was opened with nothing underneath', async () => {
+  mockCanGoBack = false
+  try {
+    const { getByLabelText } = setup([])
+    await waitFor(() => expect(getByLabelText('Close')).toBeTruthy())
+    fireEvent.press(getByLabelText('Close'))
+    expect(mockBack).not.toHaveBeenCalled()
+    expect(mockReplace).toHaveBeenCalledWith('/(tabs)')
+  } finally {
+    mockCanGoBack = true
+  }
 })

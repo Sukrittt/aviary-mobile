@@ -203,10 +203,14 @@ function EditAmountBody({
     setError('')
   }
 
+  // The app can launch into Log expense, which "Added" then replaced with this
+  // screen, so there may be nothing underneath. Land on Home instead.
+  const close = () => (router.canGoBack() ? router.back() : router.replace('/(tabs)'))
+
   // Let the inline checkmark finish drawing before navigating back.
   useEffect(() => {
     if (!success) return
-    const timer = setTimeout(() => router.back(), 1100)
+    const timer = setTimeout(close, 1100)
     return () => clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [success])
@@ -236,7 +240,7 @@ function EditAmountBody({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Close"
-          onPress={() => router.back()}
+          onPress={close}
           hitSlop={12}
           style={[styles.headerBtn, { backgroundColor: tokens.card, borderColor: tokens.border, borderRadius: radius.full }]}
         >

@@ -135,14 +135,20 @@ export default function MoveMoneyModal() {
 
   const pickedRows = sources.filter((s) => s.key in allocs)
   const q = query.trim().toLowerCase()
+  // Once the picked sources cover it all, more suggestions only invite second-guessing. Same rule as Web.
+  const covered = amount > 0 && remaining === 0 && pickedRows.length > 0
   const poolRows = sources.filter((s) => !(s.key in allocs) && (!q || s.name.toLowerCase().includes(q)))
 
   const isLoading = budgetsQ.isLoading || expensesQ.isLoading || categoriesQ.isLoading || groupsQ.isLoading
 
   // Let the inline checkmark finish drawing before navigating back.
+  // The app can launch into Log expense, which "Added" then replaced with this
+  // screen, so there may be nothing underneath. Land on Home instead.
+  const close = () => (router.canGoBack() ? router.back() : router.replace('/(tabs)'))
+
   useEffect(() => {
     if (!moveSuccess) return
-    const timer = setTimeout(() => router.back(), 1100)
+    const timer = setTimeout(close, 1100)
     return () => clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [moveSuccess])
@@ -219,7 +225,9 @@ export default function MoveMoneyModal() {
     >
       <View style={[styles.header, { paddingTop: insets.top + space.sm, paddingHorizontal: space.lg, gap: space.md, borderBottomColor: tokens.border }]}>
         <Pressable
-          onPress={() => (step === 'sources' ? setStep('amount') : router.back())}
+          accessibilityRole="button"
+          accessibilityLabel={step === 'sources' ? 'Back' : 'Close'}
+          onPress={() => (step === 'sources' ? setStep('amount') : close())}
           hitSlop={12}
           style={[styles.headerBtn, { backgroundColor: tokens.card, borderColor: tokens.border, borderRadius: radius.full }]}
         >
@@ -242,7 +250,7 @@ export default function MoveMoneyModal() {
             {!target ? `${targetCategoryName} isn't set up as an envelope.` : 'No funds available to pull from.'}
           </Text>
           <Pressable
-            onPress={() => router.back()}
+            onPress={close}
             style={[styles.confirmButton, { backgroundColor: tokens.inputBg, borderRadius: radius.full, marginTop: space.lg }]}
           >
             <Text style={[styles.confirmText, { color: tokens.text, fontFamily: fontFamily.bodyBold, fontSize: type.body }]}>Close</Text>
@@ -430,14 +438,16 @@ export default function MoveMoneyModal() {
               </Reanimated.View>
             )}
 
-            <Reanimated.View layout={SOURCE_TRANSITION} style={{ gap: space.sm, marginTop: pickedRows.length > 0 ? space.sm : 0 }}>
-              <Text style={[styles.sectionLabel, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold, fontSize: type.micro }]}>
-                {q ? 'SEARCH RESULTS' : 'SUGGESTED SOURCES'}
-              </Text>
-              {poolRows.map((item) => (
-                <PoolSourceRow key={item.key} item={item} hideAmounts={hideAmounts} onPress={() => pick(item)} tokens={tokens} space={space} radius={radius} type={type} />
-              ))}
-            </Reanimated.View>
+            {!covered && (
+              <Reanimated.View layout={SOURCE_TRANSITION} entering={FadeIn.duration(150)} exiting={SOURCE_EXIT} style={{ gap: space.sm, marginTop: pickedRows.length > 0 ? space.sm : 0 }}>
+                <Text style={[styles.sectionLabel, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold, fontSize: type.micro }]}>
+                  {q ? 'SEARCH RESULTS' : 'SUGGESTED SOURCES'}
+                </Text>
+                {poolRows.map((item) => (
+                  <PoolSourceRow key={item.key} item={item} hideAmounts={hideAmounts} onPress={() => pick(item)} tokens={tokens} space={space} radius={radius} type={type} />
+                ))}
+              </Reanimated.View>
+            )}
             {poolRows.length === 0 && pickedRows.length === 0 && (
               <Text style={{ color: tokens.text3, fontSize: type.caption, fontFamily: fontFamily.bodyMedium, textAlign: 'center', paddingVertical: space.xl }}>
                 {q ? `Nothing named "${query}"` : 'Nothing else to pull from'}
@@ -590,32 +600,34 @@ function PickedSourceRow({
     // it painted above the section labels while they slide past it — those
     // reposition on the same spring and would otherwise cut across it.
     <Reanimated.View style={styles.sourceRowLayer} layout={SOURCE_TRANSITION} entering={SOURCE_ENTER} exiting={SOURCE_EXIT}>
-      <View style={[styles.sourceRow, { backgroundColor: tokens.accentSoft, borderColor: tokens.accent, borderRadius: radius.lg, padding: space.md, gap: space.sm }]}>
-        <View style={styles.sourceRowTop}>
-          <View style={[styles.sourceIcon, { backgroundColor: tokens.accentSoft, borderRadius: radius.sm }]}>
-            <Text style={{ fontSize: type.body }}>{item.emoji}</Text>
-          </View>
-          <View style={{ flex: 1, gap: 2 }}>
-            <Text style={{ color: tokens.text, fontFamily: fontFamily.bodyBold, fontSize: type.caption }} numberOfLines={1}>
-              {item.name}
-            </Text>
-            <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodyMedium, fontSize: 11 }}>
-              {formatCurrency(item.available, hideAmounts)} → {formatCurrency(item.available - alloc, hideAmounts)}
-            </Text>
-          </View>
-          <Pressable onPress={onRemove} hitSlop={8} accessibilityLabel="Remove" style={styles.removeBtn}>
-            <Trash2 size={14} color={tokens.text3} />
-          </Pressable>
+      {/* One line: what it is, what's left after, and how much to take. The
+          amount sits in a compact white field instead of a full-width bar. */}
+      <View style={[styles.sourceRow, styles.sourceRowTop, { backgroundColor: tokens.accentSoft, borderColor: tokens.accent, borderRadius: radius.lg, padding: space.md }]}>
+        <View style={[styles.sourceIcon, { backgroundColor: tokens.card, borderRadius: radius.sm }]}>
+          <Text style={{ fontSize: type.body }}>{item.emoji}</Text>
         </View>
-        <View style={[styles.allocInputRow, { backgroundColor: tokens.inputBg, borderColor: tokens.border, borderRadius: radius.sm, paddingHorizontal: space.sm }]}>
-          <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodySemiBold, fontSize: type.caption }}>{currencySymbol}</Text>
+        <View style={{ flex: 1, gap: 2 }}>
+          <Text style={{ color: tokens.text, fontFamily: fontFamily.bodyBold, fontSize: type.caption }} numberOfLines={1}>
+            {item.name}
+          </Text>
+          <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodyMedium, fontSize: 11 }} numberOfLines={1}>
+            {formatCurrency(item.available, hideAmounts)} → {formatCurrency(item.available - alloc, hideAmounts)}
+          </Text>
+        </View>
+        <View style={[styles.allocInputRow, { backgroundColor: tokens.card, borderColor: tokens.border, borderRadius: radius.md, paddingHorizontal: space.sm }]}>
+          <Text style={{ color: tokens.text3, fontFamily: fontFamily.bodySemiBold, fontSize: type.caption }}>{currencySymbol}</Text>
           <TextInput
             value={String(alloc)}
             onChangeText={commit}
             keyboardType="number-pad"
-            style={[styles.allocInput, { color: tokens.text, fontFamily: fontFamily.bodySemiBold, fontSize: type.caption }]}
+            selectTextOnFocus
+            accessibilityLabel={`Amount from ${item.name}`}
+            style={[styles.allocInput, { color: tokens.text, fontFamily: fontFamily.bodyBold, fontSize: type.body }]}
           />
         </View>
+        <Pressable onPress={onRemove} hitSlop={8} accessibilityLabel="Remove" style={styles.removeBtn}>
+          <Trash2 size={14} color={tokens.text3} />
+        </Pressable>
       </View>
     </Reanimated.View>
   )
@@ -704,6 +716,6 @@ const styles = StyleSheet.create({
   // Fixed box so the icon centers on itself instead of on the Pressable's
   // measured bounds, which can drift off-center next to a taller sibling.
   removeBtn: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
-  allocInputRow: { flexDirection: 'row', alignItems: 'center', height: 36, borderWidth: 1, gap: 4 },
-  allocInput: { flex: 1, paddingVertical: 6 },
+  allocInputRow: { flexDirection: 'row', alignItems: 'center', width: 104, height: 40, borderWidth: 1, gap: 4 },
+  allocInput: { flex: 1, padding: 0, textAlign: 'right' },
 })
