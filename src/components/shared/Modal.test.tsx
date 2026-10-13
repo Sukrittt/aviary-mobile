@@ -49,4 +49,16 @@ describe('BottomSheet', () => {
     fireEvent.press(getByText('Sheet content'), { stopPropagation: jest.fn() })
     expect(onClose).not.toHaveBeenCalled()
   })
+
+  // Regression: a Reanimated layout transition on the card stalled inside iOS's
+  // Modal (which resizes its root after mount), painting the card ~70pt above
+  // the screen's bottom while touches hit its real frame. Taps went dead.
+  it('keeps the card off layout animations so paint and touch stay in sync', () => {
+    const { getByTestId } = renderWithProviders(
+      <BottomSheet visible onClose={jest.fn()}>
+        <Text>Sheet content</Text>
+      </BottomSheet>,
+    )
+    expect(getByTestId('bottom-sheet-card').props.layout).toBeUndefined()
+  })
 })
