@@ -18,7 +18,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter, useLocalSearchParams, useFocusEffect, type Href } from "expo-router";
 import * as Haptics from "expo-haptics";
-import { ChevronLeft, ChevronRight, SlidersHorizontal, Trash2, X } from "lucide-react-native";
+import { CaretLeft, CaretRight, SlidersHorizontal, Trash, X } from "@/src/components/shared/icons";
 import Reanimated, { FadeIn, FadeOut, LinearTransition } from "react-native-reanimated";
 import type { ThemeTokens } from "@/src/theme/tokens";
 import { AnimatedTabContent } from "@/src/components/nav/AnimatedTabContent";
@@ -529,7 +529,7 @@ export default function ActivityScreen() {
                 }}
               />
               <IconButton
-                icon={Trash2}
+                icon={Trash}
                 color={tokens.coral}
                 accessibilityLabel="Delete selected"
                 onPress={() => {
@@ -832,7 +832,7 @@ export default function ActivityScreen() {
                 },
               ]}
             >
-              <Icon icon={ChevronLeft} size={17} color={tokens.text2} />
+              <Icon icon={CaretLeft} size={17} color={tokens.text2} />
             </Pressable>
             <Text
               style={[
@@ -857,7 +857,7 @@ export default function ActivityScreen() {
                 },
               ]}
             >
-              <Icon icon={ChevronRight} size={17} color={tokens.text2} />
+              <Icon icon={CaretRight} size={17} color={tokens.text2} />
             </Pressable>
           </View>
         ) : null}
@@ -1096,7 +1096,7 @@ function AppliedFilterChip({
         >
           {label}
         </Text>
-        <X size={13} strokeWidth={2.5} color={tokens.text2} />
+        <X size={13} weight="bold" color={tokens.text2} />
       </Pressable>
     </Reanimated.View>
   );

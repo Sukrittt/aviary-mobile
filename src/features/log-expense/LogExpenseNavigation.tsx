@@ -4,7 +4,7 @@ import { QuickAddMenu, type QuickAddItem } from '@/src/components/nav/QuickAddMe
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { INCOME_FLOOD } from '@/src/theme/tokens'
 import { usePathname, useRouter } from 'expo-router'
-import { HandCoins, Plus, ScanLine } from 'lucide-react-native'
+import { HandCoins, Plus, Scan } from '@/src/components/shared/icons'
 import { useState } from 'react'
 import { useCachedUser } from '@/src/hooks/useUser'
 import { isHidden } from '@/src/lib/features'
@@ -52,7 +52,7 @@ export function LogExpenseNavigation() {
   }
   const menuItems: QuickAddItem[] = [
     { label: 'Log expense', icon: Plus, tint: tokens.accent, onPress: () => router.push(LOG_EXPENSE_PATH) },
-    ...(isHidden(user, 'billScan') ? [] : [{ label: 'Scan a bill', icon: ScanLine, tint: tokens.blue, onPress: () => router.navigate({ pathname: '/more', params: { scan: '1' } }) }]),
+    ...(isHidden(user, 'billScan') ? [] : [{ label: 'Scan a bill', icon: Scan, tint: tokens.blue, onPress: () => router.navigate({ pathname: '/more', params: { scan: '1' } }) }]),
     ...(isHidden(user, 'income') ? [] : [{ label: 'Add income', icon: HandCoins, tint: INCOME_FLOOD, onPress: () => router.push(QUICK_INCOME_PATH) }]),
   ]
 

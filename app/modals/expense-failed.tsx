@@ -6,7 +6,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router'
 import Reanimated, { FadeIn } from 'react-native-reanimated'
 import LottieView from 'lottie-react-native'
 import * as Haptics from 'expo-haptics'
-import { AlertCircle } from 'lucide-react-native'
+import { WarningCircle } from '@/src/components/shared/icons'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { useAddExpense } from '@/src/hooks/useExpenses'
@@ -145,7 +145,7 @@ export default function ExpenseFailedScreen() {
             purely its box. */}
         <View style={[styles.mark, { marginBottom: space.xxl }]}>
           {lottieFailed ? (
-            <Icon icon={AlertCircle} size={MARK * 0.5} color={tokens.coral} strokeWidth={1.5} />
+            <Icon icon={WarningCircle} size={MARK * 0.5} color={tokens.coral} />
           ) : (
             <LottieView
               source={{ uri: ERROR_LOTTIE }}

@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { View, Text, Pressable, StyleSheet } from 'react-native'
 import Reanimated from 'react-native-reanimated'
 import * as Haptics from 'expo-haptics'
-import { Check } from 'lucide-react-native'
+import { Check } from '@/src/components/shared/icons'
 import { Icon } from '@/src/components/shared/Icon'
 import { usePressSpring } from '@/src/components/ui/Button'
 import { useTheme } from '@/src/theme/ThemeProvider'
@@ -65,7 +65,7 @@ export function AssignDemo({ onComplete }: { onComplete: () => void }) {
         >
           {note}
         </Text>
-        {readyToAssign === 0 && <Icon icon={Check} size={16} color={tokens.mint} strokeWidth={3} />}
+        {readyToAssign === 0 && <Icon icon={Check} size={16} color={tokens.mint} weight="bold" />}
         </View>
       </View>
 
@@ -119,7 +119,7 @@ function FundPill({ on, label, onPress }: { on: boolean; label: string; onPress:
         press.style,
       ]}
     >
-      {on && <Icon icon={Check} size={14} color={tokens.mint} strokeWidth={3} />}
+      {on && <Icon icon={Check} size={14} color={tokens.mint} weight="bold" />}
       <Text style={{ color: on ? tokens.mint : tokens.text, fontFamily: fontFamily.bodyBold, fontSize: type.micro }}>{on ? 'Funded' : label}</Text>
     </AnimatedPressable>
   )

@@ -1,5 +1,5 @@
 import { AccessibilityInfo, Modal, Pressable, ScrollView, Text, View } from 'react-native'
-import { ArrowLeft, RotateCw } from 'lucide-react-native'
+import { ArrowLeft, ArrowClockwise } from '@/src/components/shared/icons'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
@@ -17,7 +17,7 @@ export function ExpenseNoticeScreen({ status, action, onBack }: { status?: numbe
         <ScrollView contentContainerStyle={{ flexGrow: 1, paddingTop: insets.top + space.xl, paddingBottom: insets.bottom + space.xl, paddingHorizontal: space.xl }}>
           <View style={{ width: '100%', maxWidth: 520, alignSelf: 'center', flex: 1, justifyContent: 'center' }}>
             <View style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center', backgroundColor: tokens.accentSoft, borderRadius: radius.md, marginBottom: space.lg }}>
-              <RotateCw size={24} color={tokens.accentInk} />
+              <ArrowClockwise size={24} color={tokens.accentInk} />
             </View>
             <Text accessibilityRole="header" style={{ color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: type.heading, marginBottom: space.md }}>{copy.title}</Text>
             <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodyMedium, fontSize: type.body, lineHeight: type.body * 1.55 }}>{copy.message}</Text>

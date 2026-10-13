@@ -48,7 +48,7 @@ import { useTheme } from "@/src/theme/ThemeProvider";
 import { fontFamily } from "@/src/theme/fonts";
 import { NAV_HEIGHT } from "@/src/theme/scale";
 import { useIsFocused,useLocalSearchParams,useRouter } from "expo-router";
-import { ChevronDown, MessageSquareText, Plus, Tag, TriangleAlert, WalletMinimal } from "lucide-react-native";
+import { CaretDown, ChatText, Plus, Tag, Warning, Wallet } from "@/src/components/shared/icons";
 import { useCaptureTip } from "@/src/hooks/useCaptureTip";
 import { noteManualLog, type CaptureTipReason } from "@/src/lib/captureTip";
 import { CaptureTipBubble } from "@/src/features/log-expense/CaptureTipBubble";
@@ -534,7 +534,7 @@ export default function LogExpenseScreen() {
               accessibilityRole="button"
               accessibilityLabel="Log several spends at once"
             >
-              <MessageSquareText size={18} color="#ffffff" />
+              <ChatText size={18} color="#ffffff" />
             </Pressable>
           </Reanimated.View>
         )}
@@ -560,7 +560,7 @@ export default function LogExpenseScreen() {
       <Toast
         trigger={nudge}
         message={missingFieldsMessage(missing)}
-        icon={missing[0] === "amount" ? WalletMinimal : Tag}
+        icon={missing[0] === "amount" ? Wallet : Tag}
         // Clear of the header title with room to breathe.
         style={{ top: insets.top + space.xxxl + space.xl }}
       />
@@ -569,7 +569,7 @@ export default function LogExpenseScreen() {
         trigger={unusualNudge}
         // The amount and category are already on screen.
         message={unusual ? `Way above your usual ${formatMoney(Math.round(unusual.typical))}. Tap again to save.` : ""}
-        icon={TriangleAlert}
+        icon={Warning}
         style={{ top: insets.top + space.xxxl + space.xl }}
       />
 
@@ -636,7 +636,7 @@ export default function LogExpenseScreen() {
             >
               More
             </Text>
-            <ChevronDown size={16} color={onAccentDim} />
+            <CaretDown size={16} color={onAccentDim} />
           </Pressable>
 
 

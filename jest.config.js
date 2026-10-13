@@ -18,7 +18,8 @@ module.exports = {
     // Before the '@/' alias — first match wins, and a .lottie is a zip Jest can't parse.
     '\\.lottie$': '<rootDir>/__mocks__/fileMock.js',
     '^@/(.*)$': '<rootDir>/$1',
-    '^lucide-react-native$': '<rootDir>/node_modules/lucide-react-native/dist/cjs/lucide-react-native.js',
+    // Per-icon deep imports point at TS source; send Jest to the prebuilt CJS instead.
+    '^phosphor-react-native/src/icons/(.*)$': '<rootDir>/node_modules/phosphor-react-native/lib/commonjs/icons/$1.js',
   },
   collectCoverageFrom: ['src/**/*.{ts,tsx}', '!src/**/*.test.{ts,tsx}'],
 }

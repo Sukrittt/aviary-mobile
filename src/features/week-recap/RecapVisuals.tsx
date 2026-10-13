@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { View, Text, StyleSheet, useWindowDimensions } from 'react-native'
 import Svg, { Circle, Path } from 'react-native-svg'
-import { Check } from 'lucide-react-native'
+import { Check } from '@/src/components/shared/icons'
 import type { WeekRecap } from '@/src/api/weekRecap'
 import type { BlobSpec } from '@/src/components/wrapped/WrappedCard'
 import { WFade, WGrowX, WPop, WRise } from '@/src/components/wrapped/WrappedCard'
@@ -128,7 +128,7 @@ function DayDots({ recap, ink, bg }: { recap: WeekRecap; ink: string; bg: string
       {days.map((day, i) => (
         <WPop key={day.date} delay={450 + i * 90} style={styles.dotCol}>
           <View style={[styles.dot, { backgroundColor: ink }]} testID="recap-day">
-            <Check size={20} color={bg} strokeWidth={3} />
+            <Check size={20} color={bg} weight="bold" />
           </View>
           <Text style={[styles.dotLabel, { color: `${ink}cc` }]}>{day.letter}</Text>
         </WPop>

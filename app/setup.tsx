@@ -15,7 +15,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
-import { ArrowLeft, CopyX, Info, LayoutGrid, Pencil, Plus } from "lucide-react-native";
+import { ArrowLeft, Copy, Info, SquaresFour, PencilSimple, Plus } from "@/src/components/shared/icons";
 import { Toast } from "@/src/components/ui/Toast";
 import Animated, {
   useSharedValue,
@@ -990,7 +990,7 @@ function CurrencyWizard({
               accessibilityRole="button"
               style={[styles.pickOwn, { borderColor: tokens.borderStrong }]}
             >
-              <LayoutGrid size={15} color={tokens.accentInk} strokeWidth={2.2} />
+              <SquaresFour size={15} color={tokens.accentInk} />
               <Text
                 style={[
                   styles.pickOwnLabel,
@@ -1037,7 +1037,7 @@ function CurrencyWizard({
             onPress={addGroupRow}
             style={[styles.addRow, { borderColor: tokens.borderStrong }]}
           >
-            <Plus size={16} color={tokens.text2} strokeWidth={2.2} />
+            <Plus size={16} color={tokens.text2} />
             <Text style={[styles.addRowLabel, { color: tokens.text2 }]}>
               Add your own group
             </Text>
@@ -1090,7 +1090,7 @@ function CurrencyWizard({
                   onPress={() => addCatRow(g.id)}
                   style={[styles.addPill, { borderColor: tokens.borderStrong }]}
                 >
-                  <Plus size={14} color={tokens.text2} strokeWidth={2.4} />
+                  <Plus size={14} color={tokens.text2} weight="bold" />
                   <Text style={[styles.addPillLabel, { color: tokens.text2 }]}>
                     Add category
                   </Text>
@@ -1165,7 +1165,7 @@ function CurrencyWizard({
                   </Text>
                 </View>
               ))}
-              <Info size={13} color={tokens.text3} strokeWidth={2.4} />
+              <Info size={13} color={tokens.text3} weight="bold" />
               {note && (
                 <Text
                   style={[
@@ -1380,7 +1380,7 @@ function CurrencyWizard({
                     },
                   ]}
                 />
-                <Pencil size={13} color={tokens.text3} strokeWidth={2.2} />
+                <PencilSimple size={13} color={tokens.text3} />
               </View>
               <View
                 style={[
@@ -1568,7 +1568,7 @@ function CurrencyWizard({
       <Toast
         trigger={rowToast.n}
         message={rowToast.message}
-        icon={CopyX}
+        icon={Copy}
         style={{ top: insets.top + 12 }}
       />
     </View>

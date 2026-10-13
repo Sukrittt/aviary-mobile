@@ -3,7 +3,7 @@ import { View, Text, Pressable, ScrollView, Linking, ActivityIndicator, StyleShe
 import { useRouter } from 'expo-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { ArrowLeft, ChevronRight, ExternalLink, HelpCircle, Lock, LogOut, RotateCcw, ShieldCheck, UserRound, type LucideIcon } from 'lucide-react-native'
+import { ArrowLeft, CaretRight, ArrowSquareOut, Question, Lock, SignOut, ArrowCounterClockwise, ShieldCheck, User, type PhosphorIcon } from '@/src/components/shared/icons'
 import type { PurchasesPackage } from 'react-native-purchases'
 import { Alert } from '@/src/components/ui/AlertHost'
 import { PlanPicker } from '@/src/components/billing/PlanPicker'
@@ -132,7 +132,7 @@ export default function PlanScreen() {
               <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border, padding: 0, gap: 0 }]}>
                 <View style={styles.lockHead}>
                   <View style={[styles.lockBadge, { backgroundColor: tokens.accentSoft }]}>
-                    <Icon icon={Lock} size={18} color={tokens.accentInk} strokeWidth={2.4} />
+                    <Icon icon={Lock} size={18} color={tokens.accentInk} weight="bold" />
                   </View>
                   <View style={{ flex: 1, gap: 4 }}>
                     <Text style={[styles.lockTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>{lockedCopy(status).title}</Text>
@@ -145,7 +145,7 @@ export default function PlanScreen() {
                   <Text style={[styles.rowLabel, { flex: 1, marginLeft: 12, color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>
                     Your data&apos;s safe. Export it free, anytime.
                   </Text>
-                  <Icon icon={ChevronRight} size={16} color={tokens.text3} />
+                  <Icon icon={CaretRight} size={16} color={tokens.text3} />
                 </Pressable>
               </View>
             ) : paid ? (
@@ -179,22 +179,22 @@ export default function PlanScreen() {
             ) : null}
 
             <View style={[styles.card, styles.list, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
-              <Row icon={RotateCcw} label={busy === 'restore' ? 'Checking…' : 'Restore purchases'} onPress={() => void doRestore()} disabled={busy !== null} tokens={tokens} />
+              <Row icon={ArrowCounterClockwise} label={busy === 'restore' ? 'Checking…' : 'Restore purchases'} onPress={() => void doRestore()} disabled={busy !== null} tokens={tokens} />
               {manageable ? (
                 <>
                   <View style={[styles.divider, { backgroundColor: tokens.border }]} />
-                  <Row icon={ExternalLink} label={web ? 'Manage on the web' : 'Manage in Google Play'} onPress={() => void openManage()} tokens={tokens} />
+                  <Row icon={ArrowSquareOut} label={web ? 'Manage on the web' : 'Manage in Google Play'} onPress={() => void openManage()} tokens={tokens} />
                 </>
               ) : null}
             </View>
 
             {locked ? (
               <View style={[styles.card, styles.list, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
-                <Row icon={UserRound} label="Manage or delete account" onPress={() => router.push('/account/security')} tokens={tokens} />
+                <Row icon={User} label="Manage or delete account" onPress={() => router.push('/account/security')} tokens={tokens} />
                 <View style={[styles.divider, { backgroundColor: tokens.border }]} />
-                <Row icon={HelpCircle} label="Help & feedback" onPress={() => router.push('/account/help')} tokens={tokens} />
+                <Row icon={Question} label="Help & feedback" onPress={() => router.push('/account/help')} tokens={tokens} />
                 <View style={[styles.divider, { backgroundColor: tokens.border }]} />
-                <Row icon={LogOut} label={busy === 'signout' ? 'Signing out…' : 'Sign out'} onPress={() => void signOut()} disabled={busy !== null} tokens={tokens} />
+                <Row icon={SignOut} label={busy === 'signout' ? 'Signing out…' : 'Sign out'} onPress={() => void signOut()} disabled={busy !== null} tokens={tokens} />
               </View>
             ) : null}
 
@@ -219,7 +219,7 @@ function Row({
   disabled,
   tokens,
 }: {
-  icon: LucideIcon
+  icon: PhosphorIcon
   label: string
   onPress: () => void
   disabled?: boolean
@@ -229,7 +229,7 @@ function Row({
     <Pressable onPress={onPress} disabled={disabled} style={[styles.row, disabled && { opacity: 0.5 }]}>
       <Icon icon={icon} size={16} />
       <Text style={[styles.rowLabel, { flex: 1, marginLeft: 12, color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>{label}</Text>
-      <Icon icon={ChevronRight} size={16} color={tokens.text3} />
+      <Icon icon={CaretRight} size={16} color={tokens.text3} />
     </Pressable>
   )
 }

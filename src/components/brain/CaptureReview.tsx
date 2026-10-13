@@ -2,7 +2,7 @@ import * as Haptics from 'expo-haptics'
 import { useEffect, useRef, useState } from 'react'
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 import Reanimated, { FadeInDown, FadeOutLeft, LinearTransition } from 'react-native-reanimated'
-import { ChevronDown, TriangleAlert, X } from 'lucide-react-native'
+import { CaretDown, Warning, X } from '@/src/components/shared/icons'
 import type { CaptureProposal, ProposalStatus } from '@/src/api/ai'
 import { CategoryPickerSheet } from '@/src/components/shared/CategoryPickerSheet'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
@@ -261,7 +261,7 @@ export function CaptureReview({ proposal, onSettled, origin = CAPTURE_ORIGIN, lo
                   >
                     {row.category ? envelope : 'Pick an envelope'}
                   </Text>
-                  <Icon icon={ChevronDown} size={13} color={row.category ? tokens.text3 : tokens.warnInk} />
+                  <Icon icon={CaretDown} size={13} color={row.category ? tokens.text3 : tokens.warnInk} />
                 </Pressable>
                 {row.splitWays > 1 && !Number.isNaN(total) && (
                   <Text style={{ color: tokens.text3, fontFamily: fontFamily.bodyMedium, fontSize: type.caption }}>{`${formatMoney(total)} ÷ ${row.splitWays}`}</Text>
@@ -272,7 +272,7 @@ export function CaptureReview({ proposal, onSettled, origin = CAPTURE_ORIGIN, lo
               </View>
               {unusual && (
                 <View style={[styles.meta, { gap: space.xs }]}>
-                  <Icon icon={TriangleAlert} size={12} color={tokens.warn} />
+                  <Icon icon={Warning} size={12} color={tokens.warn} />
                   <Text style={{ color: tokens.warnInk, fontFamily: fontFamily.bodyMedium, fontSize: type.caption, flex: 1 }}>
                     {`Way above your usual ${formatMoney(Math.round(unusual.typical))}. Double-check it.`}
                   </Text>

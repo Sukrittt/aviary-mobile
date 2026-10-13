@@ -2,7 +2,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native'
 import Reanimated, { Easing, FadeOut, Keyframe } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import * as Haptics from 'expo-haptics'
-import type { LucideIcon } from 'lucide-react-native'
+import { type PhosphorIcon } from '@/src/components/shared/icons'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { NAV_HEIGHT } from '@/src/theme/scale'
@@ -13,7 +13,7 @@ const RISE = new Keyframe({
   100: { opacity: 1, transform: [{ translateY: 0 }, { scale: 1 }], easing: Easing.out(Easing.cubic) },
 }).duration(160)
 
-export type QuickAddItem = { label: string; icon: LucideIcon; tint: string; onPress: () => void }
+export type QuickAddItem = { label: string; icon: PhosphorIcon; tint: string; onPress: () => void }
 
 /**
  * The add slot's long-press menu: a small card that grows up out of the +

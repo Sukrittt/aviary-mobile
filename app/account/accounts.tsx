@@ -2,7 +2,7 @@ import { useState } from "react";
 import { View, Text, Pressable, ScrollView, RefreshControl, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ArrowLeft, Pencil, Plus, ReceiptText, Trash2 } from "lucide-react-native";
+import { ArrowLeft, PencilSimple, Plus, Invoice, Trash } from "@/src/components/shared/icons";
 import Reanimated from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 import { OfflineScreen } from "@/src/components/shared/OfflineScreen";
@@ -166,9 +166,9 @@ function AccountItem({ account, index, onEdit, onTransactions, onDelete }: { acc
   const { tokens } = useTheme();
   const delay = MOUNT_DELAY + Math.min(index, STAGGER_CAP) * ITEM_STAGGER;
   const actions = [
-    { icon: ReceiptText, label: `View ${account.name} transactions`, onPress: onTransactions },
-    { icon: Pencil, label: `Edit ${account.name}`, onPress: onEdit },
-    { icon: Trash2, label: `Delete ${account.name}`, onPress: onDelete },
+    { icon: Invoice, label: `View ${account.name} transactions`, onPress: onTransactions },
+    { icon: PencilSimple, label: `Edit ${account.name}`, onPress: onEdit },
+    { icon: Trash, label: `Delete ${account.name}`, onPress: onDelete },
   ];
   return (
     <PopIn play delay={delay} style={[styles.rowCard, styles.rowInner, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
@@ -189,7 +189,7 @@ function AccountItem({ account, index, onEdit, onTransactions, onDelete }: { acc
   );
 }
 
-function ActionIcon({ icon, label, onPress }: { icon: typeof Pencil; label: string; onPress: () => void }) {
+function ActionIcon({ icon, label, onPress }: { icon: typeof PencilSimple; label: string; onPress: () => void }) {
   const { tokens } = useTheme();
   const press = usePressSpring(0.88);
   return (

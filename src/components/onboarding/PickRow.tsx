@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { Text, TextInput, Pressable, StyleSheet } from 'react-native'
-import { Check } from 'lucide-react-native'
+import { Check } from '@/src/components/shared/icons'
 import Reanimated, {
   Easing,
   useAnimatedStyle,
@@ -117,7 +117,7 @@ export function PickRow({
         ]}
       >
         <Reanimated.View testID="pick-row-check-icon" accessible={false} style={[styles.checkIcon, checkStyle]}>
-          <Check size={16} color={tokens.onAccent} strokeWidth={3} />
+          <Check size={16} color={tokens.onAccent} weight="bold" />
         </Reanimated.View>
       </AnimatedPressable>
     </Reanimated.View>

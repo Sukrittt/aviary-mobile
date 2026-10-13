@@ -3,7 +3,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import * as Haptics from 'expo-haptics'
-import { X } from 'lucide-react-native'
+import { X } from '@/src/components/shared/icons'
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { usePrivacy } from '@/src/context/PrivacyContext'
 import { useDeleteExpense, useDismissDuplicate, useDuplicates } from '@/src/hooks/useExpenses'

@@ -27,6 +27,7 @@ import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { useInvalidFeedback } from '@/src/components/ui/useInvalidFeedback'
 import { AddCircleLoad, AddCircleDone } from './AddCircleAnim'
+import type { IconWeight } from '@/src/components/shared/icons'
 import { HomeGlyph, ActivityGlyph, EnvelopeGlyph, ProfileGlyph, PlusGlyph, type NavIconComponent } from './NavIcons'
 
 const AnimatedPressable = Reanimated.createAnimatedComponent(Pressable)
@@ -341,39 +342,38 @@ function useColorFade(color: string, duration = 200): SharedValue<string> {
 }
 
 /**
- * Cross-fades `color` instead of cutting. The glyph never swaps rendering
- * mode (always a plain fill), but its SVG `fill` is a render-time prop, not
- * an animatable style, so the tween is faked the same way: the previous color
- * kept as a layer fading out under the new one fading in.
+ * Cross-fades `color` and `weight` instead of cutting. SVG `fill` is a
+ * render-time prop, not an animatable style, so the tween is faked: the
+ * previous look kept as a layer fading out under the new one fading in.
  */
-function NavIcon({ icon: Icon, color, size }: { icon: NavIconComponent; color: string; size: number }) {
-  const [prevColor, setPrevColor] = useState<string | null>(null)
-  const currentColorRef = useRef(color)
+function NavIcon({ icon: Icon, color, weight, size }: { icon: NavIconComponent; color: string; weight: IconWeight; size: number }) {
+  const [prev, setPrev] = useState<{ color: string; weight: IconWeight } | null>(null)
+  const currentRef = useRef({ color, weight })
   const progress = useSharedValue(1)
 
   useEffect(() => {
-    if (currentColorRef.current === color) return
-    setPrevColor(currentColorRef.current)
-    currentColorRef.current = color
+    if (currentRef.current.color === color && currentRef.current.weight === weight) return
+    setPrev(currentRef.current)
+    currentRef.current = { color, weight }
     progress.value = 0
     // Unmount the old-colour layer once it has faded out, rather than keeping a second SVG per icon forever.
     progress.value = withTiming(1, { duration: 200 }, (finished) => {
-      if (finished) runOnJS(setPrevColor)(null)
+      if (finished) runOnJS(setPrev)(null)
     })
-  }, [color, progress])
+  }, [color, weight, progress])
 
   const topStyle = useAnimatedStyle(() => ({ opacity: progress.value }))
   const bottomStyle = useAnimatedStyle(() => ({ opacity: 1 - progress.value }))
 
   return (
     <View style={{ width: size, height: size }}>
-      {prevColor ? (
+      {prev ? (
         <Reanimated.View style={[StyleSheet.absoluteFill, bottomStyle]} pointerEvents="none">
-          <Icon size={size} color={prevColor} />
+          <Icon size={size} color={prev.color} weight={prev.weight} />
         </Reanimated.View>
       ) : null}
       <Reanimated.View style={topStyle} pointerEvents="none">
-        <Icon size={size} color={color} />
+        <Icon size={size} color={color} weight={weight} />
       </Reanimated.View>
     </View>
   )
@@ -497,7 +497,7 @@ function NavCircle({
             dimmed ? styles.disabled : null,
           ]}
         >
-          {overrideContent ?? <NavIcon icon={glyph} color={color} size={ICON} />}
+          {overrideContent ?? <NavIcon icon={glyph} color={color} weight={selected ? 'fill' : 'regular'} size={ICON} />}
         </AnimatedPressable>
       </View>
     </View>

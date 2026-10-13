@@ -1,4 +1,4 @@
-import { Sparkles, TriangleAlert } from "lucide-react-native";
+import { Sparkle, Warning } from "@/src/components/shared/icons";
 import { fontFamily } from "@/src/theme/fonts";
 import {
   Pressable,
@@ -28,9 +28,9 @@ export function ScanError({ tokens, space, radius, type, router, errorMsg, allow
       }}
     >
       {allowanceHit ? (
-        <Sparkles size={26} color={tokens.text3} />
+        <Sparkle size={26} color={tokens.text3} />
       ) : (
-        <TriangleAlert size={26} color={tokens.text3} />
+        <Warning size={26} color={tokens.text3} />
       )}
     </View>
     <Text

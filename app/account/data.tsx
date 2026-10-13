@@ -21,13 +21,7 @@ import Animated, {
   withRepeat,
   withTiming,
 } from "react-native-reanimated";
-import {
-  ArrowLeft,
-  Trash2,
-  CircleCheck,
-  CircleAlert,
-  Clock,
-} from "lucide-react-native";
+import { ArrowLeft, Trash, CheckCircle, WarningCircle, Clock } from "@/src/components/shared/icons";
 import { Alert } from "@/src/components/ui/AlertHost";
 import { OfflineScreen } from "@/src/components/shared/OfflineScreen";
 import { useOnline } from "@/src/lib/netStatus";
@@ -53,14 +47,14 @@ function exportStatusMeta(status: ExportRow["status"], tokens: ThemeTokens) {
   switch (status) {
     case "ready":
       return {
-        icon: CircleCheck,
+        icon: CheckCircle,
         color: tokens.mint,
         soft: tokens.mintSoft,
         label: "Ready to download",
       };
     case "failed":
       return {
-        icon: CircleAlert,
+        icon: WarningCircle,
         color: tokens.coral,
         soft: tokens.coralSoft,
         label: "Failed. Tap for reason",
@@ -543,7 +537,7 @@ export default function DataScreen() {
             { borderColor: tokens.borderStrong, opacity: clearing ? 0.6 : 1 },
           ]}
         >
-          <Icon icon={Trash2} size={16} color={tokens.coral} />
+          <Icon icon={Trash} size={16} color={tokens.coral} />
           <View style={{ flex: 1 }}>
             <Text
               style={[

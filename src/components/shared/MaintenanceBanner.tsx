@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { AppState, Pressable, StyleSheet, Text } from 'react-native'
 import Reanimated, { useAnimatedStyle, useReducedMotion, useSharedValue, withSpring, withTiming } from 'react-native-reanimated'
-import { TriangleAlert, X } from 'lucide-react-native'
+import { Warning, X } from '@/src/components/shared/icons'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useQuery } from '@tanstack/react-query'
 import { getSystemStatus } from '@/src/api/systemStatus'
@@ -55,7 +55,7 @@ export function MaintenanceBanner() {
         onPress={() => setDismissed(text)}
         style={[styles.pill, { backgroundColor: tokens.cardSolid, borderColor: tokens.warn }]}
       >
-        <TriangleAlert size={16} color={tokens.warn} />
+        <Warning size={16} color={tokens.warn} />
         <Text style={[styles.text, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>{text}</Text>
         <Pressable
           accessibilityRole="button"

@@ -20,7 +20,7 @@ import { fontFamily } from "@/src/theme/fonts";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { INCOME_FLOOD } from "@/src/theme/tokens";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ChevronDown, X } from "lucide-react-native";
+import { CaretDown, X } from "@/src/components/shared/icons";
 import { useEffect, useState } from "react";
 import {
   Animated,
@@ -322,7 +322,7 @@ export function IncomeForm({ existing, flood = false, defaultLabel, intro }: { e
           >
             More
           </Text>
-          <ChevronDown size={16} color={tokens.accent} />
+          <CaretDown size={16} color={tokens.accent} />
         </Pressable>
 
         {error !== "" && (

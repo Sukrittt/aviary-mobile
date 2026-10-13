@@ -1,7 +1,7 @@
 import { Pressable, Text, StyleSheet, type ViewStyle, type StyleProp } from 'react-native'
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated'
 import * as Haptics from 'expo-haptics'
-import type { LucideIcon } from 'lucide-react-native'
+import { type PhosphorIcon } from '@/src/components/shared/icons'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { Icon } from '@/src/components/shared/Icon'
@@ -40,7 +40,7 @@ export function Button({
   onPress: () => void
   variant?: Variant
   size?: ButtonSize
-  icon?: LucideIcon
+  icon?: PhosphorIcon
   disabled?: boolean
   style?: StyleProp<ViewStyle>
 }) {
@@ -96,7 +96,7 @@ export function IconButton({
   accessibilityLabel,
   style,
 }: {
-  icon: LucideIcon
+  icon: PhosphorIcon
   onPress: () => void
   size?: number
   color?: string

@@ -17,20 +17,7 @@ import { useRouter } from "expo-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
-import {
-  ArrowLeft,
-  RotateCcw,
-  X,
-  Receipt,
-  Wallet,
-  Tag,
-  FolderOpen,
-  Repeat,
-  TrendingUp,
-  ChevronLeft,
-  ChevronRight,
-  type LucideIcon,
-} from "lucide-react-native";
+import { ArrowLeft, ArrowCounterClockwise, X, Receipt, Wallet, Tag, FolderOpen, Repeat, TrendUp, CaretLeft, CaretRight, type PhosphorIcon } from "@/src/components/shared/icons";
 import { Alert } from "@/src/components/ui/AlertHost";
 import { OfflineScreen } from "@/src/components/shared/OfflineScreen";
 import { useOnline } from "@/src/lib/netStatus";
@@ -83,13 +70,13 @@ const KIND_LABELS: Record<ArchivableCollection, string> = {
   holdings: "Holding",
 };
 
-const KIND_ICONS: Record<ArchivableCollection, LucideIcon> = {
+const KIND_ICONS: Record<ArchivableCollection, PhosphorIcon> = {
   expenses: Receipt,
   budgets: Wallet,
   categories: Tag,
   groups: FolderOpen,
   subscriptions: Repeat,
-  holdings: TrendingUp,
+  holdings: TrendUp,
 };
 
 // Web's .archive-kind tiles: each kind gets its own soft tint.
@@ -376,7 +363,7 @@ export default function ArchiveScreen() {
               </Text>
             </Pressable>
             <IconButton
-              icon={RotateCcw}
+              icon={ArrowCounterClockwise}
               color={tokens.accent}
               background={tokens.accentSoft}
               accessibilityLabel="Restore selected"
@@ -787,7 +774,7 @@ export default function ArchiveScreen() {
                 },
               ]}
             >
-              <Icon icon={ChevronLeft} size={17} color={tokens.text2} />
+              <Icon icon={CaretLeft} size={17} color={tokens.text2} />
             </Pressable>
             <View style={styles.pageStatus}>
               <Text
@@ -824,7 +811,7 @@ export default function ArchiveScreen() {
                 },
               ]}
             >
-              <Icon icon={ChevronRight} size={17} color={tokens.text2} />
+              <Icon icon={CaretRight} size={17} color={tokens.text2} />
             </Pressable>
           </View>
         ) : null}

@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { View, Text, Pressable, ScrollView, RefreshControl, StyleSheet } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { ArrowLeft, CircleCheck, Repeat2 } from 'lucide-react-native'
+import { ArrowLeft, CheckCircle, ArrowsClockwise } from '@/src/components/shared/icons'
 import * as Haptics from 'expo-haptics'
 import Reanimated from 'react-native-reanimated'
 import { OfflineScreen } from '@/src/components/shared/OfflineScreen'
@@ -150,7 +150,7 @@ export default function RecurringSuggestionsScreen() {
         <PopIn play delay={MOUNT_DELAY} style={[styles.introCard, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
           <View style={styles.introRow}>
             <View style={[styles.introIcon, { backgroundColor: tokens.accentSoft }]}>
-              <Icon icon={Repeat2} size={20} color={tokens.accent} />
+              <Icon icon={ArrowsClockwise} size={20} color={tokens.accent} />
             </View>
             <Text style={[styles.introBody, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
               {subscriptionMode
@@ -231,7 +231,7 @@ export default function RecurringSuggestionsScreen() {
                 style={[styles.emptyCard, { backgroundColor: tokens.card, borderColor: tokens.border }]}
               >
                 <View style={[styles.emptyIcon, { backgroundColor: tokens.mintSoft }]}>
-                  <Icon icon={CircleCheck} size={20} color={tokens.mint} />
+                  <Icon icon={CheckCircle} size={20} color={tokens.mint} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.emptyTitle, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>

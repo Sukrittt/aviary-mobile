@@ -44,6 +44,15 @@ describe('FloatingNav', () => {
     expect(onSelect).toHaveBeenCalledWith('envelopes')
   })
 
+  it('fills the active tab glyph and leaves the rest regular', () => {
+    const { getByTestId, queryByTestId } = renderWithProviders(
+      <FloatingNav active="activity" onSelect={jest.fn()} onAdd={jest.fn()} />,
+    )
+    expect(getByTestId('phosphor-react-native-receipt-fill')).toBeTruthy()
+    expect(getByTestId('phosphor-react-native-house-regular')).toBeTruthy()
+    expect(queryByTestId('phosphor-react-native-house-fill')).toBeNull()
+  })
+
   // Tab bars switch on touch-down; waiting for the finger to lift added ~100ms to every switch.
   it('selects a route on touch-down, without firing again on release', () => {
     const onSelect = jest.fn()

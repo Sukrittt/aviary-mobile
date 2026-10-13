@@ -1,6 +1,6 @@
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { View, Text } from 'react-native'
-import { Play } from 'lucide-react-native'
+import { Play } from '@/src/components/shared/icons'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 
@@ -40,7 +40,7 @@ export function ComparisonLine({ comparison, hideAmounts = false }: Props) {
     const deltaLabel = `${Math.abs(deltaPct).toFixed(0)}%`
     const deltaIcon = (
       <View style={{ transform: [{ rotate: over ? '-90deg' : '90deg' }] }}>
-        <Play size={12} color={deltaColor} fill={deltaColor} />
+        <Play size={12} color={deltaColor} weight="fill" />
       </View>
     )
 
