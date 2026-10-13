@@ -118,7 +118,6 @@ const NAV_BOTTOM_GAP = 10
 // Fade above the backdrop so scrolled content dissolves into it instead of
 // being cut off at a hard edge.
 const BACKDROP_FADE = 24
-const FLOOD_RING = 'rgba(255, 255, 255, 0.35)'
 
 /**
  * Detached navigation: free-floating circles laid over the page in one fixed
@@ -192,6 +191,9 @@ export function FloatingNav({
   // the idle circles go tone-on-tone there: a translucent white tint with a
   // softer white glyph, flat (no shadow), so they recede behind the add slot.
   const idle = addActive ? 'rgba(255, 255, 255, 0.2)' : tokens.cardSolid
+  // Plain white, not onAccent: onAccent is near-black in the dark scheme and
+  // the flood is the same orange in both, so the add disc stays white.
+  const floodDisc = '#ffffff'
   const idleIcon = addActive ? 'rgba(255, 255, 255, 0.7)' : tokens.text3
   const activeFill = tokens.accent
   const activeIcon = tokens.onAccent
@@ -226,11 +228,13 @@ export function FloatingNav({
                 glyph={PlusGlyph}
                 label="Log expense"
                 selected={addActive}
-                background={addActive ? activeFill : idle}
-                color={addActive ? activeIcon : idleIcon}
-                // Only ever selected on the accent flood, where an accent ring
-                // disappears. A soft white tint, like the idle circles there.
-                ringColor={addActive ? FLOOD_RING : tokens.accent}
+                // Only ever selected on the accent flood, where an accent disc
+                // vanishes and a ring reads as a stray outline. Invert instead:
+                // solid white disc, accent plus, no ring. Success keeps the
+                // mint disc edge-to-edge so no white rim shows around it.
+                background={addActive ? (addSuccess ? tokens.mint : floodDisc) : idle}
+                color={addActive ? tokens.accent : idleIcon}
+                ringColor={addActive ? 'transparent' : tokens.accent}
                 onPress={handleAdd}
                 onLongPress={addActive ? undefined : onAddLongPress}
                 disabled={addActive && (addDisabled || addSaving || addSuccess)}
@@ -243,7 +247,7 @@ export function FloatingNav({
                     </View>
                   ) : addActive && addSaving ? (
                     <View testID="nav-add-saving">
-                      <AddCircleLoad discColor={activeFill} iconColor={activeIcon} />
+                      <AddCircleLoad discColor={floodDisc} iconColor={tokens.accent} />
                     </View>
                   ) : undefined
                 }

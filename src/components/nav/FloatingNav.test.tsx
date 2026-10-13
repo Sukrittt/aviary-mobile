@@ -89,14 +89,14 @@ describe('FloatingNav', () => {
     expect(getByLabelText('Log expense').props.accessibilityState.selected).toBe(true)
   })
 
-  // On log-expense the selected add circle sits on the accent flood, so an
-  // accent ring would vanish into it.
-  it('draws the add ring as a soft white tint, not accent, on the log-expense flood', () => {
+  // On log-expense the add circle inverts to a white disc on the accent
+  // flood; a ring there would read as a stray gray outline.
+  it('draws no ring around the add circle on the log-expense flood', () => {
     const { getByTestId } = renderWithProviders(
       <FloatingNav active={null} addActive onSelect={jest.fn()} onAdd={jest.fn()} />,
     )
     const ring = StyleSheet.flatten(getByTestId('nav-ring-Log expense').props.style)
-    expect(ring.borderColor).toBe('rgba(255, 255, 255, 0.35)')
+    expect(ring.borderColor).toBe('transparent')
   })
 
   it('tapping the add circle while addActive still fires onAdd (submit, not back)', () => {
