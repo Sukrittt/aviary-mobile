@@ -115,6 +115,7 @@ jest.mock('react-native-purchases', () => ({
     configure: jest.fn(),
     setLogLevel: jest.fn(),
     logIn: jest.fn(async () => ({})),
+    getAppUserID: jest.fn(async () => null),
     logOut: jest.fn(async () => ({})),
     getOfferings: jest.fn(async () => ({ current: null })),
     getCustomerInfo: jest.fn(async () => ({ managementURL: null })),
