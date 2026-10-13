@@ -71,6 +71,46 @@ it('rolls back to the previous list when the mutation errors', async () => {
   expect(data?.map((c) => c.name)).toEqual(['Rent', 'Water', 'Groceries'])
 })
 
+it('does not roll back a newer optimistic move when an earlier save fails', async () => {
+  jest.clearAllMocks()
+  const names = (data?: CategoryRow[]) => data?.map((c) => c.name)
+  const home: CategoryRow[] = [
+    { name: 'Rent', group: 'Home' },
+    { name: 'Water', group: 'Home' },
+    { name: 'Power', group: 'Home' },
+    { name: 'Groceries', group: 'Food' },
+  ]
+  let server = home
+  let rejectFirst: (reason: Error) => void = () => {}
+  let resolveSecond: () => void = () => {}
+  ;(getCategories as jest.Mock).mockImplementation(async () => server)
+  ;(moveCategory as jest.Mock)
+    .mockImplementationOnce(() => new Promise<void>((_resolve, reject) => { rejectFirst = reject }))
+    .mockImplementationOnce(async () => {
+      await new Promise<void>((resolve) => { resolveSecond = resolve })
+      server = [home[1], home[0], home[2], home[3]]
+    })
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { gcTime: Infinity } } })
+  queryClient.setQueryData(key, home)
+  const { result } = renderHook(() => ({ categories: useCategories(), first: useMoveCategory(), second: useMoveCategory() }), { wrapper: wrapper(queryClient) })
+
+  act(() => result.current.first.mutate({ name: 'Power', toIndex: 0 }))
+  await waitFor(() => expect(moveCategory).toHaveBeenCalledTimes(1))
+  act(() => result.current.second.mutate({ name: 'Water', toIndex: 0 }))
+  await waitFor(() => expect(names(queryClient.getQueryData(key))).toEqual(['Water', 'Power', 'Rent', 'Groceries']))
+
+  await act(async () => rejectFirst(new Error('offline')))
+  await waitFor(() => expect(result.current.first.isError).toBe(true))
+  expect(names(queryClient.getQueryData(key))).toEqual(['Water', 'Power', 'Rent', 'Groceries'])
+  expect(getCategories).not.toHaveBeenCalled()
+
+  await waitFor(() => expect(moveCategory).toHaveBeenCalledTimes(2))
+  await act(async () => resolveSecond())
+  await waitFor(() => expect(result.current.second.isSuccess).toBe(true))
+  await waitFor(() => expect(names(queryClient.getQueryData(key))).toEqual(['Water', 'Rent', 'Power', 'Groceries']))
+  queryClient.clear()
+})
+
 describe('category cache write-through (offline sync §2)', () => {
   beforeEach(() => jest.clearAllMocks())
 

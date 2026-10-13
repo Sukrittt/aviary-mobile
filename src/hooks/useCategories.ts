@@ -12,6 +12,7 @@ import { readCategoryCache, writeCategoryCache } from '@/src/lib/categoryCache'
 import { isTransportFailure } from '@/src/api/client'
 
 const key = ['categories'] as const
+const moveKey = ['categories', 'move'] as const
 
 /**
  * Write-through cache point for the category list. Every fetch that lands
@@ -148,6 +149,10 @@ export function useDeleteCategory() {
 export function useMoveCategory() {
   const qc = useQueryClient()
   return useMutation({
+    mutationKey: moveKey,
+    // Same queue as useMoveGroup: API writes run in gesture order, while each
+    // queued move's optimistic onMutate still lands immediately.
+    scope: { id: 'category-reorder' },
     mutationFn: (params: { name: string; toIndex: number }) => moveCategory(params.name, params.toIndex),
     onMutate: (params) => {
       // Don't await cancelQueries — the optimistic write must land in the same tick as the
@@ -160,9 +165,19 @@ export function useMoveCategory() {
       return { previous }
     },
     onError: (_err, _params, context) => {
-      if (context?.previous) qc.setQueryData(key, context.previous)
+      // A queued later move snapshotted on top of this one, so restoring here
+      // would erase it. Leave reconciliation to the last move's refetch.
+      if (context?.previous && qc.isMutating({ mutationKey: moveKey }) === 1) {
+        qc.setQueryData(key, context.previous)
+      }
     },
-    onSettled: () => qc.invalidateQueries({ queryKey: key }),
+    onSettled: () => {
+      // An intermediate refetch would overwrite later optimistic moves with an
+      // older server order. Reconcile only once the queue has drained.
+      if (qc.isMutating({ mutationKey: moveKey }) === 1) {
+        return qc.invalidateQueries({ queryKey: key })
+      }
+    },
   })
 }
 
