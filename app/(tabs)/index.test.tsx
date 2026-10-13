@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { Profiler, useState } from 'react'
+import * as mockReact from 'react'
 import { Animated, Linking, Platform } from 'react-native'
 import { act, fireEvent, waitFor } from '@testing-library/react-native'
 import * as SecureStore from 'expo-secure-store'
@@ -59,10 +60,49 @@ jest.mock('@/src/api/systemStatus', () => ({ getSystemStatus: jest.fn(() => new 
 jest.mock('@/src/components/balance/BalanceCheckCard', () => ({ BalanceCheckCard: () => null }))
 const mockPush = jest.fn()
 const mockNavigate = jest.fn()
+// A tab's focus as the navigator holds it: isFocused() reads it, and focus/blur
+// listeners hear it change without anything re-rendering on their own.
+const mockNav = {
+  focused: true,
+  listeners: new Set<(type: 'focus' | 'blur') => void>(),
+  isFocused: () => mockNav.focused,
+  emit(type: 'focus' | 'blur') {
+    mockNav.focused = type === 'focus'
+    mockNav.listeners.forEach((l) => l(type))
+  },
+}
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: mockPush, back: jest.fn(), replace: jest.fn(), navigate: mockNavigate }),
-  useIsFocused: () => true,
+  useNavigation: () => mockNav,
+  // Like React Navigation's: re-renders its caller on every blur and focus.
+  useIsFocused: () => {
+    const [focused, setFocused] = mockReact.useState(mockNav.focused)
+    mockReact.useEffect(() => {
+      const listener = (type: 'focus' | 'blur') => setFocused(type === 'focus')
+      mockNav.listeners.add(listener)
+      return () => { mockNav.listeners.delete(listener) }
+    }, [])
+    return focused
+  },
+  // Same contract as React Navigation's: runs on focus, cleans up on blur.
+  useFocusEffect: (effect: () => void | (() => void)) => {
+    mockReact.useEffect(() => {
+      let cleanup = mockNav.focused ? effect() : undefined
+      const listener = (type: 'focus' | 'blur') => {
+        cleanup?.()
+        cleanup = type === 'focus' ? effect() : undefined
+      }
+      mockNav.listeners.add(listener)
+      return () => {
+        mockNav.listeners.delete(listener)
+        cleanup?.()
+      }
+    }, [effect])
+  },
 }))
+
+// Its own focus re-render is cheap and not what the tab-switch test measures.
+jest.mock('@/src/components/nav/AnimatedTabContent', () => ({ AnimatedTabContent: ({ children }: any) => children }))
 
 function renderHome() {
   return renderWithProviders(<HomeScreen />)
@@ -70,6 +110,7 @@ function renderHome() {
 
 describe('HomeScreen · Ready to Assign', () => {
   beforeEach(() => {
+    mockNav.focused = true
     mockPush.mockClear()
     mockBudgetsError = null
     mockUser = { onboardedAt: '2026-10-01T00:00:00.000Z', getStartedAt: '2026-10-01T00:00:00.000Z' }
@@ -180,6 +221,36 @@ describe('HomeScreen · Ready to Assign', () => {
     const fresh = renderHome()
     expect(fresh.getByTestId('rta-slim')).toBeTruthy()
     expect(fresh.queryByText('Every rupee has a job.')).toBeNull()
+  })
+
+  it("doesn't re-render on a tab switch that changes nothing on screen", () => {
+    // Home is the heaviest tab; re-rendering it on every blur and focus held up
+    // the switch to Activity (and back) on the JS thread.
+    let renders = 0
+    renderWithProviders(<Profiler id="home" onRender={() => { renders++ }}><HomeScreen /></Profiler>)
+    const before = renders
+    act(() => mockNav.emit('blur'))
+    act(() => mockNav.emit('focus'))
+    expect(renders).toBe(before)
+  })
+
+  it('holds a Ready to Assign change made while covered until Home is back in view', () => {
+    let refetched = () => {}
+    function Harness() {
+      const [, setTick] = useState(0)
+      refetched = () => setTick((n) => n + 1)
+      return <HomeScreen />
+    }
+    const view = renderWithProviders(<Harness />)
+    act(() => mockNav.emit('blur'))
+    mockBudgets = [
+      { month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' },
+      { month: MONTH, category: 'Food', assigned: '8000', rolled_over: '0' },
+    ]
+    act(() => refetched())
+    expect(view.getByLabelText('₹15,000')).toBeTruthy()
+    act(() => mockNav.emit('focus'))
+    expect(view.getByLabelText('₹12,000')).toBeTruthy()
   })
 
   it('shows the month in the header', () => {
