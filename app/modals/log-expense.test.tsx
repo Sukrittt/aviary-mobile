@@ -3,6 +3,7 @@ import type { ExpenseRow } from '@/src/types'
 import { Alert, Modal } from 'react-native'
 import { act, fireEvent, waitFor } from '@testing-library/react-native'
 import { createTestQueryClient, renderWithProviders } from '@/src/test-utils/renderWithProviders'
+import { userKey } from '@/src/hooks/useUser'
 import { accountsKey } from '@/src/hooks/useAccounts'
 import { deleteExpensePhoto, getExpensePhotoUrl, getRecentExpenses, postExpensePayload, updateExpense, uploadExpensePhoto } from '@/src/api/expenses'
 import { setOnline } from '@/src/lib/netStatus'
@@ -85,6 +86,8 @@ function setup(params: Record<string, string> = {}, expenses: ExpenseRow[] = [],
   // Accounts are usually cached by the time this opens (Home loads them).
   const queryClient = createTestQueryClient()
   if (!coldAccounts) queryClient.setQueryData(accountsKey, mockAccounts)
+  // An older account with every extra on, cached the way Home leaves it.
+  queryClient.setQueryData(userKey, { createdAt: '2025-01-01T00:00:00.000Z', manualTransactionCompletedAt: '2025-01-02T00:00:00.000Z' })
   return renderWithProviders(
     <LogExpenseSubmitProvider>
       <LogExpenseScreen />

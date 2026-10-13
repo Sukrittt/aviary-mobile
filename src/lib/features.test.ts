@@ -22,7 +22,7 @@ describe('hiddenFeatures', () => {
     expect(hiddenFeatures({ createdAt: '2025-01-01T00:00:00.000Z', hiddenFeatures: ['wrapped'] })).toEqual(['wrapped'])
   })
 
-  it('hides nothing before the profile loads', () => {
-    expect(hiddenFeatures(undefined)).toEqual([])
+  it('keeps the opt-in extras hidden until the profile loads, so a hidden one never flashes in', () => {
+    expect(hiddenFeatures(undefined)).toEqual(OPT_IN_FEATURES)
   })
 })
