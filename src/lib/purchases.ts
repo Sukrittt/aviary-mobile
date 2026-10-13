@@ -48,10 +48,10 @@ export function initPurchases(): void {
 
   try {
     Purchases.setLogLevel(__DEV__ ? LOG_LEVEL.DEBUG : LOG_LEVEL.ERROR)
-    // Configured with whatever identity exists right now: on a relaunch
-    // accessMode has already restored the session, so this avoids a moment
-    // where the SDK is anonymous and an in-flight renewal lands on the wrong
-    // customer. Signed out, it stays anonymous until logIn below.
+    // This runs at module scope, before initAccessMode restores the session,
+    // so the SDK almost always starts anonymous and only takes the real id
+    // from logIn below. That logIn can fail, which is why purchase() and
+    // restore() check the identity again before touching the store.
     Purchases.configure({ apiKey: API_KEY, appUserID: currentUserId() ?? null })
     configured = true
   } catch (err) {
@@ -85,6 +85,19 @@ export async function getPackages(): Promise<PurchasesPackage[]> {
   return offerings.current?.availablePackages ?? []
 }
 
+/**
+ * Make sure the SDK is the signed-in user before anything reaches the store.
+ * The sign-in logIn above is fire-and-forget; if it failed, the SDK is still
+ * anonymous, and a purchase made now would be filed under `$RCAnonymousID`,
+ * which the server can never connect to an account. Throws when that can't
+ * be fixed, so the caller stops instead of buying for nobody.
+ */
+async function ensureIdentity(): Promise<void> {
+  const userId = currentUserId()
+  if (!userId) throw new Error('No signed-in user')
+  if ((await Purchases.getAppUserID()) !== userId) await Purchases.logIn(userId)
+}
+
 export type PurchaseOutcome =
   | { status: 'purchased'; access: BillingStatus }
   | { status: 'cancelled' }
@@ -104,6 +117,12 @@ export async function purchase(pkg: PurchasesPackage): Promise<PurchaseOutcome> 
   // splits on. No price: that's the store's number, already in RevenueCat.
   const plan = pkg.identifier
   track('purchase_started', { package: plan })
+  try {
+    await ensureIdentity()
+  } catch {
+    track('purchase_failed', { package: plan, error_code: 'identity' })
+    return { status: 'failed', message: "We couldn't link this purchase to your account. Check your connection and try again." }
+  }
   try {
     await Purchases.purchasePackage(pkg)
   } catch (err) {
@@ -145,7 +164,10 @@ export async function purchase(pkg: PurchasesPackage): Promise<PurchaseOutcome> 
  */
 export async function restore(): Promise<BillingStatus> {
   track('restore_tapped')
-  if (configured) await Purchases.restorePurchases()
+  if (configured) {
+    await ensureIdentity()
+    await Purchases.restorePurchases()
+  }
   const access = await syncBilling()
   if (access.allowed) track('restore_succeeded', { plan_status: access.mode })
   return access
