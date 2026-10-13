@@ -4,7 +4,7 @@ import { View, Text, Pressable, ScrollView, RefreshControl, StyleSheet } from "r
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ArrowLeft, Pencil, Plus, Trash2 } from "lucide-react-native";
+import { ArrowLeft, PencilSimple, Plus, Trash } from "@/src/components/shared/icons";
 import Reanimated from "react-native-reanimated";
 import { OfflineScreen } from "@/src/components/shared/OfflineScreen";
 import { useOnline } from "@/src/lib/netStatus";
@@ -243,10 +243,10 @@ export default function IncomeScreen() {
                       <Text style={[styles.rowAmount, { color: tokens.mint, fontFamily: fontFamily.bodyBold }]}>+{formatCurrency(Number(row.amount) || 0, hideAmounts)}</Text>
                       <View style={styles.rowActions}>
                         <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); router.push(`/modals/add-income?id=${encodeURIComponent(row.id)}`); }} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Edit ${row.label}`}>
-                          <Pencil size={17} color={tokens.text3} />
+                          <PencilSimple size={17} color={tokens.text3} />
                         </Pressable>
                         <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); setDeleting(row); }} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Delete ${row.label}`}>
-                          <Trash2 size={17} color={tokens.text3} />
+                          <Trash size={17} color={tokens.text3} />
                         </Pressable>
                       </View>
                     </PopIn>

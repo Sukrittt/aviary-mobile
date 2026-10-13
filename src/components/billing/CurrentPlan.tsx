@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet } from 'react-native'
-import { Check } from 'lucide-react-native'
+import { Check } from '@/src/components/shared/icons'
 import { PACKAGE_TYPE, type PurchasesPackage } from 'react-native-purchases'
 import { Icon } from '@/src/components/shared/Icon'
 import { useTheme } from '@/src/theme/ThemeProvider'
@@ -73,7 +73,7 @@ export function CurrentPlan({ status, packages }: { status: BillingStatus; packa
         {BENEFITS.map((b) => (
           <View key={b} style={styles.benefit}>
             <View style={[styles.tick, { backgroundColor: tokens.mintSoft }]}>
-              <Icon icon={Check} size={12} color={tokens.mint} strokeWidth={3} />
+              <Icon icon={Check} size={12} color={tokens.mint} weight="bold" />
             </View>
             <Text style={[styles.benefitText, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>{b}</Text>
           </View>

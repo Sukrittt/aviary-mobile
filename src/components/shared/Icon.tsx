@@ -1,14 +1,14 @@
-import type { LucideIcon } from 'lucide-react-native'
+import type { IconWeight, PhosphorIcon } from '@/src/components/shared/icons'
 import { useTheme } from '@/src/theme/ThemeProvider'
 
 interface IconProps {
-  icon: LucideIcon
+  icon: PhosphorIcon
   size?: number
   color?: string
-  strokeWidth?: number
+  weight?: IconWeight
 }
 
-export function Icon({ icon: IconComponent, size = 20, color, strokeWidth = 2 }: IconProps) {
+export function Icon({ icon: IconComponent, size = 20, color, weight = 'regular' }: IconProps) {
   const { tokens } = useTheme()
-  return <IconComponent size={size} color={color ?? tokens.text} strokeWidth={strokeWidth} />
+  return <IconComponent size={size} color={color ?? tokens.text} weight={weight} />
 }

@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { View, Text, Pressable, RefreshControl, StyleSheet, Linking, Platform } from 'react-native'
 import { useQuery } from '@tanstack/react-query'
 import { useRouter, useNavigation, useFocusEffect } from 'expo-router'
-import { ChevronRight, LineChart } from 'lucide-react-native'
+import { CaretRight, ChartLine } from '@/src/components/shared/icons'
 import Reanimated, { FadeIn, FadeInDown, FadeOut, LinearTransition } from 'react-native-reanimated'
 import * as Haptics from 'expo-haptics'
 import { rippleHaptic } from '@/src/lib/haptics'
@@ -325,7 +325,7 @@ export default function HomeScreen() {
           </View>
         }
         actions={
-          isHidden(user, 'insights') ? undefined : <IconButton icon={LineChart} color={tokens.accentInk} background={tokens.accentSoft} accessibilityLabel="Insights" onPress={() => router.push('/insights')} />
+          isHidden(user, 'insights') ? undefined : <IconButton icon={ChartLine} color={tokens.accentInk} background={tokens.accentSoft} accessibilityLabel="Insights" onPress={() => router.push('/insights')} />
         }
         contentContainerStyle={{ gap: space.lg }}
         refreshControl={
@@ -360,7 +360,7 @@ export default function HomeScreen() {
               </Reanimated.Text>
               <View style={styles.slimAmount}>
                 <AmountText value={displayedReadyToAssign} size={type.body} color={tokens.mint} weight="displayBold" />
-                {rtaCelebrating ? <CheckIcon color={tokens.mint} size={16} /> : <Icon icon={ChevronRight} size={16} color={tokens.text2} />}
+                {rtaCelebrating ? <CheckIcon color={tokens.mint} size={16} /> : <Icon icon={CaretRight} size={16} color={tokens.text2} />}
               </View>
             </Card>
           </AnimatedPressable>
@@ -408,7 +408,7 @@ export default function HomeScreen() {
               <Text style={{ color: envelopeState.income === 0 ? tokens.accentInk : tokens.text, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>
                 {envelopeState.income === 0 ? 'Set your income' : `Income · ${formatCurrency(envelopeState.income, hideAmounts)}`}
               </Text>
-              <Icon icon={ChevronRight} size={14} color={envelopeState.income === 0 ? tokens.accentInk : tokens.text2} />
+              <Icon icon={CaretRight} size={14} color={envelopeState.income === 0 ? tokens.accentInk : tokens.text2} />
             </AnimatedPressable>
           </View>
         )}
@@ -588,7 +588,7 @@ export default function HomeScreen() {
             <Text style={{ color: tokens.text2, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>
               Trends, daily spend and subscriptions
             </Text>
-            <Icon icon={ChevronRight} size={16} color={tokens.text2} />
+            <Icon icon={CaretRight} size={16} color={tokens.text2} />
           </Pressable>
         </View>}
       </Screen>

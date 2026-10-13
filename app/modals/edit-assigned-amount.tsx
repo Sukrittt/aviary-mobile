@@ -22,7 +22,7 @@ import { fontFamily } from '@/src/theme/fonts'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import type { ThemeTokens } from '@/src/theme/tokens'
 import { useLocalSearchParams,useRouter } from 'expo-router'
-import { ChevronDown, X } from 'lucide-react-native'
+import { CaretDown, X } from '@/src/components/shared/icons'
 import { useEffect,useState } from 'react'
 import { ActivityIndicator,Animated,Pressable,ScrollView,StyleSheet,Text,View } from 'react-native'
 import Reanimated,{ FadeIn } from 'react-native-reanimated'
@@ -424,7 +424,7 @@ function EnvelopeCard({
           {formatCurrency(spent, hideAmounts)} spent · {formatCurrency(currentAssigned, hideAmounts)} assigned
         </Text>
       </View>
-      <ChevronDown size={18} color={tokens.text3} style={{ marginRight: space.sm }} />
+      <CaretDown size={18} color={tokens.text3} style={{ marginRight: space.sm }} />
     </AnimatedPressable>
   )
 }

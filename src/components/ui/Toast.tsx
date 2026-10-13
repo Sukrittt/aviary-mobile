@@ -11,7 +11,7 @@ import Reanimated, {
   withDelay,
   withTiming,
 } from 'react-native-reanimated'
-import type { LucideIcon } from 'lucide-react-native'
+import { type PhosphorIcon } from '@/src/components/shared/icons'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 
@@ -47,7 +47,7 @@ export function Toast({
 }: {
   message: string
   trigger: number
-  icon?: LucideIcon
+  icon?: PhosphorIcon
   style?: StyleProp<ViewStyle>
 }) {
   const { tokens, space, radius, type, elevation, motion } = useTheme()
@@ -142,7 +142,7 @@ export function Toast({
           <View style={styles.badgeWrap} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
             <View style={[styles.badgeBack, { backgroundColor: tokens.accentSoft, borderRadius: radius.md }]} />
             <Reanimated.View style={[styles.badge, { backgroundColor: tokens.accent, borderRadius: radius.md }, badgeStyle]}>
-              <Icon size={18} color="#ffffff" strokeWidth={2.3} />
+              <Icon size={18} color="#ffffff" />
             </Reanimated.View>
           </View>
         ) : null}

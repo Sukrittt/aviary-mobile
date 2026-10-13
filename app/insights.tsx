@@ -4,7 +4,7 @@ import { View, Text, Pressable, RefreshControl, StyleSheet } from "react-native"
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import { ArrowLeft, Plus, Play } from "lucide-react-native";
+import { ArrowLeft, Plus, Play } from "@/src/components/shared/icons";
 import * as Haptics from "expo-haptics";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { usePrivacy } from "@/src/context/PrivacyContext";
@@ -586,8 +586,7 @@ export default function InsightsScreen() {
                 >
                   <Play
                     size={10}
-                    color={trendSummary.deltaPct > 0 ? tokens.coral : tokens.mint}
-                    fill={trendSummary.deltaPct > 0 ? tokens.coral : tokens.mint}
+                    color={trendSummary.deltaPct > 0 ? tokens.coral : tokens.mint} weight="fill"
                   />
                 </View>
                 <Text

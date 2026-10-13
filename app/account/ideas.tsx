@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { View, Text, TextInput, Pressable, ScrollView, StyleSheet } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Bug, ChevronDown, ChevronUp, Plus } from 'lucide-react-native'
+import { ArrowLeft, Bug, CaretDown, CaretUp, Plus } from '@/src/components/shared/icons'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Alert } from '@/src/components/ui/AlertHost'
 import { useTheme } from '@/src/theme/ThemeProvider'
@@ -111,9 +111,9 @@ export default function IdeasScreen() {
         {ideas?.map((idea) => (
           <View key={idea.id} style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
             <View style={styles.vote} accessibilityLabel={`Score ${idea.score}`}>
-              <VoteArrow icon={ChevronUp} label="Upvote" on={idea.myVote === 1} onPress={() => tap(idea, 1)} />
+              <VoteArrow icon={CaretUp} label="Upvote" on={idea.myVote === 1} onPress={() => tap(idea, 1)} />
               <Text style={[styles.score, { color: tokens.text, fontFamily: fontFamily.bodyExtraBold }]}>{idea.score}</Text>
-              <VoteArrow icon={ChevronDown} label="Downvote" on={idea.myVote === -1} onPress={() => tap(idea, -1)} />
+              <VoteArrow icon={CaretDown} label="Downvote" on={idea.myVote === -1} onPress={() => tap(idea, -1)} />
             </View>
             <View style={{ flex: 1, gap: 4 }}>
               <Text style={[styles.title, { color: tokens.text, fontFamily: fontFamily.bodyExtraBold }]}>{idea.title}</Text>
@@ -147,7 +147,7 @@ export default function IdeasScreen() {
   )
 }
 
-function VoteArrow({ icon, label, on, onPress }: { icon: typeof ChevronUp; label: string; on: boolean; onPress: () => void }) {
+function VoteArrow({ icon, label, on, onPress }: { icon: typeof CaretUp; label: string; on: boolean; onPress: () => void }) {
   const { tokens } = useTheme()
   return (
     <Pressable

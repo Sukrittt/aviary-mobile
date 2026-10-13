@@ -1,7 +1,7 @@
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { useEffect, useMemo, useState } from "react";
 import { View, Text, Pressable, ScrollView, StyleSheet } from "react-native";
-import { Check, ListFilter, Play } from "lucide-react-native";
+import { Check, FunnelSimple, Play } from "@/src/components/shared/icons";
 import Reanimated, {
   Easing,
   FadeIn,
@@ -500,7 +500,7 @@ export function CategoryBreakdown({
               },
             ]}
           >
-            <ListFilter size={18} color={tokens.text} />
+            <FunnelSimple size={18} color={tokens.text} />
             {hasCustomFilter ? (
               <Text
                 style={{
@@ -716,12 +716,7 @@ export function CategoryBreakdown({
                               centerDelta.deltaPct! > 0
                                 ? tokens.coral
                                 : tokens.mint
-                            }
-                            fill={
-                              centerDelta.deltaPct! > 0
-                                ? tokens.coral
-                                : tokens.mint
-                            }
+                            } weight="fill"
                           />
                         </View>
                         <Text
@@ -888,10 +883,7 @@ export function CategoryBreakdown({
                                 size={8}
                                 color={
                                   row.deltaPct > 0 ? tokens.coral : tokens.mint
-                                }
-                                fill={
-                                  row.deltaPct > 0 ? tokens.coral : tokens.mint
-                                }
+                                } weight="fill"
                               />
                             </View>
                             <Text
@@ -1161,7 +1153,7 @@ export function CategoryBreakdown({
                     ]}
                   >
                     {checked ? (
-                      <Check size={14} color={tokens.onAccent} strokeWidth={3} />
+                      <Check size={14} color={tokens.onAccent} weight="bold" />
                     ) : null}
                   </View>
                 </Pressable>

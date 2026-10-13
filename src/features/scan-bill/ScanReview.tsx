@@ -10,12 +10,7 @@ import {
   round2,
 } from "@/src/lib/split";
 import { fontFamily } from "@/src/theme/fonts";
-import {
-  Check,
-  Plus,
-  Search,
-  Trash2
-} from "lucide-react-native";
+import { Check, Plus, MagnifyingGlass, Trash } from "@/src/components/shared/icons";
 import {
   Pressable,
   ScrollView,
@@ -103,7 +98,7 @@ export function ScanReview({ tokens, space, radius, type, insets, setPhase, merc
             },
           ]}
         >
-          <Search size={16} color={tokens.text3} />
+          <MagnifyingGlass size={16} color={tokens.text3} />
           <TextInput
             value={query}
             onChangeText={setQuery}
@@ -218,8 +213,7 @@ export function ScanReview({ tokens, space, radius, type, insets, setPhase, merc
                   {isSelected && (
                     <Check
                       size={13}
-                      color={tokens.onAccent}
-                      strokeWidth={3}
+                      color={tokens.onAccent} weight="bold"
                     />
                   )}
                 </View>
@@ -331,7 +325,7 @@ export function ScanReview({ tokens, space, radius, type, insets, setPhase, merc
                     style={styles.deleteButton}
                     accessibilityLabel={`Remove ${it.name || "item"}`}
                   >
-                    <Trash2 size={16} color={tokens.text3} />
+                    <Trash size={16} color={tokens.text3} />
                   </Pressable>
                 </View>
               </>
@@ -427,7 +421,7 @@ export function ScanReview({ tokens, space, radius, type, insets, setPhase, merc
                       onPress={() => removeItem(it.key)}
                       style={styles.feeDeleteButton}
                     >
-                      <Trash2 size={14} color={tokens.text3} />
+                      <Trash size={14} color={tokens.text3} />
                     </Pressable>
                   </View>
                 ))}

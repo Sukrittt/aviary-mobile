@@ -12,7 +12,7 @@ import { BottomSheet } from '@/src/components/shared/Modal'
 import { Chip } from '@/src/components/ui/Chip'
 import { Icon } from '@/src/components/shared/Icon'
 import { EMPTY } from '@/src/lib/constants'
-import { Check } from 'lucide-react-native'
+import { Check } from '@/src/components/shared/icons'
 
 /** Below this many categories, search + recents shortcuts aren't worth the extra chrome. */
 const RECENTS_MIN_CATEGORIES = 8
@@ -120,7 +120,7 @@ export function CategoryPickerSheet({
             onPress={() => pick('')}
           >
             <Text style={[styles.optionText, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>{noneLabel}</Text>
-            {value === '' && <Icon icon={Check} size={16} color={tokens.accentInk} strokeWidth={2.5} />}
+            {value === '' && <Icon icon={Check} size={16} color={tokens.accentInk} weight="bold" />}
           </Pressable>
         )}
         {showRecents && (

@@ -24,7 +24,7 @@ import {
 import { fontFamily } from "@/src/theme/fonts";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { useRouter } from "expo-router";
-import { X } from "lucide-react-native";
+import { X } from "@/src/components/shared/icons";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,

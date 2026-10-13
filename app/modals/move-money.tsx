@@ -18,7 +18,7 @@ import { fontFamily } from '@/src/theme/fonts'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import type { ThemeTokens } from '@/src/theme/tokens'
 import { useLocalSearchParams,useRouter } from 'expo-router'
-import { ArrowLeft,Search,Trash2,X } from 'lucide-react-native'
+import { ArrowLeft, MagnifyingGlass, Trash, X } from '@/src/components/shared/icons'
 import { useEffect,useMemo,useState } from 'react'
 import { ActivityIndicator,Animated,KeyboardAvoidingView,Platform,Pressable,ScrollView,StyleSheet,Text,TextInput,View } from 'react-native'
 import Reanimated, { FadeIn,FadeOut,LinearTransition,ZoomIn } from 'react-native-reanimated'
@@ -391,7 +391,7 @@ export default function MoveMoneyModal() {
             </View>
             <View style={[styles.searchRow, { gap: space.sm }]}>
               <View style={[styles.searchBox, { backgroundColor: tokens.inputBg, borderColor: tokens.border, borderRadius: radius.md, paddingHorizontal: space.md, gap: space.sm }]}>
-                <Search size={14} color={tokens.text3} />
+                <MagnifyingGlass size={14} color={tokens.text3} />
                 <TextInput
                   value={query}
                   onChangeText={setQuery}
@@ -626,7 +626,7 @@ function PickedSourceRow({
           />
         </View>
         <Pressable onPress={onRemove} hitSlop={8} accessibilityLabel="Remove" style={styles.removeBtn}>
-          <Trash2 size={14} color={tokens.text3} />
+          <Trash size={14} color={tokens.text3} />
         </Pressable>
       </View>
     </Reanimated.View>

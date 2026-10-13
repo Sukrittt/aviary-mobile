@@ -7,7 +7,7 @@ import { useQuery } from '@tanstack/react-query'
 import { requestPinWidget } from 'react-native-android-widget'
 import * as ImagePicker from 'expo-image-picker'
 import * as Haptics from 'expo-haptics'
-import { Gift, Brain, Wallet, Landmark, TrendingUp, Lock, Database, Archive, Repeat, CreditCard, MessageCircle, LayoutGrid, ChevronRight, ScanLine, Camera, Images, FileText, Receipt, LineChart, History, Plus, type LucideIcon } from 'lucide-react-native'
+import { Gift, Brain, Wallet, Bank, TrendUp, Lock, Database, Archive, Repeat, CreditCard, ChatCircle, SquaresFour, CaretRight, Scan, Camera, Images, FileText, Receipt, ChartLine, ClockCounterClockwise, Plus, type PhosphorIcon } from '@/src/components/shared/icons'
 import { AnimatedTabContent } from '@/src/components/nav/AnimatedTabContent'
 import { Screen } from '@/src/components/ui/Screen'
 import { Alert } from '@/src/components/ui/AlertHost'
@@ -206,7 +206,7 @@ export default function MoreScreen() {
                 </Text>
               )}
             </View>
-            <ChevronRight size={16} color={tokens.text3} strokeWidth={2} />
+            <CaretRight size={16} color={tokens.text3} />
           </Pressable>
 
           {/* Early access feedback */}
@@ -226,7 +226,7 @@ export default function MoreScreen() {
               </Text>
             </View>
             <View style={[styles.featureIcon, { backgroundColor: tokens.mintSoft }]}>
-              <Icon icon={MessageCircle} size={18} color={tokens.mint} />
+              <Icon icon={ChatCircle} size={18} color={tokens.mint} />
             </View>
           </Pressable>
 
@@ -243,7 +243,7 @@ export default function MoreScreen() {
                 onPress={() => router.push('/account/income')}
               />}
               {!isHidden(user, 'accounts') && <FeatureCard
-                icon={Landmark}
+                icon={Bank}
                 label="Accounts"
                 blurb="Bank, card and cash"
                 iconBg={tokens.accentSoft}
@@ -292,7 +292,7 @@ export default function MoreScreen() {
                 onPress={() => router.push('/modals/money-brain')}
               />}
               {!isHidden(user, 'investments') && <FeatureCard
-                icon={TrendingUp}
+                icon={TrendUp}
                 label="Investments"
                 blurb="Portfolio at a glance"
                 iconBg={tokens.mintSoft}
@@ -300,7 +300,7 @@ export default function MoreScreen() {
                 onPress={() => router.push('/investments')}
               />}
               {!isHidden(user, 'billScan') && <FeatureCard
-                icon={ScanLine}
+                icon={Scan}
                 label="Scan a bill"
                 blurb="Split a cart or receipt"
                 iconBg={tokens.mintSoft}
@@ -316,7 +316,7 @@ export default function MoreScreen() {
                 onPress={() => router.push('/subscriptions')}
               />}
               {!isHidden(user, 'insights') && <FeatureCard
-                icon={LineChart}
+                icon={ChartLine}
                 label="Insights"
                 blurb="Trends and breakdowns"
                 iconBg={tokens.blueSoft}
@@ -384,7 +384,7 @@ export default function MoreScreen() {
                     {NOTIFY_OPTIONS.find((o) => o.value === (user?.notifyCadence ?? 'off'))?.label}
                   </Text>
                 </View>
-                <ChevronRight size={16} color={tokens.text3} strokeWidth={2} />
+                <CaretRight size={16} color={tokens.text3} />
               </Pressable>
               <View style={[styles.divider, { backgroundColor: tokens.border }]} />
               <Pressable onPress={() => router.push('/account/features')} style={styles.row}>
@@ -394,7 +394,7 @@ export default function MoreScreen() {
                     {hiddenFeatures(user).length ? `${hiddenFeatures(user).length} hidden` : 'Hide what you don\'t use'}
                   </Text>
                 </View>
-                <ChevronRight size={16} color={tokens.text3} strokeWidth={2} />
+                <CaretRight size={16} color={tokens.text3} />
               </Pressable>
             </View>
           </View>
@@ -410,7 +410,7 @@ export default function MoreScreen() {
                 <>
                   <View style={[styles.divider, { backgroundColor: tokens.border }]} />
                   <AccountRow
-                    icon={LayoutGrid}
+                    icon={SquaresFour}
                     label="Add widget to home screen"
                     onPress={() => void requestPinWidget({ widgetName: 'Envelope' })}
                     tokens={tokens}
@@ -434,7 +434,7 @@ export default function MoreScreen() {
                 </Pressable>
               </Pressable>
               <View style={[styles.divider, { backgroundColor: tokens.border }]} />
-              <AccountRow icon={MessageCircle} label="Help & feedback" hint="Tour, changelog and more" onPress={() => router.push('/account/help')} tokens={tokens} />
+              <AccountRow icon={ChatCircle} label="Help & feedback" hint="Tour, changelog and more" onPress={() => router.push('/account/help')} tokens={tokens} />
               <View style={[styles.divider, { backgroundColor: tokens.border }]} />
               <AccountRow
                 icon={FileText}
@@ -517,7 +517,7 @@ export default function MoreScreen() {
             }}
             style={[styles.sourceRow, { backgroundColor: tokens.inputBg }]}
           >
-            <History size={20} color={tokens.text} />
+            <ClockCounterClockwise size={20} color={tokens.text} />
             <Text style={[styles.sourceLabel, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>Previous scans</Text>
           </Pressable>
         </View>
@@ -544,7 +544,7 @@ function FeatureCard({
   onPress,
   disabled,
 }: {
-  icon: LucideIcon
+  icon: PhosphorIcon
   label: string
   blurb: ReactNode
   iconBg: string
@@ -629,7 +629,7 @@ function AccountRow({
   onPress,
   tokens,
 }: {
-  icon: LucideIcon
+  icon: PhosphorIcon
   label: string
   hint?: string
   onPress: () => void
@@ -642,7 +642,7 @@ function AccountRow({
         <Text style={[styles.rowLabel, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>{label}</Text>
         {hint && <Text style={[styles.rowHint, { color: tokens.text2 }]}>{hint}</Text>}
       </View>
-      <ChevronRight size={16} color={tokens.text3} strokeWidth={2} />
+      <CaretRight size={16} color={tokens.text3} />
     </Pressable>
   )
 }

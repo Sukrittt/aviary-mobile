@@ -1,6 +1,6 @@
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { useState } from 'react'
-import { Eye, X } from 'lucide-react-native'
+import { Eye, X } from '@/src/components/shared/icons'
 import { Modal, View, Text, Image, Pressable, ScrollView, StyleSheet } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router'

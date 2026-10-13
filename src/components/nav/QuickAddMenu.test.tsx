@@ -1,5 +1,5 @@
 import { fireEvent } from '@testing-library/react-native'
-import { Plus } from 'lucide-react-native'
+import { Plus } from '@/src/components/shared/icons'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { QuickAddMenu } from './QuickAddMenu'
 

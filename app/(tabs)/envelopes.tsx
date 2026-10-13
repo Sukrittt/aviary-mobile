@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { View, Text, ScrollView, Pressable, TextInput, RefreshControl, StyleSheet, Animated, PanResponder } from 'react-native'
 import type { LayoutChangeEvent } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { ChevronRight, MoreVertical, Plus, Equal } from 'lucide-react-native'
+import { CaretRight, DotsThreeVertical, Plus, Equals } from '@/src/components/shared/icons'
 import * as Haptics from 'expo-haptics'
 import { rippleHaptic } from '@/src/lib/haptics'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
@@ -78,7 +78,7 @@ function GroupChevron({ collapsed, color }: { collapsed: boolean; color: string 
   }))
   return (
     <Reanimated.View style={style}>
-      <Icon icon={ChevronRight} size={14} color={color} strokeWidth={2.5} />
+      <Icon icon={CaretRight} size={14} color={color} weight="bold" />
     </Reanimated.View>
   )
 }
@@ -251,7 +251,7 @@ function DraggableCategoryList({
               </Text>
               <View style={styles.catActions}>
                 <View {...responder.panHandlers} hitSlop={8} style={styles.dragHandle}>
-                  <Icon icon={Equal} size={14} color={tokens.text3} />
+                  <Icon icon={Equals} size={14} color={tokens.text3} />
                 </View>
               </View>
             </Pressable>
@@ -459,7 +459,7 @@ function DraggableGroupCard({
   const handle = draggable ? (
     <GestureDetector gesture={gestures.grip}>
       <View hitSlop={8} style={styles.dragHandle} accessibilityLabel={`Drag to reorder ${splitEmoji(name).text}`}>
-        <Icon icon={Equal} size={15} color={handleColor} />
+        <Icon icon={Equals} size={15} color={handleColor} />
       </View>
     </GestureDetector>
   ) : null
@@ -907,7 +907,7 @@ export default function EnvelopesScreen() {
                       </View>
                       {name !== '' && (
                         <Pressable onPress={() => openGroupMenu(name)} hitSlop={8}>
-                          <Icon icon={MoreVertical} size={17} color={tokens.text3} />
+                          <Icon icon={DotsThreeVertical} size={17} color={tokens.text3} />
                         </Pressable>
                       )}
                       {handle}
@@ -928,7 +928,7 @@ export default function EnvelopesScreen() {
                         onPress={() => openAddCategory(name)}
                         style={[styles.addFirstCatBtn, { borderColor: tokens.borderStrong }]}
                       >
-                        <Icon icon={Plus} size={14} color={tokens.accent} strokeWidth={2.5} />
+                        <Icon icon={Plus} size={14} color={tokens.accent} weight="bold" />
                         <Text style={{ color: tokens.accent, fontSize: 13, fontFamily: fontFamily.bodyBold }}>
                           Add first category
                         </Text>
@@ -939,7 +939,7 @@ export default function EnvelopesScreen() {
                         style={[styles.addCatRow, { borderTopColor: tokens.border }]}
                       >
                         <View style={[styles.dashedIconChip, { borderColor: tokens.accent }]}>
-                          <Icon icon={Plus} size={12} color={tokens.accent} strokeWidth={3} />
+                          <Icon icon={Plus} size={12} color={tokens.accent} weight="bold" />
                         </View>
                         <Text style={{ color: tokens.accent, fontSize: 13, fontFamily: fontFamily.bodyBold }}>
                           Add category
@@ -957,7 +957,7 @@ export default function EnvelopesScreen() {
                   onPress={openAddGroup}
                   style={[styles.addGroupBtn, { borderColor: tokens.borderStrong }]}
                 >
-                  <Icon icon={Plus} size={14} color={tokens.text2} strokeWidth={2.5} />
+                  <Icon icon={Plus} size={14} color={tokens.text2} weight="bold" />
                   <Text style={{ color: tokens.text2, fontSize: 13, fontFamily: fontFamily.bodyBold }}>New group</Text>
                 </Pressable>
                 <Text style={{ color: tokens.text3, fontSize: 10, textAlign: 'center', marginTop: 2, fontFamily: fontFamily.bodyMedium }}>

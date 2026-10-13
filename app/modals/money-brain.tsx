@@ -14,7 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import * as Haptics from 'expo-haptics'
 import Reanimated from 'react-native-reanimated'
 import { useBounce } from '@/src/hooks/useBounce'
-import { ArrowLeft, ArrowRight, ArrowUp, Check, Clock, Plus } from 'lucide-react-native'
+import { ArrowLeft, ArrowRight, ArrowUp, Check, Clock, Plus } from '@/src/components/shared/icons'
 import { Alert } from '@/src/components/ui/AlertHost'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { usePrivacy } from '@/src/context/PrivacyContext'
@@ -405,7 +405,7 @@ export default function MoneyBrainModal() {
             Chat history
           </Text>
           <Pressable onPress={startNewChat} style={[styles.newPill, { backgroundColor: tokens.accent }]}>
-            <Icon icon={Plus} size={15} color={tokens.onAccent} strokeWidth={2.4} />
+            <Icon icon={Plus} size={15} color={tokens.onAccent} weight="bold" />
             <Text style={[styles.newPillText, { color: tokens.onAccent, fontFamily: fontFamily.bodySemiBold }]}>
               New
             </Text>
@@ -467,7 +467,7 @@ export default function MoneyBrainModal() {
             hitSlop={6}
             style={[styles.pillButton, styles.pillButtonPrimary, { backgroundColor: tokens.accent }]}
           >
-            <Icon icon={Plus} size={15} color={tokens.onAccent} strokeWidth={2.4} />
+            <Icon icon={Plus} size={15} color={tokens.onAccent} weight="bold" />
             <Text style={[styles.pillText, { color: tokens.onAccent, fontFamily: fontFamily.bodySemiBold }]}>
               New
             </Text>
@@ -602,7 +602,7 @@ export default function MoneyBrainModal() {
                   >
                     {m.ack && (
                       <View style={[styles.ackKicker, { backgroundColor: tokens.mintSoft }]}>
-                        <Icon icon={Check} size={12} color={tokens.mint} strokeWidth={3} />
+                        <Icon icon={Check} size={12} color={tokens.mint} weight="bold" />
                         <Text style={[styles.ackKickerText, { color: tokens.mint, fontFamily: fontFamily.bodyBold }]}>
                           {loggedLabel(messages[i - 1]?.proposal?.expenseIds?.length)}
                         </Text>

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native'
 import Animated, { Easing, FadeIn, useAnimatedStyle, useReducedMotion, useSharedValue, withSpring, withTiming } from 'react-native-reanimated'
 import * as Haptics from 'expo-haptics'
-import { Brain, Check, Gift, LineChart, Receipt, ScanLine, TrendingUp, type LucideIcon } from 'lucide-react-native'
+import { Brain, Check, Gift, ChartLine, Receipt, Scan, TrendUp, type PhosphorIcon } from '@/src/components/shared/icons'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { Alert } from '@/src/components/ui/AlertHost'
@@ -11,13 +11,13 @@ import { HIDEABLE_FEATURES, OPT_IN_FEATURES, hiddenFeatures, type HideableFeatur
 import { track } from '@/src/lib/analytics'
 
 /** One line each for OPT_IN_FEATURES, in the order they're offered. */
-export const EXTRAS: { key: HideableFeature; icon: LucideIcon; pitch: string }[] = [
+export const EXTRAS: { key: HideableFeature; icon: PhosphorIcon; pitch: string }[] = [
   { key: 'askAviary', icon: Brain, pitch: 'Ask anything about your spending, in plain words' },
-  { key: 'billScan', icon: ScanLine, pitch: "Snap a receipt and it's logged for you" },
+  { key: 'billScan', icon: Scan, pitch: "Snap a receipt and it's logged for you" },
   { key: 'wrapped', icon: Gift, pitch: 'A monthly story of your spending, with music' },
-  { key: 'insights', icon: LineChart, pitch: 'Trends, a daily heatmap and where it all went' },
+  { key: 'insights', icon: ChartLine, pitch: 'Trends, a daily heatmap and where it all went' },
   { key: 'subscriptions', icon: Receipt, pitch: 'Every renewal in one place, with a heads-up first' },
-  { key: 'investments', icon: TrendingUp, pitch: 'Your portfolio total at a glance' },
+  { key: 'investments', icon: TrendUp, pitch: 'Your portfolio total at a glance' },
 ]
 
 const labelOf = (key: HideableFeature) => HIDEABLE_FEATURES.find((f) => f.key === key)?.label ?? key
@@ -98,7 +98,7 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable)
  * One extra, tappable anywhere. Same check and motion as setup's group and
  * category rows (PickRow.tsx): a quick timed check and a small press-in bounce.
  */
-function ExtraRow({ icon: ExtraIcon, label, pitch, on, onToggle }: { icon: LucideIcon; label: string; pitch: string; on: boolean; onToggle: () => void }) {
+function ExtraRow({ icon: ExtraIcon, label, pitch, on, onToggle }: { icon: PhosphorIcon; label: string; pitch: string; on: boolean; onToggle: () => void }) {
   const { tokens, motion } = useTheme()
   const reduceMotion = useReducedMotion()
   const mounted = useRef(false)
@@ -143,7 +143,7 @@ function ExtraRow({ icon: ExtraIcon, label, pitch, on, onToggle }: { icon: Lucid
       style={[styles.row, { backgroundColor: on ? tokens.card : 'transparent', borderColor: on ? tokens.accent : tokens.border }, rowStyle]}
     >
       <View style={[styles.icon, { backgroundColor: tokens.accentSoft }]}>
-        <ExtraIcon size={16} color={tokens.accentInk} strokeWidth={2.2} />
+        <ExtraIcon size={16} color={tokens.accentInk} />
       </View>
       <View style={{ flex: 1 }}>
         <Text style={[styles.label, { color: tokens.text, fontFamily: fontFamily.bodyExtraBold }]}>{label}</Text>
@@ -153,7 +153,7 @@ function ExtraRow({ icon: ExtraIcon, label, pitch, on, onToggle }: { icon: Lucid
         style={[styles.check, { borderColor: on ? tokens.accent : tokens.borderStrong, backgroundColor: on ? tokens.accent : 'transparent' }, checkBoxStyle]}
       >
         <Animated.View style={[styles.checkIcon, checkIconStyle]}>
-          <Check size={16} color={tokens.onAccent} strokeWidth={3} />
+          <Check size={16} color={tokens.onAccent} weight="bold" />
         </Animated.View>
       </Animated.View>
     </AnimatedPressable>

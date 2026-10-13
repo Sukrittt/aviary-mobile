@@ -9,7 +9,7 @@ import { useCurrency } from '@/src/context/CurrencyContext'
 import { View, Text, Pressable, ScrollView, StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { ArrowLeft } from "lucide-react-native";
+import { ArrowLeft } from "@/src/components/shared/icons";
 import { WidgetPreview } from "react-native-android-widget";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { fontFamily } from "@/src/theme/fonts";

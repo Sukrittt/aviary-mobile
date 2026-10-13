@@ -1,6 +1,6 @@
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { View, Text, Pressable, StyleSheet } from 'react-native'
-import { ChevronRight } from 'lucide-react-native'
+import { CaretRight } from '@/src/components/shared/icons'
 import Reanimated, { FadeIn, FadeOut, LinearTransition, useAnimatedStyle, withSpring } from 'react-native-reanimated'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
@@ -50,7 +50,7 @@ export function EnvelopeGroup({
       <Pressable style={styles.header} onPress={() => onToggle(group)}>
         <View style={styles.headerLeft}>
           <Reanimated.View style={chevronStyle}>
-            <Icon icon={ChevronRight} size={16} color={tokens.text2} />
+            <Icon icon={CaretRight} size={16} color={tokens.text2} />
           </Reanimated.View>
           <Text style={{ fontSize: 14 }}>{groupEmoji(group)}</Text>
           <Text style={[styles.name, { color: tokens.text, fontFamily: fontFamily.bodyExtraBold }]}>

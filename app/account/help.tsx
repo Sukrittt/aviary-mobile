@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { View, Text, Pressable, ScrollView, Linking, StyleSheet } from 'react-native'
 import { useRouter } from 'expo-router'
 import * as StoreReview from 'expo-store-review'
-import { ArrowLeft, BookOpen, Bug, Compass, MessageCircle, Star, ChevronRight, ChevronUp, ScrollText, ThumbsUp, Globe, type LucideIcon } from 'lucide-react-native'
+import { ArrowLeft, BookOpen, Bug, Compass, ChatCircle, Star, CaretRight, CaretUp, Scroll, ThumbsUp, Globe, type PhosphorIcon } from '@/src/components/shared/icons'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
@@ -39,14 +39,14 @@ export default function HelpScreen() {
       <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 32 }]}>
         <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
           <Pressable onPress={() => router.push('/account/ideas')} style={styles.row}>
-            <Icon icon={MessageCircle} size={16} />
+            <Icon icon={ChatCircle} size={16} />
             <View style={{ flex: 1, marginLeft: 12 }}>
               <Text style={[styles.rowLabel, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>Feedback board</Text>
               <Text style={[styles.rowHint, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
                 {"Aviary's in early access. Post ideas and vote on what's next."}
               </Text>
             </View>
-            <Icon icon={ChevronRight} size={16} color={tokens.text3} />
+            <Icon icon={CaretRight} size={16} color={tokens.text3} />
           </Pressable>
           <LinkRow icon={Bug} label="Report a bug" onPress={() => router.push('/account/feedback')} />
           <View style={[styles.divider, { backgroundColor: tokens.border }]} />
@@ -55,7 +55,7 @@ export default function HelpScreen() {
             <Text style={[styles.rowLabel, { flex: 1, marginLeft: 12, color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>
               How envelopes work
             </Text>
-            <Icon icon={explainerOpen ? ChevronUp : ChevronRight} size={16} color={tokens.text3} />
+            <Icon icon={explainerOpen ? CaretUp : CaretRight} size={16} color={tokens.text3} />
           </Pressable>
           {explainerOpen && (
             <View style={styles.explainerList}>
@@ -72,9 +72,9 @@ export default function HelpScreen() {
             <Text style={[styles.rowLabel, { flex: 1, marginLeft: 12, color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>
               Take the guided tour
             </Text>
-            <Icon icon={ChevronRight} size={16} color={tokens.text3} />
+            <Icon icon={CaretRight} size={16} color={tokens.text3} />
           </Pressable>
-          <LinkRow icon={ScrollText} label="Changelog" onPress={() => router.push('/account/changelog')} />
+          <LinkRow icon={Scroll} label="Changelog" onPress={() => router.push('/account/changelog')} />
           {rateUrl && <LinkRow icon={ThumbsUp} label="Rate Aviary" onPress={() => Linking.openURL(rateUrl)} />}
           <LinkRow icon={Globe} label="Open web app" onPress={() => Linking.openURL(WEB_URL)} />
           <View style={[styles.divider, { backgroundColor: tokens.border }]} />
@@ -83,7 +83,7 @@ export default function HelpScreen() {
             <Text style={[styles.rowLabel, { flex: 1, marginLeft: 12, color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>
               Star the repo
             </Text>
-            <Icon icon={ChevronRight} size={16} color={tokens.text3} />
+            <Icon icon={CaretRight} size={16} color={tokens.text3} />
           </Pressable>
         </View>
       </ScrollView>
@@ -92,7 +92,7 @@ export default function HelpScreen() {
 }
 
 /** A divider then a plain row, the shape every row after the first takes here. */
-function LinkRow({ icon, label, onPress }: { icon: LucideIcon; label: string; onPress: () => void }) {
+function LinkRow({ icon, label, onPress }: { icon: PhosphorIcon; label: string; onPress: () => void }) {
   const { tokens } = useTheme()
   return (
     <>
@@ -100,7 +100,7 @@ function LinkRow({ icon, label, onPress }: { icon: LucideIcon; label: string; on
       <Pressable onPress={onPress} style={styles.row}>
         <Icon icon={icon} size={16} />
         <Text style={[styles.rowLabel, { flex: 1, marginLeft: 12, color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>{label}</Text>
-        <Icon icon={ChevronRight} size={16} color={tokens.text3} />
+        <Icon icon={CaretRight} size={16} color={tokens.text3} />
       </Pressable>
     </>
   )

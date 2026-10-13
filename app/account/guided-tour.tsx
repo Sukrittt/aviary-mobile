@@ -4,7 +4,7 @@ import * as Haptics from 'expo-haptics'
 import { useFocusEffect, useRouter, type Href } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Reanimated, { FadeIn } from 'react-native-reanimated'
-import { ArrowLeft, X, ChevronRight, ArrowUpRight, Check, Circle } from 'lucide-react-native'
+import { ArrowLeft, X, CaretRight, ArrowUpRight, Check, Circle } from '@/src/components/shared/icons'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { Icon } from '@/src/components/shared/Icon'
@@ -357,7 +357,7 @@ function Hub({
                   ]}
                 >
                   {isDone ? (
-                    <Icon icon={Check} size={16} color={tokens.accentInk} strokeWidth={3} />
+                    <Icon icon={Check} size={16} color={tokens.accentInk} weight="bold" />
                   ) : (
                     <Text style={{ color: tokens.text2, fontFamily: fontFamily.displaySemiBold, fontSize: type.body }}>{i + 1}</Text>
                   )}
@@ -368,7 +368,7 @@ function Hub({
                     {c.blurb}
                   </Text>
                 </View>
-                <Icon icon={ChevronRight} size={16} color={tokens.text3} />
+                <Icon icon={CaretRight} size={16} color={tokens.text3} />
               </Pressable>
             </PopIn>
           )
@@ -437,10 +437,10 @@ function Done({
               <View style={[styles.tick, { backgroundColor: done.has(i) ? tokens.accentSoft : tokens.inputBg }]}>
                 {done.has(i) ? (
                   <PopIn play delay={160 + i * 60 + 120}>
-                    <Icon icon={Check} size={12} color={tokens.accentInk} strokeWidth={3} />
+                    <Icon icon={Check} size={12} color={tokens.accentInk} weight="bold" />
                   </PopIn>
                 ) : (
-                  <Icon icon={Circle} size={10} color={tokens.text3} strokeWidth={2.5} />
+                  <Icon icon={Circle} size={10} color={tokens.text3} weight="bold" />
                 )}
               </View>
               <Text numberOfLines={1} style={{ flex: 1, color: tokens.text, fontFamily: fontFamily.bodyBold, fontSize: type.caption }}>

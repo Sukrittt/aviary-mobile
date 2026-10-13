@@ -1,8 +1,6 @@
 import { LoadingCaption } from "@/src/components/shared/LoadingCaption";
 import { fontFamily } from "@/src/theme/fonts";
-import {
-ArrowLeft
-} from "lucide-react-native";
+import { ArrowLeft } from "@/src/components/shared/icons";
 import {
 KeyboardAvoidingView,
 Platform,

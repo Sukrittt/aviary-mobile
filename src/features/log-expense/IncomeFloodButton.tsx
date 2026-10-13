@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, useWindowDimensions } from 'react-native'
 import { useRouter } from 'expo-router'
 import * as Haptics from 'expo-haptics'
-import { HandCoins } from 'lucide-react-native'
+import { HandCoins } from '@/src/components/shared/icons'
 
 const SIZE = 36
 export const QUICK_INCOME_PATH = '/modals/quick-income'

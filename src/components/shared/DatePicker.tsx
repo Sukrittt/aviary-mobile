@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native'
-import { Calendar, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react-native'
+import { CalendarBlank, CaretDown, CaretLeft, CaretRight } from '@/src/components/shared/icons'
 import * as Haptics from 'expo-haptics'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
@@ -102,7 +102,7 @@ const RANGE_PRESETS: [string, number, boolean][] = [
 function MonthNavButton({ dir, onPress }: { dir: 'prev' | 'next'; onPress: () => void }) {
   const { tokens } = useTheme()
   const press = usePressSpring(0.88)
-  const Chevron = dir === 'prev' ? ChevronLeft : ChevronRight
+  const Chevron = dir === 'prev' ? CaretLeft : CaretRight
   return (
     <AnimatedPressable
       accessibilityRole="button"
@@ -115,7 +115,7 @@ function MonthNavButton({ dir, onPress }: { dir: 'prev' | 'next'; onPress: () =>
       onPressOut={press.onPressOut}
       style={[styles.navBtn, styles.navBtnLarge, { backgroundColor: tokens.inputBg, borderColor: tokens.border }, press.style]}
     >
-      <Chevron size={15} color={tokens.text} strokeWidth={2.5} />
+      <Chevron size={15} color={tokens.text} weight="bold" />
     </AnimatedPressable>
   )
 }
@@ -221,11 +221,11 @@ function RangeDatePicker({ value, onChange, disableFuture = true }: RangeProps) 
       >
         <View style={styles.fieldLeft}>
           <View style={[styles.iconWrap, { backgroundColor: tokens.accentSoft }]}>
-            <Calendar size={15} color={tokens.accentInk} />
+            <CalendarBlank size={15} color={tokens.accentInk} />
           </View>
           <Text style={[styles.fieldText, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>{label}</Text>
         </View>
-        <ChevronDown size={16} color={tokens.text3} style={{ transform: [{ rotate: open ? '180deg' : '0deg' }] }} />
+        <CaretDown size={16} color={tokens.text3} style={{ transform: [{ rotate: open ? '180deg' : '0deg' }] }} />
       </Pressable>
 
       {/* Dismissing the sheet (backdrop, Android back) is a Cancel; only Apply or a full pick keeps the change. */}
@@ -444,7 +444,7 @@ function SingleDatePicker({ value, onChange, disableFuture = true, onAccent = fa
       </ScrollView>
 
       <Pressable onPress={openCalendar} style={styles.linkRow} hitSlop={8}>
-        <Calendar size={14} color={onAccent ? tokens.onAccent : tokens.accent} />
+        <CalendarBlank size={14} color={onAccent ? tokens.onAccent : tokens.accent} />
         <Text style={[styles.link, { color: onAccent ? tokens.onAccent : tokens.accent, fontFamily: fontFamily.bodySemiBold }]}>
           Another date…
         </Text>

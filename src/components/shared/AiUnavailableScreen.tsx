@@ -1,7 +1,7 @@
 import { View, Text, StyleSheet } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
-import { Sparkles, Wrench } from 'lucide-react-native'
+import { Sparkle, Wrench } from '@/src/components/shared/icons'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { nextAllowanceReset } from '@/src/lib/aiAllowance'
@@ -55,7 +55,7 @@ export function AiAllowanceScreen() {
   const resetsOn = nextAllowanceReset().toLocaleDateString(undefined, { day: 'numeric', month: 'long' })
   return (
     <AiUnavailableScreen
-      icon={Sparkles}
+      icon={Sparkle}
       title="AI allowance reached"
       message={`You've used this month's AI allowance. Ask Aviary and bill scanning are back on ${resetsOn}. Everything else works as normal.`}
     />

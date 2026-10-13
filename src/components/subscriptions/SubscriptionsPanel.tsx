@@ -2,7 +2,7 @@ import { useCurrency } from '@/src/context/CurrencyContext'
 import { useMemo, useState } from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
-import { ChevronRight } from "lucide-react-native";
+import { CaretRight } from "@/src/components/shared/icons";
 import * as Haptics from "expo-haptics";
 import Reanimated, {
   FadeIn,
@@ -551,7 +551,7 @@ export function SubscriptionsPanel({ subscriptions, loading }: Props) {
             onPress={() => setCancelledExpanded((e) => !e)}
           >
             <Reanimated.View style={chevronStyle}>
-              <Icon icon={ChevronRight} size={14} color={tokens.text3} />
+              <Icon icon={CaretRight} size={14} color={tokens.text3} />
             </Reanimated.View>
             <Text style={[styles.sectionTitle, { color: tokens.text3 }]}>
               CANCELLED ({cancelled.length})

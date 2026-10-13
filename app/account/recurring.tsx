@@ -11,7 +11,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ArrowLeft, ChevronRight, Plus, Repeat2 } from "lucide-react-native";
+import { ArrowLeft, CaretRight, Plus, ArrowsClockwise } from "@/src/components/shared/icons";
 import * as Haptics from "expo-haptics";
 import Reanimated from "react-native-reanimated";
 import { OfflineScreen } from "@/src/components/shared/OfflineScreen";
@@ -464,7 +464,7 @@ function FindRecurringEntry({ style }: { style?: StyleProp<ViewStyle> }) {
         <View
           style={[styles.discoveryIcon, { backgroundColor: tokens.accentSoft }]}
         >
-          <Icon icon={Repeat2} size={16} color={tokens.accent} />
+          <Icon icon={ArrowsClockwise} size={16} color={tokens.accent} />
         </View>
         <Text
           style={[
@@ -474,7 +474,7 @@ function FindRecurringEntry({ style }: { style?: StyleProp<ViewStyle> }) {
         >
           Find recurring expenses
         </Text>
-        <Icon icon={ChevronRight} size={16} color={tokens.text3} />
+        <Icon icon={CaretRight} size={16} color={tokens.text3} />
       </Pressable>
     </Reanimated.View>
   );

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { View, Text, Pressable, StyleSheet } from 'react-native'
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated'
 import * as Haptics from 'expo-haptics'
-import { ChevronLeft } from 'lucide-react-native'
+import { CaretLeft } from '@/src/components/shared/icons'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { motion } from '@/src/theme/scale'
@@ -107,7 +107,7 @@ export function Numpad({
               >
                 {k === CALC_TOGGLE && calcOpen && <View style={[styles.toggleFill, { backgroundColor: fill }]} />}
                 {k === 'del' ? (
-                  <ChevronLeft size={22} color={keyColor} />
+                  <CaretLeft size={22} color={keyColor} />
                 ) : (
                   <Text style={[styles.label, { color: keyColor, fontFamily: fontFamily.displaySemiBold }]}>{k}</Text>
                 )}
