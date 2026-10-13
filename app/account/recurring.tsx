@@ -101,7 +101,6 @@ function dueLabel(nextRunDate: string): string {
 export default function RecurringExpensesScreen() {
 
   const { tokens } = useTheme();
-  const { hideAmounts } = usePrivacy();
   const online = useOnline();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -263,7 +262,12 @@ export default function RecurringExpensesScreen() {
             {active.length > 0 ? (
               <Section title="Active">
                 {active.map((row, i) => (
-                  <RecurringRow key={row.id} row={row} index={i} />
+                  <RecurringRow
+                    key={row.id}
+                    row={row}
+                    index={i}
+                    categoryColor={categoryColor}
+                  />
                 ))}
               </Section>
             ) : null}
@@ -275,6 +279,7 @@ export default function RecurringExpensesScreen() {
                     key={row.id}
                     row={row}
                     index={active.length + i}
+                    categoryColor={categoryColor}
                   />
                 ))}
               </Section>
@@ -284,147 +289,156 @@ export default function RecurringExpensesScreen() {
       </ScrollView>
     </View>
   );
+}
 
-  function Section({
-    title,
-    children,
-  }: {
-    title: string;
-    children: React.ReactNode;
-  }) {
-    return (
-      <View style={styles.section}>
-        <Text
-          style={[
-            styles.sectionLabel,
-            { color: tokens.text3, fontFamily: fontFamily.bodyBold },
-          ]}
-        >
-          {title.toUpperCase()}
-        </Text>
-        <View style={{ gap: 10 }}>{children}</View>
-      </View>
-    );
-  }
-
-  function RecurringRow({
-    row,
-    index,
-  }: {
-    row: RecurringExpenseRow;
-    index: number;
-  }) {
-  const { formatCurrency } = useCurrency()
-
-    const isActive = row.status === "active";
-    const category = splitEmoji(row.category);
-    const dotColor =
-      categoryColor.get(category.text || row.category) ?? tokens.text3;
-    const press = usePressSpring(0.98);
-
-    return (
-      <PopIn
-        play
-        delay={MOUNT_DELAY + Math.min(index, STAGGER_CAP) * ITEM_STAGGER}
+// Module scope, not inside the screen: a component declared in the render body
+// gets a new identity every render, so every row would remount and replay its
+// PopIn. Each reads tokens/router/privacy from hooks like FindRecurringEntry.
+function Section({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  const { tokens } = useTheme();
+  return (
+    <View style={styles.section}>
+      <Text
         style={[
-          styles.rowCard,
-          { backgroundColor: tokens.card, borderColor: tokens.border },
+          styles.sectionLabel,
+          { color: tokens.text3, fontFamily: fontFamily.bodyBold },
         ]}
       >
-        <Reanimated.View style={press.style}>
-          <Pressable
-            onPress={() =>
-              router.push(
-                `/modals/recurring-expense?id=${encodeURIComponent(row.id)}`,
-              )
-            }
-            onPressIn={press.onPressIn}
-            onPressOut={press.onPressOut}
-            style={styles.rowInner}
-          >
-            <View
+        {title.toUpperCase()}
+      </Text>
+      <View style={{ gap: 10 }}>{children}</View>
+    </View>
+  );
+}
+
+function RecurringRow({
+  row,
+  index,
+  categoryColor,
+}: {
+  row: RecurringExpenseRow;
+  index: number;
+  categoryColor: Map<string, string>;
+}) {
+  const { formatCurrency } = useCurrency();
+  const { tokens } = useTheme();
+  const { hideAmounts } = usePrivacy();
+  const router = useRouter();
+
+  const isActive = row.status === "active";
+  const category = splitEmoji(row.category);
+  const dotColor =
+    categoryColor.get(category.text || row.category) ?? tokens.text3;
+  const press = usePressSpring(0.98);
+
+  return (
+    <PopIn
+      play
+      delay={MOUNT_DELAY + Math.min(index, STAGGER_CAP) * ITEM_STAGGER}
+      style={[
+        styles.rowCard,
+        { backgroundColor: tokens.card, borderColor: tokens.border },
+      ]}
+    >
+      <Reanimated.View style={press.style}>
+        <Pressable
+          onPress={() =>
+            router.push(
+              `/modals/recurring-expense?id=${encodeURIComponent(row.id)}`,
+            )
+          }
+          onPressIn={press.onPressIn}
+          onPressOut={press.onPressOut}
+          style={styles.rowInner}
+        >
+          <View
+            style={[
+              styles.dot,
+              { backgroundColor: dotColor, opacity: isActive ? 1 : 0.5 },
+            ]}
+          />
+          <View style={{ flex: 1 }}>
+            <Text
               style={[
-                styles.dot,
-                { backgroundColor: dotColor, opacity: isActive ? 1 : 0.5 },
+                styles.rowTitle,
+                { color: tokens.text, fontFamily: fontFamily.bodySemiBold },
               ]}
-            />
-            <View style={{ flex: 1 }}>
-              <Text
-                style={[
-                  styles.rowTitle,
-                  { color: tokens.text, fontFamily: fontFamily.bodySemiBold },
-                ]}
-                numberOfLines={1}
-              >
-                {row.item}
-              </Text>
-              <View style={styles.rowMetaRow}>
-                <View style={[styles.pill, { backgroundColor: tokens.pillBg }]}>
-                  <Text
-                    style={[
-                      styles.pillText,
-                      {
-                        color: tokens.text2,
-                        fontFamily: fontFamily.bodySemiBold,
-                        marginLeft: -5,
-                      },
-                    ]}
-                  >
-                    {cadenceLabel(row.frequency)}
-                  </Text>
-                </View>
-                {category.text ? (
-                  <Text
-                    style={[
-                      styles.rowMeta,
-                      {
-                        color: tokens.text2,
-                        fontFamily: fontFamily.bodyMedium,
-                        marginLeft: -8,
-                      },
-                    ]}
-                    numberOfLines={1}
-                  >
-                    · {category.text}
-                  </Text>
-                ) : null}
+              numberOfLines={1}
+            >
+              {row.item}
+            </Text>
+            <View style={styles.rowMetaRow}>
+              <View style={[styles.pill, { backgroundColor: tokens.pillBg }]}>
+                <Text
+                  style={[
+                    styles.pillText,
+                    {
+                      color: tokens.text2,
+                      fontFamily: fontFamily.bodySemiBold,
+                      marginLeft: -5,
+                    },
+                  ]}
+                >
+                  {cadenceLabel(row.frequency)}
+                </Text>
               </View>
-              <Text
-                style={[
-                  styles.rowMeta,
-                  {
-                    color:
-                      isActive && row.next_run_date
-                        ? tokens.accentInk
-                        : tokens.text3,
-                    fontFamily: fontFamily.bodyMedium,
-                  },
-                ]}
-              >
-                {row.status === "ended"
-                  ? "Finished"
-                  : !isActive
-                    ? "Paused"
-                    : dueLabel(row.next_run_date)}
-              </Text>
+              {category.text ? (
+                <Text
+                  style={[
+                    styles.rowMeta,
+                    {
+                      color: tokens.text2,
+                      fontFamily: fontFamily.bodyMedium,
+                      marginLeft: -8,
+                    },
+                  ]}
+                  numberOfLines={1}
+                >
+                  · {category.text}
+                </Text>
+              ) : null}
             </View>
             <Text
               style={[
-                styles.rowAmount,
+                styles.rowMeta,
                 {
-                  color: tokens.text,
-                  fontFamily: fontFamily.bodyBold,
-                  opacity: isActive ? 1 : 0.5,
+                  color:
+                    isActive && row.next_run_date
+                      ? tokens.accentInk
+                      : tokens.text3,
+                  fontFamily: fontFamily.bodyMedium,
                 },
               ]}
             >
-              {formatCurrency(Number(row.amount_inr) || 0, hideAmounts)}
+              {row.status === "ended"
+                ? "Finished"
+                : !isActive
+                  ? "Paused"
+                  : dueLabel(row.next_run_date)}
             </Text>
-          </Pressable>
-        </Reanimated.View>
-      </PopIn>
-    );
-  }
+          </View>
+          <Text
+            style={[
+              styles.rowAmount,
+              {
+                color: tokens.text,
+                fontFamily: fontFamily.bodyBold,
+                opacity: isActive ? 1 : 0.5,
+              },
+            ]}
+          >
+            {formatCurrency(Number(row.amount_inr) || 0, hideAmounts)}
+          </Text>
+        </Pressable>
+      </Reanimated.View>
+    </PopIn>
+  );
 }
 
 /** Small discovery affordance into account/recurring-suggestions.tsx, the "Find recurring expenses" scan. */
