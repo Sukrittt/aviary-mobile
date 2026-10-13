@@ -1,5 +1,8 @@
-import { fireEvent } from '@testing-library/react-native'
-import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
+import { fireEvent, render as rtlRender } from '@testing-library/react-native'
+import { QueryClientProvider } from '@tanstack/react-query'
+import { createTestQueryClient, renderWithProviders } from '@/src/test-utils/renderWithProviders'
+import { ThemeProvider } from '@/src/theme/ThemeProvider'
+import { PrivacyProvider } from '@/src/context/PrivacyContext'
 import RecurringExpensesScreen from './recurring'
 import type { RecurringExpenseRow } from '@/src/types'
 
@@ -12,6 +15,18 @@ const mockUseRecurringExpenses = jest.fn()
 jest.mock('@/src/hooks/useRecurringExpenses', () => ({
   useRecurringExpenses: () => mockUseRecurringExpenses(),
 }))
+
+// Counts PopIn mounts: a remounted row replays its pop-in from opacity 0.
+const mockPopInMounts = jest.fn()
+jest.mock('@/src/components/shared/PopIn', () => {
+  const { useEffect } = jest.requireActual('react')
+  return {
+    PopIn: ({ children }: { children: React.ReactNode }) => {
+      useEffect(() => mockPopInMounts(), [])
+      return children
+    },
+  }
+})
 
 jest.mock('@/src/lib/netStatus', () => ({ useOnline: () => true }))
 
@@ -40,6 +55,7 @@ function render(rows: RecurringExpenseRow[]) {
 
 beforeEach(() => {
   mockPush.mockClear()
+  mockPopInMounts.mockClear()
   mockUseRecurringExpenses.mockReset()
 })
 
@@ -171,4 +187,25 @@ it('the add button opens the modal with no id, so it starts blank', () => {
   const { getByText } = render([])
   fireEvent.press(getByText('Add'))
   expect(mockPush).toHaveBeenCalledWith('/modals/recurring-expense')
+})
+
+it('keeps each row mounted when the screen re-renders, so PopIn does not replay', () => {
+  mockUseRecurringExpenses.mockReturnValue({ data: [row({ id: 'a', item: 'Rent' })], isLoading: false })
+  const qc = createTestQueryClient()
+  const tree = () => (
+    <QueryClientProvider client={qc}>
+      <ThemeProvider>
+        <PrivacyProvider>
+          <RecurringExpensesScreen />
+        </PrivacyProvider>
+      </ThemeProvider>
+    </QueryClientProvider>
+  )
+  const { getByText, rerender } = rtlRender(tree())
+  expect(getByText('Rent')).toBeTruthy()
+  const mountsBefore = mockPopInMounts.mock.calls.length
+  expect(mountsBefore).toBe(1)
+  // Same tree, fresh elements: the screen re-renders with the same rows, like a refetch would.
+  rerender(tree())
+  expect(mockPopInMounts.mock.calls.length).toBe(mountsBefore)
 })
