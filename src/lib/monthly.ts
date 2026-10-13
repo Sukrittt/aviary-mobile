@@ -45,6 +45,10 @@ export interface BreakdownRow {
   assignedIsCarried: boolean
   pct: number
   deltaPct?: number | null
+  /** Last month's spend for this row, set by withDelta. Kept alongside the
+   *  clamped deltaPct so a partial group can sum real figures instead of
+   *  back-solving them (which breaks at -100% and at the ±999 clamp). */
+  prevSpent?: number
 }
 
 function isExcluded(category: string): boolean {
@@ -164,9 +168,9 @@ export function categoryBreakdown(
 export function withDelta(rows: BreakdownRow[], prevRows: BreakdownRow[]): BreakdownRow[] {
   const prevByKey = new Map(prevRows.map((r) => [r.key, r.spent]))
   return rows.map((row) => {
-    const prevSpent = prevByKey.get(row.key)
+    const prevSpent = prevByKey.get(row.key) ?? 0
     const deltaPct = prevSpent ? clampPct(((row.spent - prevSpent) / prevSpent) * 100) : null
-    return { ...row, deltaPct }
+    return { ...row, deltaPct, prevSpent }
   })
 }
 

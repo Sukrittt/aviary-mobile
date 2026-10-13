@@ -223,10 +223,10 @@ export function CategoryBreakdown({
               )
                 return group;
               const spent = members.reduce((sum, row) => sum + row.spent, 0);
-              const previousSpent = members.reduce((sum, row) => {
-                if (row.deltaPct == null) return sum;
-                return sum + row.spent / (1 + row.deltaPct / 100);
-              }, 0);
+              const previousSpent = members.reduce(
+                (sum, row) => sum + (row.prevSpent ?? 0),
+                0,
+              );
               return {
                 ...group,
                 spent,

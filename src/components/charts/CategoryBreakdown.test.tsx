@@ -212,3 +212,43 @@ describe('CategoryBreakdown filtering', () => {
     expect(screen.onSelectKey).toHaveBeenCalledWith(null)
   })
 })
+
+describe('CategoryBreakdown group delta under a partial filter', () => {
+  it('sums real previous spend, so a member down to zero keeps the badge finite', () => {
+    const categoryRows: BreakdownRow[] = [
+      // Nothing this month, ₹1,000 last month: deltaPct -100, the case that used to divide by zero.
+      { key: 'Cook', label: 'Cook', emoji: '', spent: 0, assigned: 0, assignedIsCarried: false, pct: 0, deltaPct: -100, prevSpent: 1000 },
+      { key: 'Travel', label: 'Travel', emoji: '', spent: 3000, assigned: 0, assignedIsCarried: false, pct: 75, deltaPct: 200, prevSpent: 1000 },
+      { key: 'Fuel', label: 'Fuel', emoji: '', spent: 1000, assigned: 0, assignedIsCarried: false, pct: 20, deltaPct: null, prevSpent: 0 },
+      { key: 'Investments', label: 'Investments', emoji: '', spent: 1000, assigned: 0, assignedIsCarried: false, pct: 20, deltaPct: null, prevSpent: 0 },
+    ]
+    const groups: BreakdownRow[] = [
+      { key: 'Everyday', label: 'Everyday', emoji: '', spent: 4000, assigned: 0, assignedIsCarried: false, pct: 80, deltaPct: 100, prevSpent: 2000 },
+      { key: 'Savings', label: 'Savings', emoji: '', spent: 1000, assigned: 0, assignedIsCarried: false, pct: 20, deltaPct: null, prevSpent: 0 },
+    ]
+    const screen = renderWithProviders(
+      <CategoryBreakdown
+        rows={groups}
+        categoryRows={categoryRows}
+        groupRows={groups}
+        categoryGroupMap={new Map([['Cook', 'Everyday'], ['Travel', 'Everyday'], ['Fuel', 'Everyday'], ['Investments', 'Savings']])}
+        mode="group"
+        onModeChange={jest.fn()}
+        selectedKey={null}
+        onSelectKey={jest.fn()}
+        comparison={null}
+        leftover={0}
+        monthLabel="September 2026"
+      />,
+    )
+    act(() => jest.advanceTimersByTime(500))
+    fireEvent.press(screen.getByLabelText('Filter chart'))
+    fireEvent.press(screen.getByRole('tab', { name: 'Categories' }))
+    fireEvent.press(screen.getByRole('checkbox', { name: 'Fuel' }))
+    fireEvent.press(screen.getByRole('button', { name: 'Apply' }))
+    act(() => jest.advanceTimersByTime(250))
+
+    // Cook + Travel: ₹3,000 now vs ₹2,000 before.
+    expect(screen.getByText('50%')).toBeTruthy()
+  })
+})
