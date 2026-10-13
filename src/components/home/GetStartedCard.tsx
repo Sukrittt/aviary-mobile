@@ -12,6 +12,9 @@ type Props = {
   fundDone: boolean
   /** Live remainder, e.g. "₹49,920 still to assign"; falls back to a generic hint. */
   fundHint?: string
+  /** First pay lands next month, e.g. "Your pay lands Nov 4. Budget what you have till then."
+   * Step one then asks for what's in the account now, not an income. */
+  upcomingPayHint?: string
   manualTransactionDone: boolean
   guidedTourDone: boolean
   onAddIncome: () => void
@@ -33,6 +36,7 @@ export function GetStartedCard({
   incomeDone,
   fundDone,
   fundHint,
+  upcomingPayHint,
   manualTransactionDone,
   guidedTourDone,
   onAddIncome,
@@ -49,8 +53,8 @@ export function GetStartedCard({
       : {
           key: 'budget',
           icon: WalletCards,
-          label: 'Add your income',
-          hint: 'Give your envelopes money to hold',
+          label: upcomingPayHint ? 'Add what you have now' : 'Add your income',
+          hint: upcomingPayHint ?? 'Give your envelopes money to hold',
           done: false,
           onPress: onAddIncome,
         },

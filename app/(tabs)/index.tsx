@@ -59,6 +59,7 @@ import { firstBanner } from '@/src/lib/homeBanner'
 import { Alert } from '@/src/components/ui/AlertHost'
 import { isHidden } from '@/src/lib/features'
 import { GetStartedCard } from '@/src/components/home/GetStartedCard'
+import { paydayLabel, startingBalanceHref, upcomingMonthlyPay } from '@/src/lib/upcomingPay'
 import { EmptyState } from '@/src/components/shared/EmptyState'
 import { FORCE_EMPTY_STATE_PREVIEW, emptyForPreview } from '@/src/lib/emptyStatePreview'
 
@@ -139,6 +140,8 @@ export default function HomeScreen() {
     () => computeEnvelopeState(budgets, expenses, prevMonth, categories, groups),
     [budgets, expenses, prevMonth, categories, groups],
   )
+  // A first pay next month leaves nothing to budget this month until they add what they have now.
+  const upcomingPay = upcomingMonthlyPay(schedulesQ.data ?? [], month)
 
   // Money doesn't roll into envelopes anymore (see envelope.ts), so this is a
   // one-time heads-up on what was left unspent overall, not a running balance.
@@ -496,8 +499,9 @@ export default function HomeScreen() {
               fundDone={fundDone}
               manualTransactionDone={!!user.manualTransactionCompletedAt}
               guidedTourDone={!!user.guidedTourCompletedAt}
+              upcomingPayHint={upcomingPay ? `Your pay lands ${paydayLabel(upcomingPay.start_date)}. Budget what you have till then.` : undefined}
               onAddIncome={() =>
-                router.push(changeIncomeHref)
+                router.push(upcomingPay ? startingBalanceHref(upcomingPay.start_date) : changeIncomeHref)
               }
               fundHint={incomeDone ? `${formatCurrency(envelopeState.readyToAssign, hideAmounts)} still to assign` : undefined}
               onFund={() => (nextToFund ? handleEditAmount(nextToFund) : router.navigate('/(tabs)/envelopes'))}

@@ -20,6 +20,12 @@ import { DatePicker } from '@/src/components/shared/DatePicker'
 import { BottomSheet } from '@/src/components/shared/Modal'
 import { AccountChips } from '@/src/components/shared/AccountChips'
 import { todayLocal } from '@/src/lib/date'
+import { useQueryClient } from '@tanstack/react-query'
+import { budgetsKey } from '@/src/hooks/useBudgets'
+import { getBudgets } from '@/src/api/budgets'
+import { EMPTY } from '@/src/lib/constants'
+import { computeEnvelopeState, currentMonthKey } from '@/src/lib/envelope'
+import { startingBalanceHref } from '@/src/lib/upcomingPay'
 
 // House spring, same as recurring-expense.tsx.
 const FIELD_TRANSITION = LinearTransition.springify().damping(64).stiffness(700)
@@ -52,6 +58,7 @@ export default function RecurringIncomeModal() {
   const add = useAddRecurringIncome()
   const update = useUpdateRecurringIncome()
   const remove = useDeleteRecurringIncome()
+  const qc = useQueryClient()
   const existing = recurringQ.data?.find((r) => r.id === id)
   const isActive = existing ? existing.status === 'active' : true
 
@@ -62,6 +69,8 @@ export default function RecurringIncomeModal() {
   const [endDate, setEndDate] = useState(existing?.end_date ?? '')
   const [accountId, setAccountId] = useState(existing?.account_id ?? '')
   const [saved, setSaved] = useState(false)
+  // A saved pay whose first payday is in a later month, so it doesn't count this one.
+  const [upcomingPayday, setUpcomingPayday] = useState('')
   const [confirmDelete, setConfirmDelete] = useState(false)
 
   // existing loads async on a cold cache: backfill once it arrives.
@@ -78,8 +87,22 @@ export default function RecurringIncomeModal() {
 
   useEffect(() => {
     if (!saved) return
-    const timer = setTimeout(() => router.back(), 1100)
-    return () => clearTimeout(timer)
+    let cancelled = false
+    const timer = setTimeout(async () => {
+      // With nothing else counted this month, someone signing up mid-month
+      // goes on to add what they have now, or there'd be nothing to budget
+      // until payday. Read once the save has settled, loading budgets if
+      // they never were, so a slow first load doesn't skip it.
+      const budgets = upcomingPayday ? await qc.ensureQueryData({ queryKey: budgetsKey, queryFn: getBudgets }).catch(() => undefined) : undefined
+      if (cancelled) return
+      const empty = budgets !== undefined && computeEnvelopeState(budgets, EMPTY, currentMonthKey(), EMPTY, EMPTY).income === 0
+      if (empty) router.replace(startingBalanceHref(upcomingPayday))
+      else router.back()
+    }, 1100)
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [saved])
 
@@ -94,7 +117,12 @@ export default function RecurringIncomeModal() {
     // The account goes only when it changed: an archived one the schedule
     // still names would make every other edit fail.
     const fields = { label: label.trim(), amount: String(parsed), frequency, start_date: payday, end_date: endDate, ...(accountId !== (existing?.account_id ?? '') ? { account_id: accountId } : {}) }
-    const onSuccess = () => setSaved(true)
+    // A monthly pay counts from its first payday's month, and a paused or
+    // ended one not at all.
+    const onSuccess = () => {
+      if (frequency === 'monthly' && isActive && payday.slice(0, 7) > currentMonthKey()) setUpcomingPayday(payday)
+      setSaved(true)
+    }
     if (isEdit) {
       update.mutate({ id, updates: fields }, { onSuccess, onError: () => { buzzError(); Alert.alert("Couldn't save", 'Check your connection and try again.') } })
     } else {
