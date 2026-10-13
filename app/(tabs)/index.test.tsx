@@ -429,6 +429,14 @@ describe('HomeScreen · one banner at a time', () => {
     expect(queryByText(/Free trial/)).toBeNull()
   })
 
+  it('lets Nice dismiss the rollover banner', async () => {
+    mockBilling = trial(7)
+    const { findByText, getByText, queryByText } = renderHome()
+    expect(await findByText(/went to savings last month/)).toBeTruthy()
+    fireEvent.press(getByText('Nice'))
+    await waitFor(() => expect(queryByText(/went to savings last month/)).toBeNull())
+  })
+
   it('offers Insights once 30 expenses are logged, with nothing above it', async () => {
     mockBudgets = [{ month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' }]
     mockExpenses = expenses(30)

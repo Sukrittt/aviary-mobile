@@ -604,14 +604,16 @@ export default function ExpenseAddedScreen() {
                 padding: space.lg + space.xs,
                 marginTop: space.xxl,
                 gap: space.xs,
+                // Three short lines and no bar to line up with: centered, like the hero above.
+                alignItems: "center",
               },
             ]}
           >
             <RevealHaptic delay={STAGGER.card} />
-            <Text style={{ color: tokens.text, fontFamily: fontFamily.bodyExtraBold, fontSize: type.bodyLg }}>
+            <Text style={{ color: tokens.text, fontFamily: fontFamily.bodyExtraBold, fontSize: type.bodyLg, textAlign: "center" }}>
               {`Give ${categoryName} a budget?`}
             </Text>
-            <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodySemiBold, fontSize: type.caption }}>
+            <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodySemiBold, fontSize: type.caption, textAlign: "center" }}>
               Nothing&apos;s assigned to it this month.
             </Text>
             <Text

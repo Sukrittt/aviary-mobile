@@ -1,4 +1,5 @@
 import { useCurrency } from '@/src/context/CurrencyContext'
+import { currencyUnit } from '@/src/lib/currencies'
 import { useRecurringIncomes } from '@/src/hooks/useIncomes'
 import { useAccounts } from '@/src/hooks/useAccounts'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -6,11 +7,12 @@ import { View, Text, Pressable, RefreshControl, StyleSheet, Linking, Platform } 
 import { useQuery } from '@tanstack/react-query'
 import { useRouter, useIsFocused } from 'expo-router'
 import { ChevronRight, LineChart } from 'lucide-react-native'
-import Reanimated, { FadeInDown, FadeOut, LinearTransition } from 'react-native-reanimated'
+import Reanimated, { FadeIn, FadeInDown, FadeOut, LinearTransition } from 'react-native-reanimated'
 import * as Haptics from 'expo-haptics'
 import { rippleHaptic } from '@/src/lib/haptics'
 import { AnimatedTabContent } from '@/src/components/nav/AnimatedTabContent'
 import { Icon } from '@/src/components/shared/Icon'
+import { SlideStrip } from '@/src/components/shared/SlideStrip'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { track } from '@/src/lib/analytics'
 import { BottomSheet } from '@/src/components/shared/Modal'
@@ -66,7 +68,7 @@ import { FORCE_EMPTY_STATE_PREVIEW, emptyForPreview } from '@/src/lib/emptyState
  * moved to /insights — six modules on one scroll left nothing room to be large.
  */
 export default function HomeScreen() {
-  const { formatCurrency } = useCurrency()
+  const { formatCurrency, currencyCode } = useCurrency()
 
   const { tokens, space, type, radius } = useTheme()
   const { refreshing, onRefresh } = useRefresh()
@@ -85,6 +87,8 @@ export default function HomeScreen() {
   const month = currentMonthKey()
   const prevMonth = prevMonthKey(month)
   const [rolloverDismissed, setRolloverDismissed] = useDismissedRolloverBanner(prevMonth)
+  // Nice slides the strip away first; it's only stored as dismissed once that's done.
+  const [rolloverLeaving, setRolloverLeaving] = useState(false)
   // Trial reminders at 3 and 1 days left (7 days out is too early to spend
   // Home's one banner on). Same dismiss-once storage as the rollover banner,
   // keyed by threshold, so dismissing at 3 days still lets the 1-day through.
@@ -328,12 +332,18 @@ export default function HomeScreen() {
             }}
             onPressIn={heroPress.onPressIn}
             onPressOut={heroPress.onPressOut}
-            style={heroPress.style}
+            // A little air under the month header, which sits close above it.
+            style={[heroPress.style, { marginTop: space.sm }]}
           >
-            <Card elevated={false} style={[styles.slimRta, rtaCelebrating && { backgroundColor: tokens.mintSoft }]}>
-              <Text style={{ color: tokens.text, fontSize: type.body, fontFamily: fontFamily.bodySemiBold }}>
-                {rtaCelebrating ? 'Every rupee has a job.' : '💸  Ready to Assign'}
-              </Text>
+            <Card elevated={false} style={[styles.slimRta, rtaCelebrating && { backgroundColor: tokens.pillGoodBg, borderColor: 'transparent' }]}>
+              <Reanimated.Text
+                key={rtaCelebrating ? 'celebrate' : 'label'}
+                entering={FadeIn.duration(220)}
+                exiting={FadeOut.duration(180)}
+                style={{ color: tokens.text, fontSize: type.body, fontFamily: fontFamily.bodySemiBold }}
+              >
+                {rtaCelebrating ? `Every ${currencyUnit(currencyCode)} has a job.` : '💸  Ready to Assign'}
+              </Reanimated.Text>
               <View style={styles.slimAmount}>
                 <AmountText value={displayedReadyToAssign} size={type.body} color={tokens.mint} weight="displayBold" />
                 {rtaCelebrating ? <CheckIcon color={tokens.mint} size={16} /> : <Icon icon={ChevronRight} size={16} color={tokens.text2} />}
@@ -416,40 +426,53 @@ export default function HomeScreen() {
           </Card>
         )}
 
+        {/* Same size and green as the settled Ready to Assign row. */}
         {banner === 'rollover' && (
-          <Card style={[styles.rolloverCard, { backgroundColor: tokens.mintSoft }]} elevated={false}>
-            <Text style={{ color: tokens.text, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold, flex: 1 }}>
-              🌱 {formatCurrency(prevMonthLeftover, hideAmounts)} went to savings last month.
-            </Text>
-            <Pressable onPress={() => setRolloverDismissed(true)} hitSlop={8}>
-              <Text style={{ color: tokens.accentInk, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>Nice</Text>
-            </Pressable>
-          </Card>
+          <SlideStrip
+            leaving={rolloverLeaving}
+            gap={space.lg}
+            onGone={() => {
+              setRolloverDismissed(true)
+              setRolloverLeaving(false)
+            }}
+          >
+            <Card style={[styles.rolloverCard, styles.slimRta, { backgroundColor: tokens.pillGoodBg, borderColor: 'transparent' }]} elevated={false}>
+              <Text style={{ color: tokens.text, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold, flex: 1 }}>
+                🌱 {formatCurrency(prevMonthLeftover, hideAmounts)} went to savings last month.
+              </Text>
+              <Pressable onPress={() => setRolloverLeaving(true)} disabled={rolloverLeaving} hitSlop={12}>
+                <Text style={{ color: tokens.mint, fontSize: type.caption, fontFamily: fontFamily.bodyExtraBold }}>Nice</Text>
+              </Pressable>
+            </Card>
+          </SlideStrip>
         )}
 
         {nudge && (
-          <Card style={styles.rolloverCard} elevated={false}>
-            <Text style={{ color: tokens.text, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold, flex: 1 }}>
-              {nudge.message}
-            </Text>
-            <Pressable
-              accessibilityRole="button"
-              onPress={() => {
-                updateUser.mutate(
-                  { hiddenFeatures: featureNudge.hidden.filter((k) => k !== featureNudge.feature) },
-                  { onError: () => Alert.alert("Couldn't turn that on", 'Check your connection and try again.') },
-                )
-                // navigate, not push: Scan a bill opens on the More tab.
-                router.navigate(nudge.href)
-              }}
-              hitSlop={8}
-            >
-              <Text style={{ color: tokens.accent, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>Turn on</Text>
-            </Pressable>
-            <Pressable accessibilityRole="button" onPress={featureNudge.dismiss} hitSlop={8}>
-              <Text style={{ color: tokens.accentInk, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>Not now</Text>
-            </Pressable>
-          </Card>
+          // Waits for the savings strip to fade out instead of overlapping it.
+          <Reanimated.View entering={FadeIn.delay(180).duration(220)}>
+            <Card style={styles.rolloverCard} elevated={false}>
+              <Text style={{ color: tokens.text, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold, flex: 1 }}>
+                {nudge.message}
+              </Text>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => {
+                  updateUser.mutate(
+                    { hiddenFeatures: featureNudge.hidden.filter((k) => k !== featureNudge.feature) },
+                    { onError: () => Alert.alert("Couldn't turn that on", 'Check your connection and try again.') },
+                  )
+                  // navigate, not push: Scan a bill opens on the More tab.
+                  router.navigate(nudge.href)
+                }}
+                hitSlop={8}
+              >
+                <Text style={{ color: tokens.accent, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>Turn on</Text>
+              </Pressable>
+              <Pressable accessibilityRole="button" onPress={featureNudge.dismiss} hitSlop={8}>
+                <Text style={{ color: tokens.accentInk, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>Not now</Text>
+              </Pressable>
+            </Card>
+          </Reanimated.View>
         )}
 
         {showGetStarted && (
