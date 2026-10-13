@@ -1,6 +1,6 @@
-import { render, waitFor, act } from '@testing-library/react-native'
+import { render, waitFor, act, fireEvent } from '@testing-library/react-native'
 import type { ReactNode } from 'react'
-import RootLayout from './_layout'
+import RootLayout, { ErrorBoundary } from './_layout'
 import { signalOnboarded } from '@/src/api/onboardingSignal'
 import { accessMode, initAccessMode } from '@/src/api/accessMode'
 import { getUser, type UserProfile } from '@/src/api/account'
@@ -375,4 +375,15 @@ it('sends a user the server reports as setup_incomplete to setup, not the plan s
   await waitFor(() => expect(getByTestId('screen:setup')).toBeTruthy())
   expect(queryByTestId('screen:account/plan')).toBeNull()
   expect(queryByTestId('screen:(tabs)')).toBeNull()
+})
+
+// A persisted query whose shape changed under an OTA update throws on every
+// render, so Try again has to drop the cache before re-rendering or it loops.
+it('clears the query cache before retrying from the root error boundary', async () => {
+  testClients[0].setQueryData(['user'], { id: 'u1' })
+  const retry = jest.fn().mockResolvedValue(undefined)
+  const { getByRole } = render(<ErrorBoundary error={new Error('boom')} retry={retry} />)
+  fireEvent.press(getByRole('button', { name: 'Try again' }))
+  await waitFor(() => expect(retry).toHaveBeenCalled())
+  expect(testClients[0].getQueryData(['user'])).toBeUndefined()
 })
