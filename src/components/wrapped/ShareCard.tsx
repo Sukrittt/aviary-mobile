@@ -104,7 +104,9 @@ export function ShareCard({
         <Pressable
           onPress={() => {
             track('wrapped_plan_tapped')
-            router.navigate('/(tabs)')
+            // Close Wrapped on the way to Home. Navigating left it mounted
+            // underneath, music still playing.
+            router.dismissTo('/(tabs)')
           }}
           style={[styles.restartButton, { borderColor: `${onColor}66` }]}
         >

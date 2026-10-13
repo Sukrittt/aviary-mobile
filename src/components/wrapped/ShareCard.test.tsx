@@ -4,8 +4,8 @@ import type { WrappedData } from '@/src/api/wrapped'
 import { track } from '@/src/lib/analytics'
 import { ShareCard } from './ShareCard'
 
-const mockNavigate = jest.fn()
-jest.mock('expo-router', () => ({ useRouter: () => ({ navigate: mockNavigate }) }))
+const mockDismissTo = jest.fn()
+jest.mock('expo-router', () => ({ useRouter: () => ({ dismissTo: mockDismissTo }) }))
 jest.mock('@/src/lib/analytics', () => ({ track: jest.fn() }))
 jest.mock('react-native-view-shot', () => ({ captureRef: jest.fn() }))
 jest.mock('expo-sharing', () => ({ isAvailableAsync: jest.fn(), shareAsync: jest.fn() }))
@@ -32,5 +32,6 @@ it('ends Wrapped by pointing at the month ahead', () => {
   render(<CurrencyScope code="INR"><ShareCard data={data} onColor="#fff" /></CurrencyScope>)
   fireEvent.press(screen.getByText('Plan this month'))
   expect(track).toHaveBeenCalledWith('wrapped_plan_tapped')
-  expect(mockNavigate).toHaveBeenCalledWith('/(tabs)')
+  // Closes Wrapped rather than switching tabs under it, which left its music playing.
+  expect(mockDismissTo).toHaveBeenCalledWith('/(tabs)')
 })
