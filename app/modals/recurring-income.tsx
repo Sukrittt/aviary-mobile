@@ -19,6 +19,7 @@ import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { DatePicker } from '@/src/components/shared/DatePicker'
 import { BottomSheet } from '@/src/components/shared/Modal'
 import { AccountChips } from '@/src/components/shared/AccountChips'
+import { Toggle } from '@/src/components/ui/Toggle'
 import { todayLocal } from '@/src/lib/date'
 import { useQueryClient } from '@tanstack/react-query'
 import { budgetsKey } from '@/src/hooks/useBudgets'
@@ -67,6 +68,8 @@ export default function RecurringIncomeModal() {
   const [frequency, setFrequency] = useState(existing?.frequency || str(params.frequency) || 'monthly')
   const [payday, setPayday] = useState(existing?.start_date || todayLocal())
   const [endDate, setEndDate] = useState(existing?.end_date ?? '')
+  // Most pay doesn't end, so the end date waits behind a switch.
+  const [hasEnd, setHasEnd] = useState(!!existing?.end_date)
   const [accountId, setAccountId] = useState(existing?.account_id ?? '')
   const [saved, setSaved] = useState(false)
   // A saved pay whose first payday is in a later month, so it doesn't count this one.
@@ -82,6 +85,7 @@ export default function RecurringIncomeModal() {
     setFrequency(existing.frequency || 'monthly')
     setPayday(existing.start_date || todayLocal())
     setEndDate(existing.end_date ?? '')
+    setHasEnd(!!existing.end_date)
     setAccountId(existing.account_id ?? '')
   }, [existing])
 
@@ -224,13 +228,30 @@ export default function RecurringIncomeModal() {
           <DatePicker mode="single" value={payday} onChange={setPayday} disableFuture={false} />
         </View>
 
-        <Reanimated.View layout={FIELD_TRANSITION} style={styles.field}>
-          <Text style={[styles.fieldLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>Ends (optional)</Text>
-          <DatePicker mode="single" value={endDate} onChange={setEndDate} disableFuture={false} />
-          {endsBeforePayday ? (
-            <Text style={[styles.errorHint, { color: tokens.coral, fontFamily: fontFamily.bodyMedium }]}>The end date can&apos;t be before payday.</Text>
-          ) : null}
+        <Reanimated.View layout={FIELD_TRANSITION} style={styles.endRow}>
+          <View style={{ flex: 1, gap: 4 }}>
+            <Text style={[styles.fieldLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>Has an end date</Text>
+            <Text style={[styles.hint, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>For a contract or a gig that stops</Text>
+          </View>
+          <Toggle
+            value={hasEnd}
+            accessibilityLabel="Has an end date"
+            onValueChange={(on) => {
+              setHasEnd(on)
+              if (!on) setEndDate('')
+            }}
+          />
         </Reanimated.View>
+
+        {hasEnd ? (
+          <Reanimated.View layout={FIELD_TRANSITION} style={styles.field}>
+            <Text style={[styles.fieldLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>Ends</Text>
+            <DatePicker mode="single" value={endDate} onChange={setEndDate} disableFuture={false} />
+            {endsBeforePayday ? (
+              <Text style={[styles.errorHint, { color: tokens.coral, fontFamily: fontFamily.bodyMedium }]}>The end date can&apos;t be before payday.</Text>
+            ) : null}
+          </Reanimated.View>
+        ) : null}
 
         {accounts.length > 0 && (
           <Reanimated.View layout={FIELD_TRANSITION}>
@@ -307,6 +328,7 @@ const styles = StyleSheet.create({
   reviewBanner: { borderRadius: 14, padding: 12 },
   reviewBannerText: { fontSize: 12.5, lineHeight: 17 },
   field: { gap: 8 },
+  endRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 8 },
   fieldLabel: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5 },
   input: { borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 14, fontSize: 15 },
   inputRow: { flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, gap: 6 },

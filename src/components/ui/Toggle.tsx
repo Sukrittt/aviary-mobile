@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet } from 'react-native'
-import Animated, { interpolateColor, useAnimatedStyle, useDerivedValue, withSpring } from 'react-native-reanimated'
+import Animated, { Easing, interpolateColor, useAnimatedStyle, useDerivedValue, withTiming } from 'react-native-reanimated'
 import * as Haptics from 'expo-haptics'
 import { useTheme } from '@/src/theme/ThemeProvider'
 
@@ -21,7 +21,8 @@ export function Toggle({
   accessibilityLabel?: string
 }) {
   const { tokens } = useTheme()
-  const progress = useDerivedValue(() => withSpring(value ? 1 : 0, { damping: 18, stiffness: 260 }))
+  // A quick ease, no spring: a switch should land the moment it's tapped.
+  const progress = useDerivedValue(() => withTiming(value ? 1 : 0, { duration: 120, easing: Easing.out(Easing.quad) }))
 
   const trackStyle = useAnimatedStyle(() => ({
     backgroundColor: interpolateColor(progress.value, [0, 1], [tokens.borderStrong, tokens.accent]),

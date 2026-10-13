@@ -114,3 +114,27 @@ describe('a first payday next month', () => {
     expect(mockBack).toHaveBeenCalled()
   })
 })
+
+it('keeps the end date behind a switch, and clears it when switched off', async () => {
+  mockParams = { id: 'r1' }
+  ;(getRecurringIncomes as jest.Mock).mockResolvedValue([
+    { id: 'r1', label: 'Contract', amount: '30000', frequency: 'monthly', start_date: '2026-10-01', end_date: '2027-03-31', next_run_date: '2026-11-01', account_id: '', status: 'active', created_at: '' },
+  ])
+  const { findByDisplayValue, getByLabelText, getByText, queryByText } = renderWithProviders(<RecurringIncomeModal />)
+  await findByDisplayValue('Contract')
+  expect(getByText('Ends')).toBeTruthy()
+
+  fireEvent.press(getByLabelText('Has an end date'))
+  expect(queryByText('Ends')).toBeNull()
+  await act(async () => {
+    fireEvent.press(getByText('Save changes'))
+  })
+  await waitFor(() => expect(updateRecurringIncome).toHaveBeenCalledWith('r1', expect.objectContaining({ end_date: '' })))
+})
+
+it('hides the end date on a new income', () => {
+  const { queryByText, getByLabelText } = renderWithProviders(<RecurringIncomeModal />)
+  expect(queryByText('Ends')).toBeNull()
+  fireEvent.press(getByLabelText('Has an end date'))
+  expect(queryByText('Ends')).toBeTruthy()
+})
