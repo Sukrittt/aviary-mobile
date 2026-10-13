@@ -68,6 +68,22 @@ it('upvotes, clears on a second tap, and switches to a downvote', async () => {
   await waitFor(() => expect(getByLabelText('Score 1')).toBeTruthy())
 })
 
+it("doesn't refetch over taps still queued behind a vote", async () => {
+  const pending: (() => void)[] = []
+  mockVote.mockImplementation(() => new Promise<void>((resolve) => pending.push(resolve)))
+  const { findByText, getByLabelText } = renderWithProviders(<IdeasScreen />)
+  await findByText('Split bills')
+  fireEvent.press(getByLabelText('Upvote'))
+  fireEvent.press(getByLabelText('Downvote'))
+  await waitFor(() => expect(pending).toHaveLength(1))
+  await act(async () => pending[0]())
+  await waitFor(() => expect(pending).toHaveLength(2))
+  expect(mockList).toHaveBeenCalledTimes(1)
+  expect(getByLabelText('Score 1')).toBeTruthy()
+  await act(async () => pending[1]())
+  await waitFor(() => expect(mockList).toHaveBeenCalledTimes(2))
+})
+
 it('sorts by new and filters by status', async () => {
   const { findByText, getByText } = renderWithProviders(<IdeasScreen />)
   await findByText('Split bills')
