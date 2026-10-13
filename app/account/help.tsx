@@ -2,12 +2,11 @@ import { useState } from 'react'
 import { View, Text, Pressable, ScrollView, Linking, StyleSheet } from 'react-native'
 import { useRouter } from 'expo-router'
 import * as StoreReview from 'expo-store-review'
-import { ArrowLeft, BookOpen, Compass, MessageCircle, Star, ChevronRight, ChevronUp, ScrollText, ThumbsUp, Globe, type LucideIcon } from 'lucide-react-native'
+import { ArrowLeft, BookOpen, Bug, Compass, MessageCircle, Star, ChevronRight, ChevronUp, ScrollText, ThumbsUp, Globe, type LucideIcon } from 'lucide-react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { Icon } from '@/src/components/shared/Icon'
-import { FEEDBACK_BOARD_URL } from '@/src/lib/constants'
 import { WEB_URL } from '@/src/api/client'
 
 const REPO = 'Sukrittt/aviary-mobile'
@@ -39,16 +38,17 @@ export default function HelpScreen() {
 
       <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 32 }]}>
         <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
-          <Pressable onPress={() => Linking.openURL(FEEDBACK_BOARD_URL)} style={styles.row}>
+          <Pressable onPress={() => router.push('/account/ideas')} style={styles.row}>
             <Icon icon={MessageCircle} size={16} />
             <View style={{ flex: 1, marginLeft: 12 }}>
               <Text style={[styles.rowLabel, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>Feedback board</Text>
               <Text style={[styles.rowHint, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
-                {"Aviary's in early access. Tell us what to fix or build next."}
+                {"Aviary's in early access. Post ideas and vote on what's next."}
               </Text>
             </View>
             <Icon icon={ChevronRight} size={16} color={tokens.text3} />
           </Pressable>
+          <LinkRow icon={Bug} label="Report a bug" onPress={() => router.push('/account/feedback')} />
           <View style={[styles.divider, { backgroundColor: tokens.border }]} />
           <Pressable onPress={() => setExplainerOpen((v) => !v)} style={styles.row}>
             <Icon icon={BookOpen} size={16} />

@@ -37,7 +37,6 @@ import type { WrappedStatus } from '@/src/api/wrapped'
 import appJson from '@/app.json'
 import { isVersionNewer } from '@/src/lib/version'
 import { hiddenFeatures, isHidden, OPT_IN_FEATURES } from '@/src/lib/features'
-import { FEEDBACK_BOARD_URL } from '@/src/lib/constants'
 
 const THEME_OPTIONS = [
   { value: 'light', label: 'Light' },
@@ -212,7 +211,7 @@ export default function MoreScreen() {
 
           {/* Early access feedback */}
           <Pressable
-            onPress={() => Linking.openURL(FEEDBACK_BOARD_URL)}
+            onPress={() => router.push('/account/ideas')}
             style={[styles.earlyCard, { backgroundColor: tokens.card, borderColor: tokens.border }]}
           >
             <View style={{ flex: 1, gap: 6 }}>
@@ -223,7 +222,7 @@ export default function MoreScreen() {
                 {"Aviary's still early. Help shape it."}
               </Text>
               <Text style={[styles.rowHint, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
-                Tell us what to fix or build next. We read every one.
+                Post ideas and vote on what we build next. We read every one.
               </Text>
             </View>
             <View style={[styles.featureIcon, { backgroundColor: tokens.mintSoft }]}>

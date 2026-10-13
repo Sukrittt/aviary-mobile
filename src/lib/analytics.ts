@@ -127,6 +127,9 @@ export type AppEvent =
   // Account
   | 'data_exported'
   | 'account_deleted'
+  | 'feedback_sent'
+  | 'idea_posted'
+  | 'idea_voted'
 
 export type EventProperties = Record<string, string | number | boolean>
 
@@ -188,9 +191,20 @@ export function setEventContext(properties: EventProperties): void {
   }
 }
 
+// Last screen the app navigated to, mirrored off every trackScreen() call
+// below. Attached to bug reports (src/api/feedback.ts) as "which screen was
+// this filed from" without separate nav state just for that.
+let lastScreen = '/'
+
+/** The most recent pathname passed to trackScreen(). */
+export function getLastScreen(): string {
+  return lastScreen
+}
+
 /** Manual screen-view capture (see initAnalytics's comment on why this isn't
  * autocaptured). Same offline guard as track(). */
 export function trackScreen(pathname: string): void {
+  lastScreen = pathname.split('?')[0]
   if (!isOnline()) return
   try {
     // usePathname() is normally query-free, but an OAuth deep link that lands

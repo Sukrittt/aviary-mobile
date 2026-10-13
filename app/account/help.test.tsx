@@ -21,6 +21,8 @@ describe('Help screen', () => {
   it.each([
     ['Take the guided tour', '/account/guided-tour'],
     ['Changelog', '/account/changelog'],
+    ['Feedback board', '/account/ideas'],
+    ['Report a bug', '/account/feedback'],
   ])('opens %s', (label, route) => {
     const { getByText } = renderWithProviders(<HelpScreen />)
     fireEvent.press(getByText(label))

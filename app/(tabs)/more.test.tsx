@@ -8,7 +8,6 @@ import { revokeSession } from '@/src/api/account'
 import { getCategories } from '@/src/api/categories'
 import { takePendingScanImage } from '@/src/lib/pendingScanImage'
 import { getSystemStatus } from '@/src/api/systemStatus'
-import { FEEDBACK_BOARD_URL } from '@/src/lib/constants'
 import appJson from '@/app.json'
 import MoreScreen from './more'
 
@@ -131,14 +130,11 @@ describe('More tab · app version', () => {
 })
 
 describe('More tab · early access card', () => {
-  it('opens the feedback board', async () => {
-    const openUrl = jest.spyOn(Linking, 'openURL').mockResolvedValue(true)
-
+  it('opens the in-app feedback board', async () => {
     const { findByText } = renderWithProviders(<MoreScreen />)
     fireEvent.press(await findByText("Aviary's still early. Help shape it."))
 
-    expect(openUrl).toHaveBeenCalledWith(FEEDBACK_BOARD_URL)
-    openUrl.mockRestore()
+    expect(mockPush).toHaveBeenCalledWith('/account/ideas')
   })
 })
 
