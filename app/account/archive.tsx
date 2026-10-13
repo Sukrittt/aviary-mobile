@@ -104,6 +104,13 @@ const KIND_TONES: Record<ArchivableCollection, (t: ThemeTokens) => { bg: string;
 
 type Filter = "all" | ArchivableCollection;
 type Band = "Gone tomorrow" | "Going this week" | "Later this week";
+type RowAction = "restore" | "purge";
+
+function withoutKey<V>(map: ReadonlyMap<string, V>, key: string) {
+  const next = new Map(map);
+  next.delete(key);
+  return next;
+}
 
 function bandFor(days: number): Band {
   if (days <= 1) return "Gone tomorrow";
@@ -145,14 +152,14 @@ export default function ArchiveScreen() {
 
   const [filter, setFilter] = useState<Filter>("all");
   const [page, setPage] = useState(0);
-  const [pending, setPending] = useState<{
-    id: string;
-    kind: "restore" | "purge";
-  } | null>(null);
-  const [success, setSuccess] = useState<{
-    id: string;
-    kind: "restore" | "purge";
-  } | null>(null);
+  // Keyed by row id: restores and purges run concurrently, so each one only
+  // ever clears its own entry.
+  const [pending, setPending] = useState<ReadonlyMap<string, RowAction>>(
+    () => new Map(),
+  );
+  const [success, setSuccess] = useState<ReadonlyMap<string, RowAction>>(
+    () => new Map(),
+  );
   const [purgeTarget, setPurgeTarget] = useState<ArchivedItem | null>(null);
   // The rows the sheet is about: all of them from "Restore all", or the picked ones.
   const [confirmRestore, setConfirmRestore] = useState<ArchivedItem[] | null>(null);
@@ -210,14 +217,14 @@ export default function ArchiveScreen() {
     });
   };
 
-  const settle = (id: string, kind: "restore" | "purge") => {
-    setPending(null);
-    setSuccess({ id, kind });
+  const settle = (id: string, kind: RowAction) => {
+    setPending((prev) => withoutKey(prev, id));
+    setSuccess((prev) => new Map(prev).set(id, kind));
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(
       () => {},
     );
     setTimeout(() => {
-      setSuccess(null);
+      setSuccess((prev) => withoutKey(prev, id));
       qc.setQueryData<ArchivedItem[]>(archiveKey, (old) =>
         (old ?? []).filter((i) => i.id !== id),
       );
@@ -226,12 +233,12 @@ export default function ArchiveScreen() {
   };
 
   const handleRestore = async (item: ArchivedItem) => {
-    setPending({ id: item.id, kind: "restore" });
+    setPending((prev) => new Map(prev).set(item.id, "restore"));
     try {
       await restoreArchivedItem(item.collection, item.id);
       settle(item.id, "restore");
     } catch (err) {
-      setPending(null);
+      setPending((prev) => withoutKey(prev, item.id));
       Alert.alert(
         "Could not restore",
         err instanceof Error && err.message.includes("already exists")
@@ -243,12 +250,12 @@ export default function ArchiveScreen() {
 
   const handlePurge = async (item: ArchivedItem) => {
     setPurgeTarget(null);
-    setPending({ id: item.id, kind: "purge" });
+    setPending((prev) => new Map(prev).set(item.id, "purge"));
     try {
       await purgeArchivedItem(item.collection, item.id);
       settle(item.id, "purge");
     } catch {
-      setPending(null);
+      setPending((prev) => withoutKey(prev, item.id));
       Alert.alert("Could not delete", "Check your connection and try again.");
     }
   };
@@ -603,8 +610,10 @@ export default function ArchiveScreen() {
                 ? { bg: tokens.warnSoft, fg: tokens.warnInk }
                 : { bg: tokens.inputBg, fg: tokens.text2 };
           const kindTone = KIND_TONES[item.collection](tokens);
-          const isPending = pending?.id === item.id;
-          const isSuccess = success?.id === item.id;
+          const pendingKind = pending.get(item.id);
+          const successKind = success.get(item.id);
+          const isPending = pendingKind !== undefined;
+          const isSuccess = successKind !== undefined;
           const isSelected = selectedIds.has(item.id);
 
           return (
@@ -716,14 +725,14 @@ export default function ArchiveScreen() {
                   <>
                   <Pressable
                     onPress={() => setPurgeTarget(item)}
-                    disabled={isPending}
+                    disabled={isPending || isSuccess}
                     style={[styles.purgeButton, { borderColor: tokens.border }]}
                   >
                     <Icon icon={X} size={13} color={tokens.text3} />
                   </Pressable>
                   <Pressable
                     onPress={() => handleRestore(item)}
-                    disabled={isPending}
+                    disabled={isPending || isSuccess}
                     style={[
                       styles.restoreButton,
                       {
@@ -734,7 +743,7 @@ export default function ArchiveScreen() {
                       },
                     ]}
                   >
-                    {isSuccess && success?.kind === "restore" ? (
+                    {successKind === "restore" ? (
                       <CheckIcon color={tokens.mint} size={14} />
                     ) : (
                       <Text
@@ -746,7 +755,7 @@ export default function ArchiveScreen() {
                           },
                         ]}
                       >
-                        {isPending && pending?.kind === "restore"
+                        {pendingKind === "restore"
                           ? "Restoring…"
                           : "Restore"}
                       </Text>
