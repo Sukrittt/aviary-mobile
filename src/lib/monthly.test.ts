@@ -303,6 +303,13 @@ describe('withDelta', () => {
     const result = withDelta(rows, prevRows)
     expect(result[0].deltaPct).toBeNull()
   })
+
+  it('keeps the real previous spend, including when this month is zero', () => {
+    const rows = [{ key: 'Food', label: 'Food', emoji: '', spent: 0, assigned: 0, assignedIsCarried: false, pct: 0 }]
+    const prevRows = [{ key: 'Food', label: 'Food', emoji: '', spent: 800, assigned: 0, assignedIsCarried: false, pct: 0 }]
+    const result = withDelta(rows, prevRows)
+    expect(result[0]).toMatchObject({ deltaPct: -100, prevSpent: 800 })
+  })
 })
 
 describe('leftoverFor', () => {
