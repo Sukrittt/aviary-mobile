@@ -173,12 +173,12 @@ function Cta({ label, busyLabel, busy, success, disabled, onPress }: {
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ disabled: disabled || busy || success }}
-      style={[styles.cta, { backgroundColor: success ? tokens.mint : tokens.accent, borderRadius: radius.full, opacity: busy || disabled ? 0.5 : 1 }]}
+      style={[styles.cta, { backgroundColor: success ? tokens.successBg : tokens.accent, borderRadius: radius.full, opacity: busy || disabled ? 0.5 : 1 }]}
       onPress={onPress}
       disabled={disabled || busy || success}
     >
       {success ? (
-        <CheckIcon color={tokens.onAccent} size={16} />
+        <CheckIcon color={tokens.onSuccess} size={16} />
       ) : (
         <Text style={{ color: tokens.onAccent, fontFamily: fontFamily.bodyBold, fontSize: type.body }}>{busy ? busyLabel : label}</Text>
       )}
@@ -392,8 +392,8 @@ function OptionRow({ title, body, onPress, busy, success, disabled }: {
       style={[
         styles.option,
         {
-          backgroundColor: success ? tokens.mint : tokens.card,
-          borderColor: success ? tokens.mint : tokens.border,
+          backgroundColor: success ? tokens.successBg : tokens.card,
+          borderColor: success ? tokens.successBg : tokens.border,
           borderRadius: radius.lg,
           padding: space.md,
           gap: 2,
@@ -403,7 +403,7 @@ function OptionRow({ title, body, onPress, busy, success, disabled }: {
     >
       {success ? (
         <View style={styles.optionCheck}>
-          <CheckIcon color={tokens.onAccent} size={20} />
+          <CheckIcon color={tokens.onSuccess} size={20} />
         </View>
       ) : (
         <>

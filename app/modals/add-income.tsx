@@ -351,7 +351,7 @@ export function IncomeForm({ existing, flood = false, defaultLabel, intro }: { e
             styles.confirmButton,
             {
               // On the flood a mint success fill would vanish, so the white button stays and the check goes green.
-              backgroundColor: flood ? "#ffffff" : success ? tokens.mint : tokens.accent,
+              backgroundColor: flood ? "#ffffff" : success ? tokens.successBg : tokens.accent,
               borderRadius: radius.full,
               opacity: saving || value <= 0 ? 0.5 : 1,
             },
@@ -360,7 +360,7 @@ export function IncomeForm({ existing, flood = false, defaultLabel, intro }: { e
           disabled={saving || success || value <= 0}
         >
           {success ? (
-            <CheckIcon color={flood ? INCOME_FLOOD : tokens.onAccent} size={16} />
+            <CheckIcon color={flood ? INCOME_FLOOD : tokens.onSuccess} size={16} />
           ) : (
             <Text
               style={{

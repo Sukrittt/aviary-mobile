@@ -883,14 +883,14 @@ export default function ArchiveScreen() {
               styles.sheetFlex,
               {
                 backgroundColor: restoreAllSuccess
-                  ? tokens.mint
+                  ? tokens.successBg
                   : tokens.accent,
                 opacity: restoringAll && !restoreAllSuccess ? 0.5 : 1,
               },
             ]}
           >
             {restoreAllSuccess ? (
-              <CheckIcon color={tokens.onAccent} />
+              <CheckIcon color={tokens.onSuccess} />
             ) : (
               <Text
                 style={[

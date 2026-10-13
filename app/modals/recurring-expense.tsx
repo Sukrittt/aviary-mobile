@@ -350,10 +350,10 @@ export default function RecurringExpenseModal() {
           <Pressable
             onPress={handleSubmit}
             disabled={!canSubmit || saving || mutatingAction || saved}
-            style={[styles.confirmButton, { backgroundColor: saved ? tokens.mint : tokens.accent, opacity: !canSubmit || saving || mutatingAction ? 0.5 : 1 }]}
+            style={[styles.confirmButton, { backgroundColor: saved ? tokens.successBg : tokens.accent, opacity: !canSubmit || saving || mutatingAction ? 0.5 : 1 }]}
           >
             {saved ? (
-              <CheckIcon color={tokens.onAccent} />
+              <CheckIcon color={tokens.onSuccess} />
             ) : (
               <Text style={[styles.confirmText, { color: tokens.onAccent, fontFamily: fontFamily.bodyBold }]}>
                 {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Add recurring expense'}

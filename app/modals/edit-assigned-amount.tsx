@@ -350,13 +350,13 @@ function EditAmountBody({
         <Pressable
           style={[
             styles.confirmButton,
-            { backgroundColor: success ? tokens.mint : tokens.accent, borderRadius: radius.full, opacity: saving ? 0.5 : 1 },
+            { backgroundColor: success ? tokens.successBg : tokens.accent, borderRadius: radius.full, opacity: saving ? 0.5 : 1 },
           ]}
           onPress={submitEdit}
           disabled={saving || success}
         >
           {success ? (
-            <CheckIcon color={tokens.onAccent} size={16} />
+            <CheckIcon color={tokens.onSuccess} size={16} />
           ) : (
             <Text style={{ color: tokens.onAccent, fontFamily: fontFamily.bodyBold, fontSize: type.body }}>
               {saving ? 'Saving…' : 'Save'}

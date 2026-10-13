@@ -327,13 +327,13 @@ export default function AddHoldingModal() {
           style={[
             styles.confirmButton,
             {
-              backgroundColor: saved ? tokens.mint : tokens.accent,
+              backgroundColor: saved ? tokens.successBg : tokens.accent,
               opacity: !canSubmit || saving ? 0.5 : 1,
             },
           ]}
         >
           {saved ? (
-            <CheckIcon color={tokens.onAccent} />
+            <CheckIcon color={tokens.onSuccess} />
           ) : (
             <Text style={[styles.confirmText, { color: tokens.onAccent, fontFamily: fontFamily.bodyBold }]}>
               {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Add Holding'}

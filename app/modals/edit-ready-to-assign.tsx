@@ -374,7 +374,7 @@ function EditReadyToAssignBody({
           style={[
             styles.confirmButton,
             {
-              backgroundColor: success ? tokens.mint : tokens.accent,
+              backgroundColor: success ? tokens.successBg : tokens.accent,
               borderRadius: radius.full,
               opacity: saving ? 0.5 : 1,
             },
@@ -383,7 +383,7 @@ function EditReadyToAssignBody({
           disabled={saving || success}
         >
           {success ? (
-            <CheckIcon color={tokens.onAccent} size={16} />
+            <CheckIcon color={tokens.onSuccess} size={16} />
           ) : (
             <Text
               style={{

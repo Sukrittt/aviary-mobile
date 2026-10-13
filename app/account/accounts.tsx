@@ -270,10 +270,10 @@ function StarterPicks({ names }: { names: string[] }) {
         onPress={addAll}
         disabled={picked.length === 0 || saving || done}
         accessibilityRole="button"
-        style={[styles.primary, { backgroundColor: done ? tokens.mint : tokens.accent, opacity: picked.length === 0 || saving ? 0.5 : 1 }]}
+        style={[styles.primary, { backgroundColor: done ? tokens.successBg : tokens.accent, opacity: picked.length === 0 || saving ? 0.5 : 1 }]}
       >
         {done ? (
-          <CheckIcon color={tokens.onAccent} />
+          <CheckIcon color={tokens.onSuccess} />
         ) : (
           <Text style={[styles.primaryText, { color: tokens.onAccent, fontFamily: fontFamily.bodyBold }]}>
             {saving ? "Adding…" : picked.length === 0 ? "Pick at least one" : `Add ${picked.length === 1 ? "it" : `these ${picked.length}`}`}
