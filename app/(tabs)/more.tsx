@@ -348,7 +348,10 @@ export default function MoreScreen() {
                     return (
                       <Pressable
                         key={opt.value}
-                        onPress={() => setPreference(opt.value)}
+                        onPress={() => {
+                          if (!active) Haptics.selectionAsync().catch(() => {})
+                          setPreference(opt.value)
+                        }}
                         style={[styles.segment, { backgroundColor: active ? tokens.accent : 'transparent' }]}
                       >
                         <Text style={[styles.segmentText, { color: active ? tokens.onAccent : tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
