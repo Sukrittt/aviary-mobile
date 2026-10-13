@@ -156,3 +156,59 @@ it('long-press picks rows, restores only the picked ones, and keeps failures sel
   expect(screen.queryByText('1 selected')).toBeNull()
   expect(screen.getAllByText('Restore').length).toBe(2)
 })
+
+it('keeps a second in-flight restore locked when the first one settles', async () => {
+  jest.useFakeTimers({ legacyFakeTimers: false })
+  mockUseQuery.mockReturnValue({
+    data: [archivedItem(1), archivedItem(2)],
+    isLoading: false,
+  })
+  const resolvers: (() => void)[] = []
+  mockRestoreArchivedItem.mockImplementation(
+    () => new Promise<void>((resolve) => resolvers.push(resolve)),
+  )
+
+  const screen = renderWithProviders(<ArchiveScreen />)
+  const flush = async () => {
+    await Promise.resolve()
+    await Promise.resolve()
+  }
+
+  await act(async () => {
+    fireEvent.press(screen.getAllByText('Restore')[0])
+    await flush()
+  })
+  await act(async () => {
+    fireEvent.press(screen.getAllByText('Restore')[0])
+    await flush()
+  })
+  expect(mockRestoreArchivedItem).toHaveBeenCalledTimes(2)
+  expect(screen.getAllByText('Restoring…').length).toBe(2)
+
+  // The first restore settling must not unlock the second row.
+  await act(async () => {
+    resolvers[0]()
+    await flush()
+  })
+  expect(screen.getAllByText('Restoring…').length).toBe(1)
+  expect(screen.queryByText('Restore')).toBeNull()
+  fireEvent.press(screen.getByText('Restoring…'))
+  expect(mockRestoreArchivedItem).toHaveBeenCalledTimes(2)
+
+  // Nor must the first row's success timer clear the second row's checkmark.
+  await act(async () => {
+    jest.advanceTimersByTime(300)
+    resolvers[1]()
+    await flush()
+  })
+  await act(async () => {
+    jest.advanceTimersByTime(400)
+    await flush()
+  })
+  // Static query data keeps the first row on screen once its timer clears it,
+  // so its button comes back. The second row must still show its checkmark.
+  expect(screen.getAllByText('Restore').length).toBe(1)
+  expect(screen.queryByText('Restoring…')).toBeNull()
+
+  jest.useRealTimers()
+})
