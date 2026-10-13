@@ -19,6 +19,7 @@ import { BottomSheet } from '@/src/components/shared/Modal'
 import { clearAccess, sessionId } from '@/src/api/accessMode'
 import { revokeSession } from '@/src/api/account'
 import { usePrivacy } from '@/src/context/PrivacyContext'
+import { useInstantSetting } from '@/src/hooks/useInstantSetting'
 import { monthAbbrev, monthLabel, shiftMonthKey } from '@/src/lib/envelope'
 import { setPendingScanImage } from '@/src/lib/pendingScanImage'
 import { WEB_URL } from '@/src/api/client'
@@ -51,8 +52,11 @@ const NOTIFY_OPTIONS: { value: NonNullable<UserProfile['notifyCadence']>; label:
 ]
 
 export default function MoreScreen() {
-  const { tokens, preference, setPreference } = useTheme()
-  const { hideAmounts, setHideAmounts } = usePrivacy()
+  const theme = useTheme()
+  const { tokens } = theme
+  const privacy = usePrivacy()
+  const [preference, setPreference] = useInstantSetting(theme.preference, theme.setPreference)
+  const [hideAmounts, setHideAmounts] = useInstantSetting(privacy.hideAmounts, privacy.setHideAmounts)
   const router = useRouter()
   const { refreshing, onRefresh } = useRefresh()
 
