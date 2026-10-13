@@ -10,6 +10,8 @@ import { lightTokens } from '@/src/theme/tokens'
 import appJson from '@/app.json'
 import HomeScreen from './index'
 
+import { startingBalanceHref } from '@/src/lib/upcomingPay'
+
 const MONTH = currentMonthKey()
 
 jest.mock('expo-secure-store', () => ({
@@ -35,7 +37,7 @@ jest.mock('@/src/hooks/useExpenses', () => ({
   useRecentExpenses: () => ({ data: mockExpenses, isLoading: false, error: null, refetch: jest.fn() }),
   useLastSpent: () => ({ data: {} }),
 }))
-let mockSchedules: { id: string; frequency: string; status: string }[] | undefined = []
+let mockSchedules: { id: string; frequency: string; status: string; start_date: string }[] | undefined = []
 jest.mock('@/src/hooks/useIncomes', () => ({ useRecurringIncomes: () => ({ data: mockSchedules }) }))
 jest.mock('@/src/hooks/useAccounts', () => ({ useAccounts: () => ({ data: [] }) }))
 jest.mock('@/src/hooks/useCategories', () => ({
@@ -107,14 +109,14 @@ describe('HomeScreen · Ready to Assign', () => {
   })
 
   it('Change income edits the one monthly schedule, or sends you to pick among several', () => {
-    mockSchedules = [{ id: 'r1', frequency: 'monthly', status: 'active' }, { id: 'r2', frequency: 'weekly', status: 'active' }]
+    mockSchedules = [{ id: 'r1', frequency: 'monthly', status: 'active', start_date: '2026-01-01' }, { id: 'r2', frequency: 'weekly', status: 'active', start_date: '2026-01-01' }]
     const first = renderHome()
     fireEvent.press(first.getByLabelText('Ready to Assign options'))
     fireEvent.press(first.getByText('Change income'))
     expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/modals/recurring-income', params: { id: 'r1' } })
     first.unmount()
 
-    mockSchedules = [{ id: 'r1', frequency: 'monthly', status: 'active' }, { id: 'r3', frequency: 'monthly', status: 'active' }]
+    mockSchedules = [{ id: 'r1', frequency: 'monthly', status: 'active', start_date: '2026-01-01' }, { id: 'r3', frequency: 'monthly', status: 'active', start_date: '2026-01-01' }]
     const second = renderHome()
     fireEvent.press(second.getByLabelText('Ready to Assign options'))
     fireEvent.press(second.getByText('Change income'))
@@ -293,6 +295,19 @@ describe('HomeScreen · Ready to Assign', () => {
 
     fireEvent.press(await findByText('Add your income'))
     expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/modals/recurring-income', params: { label: 'Monthly income', frequency: 'monthly', amount: '' } })
+  })
+
+  // Signing up mid-month, the first pay lands next month and counts from then.
+  it('asks for what you have now when the first pay lands next month', async () => {
+    mockBudgets = [{ month: MONTH, category: 'Food', assigned: '0', rolled_over: '0' }]
+    const [y, m] = MONTH.split('-').map(Number)
+    const payday = m === 12 ? `${y + 1}-01-04` : `${y}-${String(m + 1).padStart(2, '0')}-04`
+    mockSchedules = [{ id: 'r1', frequency: 'monthly', status: 'active', start_date: payday }]
+    const { findByText } = renderHome()
+
+    fireEvent.press(await findByText('Add what you have now'))
+    expect(mockPush).toHaveBeenLastCalledWith(startingBalanceHref(payday))
+    mockSchedules = []
   })
 
   it('keeps Get started up without income, even with both other milestones done', async () => {

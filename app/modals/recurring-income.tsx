@@ -20,6 +20,10 @@ import { DatePicker } from '@/src/components/shared/DatePicker'
 import { BottomSheet } from '@/src/components/shared/Modal'
 import { AccountChips } from '@/src/components/shared/AccountChips'
 import { todayLocal } from '@/src/lib/date'
+import { useBudgets } from '@/src/hooks/useBudgets'
+import { EMPTY } from '@/src/lib/constants'
+import { computeEnvelopeState, currentMonthKey } from '@/src/lib/envelope'
+import { startingBalanceHref } from '@/src/lib/upcomingPay'
 
 // House spring, same as recurring-expense.tsx.
 const FIELD_TRANSITION = LinearTransition.springify().damping(64).stiffness(700)
@@ -52,6 +56,7 @@ export default function RecurringIncomeModal() {
   const add = useAddRecurringIncome()
   const update = useUpdateRecurringIncome()
   const remove = useDeleteRecurringIncome()
+  const budgetsQ = useBudgets()
   const existing = recurringQ.data?.find((r) => r.id === id)
   const isActive = existing ? existing.status === 'active' : true
 
@@ -62,6 +67,8 @@ export default function RecurringIncomeModal() {
   const [endDate, setEndDate] = useState(existing?.end_date ?? '')
   const [accountId, setAccountId] = useState(existing?.account_id ?? '')
   const [saved, setSaved] = useState(false)
+  // Where to go once the checkmark finishes, when not back.
+  const [next, setNext] = useState<ReturnType<typeof startingBalanceHref> | null>(null)
   const [confirmDelete, setConfirmDelete] = useState(false)
 
   // existing loads async on a cold cache: backfill once it arrives.
@@ -78,7 +85,7 @@ export default function RecurringIncomeModal() {
 
   useEffect(() => {
     if (!saved) return
-    const timer = setTimeout(() => router.back(), 1100)
+    const timer = setTimeout(() => (next ? router.replace(next) : router.back()), 1100)
     return () => clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [saved])
@@ -94,7 +101,15 @@ export default function RecurringIncomeModal() {
     // The account goes only when it changed: an archived one the schedule
     // still names would make every other edit fail.
     const fields = { label: label.trim(), amount: String(parsed), frequency, start_date: payday, end_date: endDate, ...(accountId !== (existing?.account_id ?? '') ? { account_id: accountId } : {}) }
-    const onSuccess = () => setSaved(true)
+    // A first payday next month leaves this month at 0 (it counts from its
+    // own month), so someone signing up mid-month goes on to add what they
+    // have now, or there'd be nothing to budget until then.
+    const month = currentMonthKey()
+    const nothingThisMonth = budgetsQ.data !== undefined && computeEnvelopeState(budgetsQ.data, EMPTY, month, EMPTY, EMPTY).income === 0
+    const onSuccess = () => {
+      if (frequency === 'monthly' && payday.slice(0, 7) > month && nothingThisMonth) setNext(startingBalanceHref(payday))
+      setSaved(true)
+    }
     if (isEdit) {
       update.mutate({ id, updates: fields }, { onSuccess, onError: () => { buzzError(); Alert.alert("Couldn't save", 'Check your connection and try again.') } })
     } else {

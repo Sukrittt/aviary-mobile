@@ -40,17 +40,18 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
  * next month doesn't repeat it. Same layout as edit-month-income.tsx.
  * With `?id=`, edits that recorded income instead (the Income screen's pencil). */
 export default function AddIncomeModal() {
-  const { id } = useLocalSearchParams<{ id?: string }>();
+  const { id, label, intro } = useLocalSearchParams<{ id?: string; label?: string; intro?: string }>();
   const incomesQ = useIncomes();
-  if (!id) return <IncomeForm />;
+  if (!id) return <IncomeForm defaultLabel={label} intro={intro} />;
   const existing = incomesQ.data?.find((r) => r.id === id);
   // The Income screen already loaded the list, so this is only a frame or two.
   if (!existing) return null;
   return <IncomeForm existing={existing} />;
 }
 
-/** `flood`: the green full-screen take opened from log-expense and the nav's quick-add menu (quick-income.tsx). */
-export function IncomeForm({ existing, flood = false }: { existing?: IncomeRow; flood?: boolean }) {
+/** `flood`: the green full-screen take opened from log-expense and the nav's quick-add menu (quick-income.tsx).
+ * `defaultLabel`/`intro`: a starting balance for someone whose first pay is next month (upcomingPay.ts). */
+export function IncomeForm({ existing, flood = false, defaultLabel, intro }: { existing?: IncomeRow; flood?: boolean; defaultLabel?: string; intro?: string }) {
   const month = currentMonthKey();
   const { formatCurrency, formatAmountInput } = useCurrency()
   const { hideAmounts } = usePrivacy();
@@ -74,7 +75,7 @@ export function IncomeForm({ existing, flood = false }: { existing?: IncomeRow; 
   const addIncome = useAddIncome();
   const updateIncome = useUpdateIncome();
   const accounts = liveAccounts(useAccounts().data);
-  const [label, setLabel] = useState(existing?.label ?? "");
+  const [label, setLabel] = useState(existing?.label ?? defaultLabel ?? "");
   const [accountId, setAccountId] = useState(existing?.account_id ?? "");
   const [clientId] = useState(() => Crypto.randomUUID());
   // Label and account are optional, so they live behind "More" like log-expense.tsx.
@@ -108,7 +109,7 @@ export function IncomeForm({ existing, flood = false }: { existing?: IncomeRow; 
     ? "This only changes the record. Your monthly income still counts."
     : value > 0 && canPreview
       ? `Ready to Assign ${formatCurrency(state.readyToAssign + change, hideAmounts)} · This month only`
-      : "What came in on top of your monthly income";
+      : intro ?? "What came in on top of your monthly income";
 
   async function submit() {
     if (value <= 0 || saving) return;
