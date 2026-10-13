@@ -20,7 +20,7 @@ export type ExpenseDraft = {
   accountId: string
 }
 
-/** Anything that isn't a credit card is the Bank/UPI chip, matching the editor. */
+/** Anything that isn't a credit card is the Bank chip, matching the editor. */
 export function paymentMethodOf(value: string | undefined): PaymentMethod {
   return value === 'credit_card' ? 'credit_card' : 'bank'
 }

@@ -6,6 +6,7 @@ import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { AnimatedPressable, Button, usePressSpring } from '@/src/components/ui/Button'
 import { BottomSheet } from '@/src/components/shared/Modal'
+import { parseLocalDate } from '@/src/lib/date'
 
 const STRIP_CELL_WIDTH = 56
 const STRIP_GAP = 8
@@ -18,10 +19,8 @@ const WEEKDAY_SHORT2 = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su']
 const WEEKDAY_SHORT3 = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 function parseISO(value: string): Date | null {
-  if (!value) return null
-  const [y, m, d] = value.split('-').map(Number)
-  if (!y || !m || !d) return null
-  return new Date(y, m - 1, d)
+  const d = parseLocalDate(value)
+  return Number.isNaN(d.getTime()) ? null : d
 }
 function toISO(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`

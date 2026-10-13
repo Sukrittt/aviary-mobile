@@ -5,6 +5,7 @@ import { accessMode,clearAccess,initAccessMode } from '@/src/api/accessMode'
 import { getUser, syncTimezone } from '@/src/api/account'
 import { onOnboarded } from '@/src/api/onboardingSignal'
 import { BirdLandingSplash } from '@/src/components/splash/BirdLandingSplash'
+import { CrashScreen } from '@/src/components/shared/CrashScreen'
 import { subscribeExchanging } from '@/src/api/useSignIn'
 import { AlertHost } from '@/src/components/ui/AlertHost'
 import { PrivacyProvider } from '@/src/context/PrivacyContext'
@@ -26,16 +27,17 @@ import { cancelHabitNudges } from '@/src/lib/habitNudges'
 import { useAppFonts } from '@/src/theme/fonts'
 import { ThemeProvider,useTheme } from '@/src/theme/ThemeProvider'
 import { WidgetSync, lockWidgets } from '@/src/widgets/WidgetSync'
-import { useAccessAllowed } from '@/src/hooks/useBillingStatus'
+import { billingKey, useBillingStatus } from '@/src/hooks/useBillingStatus'
+import { accessAllowed } from '@/src/lib/billingStatus'
 import { onAiAllowanceExceeded } from '@/src/lib/aiAllowance'
-import { QueryClient } from '@tanstack/react-query'
+import { QueryClient, focusManager } from '@tanstack/react-query'
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client'
 import { PERSIST_MAX_AGE, persistOptions, queryPersister } from '@/src/lib/queryPersist'
 import { setAudioModeAsync } from 'expo-audio'
-import { Stack,useGlobalSearchParams,usePathname,useRouter,useSegments,type Href } from 'expo-router'
+import { Stack,useGlobalSearchParams,usePathname,useRouter,useSegments,type ErrorBoundaryProps,type Href } from 'expo-router'
 import * as SplashScreen from 'expo-splash-screen'
 import { useEffect,useRef,useState } from 'react'
-import { StyleSheet,View } from 'react-native'
+import { AppState,StyleSheet,View } from 'react-native'
 import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 
@@ -58,8 +60,20 @@ function isAuthError(error: unknown): boolean {
 
 // gcTime matches the persisted maxAge: an unused query outliving the 5 min
 // default is what makes going back to a tab instant instead of a spinner.
+// Refetch on focus is opt-in per query: the few that need a fresh answer on
+// every return to the app set `refetchOnWindowFocus` themselves.
 const queryClient = new QueryClient({
-  defaultOptions: { queries: { retry: 1, gcTime: PERSIST_MAX_AGE } },
+  defaultOptions: { queries: { retry: 1, gcTime: PERSIST_MAX_AGE, refetchOnWindowFocus: false } },
+})
+
+// React Query has no idea of "focus" in RN until it's told about AppState.
+// One listener here refetches each opted-in query once per foreground. A
+// listener per hook instance fired one request per mounted copy instead
+// (about 3 per foreground for billing status).
+focusManager.setEventListener((handleFocus) => {
+  handleFocus(AppState.currentState === 'active')
+  const sub = AppState.addEventListener('change', state => handleFocus(state === 'active'))
+  return () => sub.remove()
 })
 
 /**
@@ -191,6 +205,9 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
   useEffect(
     () =>
       onOnboarded(() => {
+        // Drop a cached setup_incomplete answer, or the check below would send
+        // the user straight back to setup before the fresh status lands.
+        void queryClient.resetQueries({ queryKey: billingKey })
         setJustOnboarded(true)
         setLandOnHome(true)
         setOnboarded(true)
@@ -225,7 +242,17 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
   const signedIn = !resolving && hasSession && onboarded === true
   // Subscription access. Unknown counts as allowed (see accessAllowed), so
   // this never holds a paying user on a lock screen while the status loads.
-  const accessOk = useAccessAllowed(signedIn)
+  const { data: billing } = useBillingStatus(signedIn)
+  const accessOk = accessAllowed(billing)
+
+  // No trial on the server means setup never finished, even if the fail-open
+  // /api/user path above let the user past it. That's not a lapsed
+  // subscription, so it goes back to setup, never to the Plan & billing lock.
+  const setupIncomplete = billing?.mode === 'setup_incomplete' && !billing.allowed
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- the server's billing answer overrides the fail-open onboarding guess
+    if (setupIncomplete) setOnboarded(false)
+  }, [setupIncomplete])
 
   useEffect(() => {
     if (signedIn && !accessOk) void lockWidgets(preference)
@@ -385,6 +412,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
           <Stack.Screen name="modals/edit-ready-to-assign" options={{ presentation: 'modal' }} />
           <Stack.Screen name="modals/edit-month-income" options={{ presentation: 'modal' }} />
           <Stack.Screen name="modals/add-income" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="modals/quick-income" options={{ presentation: 'transparentModal', animation: 'none', gestureEnabled: false, contentStyle: { backgroundColor: 'transparent' } }} />
           <Stack.Screen name="modals/holding-action" options={{ presentation: 'modal' }} />
           <Stack.Screen name="modals/add-holding" options={{ presentation: 'modal' }} />
           <Stack.Screen name="modals/subscription" options={{ presentation: 'modal' }} />
@@ -465,6 +493,23 @@ function RootLayout() {
       </SafeAreaProvider>
     </GestureHandlerRootView>
   )
+}
+
+/**
+ * expo-router wraps a route in a boundary only when it exports one, so this is
+ * the app's last line before a render throw closes it. Retry drops the query
+ * cache, memory and disk, first: if a cached response is what threw, keeping it
+ * would throw again on the very next render. The persister's buster only covers
+ * version changes, not a bad response cached within one. Queued offline
+ * expenses live in pendingExpenses, not this cache, so they survive.
+ */
+export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
+  const reset = async () => {
+    queryClient.clear()
+    try { await queryPersister.removeClient() } catch { /* a stale disk copy still beats no retry */ }
+    await retry()
+  }
+  return <CrashScreen error={error} retry={() => void reset()} />
 }
 
 export default wrapRoot(RootLayout)

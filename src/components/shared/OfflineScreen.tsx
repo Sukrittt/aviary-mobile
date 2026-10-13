@@ -64,10 +64,11 @@ export function OfflineScreen() {
       </Text>
       <Button
         label="Log an expense"
+        size="small"
         onPress={() => router.push(LOG_EXPENSE_PATH)}
         style={{ backgroundColor: tokens.accent, marginTop: space.sm }}
       />
-      <Button label="Try again" variant="secondary" onPress={retry} />
+      <Button label="Try again" variant="ghost" size="small" onPress={retry} />
       {pending > 0 && (
         <Text style={[styles.caption, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>
           {pending === 1 ? '1 expense waiting to sync' : `${pending} expenses waiting to sync`}

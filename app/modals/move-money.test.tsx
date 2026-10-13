@@ -21,8 +21,10 @@ jest.mock('@/src/api/groups', () => ({ getGroups: jest.fn() }))
 
 const mockBack = jest.fn()
 let mockParams: Record<string, string> = {}
+let mockCanGoBack = true
+const mockReplace = jest.fn()
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ back: mockBack, push: jest.fn(), replace: jest.fn(), navigate: jest.fn() }),
+  useRouter: () => ({ back: mockBack, canGoBack: () => mockCanGoBack, push: jest.fn(), replace: mockReplace, navigate: jest.fn() }),
   useLocalSearchParams: () => mockParams,
 }))
 
@@ -105,8 +107,10 @@ it('auto-fill allocates from the safest sources until the amount is covered', as
   await waitFor(() => expect(getByText('FROM')).toBeTruthy())
   expect(getByText('₹900 → ₹0')).toBeTruthy()
   expect(getByText('₹500 → ₹400')).toBeTruthy()
-  expect(queryByText('Shopping')).toBeTruthy() // still in the remaining pool, untouched
   expect(getByText('Move ₹1,000')).toBeTruthy()
+  // Fully covered: the leftover suggestions go away so there's nothing to second-guess.
+  await waitFor(() => expect(queryByText('SUGGESTED SOURCES')).toBeNull())
+  expect(queryByText('Shopping')).toBeNull()
 })
 
 it('splits a move across multiple sources on submit', async () => {
@@ -159,9 +163,9 @@ it('removes native input padding so the envelope placeholder aligns with the sea
   expect(inputStyle.padding).toBe(0)
 })
 
-it('ignores a pool tap once the amount is covered, so the move never exceeds it', async () => {
+it('stops offering sources once the amount is covered, so the move never exceeds it', async () => {
   ;(transferBudget as jest.Mock).mockResolvedValue({})
-  const { getByText, getByLabelText } = setup({}, SPENDING)
+  const { getByText, getByLabelText, queryByText } = setup({}, SPENDING)
   await waitFor(() => expect(getByLabelText('1')).toBeTruthy())
   await enterAmount(getByLabelText, '1000')
   fireEvent.press(getByText('Pick sources →'))
@@ -169,8 +173,8 @@ it('ignores a pool tap once the amount is covered, so the move never exceeds it'
 
   fireEvent.press(getByText('Auto-fill'))
   await waitFor(() => expect(getByText('Move ₹1,000')).toBeTruthy())
-  // Travel 900 + Cook 100 already cover it; Shopping is still in the pool.
-  fireEvent.press(getByText('Shopping'))
+  // Travel 900 + Cook 100 already cover it, so Shopping isn't there to tap.
+  await waitFor(() => expect(queryByText('Shopping')).toBeNull())
   fireEvent.press(getByText('Move ₹1,000'))
 
   await waitFor(() => expect(transferBudget).toHaveBeenCalled())
@@ -202,4 +206,19 @@ it('never picks more than a source has available', async () => {
       { category: 'Travel', amount: 0.5 },
     ]),
   )
+})
+
+// Opened from "Added ₹50" (Set a budget / Cover it), which replaced Log expense,
+// which the app can launch straight into: there's nothing underneath to go back to.
+it('closes to Home when it was opened with nothing underneath', async () => {
+  mockCanGoBack = false
+  try {
+    const { getByLabelText } = setup()
+    await waitFor(() => expect(getByLabelText('Close')).toBeTruthy())
+    fireEvent.press(getByLabelText('Close'))
+    expect(mockBack).not.toHaveBeenCalled()
+    expect(mockReplace).toHaveBeenCalledWith('/(tabs)')
+  } finally {
+    mockCanGoBack = true
+  }
 })

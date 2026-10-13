@@ -199,6 +199,15 @@ export default function ExpenseFailedScreen() {
             </Text>
           </Reanimated.View>
         )}
+
+        {/* Both buttons keep what was typed, so say so: a failure that might
+            have eaten the entry is the memory this screen exists to prevent. */}
+        <Reanimated.Text
+          entering={FadeIn.delay(STAGGER.detail).duration(350)}
+          style={[styles.line, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold, fontSize: type.body, marginTop: space.lg }]}
+        >
+          Your entry&apos;s safe. Retry, or go back and edit it.
+        </Reanimated.Text>
       </View>
 
       <Reanimated.View
@@ -210,7 +219,7 @@ export default function ExpenseFailedScreen() {
           disabled={addExpense.isPending}
           onPress={handleRetry}
         />
-        <Button label="Dismiss" variant="ghost" disabled={addExpense.isPending} onPress={handleDismiss} />
+        <Button label="Edit entry" variant="ghost" disabled={addExpense.isPending} onPress={handleDismiss} />
       </Reanimated.View>
     </View>
   )

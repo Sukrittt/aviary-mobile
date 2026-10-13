@@ -1,4 +1,4 @@
-import { evaluateAmount, formatExpression, hasOperator, pushAmountKey } from './calcAmount'
+import { amountSeed, evaluateAmount, formatExpression, hasOperator, pushAmountKey } from './calcAmount'
 
 const type = (keys: string[], start = '') => keys.reduce(pushAmountKey, start)
 
@@ -53,4 +53,15 @@ it('formats the expression line', () => {
   expect(hasOperator('12.5')).toBe(false)
   expect(hasOperator('5+')).toBe(true)
   expect(formatExpression('5+5+')).toBe('5 + 5 +')
+})
+
+describe('amountSeed', () => {
+  it('rounds float noise to cents', () => {
+    expect(amountSeed(29999.899999999998)).toBe('29999.9')
+    expect(amountSeed(5000)).toBe('5000')
+  })
+
+  it('starts a negative amount from 0, since the numpad has no minus key', () => {
+    expect(amountSeed(-500)).toBe('0')
+  })
 })

@@ -3,6 +3,7 @@ import type { ExpenseRow } from '@/src/types'
 import { Alert, Modal } from 'react-native'
 import { act, fireEvent, waitFor } from '@testing-library/react-native'
 import { createTestQueryClient, renderWithProviders } from '@/src/test-utils/renderWithProviders'
+import { userKey } from '@/src/hooks/useUser'
 import { accountsKey } from '@/src/hooks/useAccounts'
 import { deleteExpensePhoto, getExpensePhotoUrl, getRecentExpenses, postExpensePayload, updateExpense, uploadExpensePhoto } from '@/src/api/expenses'
 import { setOnline } from '@/src/lib/netStatus'
@@ -58,14 +59,18 @@ const mockPush = jest.fn()
 const mockTip: { reason: 'batch' | 'gap' | null; close: jest.Mock } = { reason: null, close: jest.fn() }
 jest.mock('@/src/hooks/useCaptureTip', () => ({ useCaptureTip: () => mockTip }))
 let mockParams: Record<string, string> = {}
+// One screen instance's params and focus; unset means the single focused screen most tests render.
+const mockScreen = require('react').createContext(null) as import('react').Context<{ params: Record<string, string>; focused: boolean } | null>
 jest.mock('expo-router', () => ({
   useRouter: () => ({ replace: mockReplace, back: mockBack, push: mockPush, navigate: jest.fn() }),
-  useLocalSearchParams: () => mockParams,
+  useLocalSearchParams: () => require('react').useContext(mockScreen)?.params ?? mockParams,
+  useIsFocused: () => require('react').useContext(mockScreen)?.focused ?? true,
 }))
 
 // Mirror the screen and nav as siblings sharing the root submit context.
 function Harness() {
-  const { submit, onInvalid } = useLogExpenseSubmitState()
+  const { submit, onInvalid, canSubmit } = useLogExpenseSubmitState()
+  ;(globalThis as any).__canSubmit = canSubmit
   ;(globalThis as any).__submit = submit
   ;(globalThis as any).__onInvalid = onInvalid
   return null
@@ -81,6 +86,8 @@ function setup(params: Record<string, string> = {}, expenses: ExpenseRow[] = [],
   // Accounts are usually cached by the time this opens (Home loads them).
   const queryClient = createTestQueryClient()
   if (!coldAccounts) queryClient.setQueryData(accountsKey, mockAccounts)
+  // An older account with every extra on, cached the way Home leaves it.
+  queryClient.setQueryData(userKey, { createdAt: '2025-01-01T00:00:00.000Z', manualTransactionCompletedAt: '2025-01-02T00:00:00.000Z' })
   return renderWithProviders(
     <LogExpenseSubmitProvider>
       <LogExpenseScreen />
@@ -827,4 +834,29 @@ describe('photo', () => {
     expect(deleteExpensePhoto).toHaveBeenCalledWith('srv1')
     expect(mockBack).toHaveBeenCalled()
   })
+})
+
+// A habit nudge pushes a prefilled log-expense over the launch one. The nav
+// circle must drive the screen on top, not the empty one underneath.
+it('submits the focused prefilled screen, not the blank launch screen under it', async () => {
+  ;(getRecentExpenses as jest.Mock).mockResolvedValue({ rows: [], lastSpent: {} })
+  ;(getCategories as jest.Mock).mockResolvedValue([{ name: '🛵 Travel', group: 'Transport' }])
+  ;(getGroups as jest.Mock).mockResolvedValue(['Transport'])
+  ;(getCategoryMap as jest.Mock).mockResolvedValue({ words: {} })
+  const queryClient = createTestQueryClient()
+  queryClient.setQueryData(accountsKey, mockAccounts)
+  renderWithProviders(
+    <LogExpenseSubmitProvider>
+      <mockScreen.Provider value={{ params: { item: 'Bike to home', amountInr: '76', category: '🛵 Travel', paymentMethod: 'upi' }, focused: true }}>
+        <LogExpenseScreen />
+      </mockScreen.Provider>
+      <mockScreen.Provider value={{ params: {}, focused: false }}>
+        <LogExpenseScreen />
+      </mockScreen.Provider>
+      <Harness />
+    </LogExpenseSubmitProvider>,
+    { queryClient },
+  )
+
+  await waitFor(() => expect((globalThis as any).__canSubmit).toBe(true))
 })

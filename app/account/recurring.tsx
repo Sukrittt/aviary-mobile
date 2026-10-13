@@ -222,7 +222,7 @@ export default function RecurringExpensesScreen() {
             <EmptyState
               subject="recurring"
               title="Set it once, forget it"
-              description="Rent, the gym, your maid. Add it here and we'll log it for you on every due date."
+              description="Rent, the gym, your phone bill. Add it here and we'll log it for you on every due date."
               action={{ label: "Add a recurring expense", onPress: () => router.push("/modals/recurring-expense") }}
               style={{ paddingVertical: 0 }}
             />

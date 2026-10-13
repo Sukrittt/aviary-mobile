@@ -1,6 +1,6 @@
 import * as SecureStore from 'expo-secure-store'
 import { currentUserId } from '@/src/api/accessMode'
-import { readCurrencyPreference, writeCurrencyPreference } from './currencyPreference'
+import { deviceCurrency, readCurrencyPreference, writeCurrencyPreference } from './currencyPreference'
 jest.mock('@/src/api/accessMode', () => ({ currentUserId: jest.fn(() => 'a') }))
 jest.mock('expo-secure-store', () => ({ getItemAsync: jest.fn(), setItemAsync: jest.fn(async () => {}) }))
 beforeEach(() => jest.clearAllMocks())
@@ -17,4 +17,12 @@ it('falls back to INR for old or unavailable cache values', async () => {
   expect(await readCurrencyPreference()).toBe('INR')
   ;(SecureStore.getItemAsync as jest.Mock).mockRejectedValue(new Error('storage unavailable'))
   expect(await readCurrencyPreference()).toBe('INR')
+})
+it('trusts an Indian timezone over an en-US locale', () => {
+  expect(deviceCurrency('Asia/Kolkata', 'USD')).toBe('INR')
+  expect(deviceCurrency('Asia/Calcutta', 'USD')).toBe('INR')
+})
+it('falls back to the locale currency for other timezones', () => {
+  expect(deviceCurrency('America/Mexico_City', 'MXN')).toBe('MXN')
+  expect(deviceCurrency('Europe/Berlin', undefined)).toBe('INR')
 })

@@ -9,8 +9,9 @@ import { track } from '@/src/lib/analytics'
 
 export const recurringSuggestionsKey = ['recurring-suggestions'] as const
 
-export function useRecurringSuggestions(months: ScanMonths) {
+export function useRecurringSuggestions(months: ScanMonths, enabled = true) {
   return useQuery({
+    enabled,
     queryKey: [...recurringSuggestionsKey, months],
     queryFn: () => loadRecurringSuggestions(months),
     staleTime: 30_000,

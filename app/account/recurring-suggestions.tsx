@@ -23,6 +23,7 @@ import {
   useRecurringSuggestions,
   useScanRecurringSuggestions,
 } from '@/src/hooks/useRecurringSuggestions'
+import { recurringSuggestionErrorMessage } from '@/src/api/recurringSuggestions'
 import type { RecurringSuggestion, ScanMonths } from '@/src/types/recurringSuggestions'
 
 const SCAN_PHRASES = [
@@ -66,7 +67,13 @@ export default function RecurringSuggestionsScreen() {
   const data = query.data
   const suggestions = data?.suggestions.filter((suggestion) => suggestion.kind === targetKind) ?? []
   const busy = scan.isPending || dismiss.isPending
-  const failure = scan.error ?? dismiss.error ?? query.error
+  const failure = scan.error
+    ? recurringSuggestionErrorMessage(scan.error, "Couldn't scan right now. Check your connection and try again.")
+    : dismiss.error
+      ? recurringSuggestionErrorMessage(dismiss.error, "Couldn't dismiss that. Check your connection and try again.")
+      : query.error
+        ? recurringSuggestionErrorMessage(query.error, "Couldn't load suggestions. Check your connection and try again.")
+        : null
 
   if (!online) return <OfflineScreen />
 
@@ -239,7 +246,7 @@ export default function RecurringSuggestionsScreen() {
 
             {failure && (
               <Text style={[styles.errorLine, { color: tokens.coral, fontFamily: fontFamily.bodyMedium }]}>
-                {failure.message}
+                {failure}
               </Text>
             )}
 

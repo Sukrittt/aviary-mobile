@@ -176,6 +176,16 @@ export function searchCurrencies(query: string) {
 export function currencyInfo(code: string = DEFAULT_CURRENCY) {
   return CURRENCIES.find(c => c.code === code) ?? CURRENCIES.find(c => c.code === DEFAULT_CURRENCY)!
 }
+// ISO names put the unit last ("Mexican Peso"), except these.
+const UNIT_OVERRIDES: Record<string, string> = {
+  GBP: 'pound', CNY: 'yuan', OMR: 'rial', UYU: 'peso', NIO: 'córdoba',
+  VES: 'bolívar', VED: 'bolívar', XOF: 'franc', XAF: 'franc', ZWG: 'ZiG',
+}
+/** The currency's everyday unit for copy like "Every peso has a job.": rupee, dollar, euro. */
+export function currencyUnit(code: string = DEFAULT_CURRENCY): string {
+  const { code: resolved, name } = currencyInfo(code)
+  return UNIT_OVERRIDES[resolved] ?? name.split(' ').pop()!.toLowerCase()
+}
 export function currencyPrefix(code: string = DEFAULT_CURRENCY): string {
   const { symbol } = currencyInfo(code)
   return /^[A-Z]{3}$/.test(symbol) ? `${symbol} ` : symbol
@@ -192,6 +202,16 @@ export function formatMoney(value: number, code: string = DEFAULT_CURRENCY): str
   const sign = value < 0 && !(whole === '0' && fraction === '00') ? '-' : ''
   return `${sign}${currencyPrefix(code)}${groupDigits(whole, code)}${fraction === '00' ? '' : `.${fraction}`}`
 }
+/** Chart labels: 1.5k, 12.5L (INR) or 1.3M, with the sign ahead of the symbol like formatMoney. */
+function formatCompact(value: number, code: string): string {
+  const abs = Math.abs(value)
+  if (abs < 1000) return formatMoney(Math.round(value), code)
+  const [step, unit] = resolveCurrency(code) === 'INR' ? [1e5, 'L'] : [1e6, 'M']
+  // Pick the unit after rounding so 999,950 reads 10L, not 1000k.
+  const thousands = Number((abs / 1000).toFixed(abs >= 10000 ? 0 : 1))
+  const amount = thousands * 1000 >= step ? `${Number((abs / step).toFixed(1))}${unit}` : `${thousands}k`
+  return `${value < 0 ? '-' : ''}${currencyPrefix(code)}${amount}`
+}
 export function formatMoneyInput(raw: string, code: string = DEFAULT_CURRENCY): string {
   const [whole, fraction] = raw.split('.')
   return `${currencyPrefix(code)}${groupDigits(whole || '0', code)}${fraction === undefined ? '' : `.${fraction}`}`
@@ -204,7 +224,7 @@ export function createCurrencyFormat(code: string = DEFAULT_CURRENCY) {
     formatMoney: (value: number) => formatMoney(value, currencyCode),
     formatCurrency: (value: number, hide = false) => hide ? `${currencyPrefix(currencyCode)}••••` : formatMoney(value, currencyCode),
     formatAmountInput: (raw: string) => formatMoneyInput(raw, currencyCode),
-    formatCompact: (value: number, hide = false) => hide ? `${currencyPrefix(currencyCode)}••` : Math.abs(value) >= 1000 ? `${currencyPrefix(currencyCode)}${(value / 1000).toFixed(Math.abs(value) >= 10000 ? 0 : 1)}k` : formatMoney(Math.round(value), currencyCode),
+    formatCompact: (value: number, hide = false) => hide ? `${currencyPrefix(currencyCode)}••` : formatCompact(value, currencyCode),
     // Static tour examples use Indian grouping in source. Format their numeric values as-is.
     currencyText: (text: string) => text.replace(/₹([\d,]+(?:\.\d+)?)/g, (_, n: string) => formatMoney(Number(n.replace(/,/g, '')), currencyCode)).replace(/₹/g, currencyPrefix(currencyCode)),
   }

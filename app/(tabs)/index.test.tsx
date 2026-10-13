@@ -1,10 +1,12 @@
+import { useState } from 'react'
 import { Animated, Linking, Platform } from 'react-native'
 import { act, fireEvent, waitFor } from '@testing-library/react-native'
 import * as SecureStore from 'expo-secure-store'
 import { Path } from 'react-native-svg'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
-import { currentMonthKey } from '@/src/lib/envelope'
+import { currentMonthKey, monthAbbrev } from '@/src/lib/envelope'
 import { getSystemStatus } from '@/src/api/systemStatus'
+import { lightTokens } from '@/src/theme/tokens'
 import appJson from '@/app.json'
 import HomeScreen from './index'
 
@@ -18,14 +20,19 @@ jest.mock('expo-secure-store', () => ({
 
 let mockBudgets: { month: string; category: string; assigned: string; rolled_over: string }[] = []
 let mockBudgetsError: Error | null = null
-let mockUser: { onboardedAt?: string; getStartedAt?: string; manualTransactionCompletedAt?: string; guidedTourCompletedAt?: string } = {}
+let mockUser: { onboardedAt?: string; getStartedAt?: string; manualTransactionCompletedAt?: string; guidedTourCompletedAt?: string; createdAt?: string; hiddenFeatures?: string[] } = {}
+let mockExpenses: { category: string; amountInr: number; date: string }[] = []
+let mockBilling: object | undefined
+let mockWrappedStatus: { available: boolean } | undefined
+let mockSuggestions: { suggestions: { kind: string }[] } | undefined
+const mockMutate = jest.fn()
 const mockRefetch = jest.fn()
 
 jest.mock('@/src/hooks/useBudgets', () => ({
   useBudgets: () => ({ data: mockBudgets, isLoading: false, error: mockBudgetsError, refetch: mockRefetch }),
 }))
 jest.mock('@/src/hooks/useExpenses', () => ({
-  useRecentExpenses: () => ({ data: [], isLoading: false, error: null, refetch: jest.fn() }),
+  useRecentExpenses: () => ({ data: mockExpenses, isLoading: false, error: null, refetch: jest.fn() }),
   useLastSpent: () => ({ data: {} }),
 }))
 let mockSchedules: { id: string; frequency: string; status: string }[] | undefined = []
@@ -39,13 +46,21 @@ jest.mock('@/src/hooks/useGroups', () => ({
 }))
 jest.mock('@/src/hooks/useUser', () => ({
   useUser: () => ({ data: mockUser, isLoading: false, error: null }),
+  useUpdateUser: () => ({ mutate: mockMutate }),
 }))
+jest.mock('@/src/hooks/useBillingStatus', () => ({ useBillingStatus: () => ({ data: mockBilling }) }))
+let mockWrappedLoading = false
+jest.mock('@/src/hooks/useWrapped', () => ({ useWrappedStatus: () => ({ data: mockWrappedStatus, isLoading: mockWrappedLoading }) }))
+let mockSuggestionsLoading = false
+jest.mock('@/src/hooks/useRecurringSuggestions', () => ({ useRecurringSuggestions: () => ({ data: mockSuggestions, isLoading: mockSuggestionsLoading }) }))
+jest.mock('@/src/components/ui/AlertHost', () => ({ Alert: { alert: jest.fn() } }))
 jest.mock('@/src/api/systemStatus', () => ({ getSystemStatus: jest.fn(() => new Promise(() => {})) }))
 // Covered by its own test; it fetches and reads SecureStore, neither of which this screen's tests are about.
 jest.mock('@/src/components/balance/BalanceCheckCard', () => ({ BalanceCheckCard: () => null }))
 const mockPush = jest.fn()
+const mockNavigate = jest.fn()
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: mockPush, back: jest.fn(), replace: jest.fn(), navigate: jest.fn() }),
+  useRouter: () => ({ push: mockPush, back: jest.fn(), replace: jest.fn(), navigate: mockNavigate }),
   useIsFocused: () => true,
 }))
 
@@ -130,12 +145,65 @@ describe('HomeScreen · Ready to Assign', () => {
     expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/modals/recurring-income', params: { label: 'Monthly income', frequency: 'monthly', amount: '' } })
   })
 
+  it('shrinks Ready to Assign to a slim row once every rupee is assigned', () => {
+    mockBudgets = [
+      { month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' },
+      { month: MONTH, category: 'Food', assigned: '20000', rolled_over: '0' },
+    ]
+    const { getByTestId, queryByTestId, getByLabelText, getByText } = renderHome()
+    expect(getByTestId('rta-slim')).toBeTruthy()
+    expect(queryByTestId('rta-hero')).toBeNull()
+
+    // Same tap target and income options as the full hero.
+    fireEvent.press(getByLabelText('Ready to Assign options'))
+    expect(getByText('Change income')).toBeTruthy()
+  })
+
+  it('celebrates the moment Ready to Assign reaches zero, not a load that starts there', () => {
+    // A budget save refetches into the same mounted screen; a rerender with new data stands in for it.
+    let refetched = () => {}
+    function Harness() {
+      const [, setTick] = useState(0)
+      refetched = () => setTick((n) => n + 1)
+      return <HomeScreen />
+    }
+    const view = renderWithProviders(<Harness />)
+    expect(view.queryByText('Every rupee has a job.')).toBeNull()
+    mockBudgets = [
+      { month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' },
+      { month: MONTH, category: 'Food', assigned: '20000', rolled_over: '0' },
+    ]
+    act(() => refetched())
+    expect(view.getByText('Every rupee has a job.')).toBeTruthy()
+    view.unmount()
+
+    const fresh = renderHome()
+    expect(fresh.getByTestId('rta-slim')).toBeTruthy()
+    expect(fresh.queryByText('Every rupee has a job.')).toBeNull()
+  })
+
+  it('shows the month in the header', () => {
+    const { getByText } = renderHome()
+    expect(getByText(`${monthAbbrev(MONTH)} ${MONTH.slice(0, 4)}`)).toBeTruthy()
+  })
+
+  it('keeps the full hero while money is left to assign, or before income is set', () => {
+    const first = renderHome()
+    expect(first.getByTestId('rta-hero')).toBeTruthy()
+    first.unmount()
+
+    mockBudgets = []
+    const second = renderHome()
+    expect(second.getByTestId('rta-hero')).toBeTruthy()
+    expect(second.queryByTestId('rta-slim')).toBeNull()
+  })
+
   it('uses the app icon as the home header brand', () => {
     const { getByLabelText, queryByText, UNSAFE_getAllByType } = renderHome()
 
     expect(getByLabelText('Aviary app icon')).toBeTruthy()
     expect(queryByText('Aviary')).toBeNull()
-    expect(UNSAFE_getAllByType(Path).some((path) => path.props.fill === '#000000')).toBe(true)
+    expect(UNSAFE_getAllByType(Path).some((path) => path.props.fill === lightTokens.accent)).toBe(true)
   })
 
   it('fades the settled bird out before resetting the landing choreography', async () => {
@@ -317,5 +385,143 @@ describe('HomeScreen · minimum version banner', () => {
 
     expect(getSystemStatus).toHaveBeenCalled()
     expect(queryByText(/new version of Aviary/)).toBeNull()
+  })
+})
+
+describe('HomeScreen · one banner at a time', () => {
+  const NEW_ACCOUNT = '2026-11-01T00:00:00.000Z'
+  const trial = (days: number) => ({ mode: 'trial', enforced: true, purchaseEnabled: true, allowed: true, trialDaysRemaining: days })
+  const PREV = (() => {
+    const [y, m] = MONTH.split('-').map(Number)
+    return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}`
+  })()
+  const expenses = (n: number) => Array.from({ length: n }, (_, i) => ({ category: 'Food', amountInr: 10 + i, date: `${MONTH}-01` }))
+
+  beforeEach(() => {
+    Object.defineProperty(Platform, 'OS', { configurable: true, value: 'ios' })
+    mockPush.mockClear()
+    mockMutate.mockClear()
+    mockBudgetsError = null
+    mockUser = { createdAt: NEW_ACCOUNT }
+    mockExpenses = []
+    mockBilling = undefined
+    mockWrappedStatus = undefined
+    mockSuggestions = undefined
+    mockSuggestionsLoading = false
+    mockWrappedLoading = false
+    mockBudgets = [
+      { month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' },
+      { month: PREV, category: '__income__', assigned: '5000', rolled_over: '0' },
+    ]
+  })
+
+  it('shows the trial reminder over the rollover banner at 3 days left', async () => {
+    mockBilling = trial(3)
+    const { findByText, queryByText } = renderHome()
+    expect(await findByText(/Free trial · 3 days left/)).toBeTruthy()
+    expect(queryByText(/went to savings last month/)).toBeNull()
+  })
+
+  it('skips the 7-day trial reminder and shows the rollover banner', async () => {
+    mockBilling = trial(7)
+    const { findByText, queryByText } = renderHome()
+    expect(await findByText(/went to savings last month/)).toBeTruthy()
+    expect(queryByText(/Free trial/)).toBeNull()
+  })
+
+  it('lets Nice dismiss the rollover banner', async () => {
+    mockBilling = trial(7)
+    const { findByText, getByText, queryByText } = renderHome()
+    expect(await findByText(/went to savings last month/)).toBeTruthy()
+    fireEvent.press(getByText('Nice'))
+    await waitFor(() => expect(queryByText(/went to savings last month/)).toBeNull())
+  })
+
+  it('offers Insights once 30 expenses are logged, with nothing above it', async () => {
+    mockBudgets = [{ month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' }]
+    mockExpenses = expenses(30)
+    const { findByText } = renderHome()
+    expect(await findByText(/Insights can show you where it all goes/)).toBeTruthy()
+    fireEvent.press(await findByText('Turn on'))
+    expect(mockMutate).toHaveBeenCalledWith({ hiddenFeatures: ['askAviary', 'billScan', 'wrapped', 'investments', 'subscriptions'] }, expect.anything())
+    expect(mockNavigate).toHaveBeenCalledWith('/insights')
+  })
+
+  it('offers Subscriptions first when a scan found one', async () => {
+    mockBudgets = [{ month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' }]
+    mockExpenses = expenses(30)
+    mockSuggestions = { suggestions: [{ kind: 'subscription' }] }
+    const { findByText, queryByText } = renderHome()
+    expect(await findByText(/pay for a few subscriptions/)).toBeTruthy()
+    expect(queryByText(/Insights can show you/)).toBeNull()
+  })
+
+  it('holds the slot while the subscription check is still loading', async () => {
+    mockBudgets = [{ month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' }]
+    mockExpenses = expenses(30)
+    mockSuggestionsLoading = true
+    const { queryByText } = renderHome()
+    await act(async () => {})
+    expect(queryByText(/Insights can show you/)).toBeNull()
+  })
+
+  it('holds the slot while Wrapped status is still loading', async () => {
+    mockBudgets = [{ month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' }]
+    mockExpenses = expenses(30)
+    mockWrappedLoading = true
+    const { queryByText } = renderHome()
+    await act(async () => {})
+    expect(queryByText('Turn on')).toBeNull()
+  })
+
+  it('says so when turning a feature on fails', async () => {
+    mockBudgets = [{ month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' }]
+    mockExpenses = expenses(30)
+    const { findByText } = renderHome()
+    fireEvent.press(await findByText('Turn on'))
+    act(() => mockMutate.mock.calls[0][1].onError(new Error('offline')))
+    expect(jest.requireMock('@/src/components/ui/AlertHost').Alert.alert).toHaveBeenCalledWith("Couldn't turn that on", 'Check your connection and try again.')
+  })
+
+  it('offers Wrapped when last month unlocks, and remembers Not now', async () => {
+    mockBudgets = [{ month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' }]
+    mockWrappedStatus = { available: true }
+    const { findByText, queryByText } = renderHome()
+    fireEvent.press(await findByText('Not now'))
+    await waitFor(() => expect(queryByText(/Wrapped is ready/)).toBeNull())
+    expect(SecureStore.setItemAsync).toHaveBeenCalledWith('mc-rollover-dismissed-nudge-wrapped', '1')
+  })
+
+  it('offers Scan a bill after 10 expenses, opening the scan sheet', async () => {
+    mockBudgets = [{ month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' }]
+    mockExpenses = expenses(10)
+    const { findByText } = renderHome()
+    expect(await findByText(/Got a receipt/)).toBeTruthy()
+    fireEvent.press(await findByText('Turn on'))
+    expect(mockNavigate).toHaveBeenCalledWith({ pathname: '/more', params: { scan: '1' } })
+  })
+
+  it('offers Ask Aviary after a week of logging days', async () => {
+    mockBudgets = [{ month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' }]
+    mockExpenses = Array.from({ length: 7 }, (_, i) => ({ category: 'Food', amountInr: 10, date: `${MONTH}-0${i + 1}` }))
+    const { findByText } = renderHome()
+    expect(await findByText(/Ask Aviary can answer questions/)).toBeTruthy()
+  })
+
+  it('never offers a feature that is already on', async () => {
+    mockBudgets = [{ month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' }]
+    mockUser = { createdAt: '2026-01-01T00:00:00.000Z' }
+    mockExpenses = expenses(40)
+    mockWrappedStatus = { available: true }
+    const { queryByText } = renderHome()
+    await act(async () => {})
+    expect(queryByText('Turn on')).toBeNull()
+  })
+
+  it('has no Insights link when Insights is off', async () => {
+    const { queryByLabelText, queryByText } = renderHome()
+    await act(async () => {})
+    expect(queryByLabelText('Insights')).toBeNull()
+    expect(queryByText('Trends, daily spend and subscriptions')).toBeNull()
   })
 })

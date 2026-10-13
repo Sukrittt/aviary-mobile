@@ -1,4 +1,4 @@
-import { CURRENCIES, createCurrencyFormat, formatMoney, formatMoneyInput, isCurrencyCode, resolveCurrency, searchCurrencies } from './currencies'
+import { CURRENCIES, createCurrencyFormat, currencyUnit, formatMoney, formatMoneyInput, isCurrencyCode, resolveCurrency, searchCurrencies } from './currencies'
 
 describe('display currency', () => {
   it('includes current currencies and excludes obsolete, fund and testing codes', () => {
@@ -41,11 +41,41 @@ describe('display currency', () => {
     expect(f.formatCompact(10, true)).toBe('AED ••')
     expect(f.currencyText('Move ₹1,400. Left: ₹••••')).toBe('Move AED 1,400. Left: AED ••••')
   })
+  it('puts the sign before the symbol and steps up to lakhs or millions on chart labels', () => {
+    const inr = createCurrencyFormat('INR')
+    expect(inr.formatCompact(-1500)).toBe('-₹1.5k')
+    expect(inr.formatCompact(-500)).toBe('-₹500')
+    expect(inr.formatCompact(1_250_000)).toBe('₹12.5L')
+    expect(inr.formatCompact(999_950)).toBe('₹10L')
+    expect(inr.formatCompact(-1_250_000)).toBe('-₹12.5L')
+    expect(inr.formatCompact(99_400)).toBe('₹99k')
+    const aed = createCurrencyFormat('AED')
+    expect(aed.formatCompact(-1500)).toBe('-AED 1.5k')
+    expect(aed.formatCompact(1_250_000)).toBe('AED 1.3M')
+    expect(aed.formatCompact(999_950)).toBe('AED 1M')
+  })
   it('keeps simultaneous currency formatters isolated', () => {
     const usd = createCurrencyFormat('USD')
     const eur = createCurrencyFormat('EUR')
     expect(usd.formatCurrency(42)).toBe('$42')
     expect(eur.formatCurrency(42)).toBe('€42')
     expect(usd.formatCurrency(42)).toBe('$42')
+  })
+})
+
+describe('currencyUnit', () => {
+  it('names the everyday unit, not the ISO name', () => {
+    expect(currencyUnit('INR')).toBe('rupee')
+    expect(currencyUnit('USD')).toBe('dollar')
+    expect(currencyUnit('MXN')).toBe('peso')
+    expect(currencyUnit('EUR')).toBe('euro')
+    expect(currencyUnit('JPY')).toBe('yen')
+    expect(currencyUnit('GBP')).toBe('pound')
+    expect(currencyUnit('CNY')).toBe('yuan')
+    expect(currencyUnit('XOF')).toBe('franc')
+  })
+
+  it('falls back to the default currency for an unknown code', () => {
+    expect(currencyUnit('???')).toBe('rupee')
   })
 })

@@ -316,7 +316,7 @@ export function WrappedScreen() {
       <View style={[styles.container, { backgroundColor: tokens.bg, paddingTop: insets.top }]}>
         <View style={styles.centerFill}>
           <Text style={[styles.errorText, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
-            {error instanceof Error ? error.message : 'Not enough expenses yet for a Wrapped recap.'}
+            {error ? "Couldn't load your Wrapped. Check your connection and try again." : 'Not enough expenses yet for a Wrapped recap.'}
           </Text>
           <Pressable onPress={() => router.back()} hitSlop={12} style={{ marginTop: 16, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
             <Icon icon={ArrowLeft} size={16} color={tokens.text} />

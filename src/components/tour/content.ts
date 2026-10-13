@@ -2,6 +2,8 @@
 // Every number here is fake. Nothing in this file reads or writes real money,
 // which is what lets each chapter be poked at without consequence.
 
+import type { HideableFeature } from '@/src/lib/features'
+
 export interface Chapter {
   /** Row title on the hub, and the header subtitle while the chapter is open. */
   title: string
@@ -16,6 +18,8 @@ export interface Chapter {
   /** Overrides the row's default subtitle — for a chapter whose real screen
    * needs an extra step spelled out (e.g. tapping into it from elsewhere). */
   linkNote?: string
+  /** The hideable feature `href` opens. The real-screen link is dropped while it's hidden. */
+  feature?: HideableFeature
 }
 
 export const CHAPTERS: Chapter[] = [
@@ -23,7 +27,7 @@ export const CHAPTERS: Chapter[] = [
     title: 'Envelopes & Ready to Assign',
     blurb: 'Money gets a job before it gets spent.',
     kicker: 'CHAPTER 1 OF 7',
-    lede: "Every category is an envelope. Your income shows up as one number, Ready to Assign, and you hand it out until there's nothing left to hand out.",
+    lede: "An envelope is money set aside for one thing, like Groceries. Your income lands as one number, Ready to Assign. Hand it out to your envelopes until there's nothing left.",
     nudge: 'Fund all four. Get Ready to Assign to zero.',
     linkLabel: 'Open Home',
     href: '/(tabs)',
@@ -56,6 +60,7 @@ export const CHAPTERS: Chapter[] = [
     nudge: 'Answer, then flip to October 1.',
     linkLabel: 'Open Insights',
     href: '/insights',
+    feature: 'insights',
   },
   {
     title: 'Understanding your money',
@@ -65,6 +70,7 @@ export const CHAPTERS: Chapter[] = [
     nudge: 'Ask it something nosy.',
     linkLabel: 'Open Ask Aviary',
     href: '/modals/money-brain',
+    feature: 'askAviary',
   },
   {
     title: 'Notifications',
@@ -102,8 +108,8 @@ export const SPEND_ROWS = [
 ] as const
 
 export const LOG_CHIPS = [
-  { id: 'g', category: 'groceries', amount: 450, what: 'Sabzi run', method: 'UPI', emoji: '🛒' },
-  { id: 'e', category: 'eatout', amount: 700, what: 'Dosa night', method: 'Card', emoji: '🍲' },
+  { id: 'g', category: 'groceries', amount: 450, what: 'Grocery run', method: 'Bank', emoji: '🛒' },
+  { id: 'e', category: 'eatout', amount: 700, what: 'Pizza night', method: 'Card', emoji: '🍲' },
   { id: 's', category: 'shopping', amount: 1900, what: 'Running shoes', method: 'Card', emoji: '🛍️' },
 ] as const
 
@@ -136,7 +142,7 @@ export const QUIZ_OPTIONS = [
   },
   {
     id: 'b',
-    label: 'It is gone. October starts fresh, with the same ₹5,000 plan',
+    label: "It's gone. October starts fresh, with the same ₹5,000 plan",
     correct: true,
     feedback:
       "Exactly. Clean slate on the 1st: the leftover disappears, but your ₹5,000 plan is already sitting there waiting, so you're not budgeting from zero.",

@@ -38,8 +38,10 @@ jest.mock('@/src/components/shared/CategoryPickerSheet', () => {
 
 const mockBack = jest.fn()
 let mockParams: Record<string, string> = {}
+let mockCanGoBack = true
+const mockReplace = jest.fn()
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ back: mockBack, push: jest.fn(), replace: jest.fn(), navigate: jest.fn() }),
+  useRouter: () => ({ back: mockBack, canGoBack: () => mockCanGoBack, push: jest.fn(), replace: mockReplace, navigate: jest.fn() }),
   useLocalSearchParams: () => mockParams,
 }))
 
@@ -151,6 +153,37 @@ it('shows the shared full-screen conflict review, preserves the draft, and requi
   await waitFor(() => expect(updateBudget).toHaveBeenLastCalledWith(MONTH, 'Food', { assigned: '8000' }, 8))
 })
 
+it('shows the projected Ready to Assign when the amount is cleared to 0', async () => {
+  const { getByLabelText, getByText, queryByText } = setup([
+    { month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0', version: 2 },
+    { month: MONTH, category: 'Food', assigned: '5000', rolled_over: '0', version: 7 },
+  ])
+  await waitFor(() => expect(getByLabelText('₹5,000')).toBeTruthy())
+
+  fireEvent(getByLabelText('Delete'), 'longPress')
+
+  expect(getByText('Frees ₹5,000 back to Ready to Assign')).toBeTruthy()
+  expect(getByText('₹20,000 left to assign')).toBeTruthy()
+  expect(queryByText('₹15,000 left in Ready to Assign')).toBeNull()
+})
+
+it('seeds the latest amount rounded to cents after a conflict review', async () => {
+  ;(updateBudget as jest.Mock).mockRejectedValueOnce(new BudgetWriteError(409, 'changed', {
+    month: MONTH, category: 'Food', assigned: '29999.899999999998', rolled_over: '0', version: 8,
+  }))
+  const { getByLabelText, getByRole, getByText } = setup([
+    { month: MONTH, category: '__income__', assigned: '50000', rolled_over: '0', version: 2 },
+    { month: MONTH, category: 'Food', assigned: '5000', rolled_over: '0', version: 7 },
+  ])
+  await waitFor(() => expect(getByLabelText('₹5,000')).toBeTruthy())
+  await enterAmount(getByLabelText, '0')
+
+  await act(async () => { fireEvent.press(getByText('Save')) })
+  fireEvent.press(await waitFor(() => getByRole('button', { name: 'Use latest instead' })))
+
+  expect(getByLabelText('₹29,999.9')).toBeTruthy()
+})
+
 it('gives selection haptics when a quick pick is tapped', async () => {
   const selection = jest.spyOn(Haptics, 'selectionAsync').mockResolvedValue()
   const { getByText, getByLabelText } = setup([
@@ -217,4 +250,19 @@ describe('switching envelopes in place', () => {
     expect(await findByLabelText('Editing Rent. Switch envelope')).toBeTruthy()
     expect(updateBudget).not.toHaveBeenCalled()
   })
+})
+
+// Opened from "Added ₹50" (Set a budget / Cover it), which replaced Log expense,
+// which the app can launch straight into: there's nothing underneath to go back to.
+it('closes to Home when it was opened with nothing underneath', async () => {
+  mockCanGoBack = false
+  try {
+    const { getByLabelText } = setup([])
+    await waitFor(() => expect(getByLabelText('Close')).toBeTruthy())
+    fireEvent.press(getByLabelText('Close'))
+    expect(mockBack).not.toHaveBeenCalled()
+    expect(mockReplace).toHaveBeenCalledWith('/(tabs)')
+  } finally {
+    mockCanGoBack = true
+  }
 })

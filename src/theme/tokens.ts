@@ -47,28 +47,36 @@ export interface ThemeTokens {
   toastBg: string
   toastText: string
   toastEdge: string
+  /** Home's "left" pills. Solid in light mode: an alpha tint of mint/warn/coral
+   *  over white reads muddy grey. Dark keeps the alpha tints. */
+  pillGood: string
+  pillGoodBg: string
+  pillLow: string
+  pillLowBg: string
+  pillOver: string
+  pillOverBg: string
 }
 
 export const darkTokens: ThemeTokens = {
-  bg: '#000000',
+  bg: '#121214',
   text: '#f5f5f5',
-  text2: '#8f8f8f',
-  text3: '#5d5d5d',
+  text2: '#a1a1a6',
+  text3: '#8e8e94',
   onAccent: '#1a0500',
-  card: 'rgba(3, 3, 3, 0.7)',
-  cardSolid: '#0e0e0e',
-  sidebarBox: 'rgba(2, 2, 2, 0.6)',
-  inputBg: '#020202',
-  pillBg: 'rgba(6, 6, 6, 0.9)',
-  modalBg: 'rgba(2, 2, 2, 0.98)',
-  modalStrong: 'rgba(4, 4, 4, 0.95)',
-  tabbarBg: 'rgba(1, 1, 1, 0.92)',
-  headerBg: 'rgba(0, 0, 0, 0.9)',
+  card: 'rgba(30, 30, 33, 0.85)',
+  cardSolid: '#1e1e21',
+  sidebarBox: 'rgba(26, 26, 29, 0.7)',
+  inputBg: '#26262a',
+  pillBg: 'rgba(38, 38, 42, 0.9)',
+  modalBg: 'rgba(24, 24, 27, 0.98)',
+  modalStrong: 'rgba(28, 28, 31, 0.95)',
+  tabbarBg: 'rgba(18, 18, 20, 0.92)',
+  headerBg: 'rgba(18, 18, 20, 0.9)',
   heroA: 'rgba(54, 26, 14, 0.5)',
   heroB: 'rgba(29, 22, 18, 0.6)',
-  border: 'rgba(255, 255, 255, 0.1)',
-  borderStrong: 'rgba(255, 255, 255, 0.16)',
-  chipActiveBg: '#161616',
+  border: 'rgba(255, 255, 255, 0.12)',
+  borderStrong: 'rgba(255, 255, 255, 0.2)',
+  chipActiveBg: '#2c2c31',
   accent: '#f4511e',
   accentInk: '#ff8f66',
   accentSoft: 'rgba(255, 112, 67, 0.22)',
@@ -88,10 +96,16 @@ export const darkTokens: ThemeTokens = {
   toastBg: '#291c16',
   toastText: '#ffeadb',
   toastEdge: '#50372a',
+  pillGood: '#26e085',
+  pillGoodBg: 'rgba(38, 224, 133, 0.16)',
+  pillLow: '#fde047',
+  pillLowBg: 'rgba(250, 204, 21, 0.16)',
+  pillOver: '#ff646f',
+  pillOverBg: 'rgba(255, 100, 111, 0.16)',
 }
 
 export const lightTokens: ThemeTokens = {
-  bg: '#faf8f5',
+  bg: '#ffffff',
   text: '#060606',
   text2: '#424242',
   text3: '#717171',
@@ -101,10 +115,10 @@ export const lightTokens: ThemeTokens = {
   sidebarBox: 'rgba(242, 238, 232, 0.7)',
   inputBg: '#f2eee8',
   pillBg: 'rgba(255, 255, 255, 0.9)',
-  modalBg: 'rgba(250, 248, 245, 0.98)',
-  modalStrong: 'rgba(250, 248, 245, 0.96)',
-  tabbarBg: 'rgba(250, 248, 245, 0.92)',
-  headerBg: 'rgba(250, 248, 245, 0.92)',
+  modalBg: 'rgba(255, 255, 255, 0.98)',
+  modalStrong: 'rgba(255, 255, 255, 0.96)',
+  tabbarBg: 'rgba(255, 255, 255, 0.92)',
+  headerBg: 'rgba(255, 255, 255, 0.92)',
   heroA: 'rgba(255, 232, 220, 0.65)',
   heroB: 'rgba(245, 238, 234, 0.7)',
   border: 'rgba(60, 40, 20, 0.08)',
@@ -129,4 +143,13 @@ export const lightTokens: ThemeTokens = {
   toastBg: '#fff4e6',
   toastText: '#482510',
   toastEdge: '#eed7bd',
+  pillGood: '#15803d',
+  pillGoodBg: '#dcfce7',
+  pillLow: '#b45309',
+  pillLowBg: '#fef3c7',
+  pillOver: '#b91c1c',
+  pillOverBg: '#fee2e2',
 }
+
+/** The quick-income flood. Fixed in both schemes like log-expense's accent: dark mode's mint is too bright to carry white text. */
+export const INCOME_FLOOD = lightTokens.mint

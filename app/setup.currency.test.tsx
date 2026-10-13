@@ -7,7 +7,7 @@ import { onOnboarded } from '@/src/api/onboardingSignal'
 import { updateUser } from '@/src/api/account'
 import { completeOnboarding } from '@/src/api/billing'
 
-jest.mock('@/src/api/account', () => ({ updateUser: jest.fn(async patch => patch) }))
+jest.mock('@/src/api/account', () => ({ updateUser: jest.fn(async patch => patch), getUser: jest.fn(async () => ({ email: 'a@b.com', emailVerified: true })) }))
 jest.mock('@/src/api/billing', () => ({
   completeOnboarding: jest.fn(async () => ({ onboardedAt: '2026-09-18T12:00:00.000Z', access: {} })),
 }))
@@ -79,7 +79,11 @@ it('selects currency before income, preserves it on back, and saves it with onbo
   expect(onFinished).not.toHaveBeenCalled()
   fireEvent.press(getByText('Continue'))
   expect(Haptics.impactAsync).toHaveBeenCalledTimes(6)
-  expect(onFinished).toHaveBeenCalledTimes(1)
+  // Then the extras, all off, before the app opens.
+  expect(getByText('Want any extras?')).toBeTruthy()
+  expect(onFinished).not.toHaveBeenCalled()
+  fireEvent.press(getByText('Skip for now'))
+  await waitFor(() => expect(onFinished).toHaveBeenCalledTimes(1))
   unsubscribe()
   unmount()
 })

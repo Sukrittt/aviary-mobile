@@ -18,6 +18,7 @@ import { usePrivacy } from "@/src/context/PrivacyContext";
 
 import { fontFamily } from "@/src/theme/fonts";
 import { useTheme } from "@/src/theme/ThemeProvider";
+import { INCOME_FLOOD } from "@/src/theme/tokens";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ChevronDown, X } from "lucide-react-native";
 import { useEffect, useState } from "react";
@@ -48,12 +49,20 @@ export default function AddIncomeModal() {
   return <IncomeForm existing={existing} />;
 }
 
-function IncomeForm({ existing }: { existing?: IncomeRow }) {
+/** `flood`: the green full-screen take opened from log-expense and the nav's quick-add menu (quick-income.tsx). */
+export function IncomeForm({ existing, flood = false }: { existing?: IncomeRow; flood?: boolean }) {
   const month = currentMonthKey();
   const { formatCurrency, formatAmountInput } = useCurrency()
   const { hideAmounts } = usePrivacy();
 
-  const { tokens, space, radius, type } = useTheme();
+  const { tokens: theme, space, radius, type } = useTheme();
+  // On the flood everything goes white on green, the way log-expense goes white on accent.
+  // The green itself is quick-income.tsx's disc, drawn behind this transparent form.
+  const onFlood = "rgba(255, 255, 255, 0.7)";
+  const fieldBg = "rgba(255, 255, 255, 0.16)";
+  const tokens = flood
+    ? { ...theme, bg: "transparent", text: "#ffffff", text2: onFlood, text3: onFlood, card: fieldBg, border: "transparent", accent: "#ffffff", accentSoft: fieldBg, coral: "#ffffff" }
+    : theme;
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const budgetsQ = useBudgets();
@@ -279,6 +288,7 @@ function IncomeForm({ existing }: { existing?: IncomeRow }) {
               weight="displayBold"
               animate
               ignoreHide
+              color={flood ? "#ffffff" : undefined}
             />
           </Animated.View>
           <Reanimated.Text
@@ -328,6 +338,7 @@ function IncomeForm({ existing }: { existing?: IncomeRow }) {
         }}
       >
         <Numpad
+          onAccent={flood}
           extraKey="."
           onDigit={pushDigit}
           onBackspace={handleBackspace}
@@ -338,7 +349,8 @@ function IncomeForm({ existing }: { existing?: IncomeRow }) {
           style={[
             styles.confirmButton,
             {
-              backgroundColor: success ? tokens.mint : tokens.accent,
+              // On the flood a mint success fill would vanish, so the white button stays and the check goes green.
+              backgroundColor: flood ? "#ffffff" : success ? tokens.mint : tokens.accent,
               borderRadius: radius.full,
               opacity: saving || value <= 0 ? 0.5 : 1,
             },
@@ -347,11 +359,11 @@ function IncomeForm({ existing }: { existing?: IncomeRow }) {
           disabled={saving || success || value <= 0}
         >
           {success ? (
-            <CheckIcon color={tokens.onAccent} size={16} />
+            <CheckIcon color={flood ? INCOME_FLOOD : tokens.onAccent} size={16} />
           ) : (
             <Text
               style={{
-                color: tokens.onAccent,
+                color: flood ? INCOME_FLOOD : tokens.onAccent,
                 fontFamily: fontFamily.bodyBold,
                 fontSize: type.body,
               }}
@@ -365,7 +377,7 @@ function IncomeForm({ existing }: { existing?: IncomeRow }) {
       <BottomSheet visible={showMore} onClose={() => setShowMore(false)}>
         <Text
           style={{
-            color: tokens.text,
+            color: theme.text,
             fontFamily: fontFamily.displaySemiBold,
             fontSize: type.bodyLg,
             marginBottom: 12,
@@ -378,15 +390,15 @@ function IncomeForm({ existing }: { existing?: IncomeRow }) {
             value={label}
             onChangeText={setLabel}
             placeholder="What was it? A bonus, a refund, a gift…"
-            placeholderTextColor={tokens.text3}
+            placeholderTextColor={theme.text3}
             maxLength={200}
             accessibilityLabel="What was it"
             style={{
-              backgroundColor: tokens.inputBg,
+              backgroundColor: theme.inputBg,
               borderRadius: radius.md,
               paddingHorizontal: 14,
               paddingVertical: 14,
-              color: tokens.text,
+              color: theme.text,
               fontFamily: fontFamily.bodyMedium,
               fontSize: type.body,
             }}

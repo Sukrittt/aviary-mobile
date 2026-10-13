@@ -190,8 +190,8 @@ it('moves the percentage badge colors through the same old-to-new thresholds', a
   await waitFor(
     () => {
       expect(getByText('97% used')).toBeTruthy()
-      expect(StyleSheet.flatten(dot.props.style).backgroundColor).toBe('rgba(215, 14, 58, 1)')
-      expect(StyleSheet.flatten(pill.props.style).backgroundColor).toBe('rgba(215, 14, 58, 0.18)')
+      expect(StyleSheet.flatten(dot.props.style).backgroundColor).toBe('rgba(234, 179, 8, 1)')
+      expect(StyleSheet.flatten(pill.props.style).backgroundColor).toBe('rgba(234, 179, 8, 0.18)')
     },
     COUNTDOWN_SLOW,
   )
@@ -254,6 +254,27 @@ it('omits the envelope line for a category with no money assigned this month', a
   const { queryByText } = setup({}, [], [])
   await waitFor(() => expect(getGroups).toHaveBeenCalled())
   expect(queryByText(/left of/)).toBeNull()
+})
+
+it('offers to budget an envelope that has nothing assigned this month', async () => {
+  const { findByText, getByText } = setup({}, [], [])
+  await findByText('Give Groceries a budget?')
+  fireEvent.press(getByText('Set a budget'))
+  expect(mockReplace).toHaveBeenCalledWith({ pathname: '/modals/edit-assigned-amount', params: { category: '🛒 Groceries' } })
+})
+
+it('names an overspend and offers to cover it instead of a negative balance', async () => {
+  const { findByText, getByText, getByLabelText, queryByText } = setup({}, [
+    { date: TODAY, amount_inr: '7800', category: '🛒 Groceries', timestamp: 'other' },
+  ])
+  // 8000 assigned - 7800 spent - 450 = -250
+  await findByText('Over by')
+  expect(getByLabelText('₹250')).toBeTruthy()
+  expect(queryByText(/left of/)).toBeNull()
+  expect(queryByText(/to stay on track/)).toBeNull()
+  await findByText('Cover it from another envelope?', {}, COUNTDOWN_SLOW)
+  fireEvent.press(getByText('Cover it'))
+  expect(mockReplace).toHaveBeenCalledWith({ pathname: '/modals/move-money', params: { fromCategory: '🛒 Groceries' } })
 })
 
 // Logging an expense against a past month doesn't move this month's

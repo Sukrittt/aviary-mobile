@@ -111,8 +111,8 @@ describe('DeltaBar', () => {
 
     settle()
 
-    expect(StyleSheet.flatten(base.props.style).backgroundColor).toBe('rgba(215, 14, 58, 1)')
-    expect(StyleSheet.flatten(delta.props.style).backgroundColor).toBe('rgba(215, 14, 58, 1)')
+    expect(StyleSheet.flatten(base.props.style).backgroundColor).toBe('rgba(234, 179, 8, 1)')
+    expect(StyleSheet.flatten(delta.props.style).backgroundColor).toBe('rgba(234, 179, 8, 1)')
   })
 
   it('floors a near-invisible delta to a minimum visible width', () => {

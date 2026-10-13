@@ -1,6 +1,6 @@
-import { render, waitFor, act } from '@testing-library/react-native'
+import { render, waitFor, act, fireEvent } from '@testing-library/react-native'
 import type { ReactNode } from 'react'
-import RootLayout from './_layout'
+import RootLayout, { ErrorBoundary } from './_layout'
 import { signalOnboarded } from '@/src/api/onboardingSignal'
 import { accessMode, initAccessMode } from '@/src/api/accessMode'
 import { getUser, type UserProfile } from '@/src/api/account'
@@ -10,6 +10,7 @@ import { QueryClient } from '@tanstack/react-query'
 import { Platform } from 'react-native'
 import { requestWidgetUpdate } from 'react-native-android-widget'
 import { SignInWidget } from '@/src/widgets/SignInWidget'
+import { getBillingStatus, type BillingStatus } from '@/src/api/billing'
 
 // Capture the layout's module-level client for cleanup. Disable GC timers too:
 // an in-flight fetch can schedule GC again after the client has been cleared.
@@ -107,6 +108,11 @@ jest.mock('@/src/api/accessMode', () => ({
 }))
 jest.mock('@/src/api/account', () => ({ getUser: jest.fn(), syncTimezone: jest.fn() }))
 jest.mock('react-native-android-widget', () => ({ requestWidgetUpdate: jest.fn(() => Promise.resolve()) }))
+// Pending by default: an unknown billing status lets the user in.
+jest.mock('@/src/api/billing', () => ({
+  ...jest.requireActual('@/src/api/billing'),
+  getBillingStatus: jest.fn(() => new Promise(() => {})),
+}))
 
 const mockInitAccessMode = initAccessMode as jest.MockedFunction<typeof initAccessMode>
 const mockGetUser = getUser as jest.MockedFunction<typeof getUser>
@@ -355,4 +361,29 @@ it('sends a just-onboarded user who surfaces on an auth screen to the trial noti
   act(() => signalOnboarded())
   await waitFor(() => expect(mockReplace).toHaveBeenLastCalledWith('/account/trial-notice'))
   expect(mockReplace).not.toHaveBeenCalledWith('/modals/log-expense')
+})
+
+// A user whose /api/user call failed reads as onboarded (fail open), but the
+// server knows no trial was ever started. That's unfinished setup, not a lapsed
+// subscription, so they belong on setup, never on the Plan & billing lock screen.
+it('sends a user the server reports as setup_incomplete to setup, not the plan screen', async () => {
+  mockFontsLoaded = true
+  mockInitAccessMode.mockResolvedValue('real')
+  mockGetUser.mockRejectedValue(new Error('network'))
+  jest.mocked(getBillingStatus).mockResolvedValue({ mode: 'setup_incomplete', allowed: false, enforced: true, trialStartedAt: null, trialEndsAt: null } as unknown as BillingStatus)
+  const { getByTestId, queryByTestId } = render(<RootLayout />)
+  await waitFor(() => expect(getByTestId('screen:setup')).toBeTruthy())
+  expect(queryByTestId('screen:account/plan')).toBeNull()
+  expect(queryByTestId('screen:(tabs)')).toBeNull()
+})
+
+// A persisted query whose shape changed under an OTA update throws on every
+// render, so Try again has to drop the cache before re-rendering or it loops.
+it('clears the query cache before retrying from the root error boundary', async () => {
+  testClients[0].setQueryData(['user'], { id: 'u1' })
+  const retry = jest.fn().mockResolvedValue(undefined)
+  const { getByRole } = render(<ErrorBoundary error={new Error('boom')} retry={retry} />)
+  fireEvent.press(getByRole('button', { name: 'Try again' }))
+  await waitFor(() => expect(retry).toHaveBeenCalled())
+  expect(testClients[0].getQueryData(['user'])).toBeUndefined()
 })

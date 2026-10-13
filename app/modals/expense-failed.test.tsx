@@ -142,7 +142,8 @@ it('stays put when the retry fails too', async () => {
 // the form reopens in add mode rather than edit mode.
 it('reopens a prefilled entry screen on dismiss', () => {
   const { getByText } = setup()
-  fireEvent.press(getByText('Dismiss'))
+  expect(getByText("Your entry's safe. Retry, or go back and edit it.")).toBeTruthy()
+  fireEvent.press(getByText('Edit entry'))
   expect(mockReplace).toHaveBeenCalledWith({
     pathname: '/modals/log-expense',
     params: { item: 'Milk', amountInr: '450', category: '🛒 Groceries', date: '2026-08-15', notes: '', paymentMethod: 'bank' },

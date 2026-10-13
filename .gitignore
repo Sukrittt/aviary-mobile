@@ -73,3 +73,5 @@ scripts/widget-previews/.out/
 
 # Playwright MCP screenshots and console logs
 .playwright-mcp/
+
+.claude/

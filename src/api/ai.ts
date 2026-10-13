@@ -141,7 +141,9 @@ export async function fetchBrief(): Promise<Brief> {
  * additionally threads a persisted session through for signed-in users: pass
  * the session's id to append to it, or null to start a new one — the server
  * creates it and sends its id back as the first frame, which this returns so
- * the caller can remember it. Ignored server-side for the demo user.
+ * the caller can remember it. Ignored server-side for the demo user. `onSession`
+ * gets the same id the moment its frame lands, so a stream that fails after
+ * that still leaves the caller holding the saved chat.
  */
 export async function streamChat(
   sessionId: string | null,
@@ -149,6 +151,7 @@ export async function streamChat(
   onDelta: (text: string) => void,
   signal?: AbortSignal,
   onProposal?: (proposal: CaptureProposal) => void,
+  onSession?: (sessionId: string) => void,
 ): Promise<string | null> {
   const generation = sessionGeneration()
   const token = await getValidToken()
@@ -189,7 +192,10 @@ export async function streamChat(
       if (payload === '[DONE]') return resolvedSessionId
       const parsed = JSON.parse(payload)
       if (parsed.error) throw new Error(parsed.error)
-      if (typeof parsed.sessionId === 'string') resolvedSessionId = parsed.sessionId
+      if (typeof parsed.sessionId === 'string') {
+        resolvedSessionId = parsed.sessionId
+        onSession?.(parsed.sessionId)
+      }
       if (parsed.proposal && typeof parsed.proposal === 'object' && Array.isArray(parsed.proposal.items)) {
         onProposal?.(parsed.proposal as CaptureProposal)
       }

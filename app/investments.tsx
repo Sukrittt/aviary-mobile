@@ -141,11 +141,10 @@ export default function InvestmentsScreen() {
   )
 
   const isLoading = !FORCE_EMPTY_STATE_PREVIEW && (holdingsQuery.isLoading || eventsQuery.isLoading)
-  const errorMessage = FORCE_EMPTY_STATE_PREVIEW ? null :
-    (holdingsQuery.error instanceof Error && holdingsQuery.error.message) ||
-    (eventsQuery.error instanceof Error && eventsQuery.error.message) ||
-    (deleteHolding.error instanceof Error && deleteHolding.error.message) ||
-    null
+  const errorMessage = FORCE_EMPTY_STATE_PREVIEW ? null
+    : holdingsQuery.error || eventsQuery.error ? "Couldn't load your investments. Check your connection and try again."
+    : deleteHolding.error ? "Couldn't delete that holding. Check your connection and try again."
+    : null
 
   function openAction(action: ActionType) {
     if (!sheetHolding) return

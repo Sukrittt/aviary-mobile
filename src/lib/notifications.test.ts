@@ -1,4 +1,4 @@
-import { addNotificationResponseListener, checkColdStartNotification, registerForPushNotificationsAsync } from './notifications'
+import { addNotificationResponseListener, addPushTokenListener, checkColdStartNotification, registerForPushNotificationsAsync } from './notifications'
 import { track } from '@/src/lib/analytics'
 import { registerPushToken } from '@/src/api/notifications'
 import { SessionChangedError } from '@/src/api/accessMode'
@@ -117,6 +117,30 @@ it('reports a failed push token fetch to analytics instead of only swallowing it
   await registerForPushNotificationsAsync()
   expect(track).toHaveBeenCalledWith('push_registration_failed', { stage: 'token', error: 'Error: FIS_AUTH_ERROR' })
 })
+// The listener hands over the raw FCM token, which the API rejects with a 400
+// (it only takes Expo tokens). It fires on every launch, too.
+it('never sends the raw device token to the API', async () => {
+  const Notifications = jest.requireMock('expo-notifications')
+  const original = Notifications.getExpoPushTokenAsync
+  Notifications.getExpoPushTokenAsync = () => Promise.resolve({ data: 'ExponentPushToken[rotated]' })
+  try {
+    jest.mocked(registerPushToken).mockClear()
+    addPushTokenListener()
+    const onToken = jest.mocked(Notifications.addPushTokenListener).mock.calls.at(-1)![0]
+    onToken({ type: 'android', data: 'fcm-token-1' })
+    onToken({ type: 'android', data: 'fcm-token-1' })
+    await new Promise(setImmediate)
+    expect(registerPushToken).not.toHaveBeenCalled()
+
+    onToken({ type: 'android', data: 'fcm-token-2' })
+    await new Promise(setImmediate)
+    expect(registerPushToken).toHaveBeenCalledTimes(1)
+    expect(registerPushToken).toHaveBeenCalledWith('ExponentPushToken[rotated]', expect.any(String))
+  } finally {
+    Notifications.getExpoPushTokenAsync = original
+  }
+})
+
 it('does not report a registration that lost a race with an account switch', async () => {
   const Notifications = jest.requireMock('expo-notifications')
   const original = Notifications.getExpoPushTokenAsync
@@ -148,4 +172,10 @@ it('goes back to log expense from the evening check instead of stacking a second
  responseListener!({notification:{request:{content:{data:{route:'/modals/log-expense'}}}}})
  expect(mockDismissTo).toHaveBeenCalledWith('/modals/log-expense')
  expect(mockPush).not.toHaveBeenCalled()
+})
+it('tags a come-back nudge tap with its kind and step', () => {
+ jest.mocked(track).mockClear()
+ addNotificationResponseListener()
+ responseListener!({notification:{request:{content:{data:{route:'/modals/log-expense', kind:'reengage', step:7}}}}})
+ expect(track).toHaveBeenCalledWith('notification_opened', { target: '/modals/log-expense', kind: 'reengage', step: 7 })
 })

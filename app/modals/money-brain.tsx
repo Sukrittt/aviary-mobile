@@ -66,7 +66,7 @@ type BrainMessage = ChatMessage & { captureFailed?: boolean; replyId?: number }
 type PendingSettle = { proposalId: string; status: 'submitted' | 'dismissed'; expenseIds: string[]; reply?: string }
 
 /** Tappable examples on the empty capture screen; each one teaches a bit of the grammar. */
-const CAPTURE_EXAMPLES = ['auto 240', 'lunch 150, coffee 80', 'turf 1200 split 6']
+const CAPTURE_EXAMPLES = ['taxi 240', 'lunch 150, coffee 80', 'dinner 1200 split 6']
 
 /** The line over Ask Aviary's reply to logged rows; a reopened chat may not know the count. */
 function loggedLabel(count: number | undefined) {
@@ -266,6 +266,8 @@ export default function MoneyBrainModal() {
     const elapsed = startTimer()
     const answered = (ok: boolean, reason?: string) =>
       track('money_brain_answered', { ok, seconds: elapsed(), ...(reason ? { reason } : {}) })
+    // The chat this stream writes to, learned as soon as the server saves it, so a failed reply doesn't orphan it.
+    let streamSessionId = sessionId
 
     streamChat(
       sessionId,
@@ -279,6 +281,11 @@ export default function MoneyBrainModal() {
         if (!ownsRequest()) return
         track('capture_proposed', { rows: proposal.items.length })
         updateReply((reply) => ({ ...reply, proposal }))
+      },
+      (id) => {
+        if (!ownsRequest()) return
+        streamSessionId = id
+        setSessionId(id)
       },
     )
       .then((resolvedSessionId) => {
@@ -310,7 +317,7 @@ export default function MoneyBrainModal() {
         streamingRef.current = false
         setSending(false)
         // Cards logged mid-stream whose stream then failed: record them on the chat they came from, if it was saved.
-        for (const p of pendingSettles.current.splice(0)) if (sessionId) persistSettle(sessionId, p)
+        for (const p of pendingSettles.current.splice(0)) if (streamSessionId) persistSettle(streamSessionId, p)
       })
   }
 
@@ -582,7 +589,8 @@ export default function MoneyBrainModal() {
             {messages.map((m, i) => {
               if (!m.text && !m.proposal) return null // empty placeholder while streaming hasn't started — BrainThinking covers it below
               return (
-              <View key={i} style={{ gap: 8 }}>
+              // Stable key: an ack spliced in above shifts indexes, and an index key would remount later cards and drop their edits.
+              <View key={m.replyId != null ? `r${m.replyId}` : m.proposal ? `p${m.proposal.id}` : `i${i}`} style={{ gap: 8 }}>
                 {m.text !== '' && (
                   <View
                     style={[

@@ -13,7 +13,7 @@ const clamp = (n: number) => Math.max(0, Math.min(100, n))
 
 /** Where the colour changes hands. The animated fill crosses these as it grows,
  *  so the bar reddens on the way rather than starting out at its end state. */
-const THRESHOLDS = [75, 90, 100]
+const THRESHOLDS = [75, 100]
 
 function colorStops(
   from: number,
@@ -28,14 +28,16 @@ function colorStops(
 
 // Exported for the Android widget (src/widgets/EnvelopeWidget.tsx), which
 // draws its own bars via RemoteViews primitives but wants the same thresholds.
+// No red tier: spentPct caps at 100, so red is left for overspent (the `over`
+// prop) and almost-out stays amber.
 export function fillColor(pct: number, tokens: ThemeTokens): string {
-  return pct === 100 ? tokens.text3 : pct > 90 ? tokens.coral : pct > 75 ? tokens.warn : tokens.mint
+  return pct === 100 ? tokens.text3 : pct > 75 ? tokens.warn : tokens.mint
 }
 
 // Tinted-pill background to pair with fillColor's text/dot color — the "N%
 // used" badge on the success card.
 export function fillSoftColor(pct: number, tokens: ThemeTokens): string {
-  return pct === 100 ? tokens.borderStrong : pct > 90 ? tokens.coralSoft : pct > 75 ? tokens.warnSoft : tokens.mintSoft
+  return pct === 100 ? tokens.borderStrong : pct > 75 ? tokens.warnSoft : tokens.mintSoft
 }
 
 /** Percentage-space color stops shared by every animated envelope surface. */
@@ -48,12 +50,12 @@ export function fillSoftColorStops(from: number, to: number, tokens: ThemeTokens
 }
 
 /** Spend-vs-assigned bar.
- * pct===100 -> muted, >90 -> coral, >75 -> warn, else mint.
+ * over -> coral, pct===100 -> muted, >75 -> warn, else mint.
  *
  * `from` turns the fill into a tween: the bar holds at that percentage and then
  * slides to `pct`. Reserve it for showing a *change* (the expense that was just
  * logged eating into its envelope) — a list of bars all animating is noise. */
-export function ProgressBar({ pct, from }: { pct: number; from?: number }) {
+export function ProgressBar({ pct, from, over }: { pct: number; from?: number; over?: boolean }) {
   const { tokens } = useTheme()
   const [trackWidth, setTrackWidth] = useState(0)
   const clamped = clamp(pct)
@@ -72,7 +74,7 @@ export function ProgressBar({ pct, from }: { pct: number; from?: number }) {
       ) : (
         <View
           testID="progress-bar-fill"
-          style={[styles.fill, { width: `${clamped}%`, backgroundColor: fillColor(clamped, tokens) }]}
+          style={[styles.fill, { width: `${clamped}%`, backgroundColor: over ? tokens.coral : fillColor(clamped, tokens) }]}
         />
       )}
     </View>

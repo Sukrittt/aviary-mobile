@@ -35,13 +35,23 @@ jest.mock('@/src/api/ai', () => ({
   updateProposalStatus: (...args: unknown[]) => mockUpdateProposalStatus(...args),
 }))
 jest.mock('@/src/components/brain/CaptureReview', () => {
-  const { Pressable, Text } = jest.requireActual('react-native')
+  const { useState } = jest.requireActual('react')
+  const { Pressable, Text, View } = jest.requireActual('react-native')
   return {
-    CaptureReview: ({ proposal, onSettled }: { proposal: CaptureProposal; onSettled: (status: string, ids: string[]) => void }) => (
-      <Pressable accessibilityRole="button" onPress={() => onSettled('submitted', ['e1', 'e2'])}>
-        <Text>{`Review card: ${proposal.items.length} rows`}</Text>
-      </Pressable>
-    ),
+    CaptureReview: ({ proposal, onSettled }: { proposal: CaptureProposal; onSettled: (status: string, ids: string[]) => void }) => {
+      // Stands in for the card's local edits (renamed rows, picked envelopes), lost if the card remounts.
+      const [edited, setEdited] = useState(false)
+      return (
+        <View>
+          <Pressable accessibilityRole="button" onPress={() => onSettled('submitted', ['e1', 'e2'])}>
+            <Text>{`Review card: ${proposal.items.length} rows`}</Text>
+          </Pressable>
+          <Pressable onPress={() => setEdited(true)}>
+            <Text>{edited ? `Edited ${proposal.id}` : `Edit ${proposal.id}`}</Text>
+          </Pressable>
+        </View>
+      )
+    },
   }
 })
 
@@ -73,8 +83,8 @@ it('opens as a focused composer in capture mode, without the brief', async () =>
   expect(utils.queryByText('New')).toBeNull()
 
   // An example chip fills the composer so the grammar can be read before it's sent.
-  fireEvent.press(utils.getByText('turf 1200 split 6'))
-  expect(utils.getByPlaceholderText('What did you spend?').props.value).toBe('turf 1200 split 6')
+  fireEvent.press(utils.getByText('dinner 1200 split 6'))
+  expect(utils.getByPlaceholderText('What did you spend?').props.value).toBe('dinner 1200 split 6')
   expect(mockStreamChat).not.toHaveBeenCalled()
 })
 
@@ -178,6 +188,7 @@ it('keeps the generic message for any other failure', async () => {
 type ChatCall = {
   delta: Parameters<typeof streamChat>[2]
   proposal: NonNullable<Parameters<typeof streamChat>[4]>
+  session: NonNullable<Parameters<typeof streamChat>[5]>
   signal: AbortSignal
   resolve: (id: string) => void
   reject: (error: Error) => void
@@ -185,8 +196,8 @@ type ChatCall = {
 
 function holdStreams() {
   const calls: ChatCall[] = []
-  mockStreamChat.mockImplementation((_session, _messages, delta, signal, onProposal) =>
-    new Promise<string>((resolve, reject) => calls.push({ delta, proposal: onProposal, signal, resolve, reject })),
+  mockStreamChat.mockImplementation((_session, _messages, delta, signal, onProposal, onSession) =>
+    new Promise<string>((resolve, reject) => calls.push({ delta, proposal: onProposal, session: onSession, signal, resolve, reject })),
   )
   return calls
 }
@@ -274,6 +285,19 @@ it('keeps deltas on the current reply when an older card settles mid-stream abov
   expect(utils.getByText(ack)).toBeTruthy()
 })
 
+it('keeps edits on a later card when an earlier card is logged above it', async () => {
+  const calls = holdStreams()
+  const utils = renderWithProviders(<MoneyBrainModal />)
+  await sendQuestion(utils, 'Log lunch')
+  await act(async () => { calls[0].proposal(proposal); calls[0].resolve('s1') })
+  await sendQuestion(utils, 'Log auto')
+  await act(async () => { calls[1].proposal({ ...proposal, id: 'p2', items: proposal.items.slice(0, 1) }); calls[1].resolve('s1') })
+  fireEvent.press(utils.getByText('Edit p2'))
+  fireEvent.press(utils.getByText('Review card: 2 rows'))
+  expect(ACK_PHRASES.some((text) => utils.queryByText(text))).toBe(true)
+  expect(utils.getByText('Edited p2')).toBeTruthy()
+})
+
 it('revokes stream ownership on unmount', async () => {
   const calls = holdStreams()
   const utils = renderWithProviders(<MoneyBrainModal />)
@@ -317,4 +341,19 @@ it('ignores a saved-chat response arriving after New', async () => {
   await sendQuestion(utils, 'New question')
   expect(mockStreamChat.mock.calls[0][0]).toBeNull()
   await act(async () => { calls[0].resolve('new-session') })
+})
+
+it('keeps the new chat and its logged card when the first reply fails after the server saved it', async () => {
+  const calls = holdStreams()
+  const utils = renderWithProviders(<MoneyBrainModal />)
+  await sendQuestion(utils, 'Log lunch')
+  await act(async () => { calls[0].session('s1'); calls[0].proposal(proposal) })
+  fireEvent.press(utils.getByText('Review card: 2 rows'))
+  await act(async () => { calls[0].reject(new Error('stream dropped')) })
+
+  expect(utils.getByText('Something went wrong. Try again.')).toBeTruthy()
+  expect(mockUpdateProposalStatus).toHaveBeenCalledWith('s1', 'p1', 'submitted', ['e1', 'e2'], expect.any(String))
+  await sendQuestion(utils, 'Try again')
+  expect(mockStreamChat.mock.calls[1][0]).toBe('s1')
+  await act(async () => { calls[1].resolve('s1') })
 })

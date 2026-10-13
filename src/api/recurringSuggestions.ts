@@ -3,9 +3,27 @@ import type { RecurringScan, ScanMonths } from '@/src/types/recurringSuggestions
 
 const URL = '/api/recurring-expenses/suggestions'
 
+export class RecurringSuggestionError extends Error {
+  constructor(readonly status: number, message: string) {
+    super(message)
+  }
+}
+
+// Busy (409), too many expenses (422) and too many scans (429) are written for
+// people server-side. Anything else (5xx, timeout, offline) gets `fallback`.
+const READABLE_STATUSES = [409, 422, 429]
+
+export function recurringSuggestionErrorMessage(err: unknown, fallback: string): string {
+  return err instanceof RecurringSuggestionError && READABLE_STATUSES.includes(err.status) ? err.message : fallback
+}
+
+async function fail(resp: Response, fallback: string): Promise<never> {
+  throw new RecurringSuggestionError(resp.status, await apiErrorMessage(resp, fallback))
+}
+
 export async function loadRecurringSuggestions(months: ScanMonths = 6): Promise<RecurringScan> {
   const resp = await apiFetch(`${URL}?months=${months}`)
-  if (!resp.ok) throw new Error(await apiErrorMessage(resp, 'Could not load suggestions'))
+  if (!resp.ok) await fail(resp, 'Could not load suggestions')
   return resp.json()
 }
 
@@ -18,7 +36,7 @@ export async function scanRecurringSuggestions(months: ScanMonths = 6): Promise<
     body: JSON.stringify({ months }),
     signal: AbortSignal.timeout(65_000),
   })
-  if (!resp.ok) throw new Error(await apiErrorMessage(resp, 'Could not scan expenses'))
+  if (!resp.ok) await fail(resp, 'Could not scan expenses')
   return resp.json()
 }
 
@@ -28,5 +46,5 @@ export async function dismissRecurringSuggestion(id: string): Promise<void> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ id }),
   })
-  if (!resp.ok) throw new Error(await apiErrorMessage(resp, 'Could not dismiss suggestion'))
+  if (!resp.ok) await fail(resp, 'Could not dismiss suggestion')
 }

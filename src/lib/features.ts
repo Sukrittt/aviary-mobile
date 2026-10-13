@@ -19,6 +19,28 @@ export const HIDEABLE_FEATURES = [
 
 export type HideableFeature = (typeof HIDEABLE_FEATURES)[number]['key']
 
-export function isHidden(user: Pick<UserProfile, 'hiddenFeatures'> | undefined, key: HideableFeature): boolean {
-  return !!user?.hiddenFeatures?.includes(key)
+/** Extras a new account starts without; the core budget stays on. */
+export const OPT_IN_FEATURES: HideableFeature[] = ['askAviary', 'billScan', 'wrapped', 'investments', 'subscriptions', 'insights']
+
+/**
+ * Accounts created from this moment start with OPT_IN_FEATURES off. Older
+ * accounts that never touched the Features screen keep everything on, which
+ * is what they've always seen.
+ */
+export const OPT_IN_SINCE = '2026-10-12T00:00:00.000Z'
+
+type FeatureUser = Pick<UserProfile, 'hiddenFeatures' | 'createdAt'>
+
+/**
+ * What's hidden for this user: their saved choice, else the default for their account's age.
+ * Until the profile loads, the extras stay hidden: one popping in beats one you turned off flashing and vanishing.
+ */
+export function hiddenFeatures(user: FeatureUser | undefined): HideableFeature[] {
+  if (!user) return OPT_IN_FEATURES
+  if (user.hiddenFeatures) return user.hiddenFeatures
+  return user.createdAt && user.createdAt >= OPT_IN_SINCE ? OPT_IN_FEATURES : []
+}
+
+export function isHidden(user: FeatureUser | undefined, key: HideableFeature): boolean {
+  return hiddenFeatures(user).includes(key)
 }

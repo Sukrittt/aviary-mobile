@@ -1,5 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react-native'
 import * as SecureStore from 'expo-secure-store'
+import { accessMode } from '@/src/api/accessMode'
 import { useTourProgress } from './useTourProgress'
 
 jest.mock('expo-secure-store', () => ({
@@ -7,12 +8,25 @@ jest.mock('expo-secure-store', () => ({
   setItemAsync: jest.fn(() => Promise.resolve()),
   deleteItemAsync: jest.fn(() => Promise.resolve()),
 }))
-jest.mock('@/src/api/accessMode', () => ({
-  accessMode: { subscribeLogout: () => () => {} },
-}))
+// Listeners live in the factory: the hook subscribes at import, before any
+// test-file const is initialised.
+jest.mock('@/src/api/accessMode', () => {
+  const listeners = new Set<() => void>()
+  return {
+    accessMode: {
+      subscribeLogout: (fn: () => void) => {
+        listeners.add(fn)
+        return () => listeners.delete(fn)
+      },
+      logout: () => listeners.forEach((fn) => fn()),
+    },
+  }
+})
+const logout = (accessMode as unknown as { logout: () => void }).logout
 
 const get = SecureStore.getItemAsync as jest.Mock
 const set = SecureStore.setItemAsync as jest.Mock
+const del = SecureStore.deleteItemAsync as jest.Mock
 
 beforeEach(() => jest.clearAllMocks())
 
@@ -45,4 +59,20 @@ it('does not overwrite the stored value before it has loaded', async () => {
 
   await act(async () => {})
   expect(set).not.toHaveBeenCalled()
+})
+
+it('clears stored progress on sign-out even when the tour is not open', () => {
+  logout()
+  expect(del).toHaveBeenCalledWith('mc-tour-done')
+})
+
+it('resets progress on screen when signing out with the tour open', async () => {
+  get.mockResolvedValueOnce(JSON.stringify([0, 3]))
+  const { result } = renderHook(() => useTourProgress())
+  await waitFor(() => expect(result.current[0].size).toBe(2))
+
+  act(() => logout())
+
+  expect(result.current[0].size).toBe(0)
+  expect(del).toHaveBeenCalledWith('mc-tour-done')
 })

@@ -5,23 +5,19 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  useWindowDimensions,
-  type NativeSyntheticEvent,
-  type NativeScrollEvent,
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { LinearGradient } from 'expo-linear-gradient'
 import Reanimated, {
   useSharedValue,
   useAnimatedStyle,
-  useAnimatedRef,
-  useAnimatedScrollHandler,
   useDerivedValue,
   withSpring,
   withTiming,
   interpolateColor,
-  runOnJS,
   withRepeat,
   cancelAnimation,
+  runOnJS,
   useReducedMotion,
   Easing,
   type SharedValue,
@@ -94,28 +90,19 @@ const NAV_SLOTS: NavSlot[] = [
   { kind: 'add' as const },
   ...NAV_ROUTES.slice(2).map((r) => ({ kind: 'route' as const, ...r })),
 ]
-const ADD_INDEX = 2
 
-function indexOfRoute(name: NavRoute | null): number {
-  if (name == null) return -1
-  return NAV_SLOTS.findIndex((s) => s.kind === 'route' && s.name === name)
-}
-
-/** Diameter of the slot at centre. Everything off-centre scales down from it. */
+/** Diameter of the selected circle. The rest scale down from it. */
 const CIRCLE = 56
-/** What an off-centre circle shrinks to: 56 * 0.82 ~= 46. */
+/** What an unselected circle shrinks to: 56 * 0.82 ~= 46. */
 const INACTIVE_SCALE = 0.82
 const ICON = 26
 const RING_GAP = 3
 const RING_WIDTH = 3
 const RING_SIZE = CIRCLE + 2 * (RING_GAP + RING_WIDTH)
-/** Fixed carousel step: distance between two slot centres. */
+/** Distance between two slot centres. 5 slots = 360, the narrowest common Android width. */
 const SLOT = 72
 // Room for the "floating" shadow (radius 16, vertical offset 6 => ~10px of
-// bleed above the ring, ~24px below) to render inside the ScrollView's own
-// bounds instead of getting clipped by it. Asymmetric and top-anchored
-// (see contentContainerStyle below) rather than centred, so padding the
-// bottom for the shadow doesn't also push the ring itself upward.
+// bleed above the ring, ~24px below) inside the row's own bounds.
 const ROW_TOP_BLEED = 10
 const ROW_BOTTOM_BLEED = 24
 const ROW_HEIGHT = RING_SIZE + ROW_TOP_BLEED + ROW_BOTTOM_BLEED
@@ -128,48 +115,21 @@ const BACKDROP_PAD = 7
 // 4px (space.xs) read as flush against the Android 3-button nav bar in
 // testing — bumped so the strip visibly clears it.
 const NAV_BOTTOM_GAP = 10
-
-/** Carousel x-offset that puts slot `i` at the centre of the screen. */
-export const slotOffset = (i: number): number => i * SLOT
-
-/** Nearest slot index for a given scroll offset, clamped to the slot range. */
-export const indexFromOffset = (x: number, count: number): number => {
-  'worklet'
-  return Math.min(count - 1, Math.max(0, Math.round(x / SLOT)))
-}
+// Fade above the backdrop so scrolled content dissolves into it instead of
+// being cut off at a hard edge.
+const BACKDROP_FADE = 24
 
 /**
- * How far slot `index` sits from the centre of the screen, as 0 (dead centre)
- * to 1 (a full slot away or further). Drives both the size falloff and the
- * ring hand-off, so those track the finger continuously instead of waiting for
- * the drag to commit.
- */
-export const slotProximity = (x: number, index: number): number => {
-  'worklet'
-  return Math.min(1, Math.abs(x / SLOT - index))
-}
-
-/** How far (px) the centre "add" slot sits from the given active route's slot. */
-export function addSlotShift(active: NavRoute | null): number {
-  const routeIndex = indexOfRoute(active)
-  return (ADD_INDEX - (routeIndex === -1 ? 0 : routeIndex)) * SLOT
-}
-
-const tickHaptic = () => {
-  Haptics.selectionAsync().catch(() => {})
-}
-
-/**
- * Detached navigation: free-floating circles laid over the page in a
- * horizontal carousel, with no bar, border or scrim behind them. Content
- * scrolls underneath, so every screen reserves NAV_HEIGHT of bottom padding
- * (see Screen / useNavPadding).
+ * Detached navigation: free-floating circles laid over the page in one fixed
+ * row, with no bar, border or scrim behind them. Content scrolls underneath,
+ * so every screen reserves NAV_HEIGHT of bottom padding (see Screen /
+ * useNavPadding).
  *
- * The selected slot always sits at screen centre, drawn larger than its
- * neighbours and wearing the ring. Dragging the row hands both the size and
- * the ring to whichever slot is nearest centre, ticking once per slot crossed
- * so the release point is felt rather than guessed; on release the nearest
- * slot snaps to centre and navigates to it.
+ * Every slot is always on screen. The selected one is drawn larger than its
+ * neighbours and wears the ring; switching tabs shrinks the old one and grows
+ * the new one at once, leaving every slot in between still.
+ * (This used to be a swipeable carousel with the active slot centred, which
+ * pushed tabs off screen. Testers couldn't find them.)
  *
  * The centre slot is an action, not a destination — logging an expense — but
  * sized and colored like every other circle until pressed, so it doesn't
@@ -196,7 +156,7 @@ export function FloatingNav({
   active: NavRoute | null
   onSelect: (name: NavRoute) => void
   onAdd: () => void
-  /** Long-press shortcut on the add slot only — the carousel-commit path (drag to centre) stays press-only. */
+  /** Long-press shortcut on the add slot only. */
   onAddLongPress?: () => void
   /** Called alongside the shake when an incomplete active add is tapped, so the form can point at what's missing. */
   onAddInvalid?: () => void
@@ -214,9 +174,8 @@ export function FloatingNav({
   addHint?: boolean
   children?: React.ReactNode
 }) {
-  const { tokens, elevation } = useTheme()
+  const { tokens } = useTheme()
   const insets = useSafeAreaInsets()
-  const { width } = useWindowDimensions()
   const { shake: invalidAddShake, triggerInvalidFeedback } = useInvalidFeedback()
 
   const handleAdd = useCallback(() => {
@@ -232,77 +191,12 @@ export function FloatingNav({
   // the idle circles go tone-on-tone there: a translucent white tint with a
   // softer white glyph, flat (no shadow), so they recede behind the add slot.
   const idle = addActive ? 'rgba(255, 255, 255, 0.2)' : tokens.cardSolid
+  // Plain white, not onAccent: onAccent is near-black in the dark scheme and
+  // the flood is the same orange in both, so the add disc stays white.
+  const floodDisc = '#ffffff'
   const idleIcon = addActive ? 'rgba(255, 255, 255, 0.7)' : tokens.text3
   const activeFill = tokens.accent
   const activeIcon = tokens.onAccent
-
-  const activeIndex = addActive ? ADD_INDEX : indexOfRoute(active)
-
-  const scrollRef = useAnimatedRef<Reanimated.ScrollView>()
-  // Captured once at mount, for the initial contentOffset below. The nav mounts
-  // on /loading (no active slot) and the app lands on log-expense, so rest on
-  // the add slot rather than scrolling over from Home on first show.
-  const [initialIndex] = useState(() => (activeIndex === -1 ? ADD_INDEX : activeIndex))
-  // Seeded to match contentOffset: the initial offset fires no onScroll on
-  // Android, so a 0 here leaves Home sized/lit as the centre slot until the
-  // first touch.
-  const scrollX = useSharedValue(slotOffset(initialIndex))
-  // Tracks the slot the carousel is actually resting on, so a route change
-  // that only mirrors our own snap (see onMomentumScrollEnd) doesn't scroll
-  // again, and a real external change (tap, deep link) does.
-  const mountedIndexRef = useRef(initialIndex)
-
-  // Detent ticks are gated on an actual drag, so the programmatic scrollTo
-  // below (tap, deep link) glides across slots silently.
-  const dragging = useSharedValue(false)
-  const tickIndex = useSharedValue(initialIndex)
-
-  const scrollHandler = useAnimatedScrollHandler({
-    onBeginDrag: () => {
-      dragging.value = true
-    },
-    onScroll: (e) => {
-      scrollX.value = e.contentOffset.x
-      if (!dragging.value) return
-      const idx = indexFromOffset(e.contentOffset.x, NAV_SLOTS.length)
-      if (idx === tickIndex.value) return
-      tickIndex.value = idx
-      runOnJS(tickHaptic)()
-    },
-    onMomentumEnd: () => {
-      dragging.value = false
-    },
-  })
-
-  // Re-centres the carousel whenever the committed slot changes from outside
-  // a drag (tap, deep link). A change that only mirrors our own snap (see
-  // onMomentumScrollEnd, which updates mountedIndexRef first) is a no-op here.
-  useEffect(() => {
-    if (activeIndex === -1 || activeIndex === mountedIndexRef.current) return
-    mountedIndexRef.current = activeIndex
-    tickIndex.value = activeIndex
-    scrollRef.current?.scrollTo({ x: slotOffset(activeIndex), animated: true })
-  }, [activeIndex, scrollRef, tickIndex])
-
-  // ponytail: selection only fires on momentum end; a drag released with no
-  // momentum can settle without firing on some Android builds. Add an
-  // onScrollEndDrag fallback if that shows up in testing.
-  const onMomentumScrollEnd = useCallback(
-    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-      const idx = indexFromOffset(e.nativeEvent.contentOffset.x, NAV_SLOTS.length)
-      if (idx === mountedIndexRef.current) return
-      mountedIndexRef.current = idx
-      const slot = NAV_SLOTS[idx]
-      // Heavier than the drag ticks: this one means "landed", not "passing".
-      // An invalid active add uses the error haptic from handleAdd instead.
-      if (!(slot.kind === 'add' && addActive && addInvalid)) {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
-      }
-      if (slot.kind === 'add') handleAdd()
-      else onSelect(slot.name)
-    },
-    [addActive, addInvalid, handleAdd, onSelect],
-  )
 
   return (
     <View
@@ -318,24 +212,8 @@ export function FloatingNav({
           <Text style={[styles.hintText, { color: tokens.onAccent, fontFamily: fontFamily.bodySemiBold }]}>Tap + to save</Text>
         </View>
       )}
-      <Reanimated.ScrollView
-        ref={scrollRef}
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        decelerationRate="fast"
-        snapToInterval={SLOT}
-        snapToAlignment="start"
-        contentOffset={{ x: slotOffset(initialIndex), y: 0 }}
-        onScroll={scrollHandler}
-        scrollEventThrottle={16}
-        onMomentumScrollEnd={onMomentumScrollEnd}
-        contentContainerStyle={{
-          paddingHorizontal: (width - SLOT) / 2,
-          alignItems: 'center',
-        }}
-        style={[styles.scroll, { height: ROW_HEIGHT + insets.bottom }]}
-      >
-        {NAV_SLOTS.map((slot, i) =>
+      <View pointerEvents="box-none" style={[styles.row, { height: ROW_HEIGHT + insets.bottom }]}>
+        {NAV_SLOTS.map((slot) =>
           slot.kind === 'add' ? (
             <Animated.View
               key="add"
@@ -350,9 +228,13 @@ export function FloatingNav({
                 glyph={PlusGlyph}
                 label="Log expense"
                 selected={addActive}
-                background={addActive ? activeFill : idle}
-                color={addActive ? activeIcon : idleIcon}
-                ringColor={tokens.accent}
+                // Only ever selected on the accent flood, where an accent disc
+                // vanishes and a ring reads as a stray outline. Invert instead:
+                // solid white disc, accent plus, no ring. Success keeps the
+                // mint disc edge-to-edge so no white rim shows around it.
+                background={addActive ? (addSuccess ? tokens.mint : floodDisc) : idle}
+                color={addActive ? tokens.accent : idleIcon}
+                ringColor={addActive ? 'transparent' : tokens.accent}
                 onPress={handleAdd}
                 onLongPress={addActive ? undefined : onAddLongPress}
                 disabled={addActive && (addDisabled || addSaving || addSuccess)}
@@ -365,13 +247,10 @@ export function FloatingNav({
                     </View>
                   ) : addActive && addSaving ? (
                     <View testID="nav-add-saving">
-                      <AddCircleLoad discColor={activeFill} iconColor={activeIcon} />
+                      <AddCircleLoad discColor={floodDisc} iconColor={tokens.accent} />
                     </View>
                   ) : undefined
                 }
-                scrollX={scrollX}
-                index={i}
-                style={elevation.floating}
               />
             </Animated.View>
           ) : (
@@ -384,13 +263,12 @@ export function FloatingNav({
               color={active === slot.name ? activeIcon : idleIcon}
               ringColor={tokens.accent}
               onPress={() => onSelect(slot.name)}
-              scrollX={scrollX}
-              index={i}
+              selectOnPressIn
               onFlood={addActive}
             />
           ),
         )}
-      </Reanimated.ScrollView>
+      </View>
     </View>
   )
 }
@@ -419,7 +297,7 @@ function AddHalo({ color }: { color: string }) {
  * Log-expense has no strip; its accent flood already fills the area.
  */
 export function NavBackdrop() {
-  const { tokens, radius } = useTheme()
+  const { tokens } = useTheme()
   const insets = useSafeAreaInsets()
   return (
     <View
@@ -429,11 +307,12 @@ export function NavBackdrop() {
         {
           height: ROW_HEIGHT - (ROW_TOP_BLEED - BACKDROP_PAD) + insets.bottom + NAV_BOTTOM_GAP,
           backgroundColor: tokens.bg,
-          borderTopLeftRadius: radius.xl,
-          borderTopRightRadius: radius.xl,
         },
       ]}
-    />
+    >
+      {/* tokens.bg is #rrggbb in both schemes; fading to 'transparent' would go through grey on iOS. */}
+      <LinearGradient colors={[`${tokens.bg}00`, tokens.bg]} style={styles.backdropFade} />
+    </View>
   )
 }
 
@@ -477,7 +356,10 @@ function NavIcon({ icon: Icon, color, size }: { icon: NavIconComponent; color: s
     setPrevColor(currentColorRef.current)
     currentColorRef.current = color
     progress.value = 0
-    progress.value = withTiming(1, { duration: 200 })
+    // Unmount the old-colour layer once it has faded out, rather than keeping a second SVG per icon forever.
+    progress.value = withTiming(1, { duration: 200 }, (finished) => {
+      if (finished) runOnJS(setPrevColor)(null)
+    })
   }, [color, progress])
 
   const topStyle = useAnimatedStyle(() => ({ opacity: progress.value }))
@@ -510,9 +392,8 @@ function NavCircle({
   dimmed = disabled,
   pressHaptic = true,
   overrideContent,
-  scrollX,
-  index,
   onFlood = false,
+  selectOnPressIn = false,
   style,
 }: {
   glyph: NavIconComponent
@@ -528,14 +409,22 @@ function NavCircle({
   pressHaptic?: boolean
   /** Replaces the glyph entirely (e.g. a spinner or check) when set. */
   overrideContent?: React.ReactNode
-  scrollX: SharedValue<number>
-  index: number
   /** Sitting on the log-expense accent flood: no distance fade (the tint is already translucent) and no shadow. */
   onFlood?: boolean
+  /** Fire on touch-down like a native tab bar. The add slot keeps release, since it also long-presses. */
+  selectOnPressIn?: boolean
   style?: object
 }) {
-  const { motion, elevation } = useTheme()
+  const { motion, tokens } = useTheme()
   const pressScale = useSharedValue(1)
+  // Set when touch-down already fired, so the release that follows doesn't
+  // fire again. A screen reader's activate only calls onPress, so that path
+  // still works.
+  const firedOnPressIn = useRef(false)
+  const fire = () => {
+    if (pressHaptic) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+    onPress()
+  }
   const bgFade = useColorFade(background)
   const selProgress = useSharedValue(selected ? 1 : 0)
 
@@ -543,8 +432,10 @@ function NavCircle({
     selProgress.value = withTiming(selected ? 1 : 0, { duration: 200 })
   }, [selected, selProgress])
 
+  // t: 0 when selected, 1 when not. Drives the size and fade, so only the
+  // slots actually changing state move.
   const circleStyle = useAnimatedStyle(() => {
-    const t = slotProximity(scrollX.value, index)
+    const t = 1 - selProgress.value
     return {
       backgroundColor: bgFade.value,
       opacity: onFlood ? 1 : 1 - t * 0.35,
@@ -552,10 +443,8 @@ function NavCircle({
     }
   })
 
-  // Sized off the drag like the circle, so it still grows/shrinks in transit,
-  // but only ever visible on the committed slot — no pop mid-drag elsewhere.
   const ringStyle = useAnimatedStyle(() => {
-    const t = slotProximity(scrollX.value, index)
+    const t = 1 - selProgress.value
     return {
       borderColor: ringColor,
       opacity: selProgress.value,
@@ -566,7 +455,7 @@ function NavCircle({
   return (
     <View style={styles.slot}>
       <View style={styles.ringBox}>
-        <Reanimated.View pointerEvents="none" style={[styles.ring, ringStyle]} />
+        <Reanimated.View testID={`nav-ring-${label}`} pointerEvents="none" style={[styles.ring, ringStyle]} />
         <AnimatedPressable
           accessibilityRole="tab"
           accessibilityLabel={label}
@@ -575,13 +464,20 @@ function NavCircle({
           hitSlop={{ left: (SLOT - CIRCLE) / 2, right: (SLOT - CIRCLE) / 2, top: 8, bottom: 8 }}
           onPressIn={() => {
             pressScale.value = withSpring(0.88, motion.springTight)
+            if (selectOnPressIn) {
+              firedOnPressIn.current = true
+              fire()
+            }
           }}
           onPressOut={() => {
             pressScale.value = withSpring(1, motion.spring)
           }}
           onPress={() => {
-            if (pressHaptic) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
-            onPress()
+            if (firedOnPressIn.current) {
+              firedOnPressIn.current = false
+              return
+            }
+            fire()
           }}
           onLongPress={
             onLongPress &&
@@ -593,7 +489,9 @@ function NavCircle({
           style={[
             styles.circle,
             { width: CIRCLE, height: CIRCLE, borderRadius: CIRCLE / 2 },
-            selected ? elevation.floating : onFlood ? null : elevation.card,
+            // Flat circles: the ring marks the selected one and a hairline
+            // separates the idle ones from the page, so no drop shadows.
+            selected || onFlood ? null : { borderWidth: 1, borderColor: tokens.borderStrong },
             style,
             circleStyle,
             dimmed ? styles.disabled : null,
@@ -607,20 +505,21 @@ function NavCircle({
 }
 
 const styles = StyleSheet.create({
-  // Absolute so the carousel overlays content rather than reserving a strip of it.
+  // Absolute so the row overlays content rather than reserving a strip of it.
   wrap: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
   },
-  scroll: { height: ROW_HEIGHT },
+  row: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
   backdrop: {
     position: 'absolute',
     left: 0,
     right: 0,
     bottom: 0,
   },
+  backdropFade: { position: 'absolute', left: 0, right: 0, top: -BACKDROP_FADE, height: BACKDROP_FADE },
   slot: { width: SLOT, alignItems: 'center', justifyContent: 'center' },
   ringBox: { width: RING_SIZE, height: RING_SIZE, alignItems: 'center', justifyContent: 'center' },
   ring: {

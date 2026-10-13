@@ -13,6 +13,7 @@ jest.mock('expo-router', () => ({
 }))
 jest.mock('@/src/hooks/useUser', () => ({
   useCompleteGuidedTour: () => ({ mutate: mockCompleteGuidedTour }),
+  useUser: () => ({ data: undefined }),
 }))
 jest.mock('expo-secure-store', () => ({
   getItemAsync: jest.fn(() => Promise.resolve(null)),
@@ -51,7 +52,7 @@ it('logging a card expense sets money aside in Credit Card Payment', async () =>
   const { getByText } = renderWithProviders(<GuidedTourScreen />)
   openChapter(getByText, 'Logging money')
 
-  fireEvent.press(getByText('🍲  ₹700 · Dosa night'))
+  fireEvent.press(getByText('🍲  ₹700 · Pizza night'))
 
   await waitFor(() => expect(getByText('Credit Card Payment')).toBeTruthy())
   expect(getByText('₹700 set aside')).toBeTruthy()

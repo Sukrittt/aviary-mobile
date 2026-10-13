@@ -50,7 +50,7 @@ import { OfflineScreen } from "@/src/components/shared/OfflineScreen";
 import { ErrorScreen } from "@/src/components/shared/ErrorScreen";
 import { EmptyState } from "@/src/components/shared/EmptyState";
 import type { ExpenseRow, IncomeRow } from "@/src/types";
-import { toLocalDateString } from "@/src/lib/date";
+import { parseLocalDate, toLocalDateString } from "@/src/lib/date";
 import { useOnline } from "@/src/lib/netStatus";
 import { EMPTY } from "@/src/lib/constants";
 import { FORCE_EMPTY_STATE_PREVIEW, emptyForPreview } from "@/src/lib/emptyStatePreview";
@@ -69,7 +69,7 @@ function toDateInput(d: Date): string {
 }
 
 function formatDateHeader(iso: string): string {
-  const d = new Date(iso);
+  const d = parseLocalDate(iso);
   if (Number.isNaN(d.getTime())) return iso;
   const today = new Date();
   const yesterday = new Date(today);
@@ -85,7 +85,7 @@ function formatDateHeader(iso: string): string {
 }
 
 function formatShortDate(iso: string): string {
-  const d = new Date(iso);
+  const d = parseLocalDate(iso);
   if (Number.isNaN(d.getTime())) return iso;
   const day = d.getDate();
   const month = d.toLocaleDateString("en-IN", { month: "short" });
@@ -264,7 +264,7 @@ export default function ActivityScreen() {
   const latestDate = useMemo(() => {
     const iso = anchorQuery.data?.rows[0]?.date;
     if (!iso) return new Date();
-    const d = new Date(iso);
+    const d = parseLocalDate(iso);
     return Number.isNaN(d.getTime()) ? new Date() : d;
   }, [anchorQuery.data]);
 
@@ -347,6 +347,15 @@ export default function ActivityScreen() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setPage(1);
   }, [selectedDate, period, customRange.from, customRange.to, selectedCategory, selectedAccount, search]);
+
+  // Deleting the last page's only row shrinks pageCount under us; step back
+  // to the new last page instead of stranding the user on an empty one.
+  // Placeholder data is the previous query's, so its count says nothing here.
+  const serverPageCount = expensesQ.isPlaceholderData ? 0 : expensesQ.data?.pageCount ?? 0;
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (serverPageCount > 0 && page > serverPageCount) setPage(serverPageCount);
+  }, [page, serverPageCount]);
 
   // Which rows are on screen; a bulk delete that finishes after it changed
   // mustn't reselect its failures into a view that no longer shows them.

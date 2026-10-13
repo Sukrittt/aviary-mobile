@@ -1,12 +1,14 @@
 import { useState } from 'react'
 import { View, Text, Pressable, ScrollView, Linking, StyleSheet } from 'react-native'
 import { useRouter } from 'expo-router'
-import { ArrowLeft, BookOpen, Compass, MessageCircle, Star, ChevronRight, ChevronUp } from 'lucide-react-native'
+import * as StoreReview from 'expo-store-review'
+import { ArrowLeft, BookOpen, Compass, MessageCircle, Star, ChevronRight, ChevronUp, ScrollText, ThumbsUp, Globe, type LucideIcon } from 'lucide-react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { Icon } from '@/src/components/shared/Icon'
 import { FEEDBACK_BOARD_URL } from '@/src/lib/constants'
+import { WEB_URL } from '@/src/api/client'
 
 const REPO = 'Sukrittt/aviary-mobile'
 
@@ -23,6 +25,8 @@ export default function HelpScreen() {
   const insets = useSafeAreaInsets()
   const router = useRouter()
   const [explainerOpen, setExplainerOpen] = useState(false)
+  // app.json's android.playStoreUrl; null on iOS, which has no App Store listing.
+  const rateUrl = StoreReview.storeUrl()
 
   return (
     <View style={[styles.container, { backgroundColor: tokens.bg, paddingTop: insets.top }]}>
@@ -70,6 +74,9 @@ export default function HelpScreen() {
             </Text>
             <Icon icon={ChevronRight} size={16} color={tokens.text3} />
           </Pressable>
+          <LinkRow icon={ScrollText} label="Changelog" onPress={() => router.push('/account/changelog')} />
+          {rateUrl && <LinkRow icon={ThumbsUp} label="Rate Aviary" onPress={() => Linking.openURL(rateUrl)} />}
+          <LinkRow icon={Globe} label="Open web app" onPress={() => Linking.openURL(WEB_URL)} />
           <View style={[styles.divider, { backgroundColor: tokens.border }]} />
           <Pressable onPress={() => Linking.openURL(`https://github.com/${REPO}`)} style={styles.row}>
             <Icon icon={Star} size={16} />
@@ -81,6 +88,21 @@ export default function HelpScreen() {
         </View>
       </ScrollView>
     </View>
+  )
+}
+
+/** A divider then a plain row, the shape every row after the first takes here. */
+function LinkRow({ icon, label, onPress }: { icon: LucideIcon; label: string; onPress: () => void }) {
+  const { tokens } = useTheme()
+  return (
+    <>
+      <View style={[styles.divider, { backgroundColor: tokens.border }]} />
+      <Pressable onPress={onPress} style={styles.row}>
+        <Icon icon={icon} size={16} />
+        <Text style={[styles.rowLabel, { flex: 1, marginLeft: 12, color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>{label}</Text>
+        <Icon icon={ChevronRight} size={16} color={tokens.text3} />
+      </Pressable>
+    </>
   )
 }
 

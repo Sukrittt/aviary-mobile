@@ -1,6 +1,7 @@
 import { CurrencyPicker } from "@/src/components/CurrencyPicker";
 import { CurrencyScope, useCurrency } from "@/src/context/CurrencyContext";
-import { resolveCurrency } from "@/src/lib/currencies";
+import { deviceCurrency } from "@/src/lib/currencyPreference";
+import { deviceTimezone } from "@/src/lib/date";
 import { getLocales } from "expo-localization";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -29,6 +30,7 @@ import type { ThemeTokens } from "@/src/theme/tokens";
 import { fontFamily } from "@/src/theme/fonts";
 import { Numpad } from "@/src/components/ui/Numpad";
 import { StepDot } from "@/src/components/onboarding/StepDot";
+import { PickExtras } from "@/src/components/onboarding/PickExtras";
 import { PickRow } from "@/src/components/onboarding/PickRow";
 import { SetupDone } from "@/src/components/onboarding/SetupDone";
 import { AmountTicker } from "@/src/components/onboarding/AmountTicker";
@@ -185,7 +187,7 @@ const TITLES: Record<number, [string, string]> = {
   ],
   3: [
     "Add your categories",
-    "These are the envelopes you actually spend from. Pick the ones you recognize.",
+    "Each one's an envelope: money set aside for one thing, like Groceries. Pick the ones you recognize.",
   ],
   4: [
     "Assign your money",
@@ -209,10 +211,11 @@ function remainderColors(
 }
 
 export default function SetupScreen() {
-  // Start on the device region's currency (US → USD, MX → MXN); the profile's
-  // seeded INR is only a placeholder until this step saves a real choice.
+  // Start on the device's currency (Kolkata timezone → INR, else locale region:
+  // US → USD, MX → MXN); the profile's seeded INR is only a placeholder until
+  // this step saves a real choice.
   const [currencyCode, setCurrencyCode] = useState(() =>
-    resolveCurrency(getLocales()[0]?.currencyCode),
+    deviceCurrency(deviceTimezone(), getLocales()[0]?.currencyCode),
   );
   return (
     <CurrencyScope code={currencyCode}>
@@ -816,8 +819,25 @@ function CurrencyWizard({
           income={result.income}
           groupCount={result.groupCount}
           categoryCount={result.categoryCount}
-          onFinish={signalOnboarded}
+          onFinish={() => setStep(6)}
         />
+      </View>
+    );
+  }
+
+  if (step === 6) {
+    return (
+      <View
+        style={[
+          styles.container,
+          {
+            backgroundColor: tokens.bg,
+            paddingTop: insets.top + 60,
+            paddingBottom: insets.bottom + 20,
+          },
+        ]}
+      >
+        <PickExtras onDone={signalOnboarded} />
       </View>
     );
   }

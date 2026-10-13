@@ -1,8 +1,14 @@
-import { FloatingNav, NAV_HREF, navStateFor } from '@/src/components/nav/FloatingNav'
+import { FloatingNav, NAV_HREF, navStateFor, type NavRoute } from '@/src/components/nav/FloatingNav'
 import { TabBar } from '@/src/components/nav/TabBar'
+import { QuickAddMenu, type QuickAddItem } from '@/src/components/nav/QuickAddMenu'
+import { useTheme } from '@/src/theme/ThemeProvider'
+import { INCOME_FLOOD } from '@/src/theme/tokens'
 import { usePathname, useRouter } from 'expo-router'
+import { HandCoins, Plus, ScanLine } from 'lucide-react-native'
+import { useState } from 'react'
 import { useCachedUser } from '@/src/hooks/useUser'
 import { isHidden } from '@/src/lib/features'
+import { QUICK_INCOME_PATH } from './IncomeFloodButton'
 import { LOG_EXPENSE_PATH, useLogExpenseSubmitState } from './SubmitContext'
 
 /**
@@ -24,22 +30,48 @@ export function LogExpenseNavigation() {
   // First expense ever, form ready: point at + as the save button, which
   // otherwise only reads as "go to log expense". Gone once the save lands.
   const addHint = addActive && !addInvalid && !addDisabled && !!user && !user.manualTransactionCompletedAt
+  const { tokens } = useTheme()
+  // Remembers where it opened, so any navigation (back gesture, deep link) closes it.
+  const [menuPath, setMenuPath] = useState<string | null>(null)
+  const closeMenu = () => setMenuPath(null)
+  // Cleared during render rather than just hidden, so coming back to that path doesn't reopen it.
+  if (menuPath !== null && menuPath !== pathname) setMenuPath(null)
+  // The tab just tapped, lit before the navigation lands. `active` comes from
+  // the pathname, which only changes once the new tab has rendered (a lazy
+  // first mount is the slow case), so without this the nav sat stale for that
+  // whole render. Dropped as soon as the pathname moves on.
+  const [pendingTab, setPendingTab] = useState<{ from: string; tab: NavRoute } | null>(null)
+  if (pendingTab !== null && pendingTab.from !== pathname) setPendingTab(null)
+  const selectTab = (name: NavRoute) => {
+    // Log-expense swaps itself out with replace and its nav morphs in place, so it keeps the old path.
+    if (addActive) return router.replace(NAV_HREF[name])
+    setPendingTab({ from: pathname, tab: name })
+    // Next frame, so the highlight commits and starts animating (on the UI
+    // thread) before the new tab's render ties up the JS thread.
+    requestAnimationFrame(() => router.navigate(NAV_HREF[name]))
+  }
+  const menuItems: QuickAddItem[] = [
+    { label: 'Log expense', icon: Plus, tint: tokens.accent, onPress: () => router.push(LOG_EXPENSE_PATH) },
+    ...(isHidden(user, 'billScan') ? [] : [{ label: 'Scan a bill', icon: ScanLine, tint: tokens.blue, onPress: () => router.navigate({ pathname: '/more', params: { scan: '1' } }) }]),
+    ...(isHidden(user, 'income') ? [] : [{ label: 'Add income', icon: HandCoins, tint: INCOME_FLOOD, onPress: () => router.push(QUICK_INCOME_PATH) }]),
+  ]
 
   return (
-    <TabBar visible={visible} overrideContent={
+    <TabBar visible={visible} overrideContent={<>
       <FloatingNav
-        active={active}
+        active={pendingTab?.tab ?? active}
         addActive={addActive}
         addSaving={addActive && submitState.saving}
         addSuccess={addActive && submitState.success}
         addInvalid={addActive && addInvalid}
         addDisabled={addActive && addDisabled}
         addHint={addHint}
-        onSelect={(name) => (addActive ? router.replace(NAV_HREF[name]) : router.navigate(NAV_HREF[name]))}
+        onSelect={selectTab}
         onAdd={() => (addActive ? submitState.submit() : router.push(LOG_EXPENSE_PATH))}
         onAddInvalid={submitState.onInvalid}
-        onAddLongPress={isHidden(user, 'billScan') ? undefined : () => router.push('/modals/scan-bill')}
+        onAddLongPress={() => setMenuPath(pathname)}
       />
-    } />
+      {menuPath === pathname && visible && <QuickAddMenu items={menuItems} onClose={closeMenu} />}
+    </>} />
   )
 }

@@ -35,3 +35,13 @@ export function nowLocal(at: Date = new Date()): { date: string; timestamp: stri
 export function deviceTimezone(): string {
   return Intl.DateTimeFormat().resolvedOptions().timeZone
 }
+
+/**
+ * Parse a server date. A bare `YYYY-MM-DD` is a calendar day, so it becomes
+ * local midnight of that day; `new Date('2026-11-01')` would read it as UTC
+ * midnight and show Oct 31 anywhere west of UTC. Full timestamps parse as-is.
+ */
+export function parseLocalDate(str: string): Date {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(str)
+  return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : new Date(str)
+}

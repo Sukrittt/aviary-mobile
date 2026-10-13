@@ -47,11 +47,14 @@ import { useOnline } from "@/src/lib/netStatus";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { fontFamily } from "@/src/theme/fonts";
 import { NAV_HEIGHT } from "@/src/theme/scale";
-import { useLocalSearchParams,useRouter } from "expo-router";
+import { useIsFocused,useLocalSearchParams,useRouter } from "expo-router";
 import { ChevronDown, MessageSquareText, Plus, Tag, TriangleAlert, WalletMinimal } from "lucide-react-native";
 import { useCaptureTip } from "@/src/hooks/useCaptureTip";
 import { noteManualLog, type CaptureTipReason } from "@/src/lib/captureTip";
 import { CaptureTipBubble } from "@/src/features/log-expense/CaptureTipBubble";
+import { IncomeFloodButton } from "@/src/features/log-expense/IncomeFloodButton";
+import { useCachedUser } from "@/src/hooks/useUser";
+import { isHidden } from "@/src/lib/features";
 import { useBounce } from "@/src/hooks/useBounce";
 import * as Haptics from "expo-haptics";
 import Reanimated from "react-native-reanimated";
@@ -113,8 +116,8 @@ function suggestCategory(
  * starts on the existing amount and backspaces from there.
  */
 const CAPTURE_TIP_COPY: Record<CaptureTipReason, { title: string; body: string }> = {
-  batch: { title: "Logging a few?", body: "Type them all at once in Ask Aviary, like “auto 240, lunch 150”." },
-  gap: { title: "Been a couple of days?", body: "Type whatever you remember in Ask Aviary, like “auto 240, lunch 150”." },
+  batch: { title: "Logging a few?", body: "Type them all at once in Ask Aviary, like “taxi 240, lunch 150”." },
+  gap: { title: "Been a couple of days?", body: "Type whatever you remember in Ask Aviary, like “taxi 240, lunch 150”." },
 };
 
 export default function LogExpenseScreen() {
@@ -124,12 +127,18 @@ export default function LogExpenseScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const params = useLocalSearchParams();
+  const isFocused = useIsFocused();
   const online = useOnline();
 
   const origId = str(params.id) || undefined;
   const origTimestamp = str(params.timestamp);
   const isEdit = origTimestamp !== "";
-  const captureTip = useCaptureTip(!isEdit && online);
+  const cachedUser = useCachedUser();
+  const showIncome = !isEdit && !isHidden(cachedUser, "income");
+  // "Several at once" runs through Ask Aviary, so it goes when that does.
+  const showCapture = !isEdit && !isHidden(cachedUser, "askAviary");
+  // Off while hidden too, so unseen visits don't use up the tip's showings.
+  const captureTip = useCaptureTip(showCapture && online);
   const severalBounce = useBounce(-3);
   const origItem = str(params.item);
   const origAmountInr = Number(params.amountInr) || 0;
@@ -453,17 +462,16 @@ export default function LogExpenseScreen() {
     }
   }, [canSubmit, unusual, unusualWarnedFor, base, amount, expectedVersion, isEdit, origId, origTimestamp, origItem, origAmountInr, item, savedItem, parsedAmount, date, category, notes, paymentMethod, accountId, accounts, editedDraft, router, addMutate, updateMutate, autoPicked, syncPhoto]);
 
-  // Publish only when the action or its visible state changes.
+  // Publish only when the action or its visible state changes, and only while
+  // focused: a prefilled log-expense (habit nudge) stacks over the launch one,
+  // and a blank screen underneath re-publishing would point the nav circle at
+  // its empty form. Clear on the way out only if the snapshot is still ours.
   useEffect(() => {
-    publishLogExpenseSubmit({
-      canSubmit,
-      saving,
-      success: logSuccess,
-      submit: handleSubmit,
-      onInvalid,
-    });
-  }, [canSubmit, saving, logSuccess, handleSubmit, onInvalid, publishLogExpenseSubmit]);
-  useEffect(() => () => publishLogExpenseSubmit(EMPTY_SUBMIT), [publishLogExpenseSubmit]);
+    if (!isFocused) return;
+    const snapshot = { canSubmit, saving, success: logSuccess, submit: handleSubmit, onInvalid };
+    publishLogExpenseSubmit(snapshot);
+    return () => publishLogExpenseSubmit((current) => (current === snapshot ? EMPTY_SUBMIT : current));
+  }, [isFocused, canSubmit, saving, logSuccess, handleSubmit, onInvalid, publishLogExpenseSubmit]);
 
   function reviewLatest(keepDraft: boolean) {
     if (!conflict) return;
@@ -507,7 +515,7 @@ export default function LogExpenseScreen() {
         >
           {isEdit ? "Edit expense" : "Log expense"}
         </Text>
-        {!isEdit && (
+        {showCapture && (
           // Several spends at once go through the money brain: type them,
           // review the list it reads out, log them together. Kept as a quiet
           // header icon; the capture tip points at it at the right moment.
@@ -532,7 +540,7 @@ export default function LogExpenseScreen() {
         )}
       </View>
 
-      {!isEdit && captureTip.reason && nudge === 0 && unusualNudge === 0 && (
+      {showCapture && captureTip.reason && nudge === 0 && unusualNudge === 0 && (
         // The moment it would help (src/lib/captureTip.ts): logging a few by
         // hand, or back after a couple of days with a backlog. Pops out of the
         // header icon so it teaches where the feature lives. Steps aside for
@@ -839,6 +847,7 @@ export default function LogExpenseScreen() {
           )}
         </View>
       </BottomSheet>
+      {showIncome && <IncomeFloodButton top={insets.top + space.xs} right={space.lg} />}
     </View>
   );
 }
