@@ -4,6 +4,7 @@ import * as Device from 'expo-device'
 import Constants, { ExecutionEnvironment } from 'expo-constants'
 import { router } from 'expo-router'
 import { registerPushToken } from '@/src/api/notifications'
+import { BASE_URL } from '@/src/api/client'
 import { track } from '@/src/lib/analytics'
 import type * as NotificationsType from 'expo-notifications'
 
@@ -53,8 +54,10 @@ export async function registerForPushNotificationsAsync(): Promise<void> {
     const Notifications = getNotifications()
     if (!Notifications || !Device.isDevice) return
 
-    let { status } = await Notifications.getPermissionsAsync()
-    if (status !== 'granted') {
+    let { status, canAskAgain } = await Notifications.getPermissionsAsync()
+    // A permanent denial: asking again would re-prompt (Android 13) or no-op,
+    // and log a fresh opt-in result on every launch either way.
+    if (status !== 'granted' && canAskAgain) {
       ;({ status } = await Notifications.requestPermissionsAsync())
       // Only when the prompt was actually shown, so this is the opt-in rate
       // rather than one event per launch.
@@ -171,7 +174,7 @@ export async function unregisterDevicePushToken(accessToken = currentAccessToken
   const token = devicePushToken
   if (!token || !accessToken) return
   try {
-    const response = await fetch(`${process.env.EXPO_PUBLIC_API_URL}/api/notifications/register`, {
+    const response = await fetch(`${BASE_URL}/api/notifications/register`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ token }),
