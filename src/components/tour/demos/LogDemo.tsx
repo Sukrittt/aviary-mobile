@@ -152,7 +152,7 @@ export function LogDemo({ onComplete }: { onComplete: () => void }) {
           <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodySemiBold, fontSize: type.micro, lineHeight: 18 }}>
             {cardTotal > 0
               ? 'Paid by card? The same amount lands in Credit Card Payment automatically, so the money to clear the bill is already set aside, not spent twice.'
-              : 'Only that one envelope moved. Every other bar is exactly where you left it.'}
+              : 'Only that one category moved. Every other bar is exactly where you left it.'}
           </Text>
         </ResultCard>
       )}
@@ -166,7 +166,7 @@ export function LogDemo({ onComplete }: { onComplete: () => void }) {
         <Text style={{ fontSize: 17 }}>🧾</Text>
         <Text style={{ flex: 1, color: tokens.text2, fontFamily: fontFamily.bodySemiBold, fontSize: type.micro, lineHeight: 18 }}>
           Long receipt? Scan a bill reads it into line items you can edit, split by however many people ate, and file into
-          envelopes before logging. There is a widget on your home screen too, with the same chips.
+          categories before logging. There&apos;s a widget on your home screen too, with the same chips.
         </Text>
       </View>
     </View>

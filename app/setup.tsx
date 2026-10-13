@@ -187,7 +187,7 @@ const TITLES: Record<number, [string, string]> = {
   ],
   3: [
     "Add your categories",
-    "Each one's an envelope: money set aside for one thing, like Groceries. Pick the ones you recognize.",
+    "Each one's money set aside for one thing, like Groceries. Pick the ones you recognize.",
   ],
   4: [
     "Assign your money",
@@ -657,7 +657,7 @@ function CurrencyWizard({
       });
     };
     saveFill.value = 0;
-    setSaveStep("Creating your envelopes…");
+    setSaveStep("Creating your categories…");
     // Each step stays readable for at least STEP_MIN_MS, so a fast write never
     // flashes its text past the user or cuts straight to the next screen.
     let stepShownAt = 0;

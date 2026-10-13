@@ -224,13 +224,13 @@ describe('switching envelopes in place', () => {
       budgets.map((b) => (b.category === 'Food' ? { ...b, assigned: '4000', version: 2 } : b)),
     )
 
-    fireEvent.press(getByLabelText('Editing Food. Switch envelope'))
+    fireEvent.press(getByLabelText('Editing Food. Switch category'))
     await act(async () => {
       fireEvent.press(await findByText('Pick Rent'))
     })
 
     await waitFor(() => expect(updateBudget).toHaveBeenCalledWith(MONTH, 'Food', { assigned: '4000' }, 1))
-    expect(await findByLabelText('Editing Rent. Switch envelope')).toBeTruthy()
+    expect(await findByLabelText('Editing Rent. Switch category')).toBeTruthy()
     expect(await findByText('₹6,000 already assigned this month')).toBeTruthy()
     expect(mockBack).not.toHaveBeenCalled()
   })
@@ -242,12 +242,12 @@ describe('switching envelopes in place', () => {
     ])
     await findByText('₹5,000 already assigned this month')
 
-    fireEvent.press(getByLabelText('Editing Food. Switch envelope'))
+    fireEvent.press(getByLabelText('Editing Food. Switch category'))
     await act(async () => {
       fireEvent.press(await findByText('Pick Rent'))
     })
 
-    expect(await findByLabelText('Editing Rent. Switch envelope')).toBeTruthy()
+    expect(await findByLabelText('Editing Rent. Switch category')).toBeTruthy()
     expect(updateBudget).not.toHaveBeenCalled()
   })
 })

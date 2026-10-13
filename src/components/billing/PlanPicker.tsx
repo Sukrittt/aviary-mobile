@@ -40,7 +40,7 @@ function usePop(key: unknown, peak: number, when = true) {
  * (pricing.md): allowances are still to be set.
  */
 export const BENEFITS = [
-  'As many envelopes and expenses as you like',
+  'As many categories and expenses as you like',
   'Snap a bill instead of typing it in',
   'Ask Aviary where your money went',
   'Monthly Wrapped and spending insights',

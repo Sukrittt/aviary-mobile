@@ -356,7 +356,7 @@ export default function SecurityScreen() {
         <View style={[styles.dangerCard, { borderColor: tokens.coral }]}>
           <Text style={[styles.dangerTitle, { color: tokens.coral, fontFamily: fontFamily.bodyExtraBold }]}>Delete account</Text>
           <Text style={[styles.dangerBody, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
-            Removes envelopes, transactions and recaps. You have 7 days to sign back in and restore before it&apos;s gone for good.
+            Removes categories, transactions and recaps. You have 7 days to sign back in and restore before it&apos;s gone for good.
           </Text>
           <Pressable
             onPress={confirmDelete}
@@ -380,7 +380,7 @@ export default function SecurityScreen() {
       >
         <Text style={[styles.sheetTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Delete account</Text>
         <Text style={[styles.dangerBody, { color: tokens.text2, fontFamily: fontFamily.bodyMedium, marginTop: 8 }]}>
-          Removes envelopes, transactions and recaps. You have 7 days to sign back in and restore before it&apos;s gone for good. Type{' '}
+          Removes categories, transactions and recaps. You have 7 days to sign back in and restore before it&apos;s gone for good. Type{' '}
           <Text style={{ fontFamily: fontFamily.bodyBold, color: tokens.text }}>{user?.email}</Text> to confirm.
         </Text>
         {renewingOnWeb ? (

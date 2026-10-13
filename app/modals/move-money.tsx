@@ -202,7 +202,7 @@ export default function MoveMoneyModal() {
       const msg = err instanceof Error ? err.message : ''
       setError(
         msg.includes('no budget row for')
-          ? 'One of these envelopes changed since you opened this screen. Go back and try again.'
+          ? 'One of these categories changed since you opened this screen. Go back and try again.'
           : 'Could not pull money. Check your connection and try again.',
       )
     }
@@ -247,7 +247,7 @@ export default function MoveMoneyModal() {
       {noOptions ? (
         <View style={[styles.body, { padding: space.xl }]}>
           <Text style={{ color: tokens.text2, fontSize: type.caption, fontFamily: fontFamily.bodyMedium }}>
-            {!target ? `${targetCategoryName} isn't set up as an envelope.` : 'No funds available to pull from.'}
+            {!target ? `${targetCategoryName} isn't in your budget yet.` : 'No funds available to pull from.'}
           </Text>
           <Pressable
             onPress={close}
@@ -395,7 +395,7 @@ export default function MoveMoneyModal() {
                 <TextInput
                   value={query}
                   onChangeText={setQuery}
-                  placeholder="Find an envelope"
+                  placeholder="Find a category"
                   placeholderTextColor={tokens.text3}
                   style={[styles.searchInput, { color: tokens.text, fontFamily: fontFamily.bodySemiBold, fontSize: type.caption }]}
                 />

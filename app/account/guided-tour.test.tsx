@@ -35,7 +35,7 @@ function openChapter(getByText: ReturnType<typeof renderWithProviders>['getByTex
 
 it('funding every envelope drives Ready to Assign to zero', async () => {
   const { getByText, getAllByText } = renderWithProviders(<GuidedTourScreen />)
-  openChapter(getByText, 'Envelopes & Ready to Assign')
+  openChapter(getByText, 'Categories & Ready to Assign')
 
   expect(getByText('₹42,000 of your ₹42,000 income has no job yet')).toBeTruthy()
 

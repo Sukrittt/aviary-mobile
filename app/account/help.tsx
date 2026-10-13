@@ -13,8 +13,8 @@ const REPO = 'Sukrittt/aviary-mobile'
 
 const ENVELOPES_EXPLAINER = [
   'New money lands in Ready to Assign, unclaimed.',
-  'Move it into envelopes like Rent, Food or Football.',
-  'Log an expense against an envelope and only that envelope drops.',
+  'Move it into categories like Rent, Food or Football.',
+  'Log an expense against a category and only that one drops.',
   "Next month starts clean: the leftover is gone, but your plan carries over so you're not budgeting from zero.",
   'Watch one number: Ready to Assign. At zero, all your money has a job.',
 ]
@@ -53,7 +53,7 @@ export default function HelpScreen() {
           <Pressable onPress={() => setExplainerOpen((v) => !v)} style={styles.row}>
             <Icon icon={BookOpen} size={16} />
             <Text style={[styles.rowLabel, { flex: 1, marginLeft: 12, color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>
-              How envelopes work
+              How categories work
             </Text>
             <Icon icon={explainerOpen ? CaretUp : CaretRight} size={16} color={tokens.text3} />
           </Pressable>

@@ -556,7 +556,7 @@ export default function ExpenseAddedScreen() {
                 ]}
               >
                 {over
-                  ? "Cover it from another envelope?"
+                  ? "Cover it from another category?"
                   : daysLeft === 0 ? "Less than 24 hrs" : `${daysLeft} days left`}
               </Text>
               {over ? (

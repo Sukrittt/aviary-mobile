@@ -38,7 +38,7 @@ export type NavRoute = 'index' | 'activity' | 'envelopes' | 'more'
 export const NAV_ROUTES: { name: NavRoute; glyph: NavIconComponent; label: string }[] = [
   { name: 'index', glyph: HomeGlyph, label: 'Home' },
   { name: 'activity', glyph: ActivityGlyph, label: 'Activity' },
-  { name: 'envelopes', glyph: EnvelopeGlyph, label: 'Envelopes' },
+  { name: 'envelopes', glyph: EnvelopeGlyph, label: 'Categories' },
   { name: 'more', glyph: ProfileGlyph, label: 'More' },
 ]
 

@@ -424,7 +424,7 @@ function Done({
           {doneCount === CHAPTERS.length ? 'You know the whole app.' : `Tour done · ${doneCount} of ${CHAPTERS.length} poked.`}
         </Text>
         <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodySemiBold, fontSize: type.caption, textAlign: 'center', lineHeight: 20 }}>
-          Fund the envelopes, log as you go, pull money from other envelopes when life happens, start clean on the 1st. That is the entire loop.
+          Fund your categories, log as you go, pull money from others when life happens, start clean on the 1st. That&apos;s the whole loop.
         </Text>
       </PopIn>
 

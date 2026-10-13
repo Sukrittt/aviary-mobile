@@ -41,7 +41,7 @@ export function MoveDemo({ onComplete }: { onComplete: () => void }) {
             ELECTRICITY · {formatCurrency(MOVE_NEED)} DUE THE 5TH
           </Text>
           <Text style={{ color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: type.bodyLg }}>
-            {formatCurrency(inEnvelope)} in the envelope
+            {formatCurrency(inEnvelope)} set aside
           </Text>
           <Text
             style={{

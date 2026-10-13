@@ -272,7 +272,7 @@ it('names an overspend and offers to cover it instead of a negative balance', as
   expect(getByLabelText('₹250')).toBeTruthy()
   expect(queryByText(/left of/)).toBeNull()
   expect(queryByText(/to stay on track/)).toBeNull()
-  await findByText('Cover it from another envelope?', {}, COUNTDOWN_SLOW)
+  await findByText('Cover it from another category?', {}, COUNTDOWN_SLOW)
   fireEvent.press(getByText('Cover it'))
   expect(mockReplace).toHaveBeenCalledWith({ pathname: '/modals/move-money', params: { fromCategory: '🛒 Groceries' } })
 })

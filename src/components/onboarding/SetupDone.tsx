@@ -99,7 +99,7 @@ export function SetupDone({
         entering={FadeIn.delay(140).duration(350)}
         style={[styles.blurb, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}
       >
-        Everything below can be changed later from Envelopes.
+        Everything below can be changed later from Categories.
       </Animated.Text>
       {/* Sets up the first-week recap from day 0. */}
       <Animated.View entering={FadeIn.delay(170).duration(350)} style={[styles.promise, { backgroundColor: tokens.accentSoft }]}>
