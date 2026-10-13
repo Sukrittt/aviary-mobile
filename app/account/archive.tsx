@@ -649,7 +649,7 @@ export default function ArchiveScreen() {
                 onLongPress={() => {
                   if (!selecting) toggleSelected(item.id);
                 }}
-                disabled={restoringAll || isPending}
+                disabled={restoringAll || isPending || isSuccess}
                 accessibilityState={selecting ? { selected: isSelected } : undefined}
                 style={[
                   styles.card,
