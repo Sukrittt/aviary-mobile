@@ -83,7 +83,7 @@ export default function AccountModal() {
 
   const hint =
     type === 'credit_card'
-      ? 'Spends on a card set money aside in your Credit Card category.'
+      ? 'Spends on a card set money aside in your Credit Card Payment category.'
       : type === 'cash'
         ? "Cash spends don't count in your balance check."
         : 'Your weekly balance check asks about this one.'

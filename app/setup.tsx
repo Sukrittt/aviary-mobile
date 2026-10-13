@@ -187,7 +187,7 @@ const TITLES: Record<number, [string, string]> = {
   ],
   3: [
     "Add your categories",
-    "Each one's money set aside for one thing, like Groceries. Pick the ones you recognize.",
+    "Each one holds money for one thing, like Groceries. Pick the ones you recognize.",
   ],
   4: [
     "Assign your money",
