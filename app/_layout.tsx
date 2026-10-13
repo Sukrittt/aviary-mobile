@@ -5,6 +5,7 @@ import { accessMode,clearAccess,initAccessMode } from '@/src/api/accessMode'
 import { getUser, syncTimezone } from '@/src/api/account'
 import { onOnboarded } from '@/src/api/onboardingSignal'
 import { BirdLandingSplash } from '@/src/components/splash/BirdLandingSplash'
+import { CrashScreen } from '@/src/components/shared/CrashScreen'
 import { subscribeExchanging } from '@/src/api/useSignIn'
 import { AlertHost } from '@/src/components/ui/AlertHost'
 import { PrivacyProvider } from '@/src/context/PrivacyContext'
@@ -33,7 +34,7 @@ import { QueryClient, focusManager } from '@tanstack/react-query'
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client'
 import { PERSIST_MAX_AGE, persistOptions, queryPersister } from '@/src/lib/queryPersist'
 import { setAudioModeAsync } from 'expo-audio'
-import { Stack,useGlobalSearchParams,usePathname,useRouter,useSegments,type Href } from 'expo-router'
+import { Stack,useGlobalSearchParams,usePathname,useRouter,useSegments,type ErrorBoundaryProps,type Href } from 'expo-router'
 import * as SplashScreen from 'expo-splash-screen'
 import { useEffect,useRef,useState } from 'react'
 import { AppState,StyleSheet,View } from 'react-native'
@@ -492,6 +493,23 @@ function RootLayout() {
       </SafeAreaProvider>
     </GestureHandlerRootView>
   )
+}
+
+/**
+ * expo-router wraps a route in a boundary only when it exports one, so this is
+ * the app's last line before a render throw closes it. Retry drops the query
+ * cache, memory and disk, first: if a cached response is what threw, keeping it
+ * would throw again on the very next render. The persister's buster only covers
+ * version changes, not a bad response cached within one. Queued offline
+ * expenses live in pendingExpenses, not this cache, so they survive.
+ */
+export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
+  const reset = async () => {
+    queryClient.clear()
+    try { await queryPersister.removeClient() } catch { /* a stale disk copy still beats no retry */ }
+    await retry()
+  }
+  return <CrashScreen error={error} retry={() => void reset()} />
 }
 
 export default wrapRoot(RootLayout)
