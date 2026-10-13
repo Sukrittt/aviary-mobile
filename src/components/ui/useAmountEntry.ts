@@ -12,7 +12,7 @@ export function useAmountEntry(initial = '', options: { onChange?: () => void; s
     onChange?.()
   }, [onChange])
   const handleBackspace = useCallback(() => {
-    if (shakeAtZero ? Number(amount) === 0 : amount === '') {
+    if (amount === '' || (shakeAtZero && amount === '0')) {
       triggerInvalidFeedback()
       return
     }
