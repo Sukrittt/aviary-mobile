@@ -498,8 +498,10 @@ function RootLayout() {
 /**
  * expo-router wraps a route in a boundary only when it exports one, so this is
  * the app's last line before a render throw closes it. Retry drops the query
- * cache, memory and disk, first: a persisted query whose shape changed under an
- * OTA update would otherwise throw again on the very next render.
+ * cache, memory and disk, first: if a cached response is what threw, keeping it
+ * would throw again on the very next render. The persister's buster only covers
+ * version changes, not a bad response cached within one. Queued offline
+ * expenses live in pendingExpenses, not this cache, so they survive.
  */
 export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
   const reset = async () => {
