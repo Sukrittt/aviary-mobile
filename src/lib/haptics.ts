@@ -26,6 +26,7 @@ export function rippleTickTimes(count: number, ms = RIPPLE_MS): number[] {
 
 /** One selection tick per item, landing on a tap at `ms`, so a bigger batch reads as a longer roll. */
 export function rippleHaptic(count: number, ms = RIPPLE_MS) {
+  if (count <= 0) return
   for (const t of rippleTickTimes(count, ms)) setTimeout(() => Haptics.selectionAsync().catch(() => {}), t)
   setTimeout(tap, ms)
 }

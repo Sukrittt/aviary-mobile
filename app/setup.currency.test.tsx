@@ -23,7 +23,7 @@ jest.mock('expo-localization', () => ({ getLocales: () => [{ currencyCode: 'MXN'
 jest.mock('expo-haptics', () => ({
   selectionAsync: jest.fn(() => Promise.resolve()),
   impactAsync: jest.fn(() => Promise.resolve()),
-  ImpactFeedbackStyle: { Light: 'light' },
+  ImpactFeedbackStyle: { Light: 'light', Rigid: 'rigid' },
 }))
 
 it('defaults to the device region currency', () => {

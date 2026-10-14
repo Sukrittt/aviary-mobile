@@ -1,6 +1,6 @@
 import * as Haptics from 'expo-haptics'
 import { Platform } from 'react-native'
-import { rippleTickTimes, tap } from './haptics'
+import { rippleHaptic, rippleTickTimes, tap } from './haptics'
 
 describe('rippleTickTimes', () => {
   it('gives one tick per item, starting immediately', () => {
@@ -39,5 +39,17 @@ describe('tap', () => {
     tap()
     expect(android).toHaveBeenCalledWith(Haptics.AndroidHaptics.Clock_Tick)
     expect(impact).not.toHaveBeenCalled()
+  })
+})
+
+describe('rippleHaptic', () => {
+  it('stays silent when nothing moved', () => {
+    jest.useFakeTimers()
+    const impact = jest.spyOn(Haptics, 'impactAsync').mockResolvedValue()
+    rippleHaptic(0)
+    jest.runAllTimers()
+    expect(impact).not.toHaveBeenCalled()
+    jest.useRealTimers()
+    jest.restoreAllMocks()
   })
 })
