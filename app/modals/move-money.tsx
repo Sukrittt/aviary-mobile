@@ -287,6 +287,7 @@ export default function MoveMoneyModal() {
               <AmountText
                 value={amount}
                 rawText={formatAmountInput(amountStr)}
+                fit
                 size={type.hero}
                 weight="displayBold"
                 animate

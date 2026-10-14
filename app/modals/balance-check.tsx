@@ -292,7 +292,7 @@ function EnterBalance({ status: fetched, closing, onClose, onMeasured }: {
         <View style={[styles.amountWrap, { gap: space.sm }]}>
           {multi && <Text style={text.label}>{names[active].toUpperCase()}</Text>}
           <Animated.View style={{ transform: [{ translateX: shake.interpolate({ inputRange: [-1, 1], outputRange: [-8, 8] }) }] }}>
-            <AmountText value={Number(amount) || 0} rawText={formatAmountInput(amount)} size={type.hero} animate ignoreHide />
+            <AmountText value={Number(amount) || 0} rawText={formatAmountInput(amount)} size={type.hero} fit animate ignoreHide />
           </Animated.View>
           <Text style={[text.body, { textAlign: 'center' }]}>{caption}</Text>
         </View>

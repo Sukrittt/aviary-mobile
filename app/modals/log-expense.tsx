@@ -599,6 +599,7 @@ export default function LogExpenseScreen() {
             <AmountText
               value={parsedAmount || 0}
               rawText={formatAmountInput(amount)}
+              fit
               size={type.hero * 1.3}
               color={amount === "" && !flag("amount") ? onAccentDim : "#ffffff"}
               animate
