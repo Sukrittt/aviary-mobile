@@ -65,7 +65,7 @@ it('never lets two checked categories share a name, even across groups', () => {
 it('picks a group icon inline beside its name', () => {
   const { getByLabelText, queryByLabelText } = toGroupsStep()
 
-  fireEvent.press(getByLabelText('Icon: House. Change icon'))
+  fireEvent.press(getByLabelText('Icon: Basket. Change icon'))
   fireEvent.changeText(getByLabelText('Search icons'), 'dog')
   fireEvent.press(getByLabelText('Dog'))
   expect(queryByLabelText('Search icons')).toBeNull()
