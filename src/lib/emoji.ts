@@ -1,7 +1,9 @@
-// Category/group names from the API already embed their emoji as the leading
-// character (e.g. "🏠 Rent" — see productivity/categories.csv). splitEmoji()
-// pulls that out; the lookup tables below only cover legacy plain names.
-const LEADING_EMOJI_RE = /^(\p{Extended_Pictographic}(?:️|‍\p{Extended_Pictographic})*)\s*/u
+import type { ThemeTokens } from '@/src/theme/tokens'
+// Category/group names from the API may embed a legacy emoji as the leading
+// character (e.g. "🏠 Rent"). splitEmoji() pulls that out; categoryIcons.ts
+// maps it to an icon.
+// Skin-tone modifiers ride along, so "👨🏽‍🍳 Cook" splits to "Cook".
+const LEADING_EMOJI_RE = /^(\p{Extended_Pictographic}\p{Emoji_Modifier}?(?:️|‍\p{Extended_Pictographic}\p{Emoji_Modifier}?)*)\s*/u
 
 export function splitEmoji(raw: string): { icon: string; text: string } {
   const trimmed = raw.trim()
@@ -13,39 +15,24 @@ export function splitEmoji(raw: string): { icon: string; text: string } {
   return { icon: '', text: trimmed }
 }
 
-export const GROUP_EMOJI: Record<string, string> = {
-  Home: '🏠',
-  Food: '🍔',
-  Travel: '🛵',
-  Entertainment: '🎉',
-  Investments: '💎',
-}
+type TintTokens = Pick<ThemeTokens,
+  'mint' | 'mintSoft' | 'violet' | 'violetSoft' | 'blue' | 'blueSoft' |
+  'accentInk' | 'accentSoft' | 'warnInk' | 'warnSoft' | 'coral' | 'coralSoft'>
 
-const CATEGORY_EMOJI: Record<string, string> = {
-  rent: '🏠',
-  water: '🚿',
-  electricity: '⚡',
-  cook: '👨‍🍳',
-  'bathroom clean': '🚻',
-  'furniture rent': '🪑',
-  laundry: '🧺',
-  bills: '📋',
-  groceries: '🍅',
-  'food order': '🍜',
-  travel: '🛵',
-  football: '⚽',
-  outings: '🎡',
-  shopping: '🎁',
-  miscellaneous: '📺',
-  subscriptions: '📱',
-  investments: '💎',
-}
+// A soft tint and the icon colour that sits on it, cycled by a hash of the
+// name's words (as on Web) so one category is never two colours.
+const TINTS: ((t: TintTokens) => { bg: string; ink: string })[] = [
+  (t) => ({ bg: t.mintSoft, ink: t.mint }),
+  (t) => ({ bg: t.violetSoft, ink: t.violet }),
+  (t) => ({ bg: t.blueSoft, ink: t.blue }),
+  (t) => ({ bg: t.accentSoft, ink: t.accentInk }),
+  (t) => ({ bg: t.warnSoft, ink: t.warnInk }),
+  (t) => ({ bg: t.coralSoft, ink: t.coral }),
+]
 
-export function groupEmoji(name: string): string {
-  return splitEmoji(name).icon || GROUP_EMOJI[name] || '📁'
-}
-
-export function categoryEmoji(name: string, group?: string): string {
-  const { icon } = splitEmoji(name)
-  return icon || CATEGORY_EMOJI[name.trim().toLowerCase()] || (group ? GROUP_EMOJI[group] : '') || '💰'
+export function categoryTint(name: string, tokens: TintTokens): { bg: string; ink: string } {
+  const text = splitEmoji(name).text
+  let hash = 0
+  for (let i = 0; i < text.length; i++) hash = (hash * 31 + text.charCodeAt(i)) >>> 0
+  return TINTS[hash % TINTS.length](tokens)
 }

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { addGroup, deleteGroup, getGroups, moveGroup, updateGroup } from '@/src/api/groups'
+import { addGroup, deleteGroup, getGroupIcons, getGroups, moveGroup, updateGroup } from '@/src/api/groups'
 import { readGroupCache, writeGroupCache } from '@/src/lib/groupCache'
 import { isTransportFailure } from '@/src/api/client'
 
@@ -32,6 +32,15 @@ export function useGroups() {
   return useQuery({ queryKey: key, queryFn: getGroupsAndCache, staleTime: 30_000 })
 }
 
+/** Picked group icons by name; a group missing here falls back to its emoji or name. */
+// ponytail: no offline cache, so offline a picked group icon falls back to its
+// emoji/name icon; add a groupIconCache beside groupCache if that matters.
+export function useGroupIcons(): Map<string, string> {
+  const { data } = useQuery({ queryKey: [...key, 'icons'], queryFn: getGroupIcons, staleTime: 30_000 })
+  return data ?? EMPTY_ICONS
+}
+const EMPTY_ICONS = new Map<string, string>()
+
 export function useAddGroup() {
   const qc = useQueryClient()
   return useMutation({
@@ -46,7 +55,8 @@ export function useAddGroup() {
 export function useUpdateGroup() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (params: { name: string; newName: string }) => updateGroup(params.name, params.newName),
+    mutationFn: (params: { name: string; newName?: string; icon?: string }) =>
+      updateGroup(params.name, { newName: params.newName, icon: params.icon }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: key })
       qc.invalidateQueries({ queryKey: categoriesKey })

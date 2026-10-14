@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { Text, TextInput, Pressable, StyleSheet } from 'react-native'
+import { TextInput, Pressable, StyleSheet } from 'react-native'
 import { Check } from '@/src/components/shared/icons'
 import Reanimated, {
   Easing,
@@ -12,25 +12,28 @@ import Reanimated, {
 import * as Haptics from 'expo-haptics'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
+import { CategoryIconPicker } from '@/src/components/shared/CategoryIconPicker'
+import { categoryTint } from '@/src/lib/emoji'
+import type { CategoryIconKey } from '@/src/lib/categoryIcons'
 
 const AnimatedPressable = Reanimated.createAnimatedComponent(Pressable)
 
-// SetupWizard.dc.html:301-304 — the group/category row: emoji picker button,
+// SetupWizard.dc.html:301-304 — the group/category row: icon picker tile,
 // name input, on/off toggle. Shared by the groups and categories steps.
 export function PickRow({
-  emoji,
+  icon,
   name,
   on,
   placeholder,
-  onPressEmoji,
+  onPickIcon,
   onChangeName,
   onToggle,
 }: {
-  emoji: string
+  icon: CategoryIconKey
   name: string
   on: boolean
   placeholder: string
-  onPressEmoji: () => void
+  onPickIcon: (icon: CategoryIconKey) => void
   onChangeName: (name: string) => void
   onToggle: () => void
 }) {
@@ -73,14 +76,7 @@ export function PickRow({
         rowStyle,
       ]}
     >
-      <Pressable
-        onPress={onPressEmoji}
-        accessibilityRole="button"
-        accessibilityLabel={`Change emoji for ${name || placeholder}`}
-        style={[styles.emojiBtn, { backgroundColor: tokens.inputBg, borderColor: tokens.border, opacity: on ? 1 : 0.55 }]}
-      >
-        <Text style={styles.emojiLabel}>{emoji}</Text>
-      </Pressable>
+      <CategoryIconPicker value={icon} onChange={onPickIcon} tint={categoryTint(name, tokens)}>
       <TextInput
         value={name}
         onChangeText={onChangeName}
@@ -120,15 +116,14 @@ export function PickRow({
           <Check size={16} color={tokens.onAccent} weight="bold" />
         </Reanimated.View>
       </AnimatedPressable>
+      </CategoryIconPicker>
     </Reanimated.View>
   )
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', gap: 11, paddingVertical: 11, paddingHorizontal: 13, borderRadius: 18, borderWidth: 1.5 },
-  emojiBtn: { width: 36, height: 36, borderRadius: 12, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  emojiLabel: { fontSize: 17 },
+  row: { paddingVertical: 11, paddingHorizontal: 13, borderRadius: 18, borderWidth: 1.5 },
   nameInput: { flex: 1, fontSize: 14, paddingVertical: 6, paddingHorizontal: 2 },
-  check: { width: 26, height: 26, borderRadius: 13, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  check: { alignSelf: 'center', width: 26, height: 26, borderRadius: 13, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
   checkIcon: { width: 16, height: 16, transformOrigin: 'left' },
 })

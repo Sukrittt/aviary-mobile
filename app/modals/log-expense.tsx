@@ -41,7 +41,8 @@ useUpdateExpense,
 } from "@/src/hooks/useExpenses";
 import { unusualAmount } from "@/src/lib/unusualAmount";
 import { todayLocal } from "@/src/lib/date";
-import { categoryEmoji,splitEmoji } from "@/src/lib/emoji";
+import { splitEmoji } from "@/src/lib/emoji";
+import { categoryIconKey } from "@/src/lib/categoryIcons";
 
 import { useOnline } from "@/src/lib/netStatus";
 import { useTheme } from "@/src/theme/ThemeProvider";
@@ -299,8 +300,8 @@ export default function LogExpenseScreen() {
     }
   }
 
-  const rollEmojis = useMemo(
-    () => [...new Set(categories.map((c) => categoryEmoji(c.name, c.group)).filter(Boolean))],
+  const rollIcons = useMemo(
+    () => [...new Set(categories.map((c) => categoryIconKey(c.name, c.icon, c.group)))],
     [categories],
   );
 
@@ -694,7 +695,7 @@ export default function LogExpenseScreen() {
                 ? {
                     // An edit can carry a category the loaded list lacks
                     // (renamed or deleted since); it still saves, so show it.
-                    emoji: categoryEmoji(category, selectedCategory?.group ?? ""),
+                    icon: categoryIconKey(category, selectedCategory?.icon, selectedCategory?.group),
                     name: splitEmoji(category).text,
                   }
                 : null
@@ -702,7 +703,7 @@ export default function LogExpenseScreen() {
             thinking={suggesting}
             auto={autoPicked}
             highlighted={flag("category")}
-            rollEmojis={rollEmojis}
+            rollIcons={rollIcons}
             onPress={() => setPickerOpen(true)}
           />
           </Nudge>

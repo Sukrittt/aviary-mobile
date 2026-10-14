@@ -2,9 +2,10 @@ import { useMemo, useState, type ReactNode } from 'react'
 import { View, Text, TextInput, Pressable, ScrollView, StyleSheet } from 'react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
-import { categoryEmoji, groupEmoji, splitEmoji } from '@/src/lib/emoji'
+import { splitEmoji } from '@/src/lib/emoji'
 import { useCategories } from '@/src/hooks/useCategories'
-import { useGroups } from '@/src/hooks/useGroups'
+import { useGroupIcons, useGroups } from '@/src/hooks/useGroups'
+import { CategoryIcon } from '@/src/components/shared/CategoryIcon'
 import { useRecentExpenses } from '@/src/hooks/useExpenses'
 import { useRecentCategories } from '@/src/hooks/useRecentCategories'
 import { deriveRecentsFromExpenses } from '@/src/lib/recentCategories'
@@ -52,6 +53,7 @@ export function CategoryPickerSheet({
   const { tokens } = useTheme()
   const categoriesQ = useCategories()
   const groupsQ = useGroups()
+  const groupIcons = useGroupIcons()
   const expensesQ = useRecentExpenses()
   const { recents, record } = useRecentCategories()
   const [search, setSearch] = useState('')
@@ -88,9 +90,9 @@ export function CategoryPickerSheet({
   // The device's own MRU once it has one; the expense history seeds it before
   // that (first launch after this shipped, or a fresh install).
   const recentNames = recents.length > 0 ? recents : deriveRecentsFromExpenses(expensesQ.data ?? EMPTY, categories)
-  const groupByName = useMemo(() => new Map(categories.map((c) => [c.name, c.group])), [categories])
+  const byName = useMemo(() => new Map(categories.map((c) => [c.name, c])), [categories])
   const recentCategories = recentNames
-    .filter((name) => groupByName.has(name))
+    .filter((name) => byName.has(name))
     .slice(0, MAX_RECENT_SHOWN)
   const showRecents = !search.trim() && categories.length >= RECENTS_MIN_CATEGORIES && recentCategories.length > 0
 
@@ -133,7 +135,9 @@ export function CategoryPickerSheet({
                 <Chip
                   key={name}
                   selected={value === name}
-                  icon={categoryEmoji(name, groupByName.get(name))}
+                  icon={(color) => (
+                    <CategoryIcon name={name} icon={byName.get(name)?.icon} group={byName.get(name)?.group} size={14} color={color} />
+                  )}
                   label={splitEmoji(name).text}
                   onPress={() => pick(name)}
                 />
@@ -145,9 +149,14 @@ export function CategoryPickerSheet({
           (group) =>
             group.items.length > 0 && (
               <View key={group.name || 'other'}>
-                <Text style={[styles.groupLabel, { color: tokens.text3, fontFamily: fontFamily.bodyBold }]}>
-                  {group.name ? `${groupEmoji(group.name)} ${splitEmoji(group.name).text}` : 'Other'}
-                </Text>
+                <View style={styles.groupLabelRow}>
+                  {group.name ? (
+                    <CategoryIcon kind="group" name={group.name} icon={groupIcons.get(group.name)} size={12} color={tokens.text3} />
+                  ) : null}
+                  <Text style={[styles.groupLabel, { color: tokens.text3, fontFamily: fontFamily.bodyBold }]}>
+                    {group.name ? splitEmoji(group.name).text : 'Other'}
+                  </Text>
+                </View>
                 <View style={[styles.groupItems, { borderLeftColor: tokens.border }]}>
                   {group.items.map((c, i) => (
                     <Pressable
@@ -159,8 +168,9 @@ export function CategoryPickerSheet({
                       ]}
                       onPress={() => pick(c.name)}
                     >
+                      <CategoryIcon name={c.name} icon={c.icon} group={group.name} size={16} color={tokens.text2} />
                       <Text style={[styles.optionText, { color: tokens.text, fontFamily: fontFamily.bodyMedium }]}>
-                        {categoryEmoji(c.name, group.name)} {splitEmoji(c.name).text}
+                        {splitEmoji(c.name).text}
                       </Text>
                     </Pressable>
                   ))}
@@ -184,10 +194,11 @@ const styles = StyleSheet.create({
   title: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8, textAlign: 'center' },
   search: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, fontSize: 13, marginBottom: 8 },
   scroll: { height: 420 },
-  option: { paddingVertical: 12, paddingHorizontal: 8, borderRadius: 12 },
+  option: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 12, paddingHorizontal: 8, borderRadius: 12 },
   noneOption: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14, paddingHorizontal: 16, borderRadius: 14, marginBottom: 4 },
   optionText: { fontSize: 14 },
-  groupLabel: { fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 12, marginBottom: 2, paddingHorizontal: 8 },
+  groupLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 12, marginBottom: 2, paddingHorizontal: 8 },
+  groupLabel: { fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5 },
   groupItems: { borderLeftWidth: StyleSheet.hairlineWidth, marginLeft: 8, paddingLeft: 4 },
   recentsSection: { marginBottom: 4 },
   recentsRow: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 8 },

@@ -25,6 +25,7 @@ jest.mock('@/src/lib/pendingExpenses', () => ({
 }))
 jest.mock('@/src/api/accessMode', () => ({ ...jest.requireActual('@/src/api/accessMode'), currentUserId: jest.fn(() => 'user_1') }))
 jest.mock('@/src/api/budgets', () => ({ getBudgets: jest.fn(async () => []) }))
+jest.mock('@/src/hooks/useCategories', () => ({ ...jest.requireActual('@/src/hooks/useCategories'), useCategoryIcons: () => new Map() }))
 jest.mock('expo-audio', () => ({ useAudioPlayer: () => ({ play: jest.fn(), pause: jest.fn() }) }))
 jest.mock('@/src/lib/reviewPrompt', () => ({ recordLogAndMaybeAsk: jest.fn(async () => false) }))
 
@@ -67,13 +68,9 @@ beforeEach(() => {
 })
 
 it('reads back what could not be saved', () => {
-  // Icon and text are separate Text nodes (not one "Milk · 🛒 Groceries"
-  // string) — a ZWJ+variation-selector emoji sharing a custom-font Text run
-  // with its label can make Android silently drop the rest of that run.
   const { getByText } = setup()
   expect(getByText("Couldn't add")).toBeTruthy()
   expect(getByText('₹450')).toBeTruthy()
-  expect(getByText('🛒')).toBeTruthy()
   expect(getByText('Milk · Groceries')).toBeTruthy()
 })
 

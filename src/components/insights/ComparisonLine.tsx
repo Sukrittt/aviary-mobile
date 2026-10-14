@@ -55,7 +55,7 @@ export function ComparisonLine({ comparison, hideAmounts = false }: Props) {
         </View>
       )
     } else {
-      const driverText = driver ? ` · ${driver.emoji ? `${driver.emoji} ` : ''}${driver.category} drove it` : ''
+      const driverText = driver ? ` · ${driver.category} drove it` : ''
       line2 = (
         <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 4 }}>
           {deltaIcon}

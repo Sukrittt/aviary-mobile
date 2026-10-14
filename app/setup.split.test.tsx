@@ -12,7 +12,7 @@ jest.mock('@/src/api/budgets', () => ({
   getBudgets: jest.fn(async () => []),
   updateBudget: jest.fn(async () => ({})),
 }))
-jest.mock('@/src/api/groups', () => ({ addGroup: jest.fn(async () => ({})) }))
+jest.mock('@/src/api/groups', () => ({ addGroup: jest.fn(async () => ({})), updateGroup: jest.fn(async () => ({})) }))
 jest.mock('@/src/api/categories', () => ({
   addCategory: jest.fn(async () => ({})),
   getSplitBuckets: jest.fn(async () => ({})),

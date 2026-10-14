@@ -5,7 +5,7 @@ import {
 } from './DonutChart'
 
 function segment(key: string, value: number): DonutSegment {
-  return { key, label: key, emoji: '', value, color: key }
+  return { key, label: key, value, color: key }
 }
 
 describe('donut layout transitions', () => {

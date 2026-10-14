@@ -4,7 +4,8 @@ import { PopIn } from "@/src/components/shared/PopIn";
 import { AmountText } from "@/src/components/ui/AmountText";
 import { Card } from "@/src/components/ui/Card";
 import { Chip } from "@/src/components/ui/Chip";
-import { categoryEmoji, splitEmoji } from "@/src/lib/emoji";
+import { splitEmoji } from "@/src/lib/emoji";
+import { CategoryIcon } from "@/src/components/shared/CategoryIcon";
 
 import {
   round2,
@@ -515,12 +516,7 @@ export function ScanReview({ tokens, space, radius, type, insets, setPhase, merc
         >
           {selectedCategory ? (
             <>
-              {/* Separate Text node, no custom fontFamily: a ZWJ+variation-selector
-                  emoji sharing one custom-font Text run with the label can make
-                  Android silently drop the rest of that run. */}
-              <Text style={{ color: tokens.text, fontSize: type.caption }}>
-                {categoryEmoji(selectedCategory.name, selectedCategory.group)}
-              </Text>
+              <CategoryIcon name={selectedCategory.name} icon={selectedCategory.icon} group={selectedCategory.group} size={type.caption} color={tokens.text} />
               <Text
                 numberOfLines={1}
                 style={{

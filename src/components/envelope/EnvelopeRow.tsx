@@ -5,6 +5,8 @@ import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 
 import { splitEmoji } from '@/src/lib/emoji'
+import { CATEGORY_ICON_COMPONENTS } from '@/src/components/shared/CategoryIcon'
+import type { CategoryIconKey } from '@/src/lib/categoryIcons'
 import { parseLocalDate, toLocalDateString } from '@/src/lib/date'
 import { ProgressBar } from './ProgressBar'
 import { BottomSheet } from '@/src/components/shared/Modal'
@@ -43,7 +45,7 @@ export function lastSpentLabel(iso: string | undefined): string {
 
 interface Props {
   envelope: Envelope
-  emoji: string
+  icon: CategoryIconKey
   hideAmounts: boolean
   /** Overrides the displayed name (used for the Credit Card Payment special envelope). */
   displayName?: string
@@ -61,7 +63,7 @@ interface Props {
 /** A single envelope row + its tap-to-open action sheet (move money / edit amount / view transactions). */
 export function EnvelopeRow({
   envelope,
-  emoji,
+  icon,
   hideAmounts,
   displayName,
   onMoveMoney,
@@ -85,6 +87,7 @@ export function EnvelopeRow({
   }, [onSheetOpenChange])
 
   const pill = availablePill(envelope, tokens)
+  const Icon = CATEGORY_ICON_COMPONENTS[icon]
   const name = displayName ?? splitEmoji(envelope.category).text
   // Spending with nothing assigned: "₹713/₹0" and "Used ∞" said nothing useful.
   const unbudgeted = envelope.assigned === 0 && envelope.spent > 0
@@ -93,7 +96,7 @@ export function EnvelopeRow({
     <View style={styles.row}>
       <Pressable style={styles.main} onPress={openSheet}>
         <View style={styles.topLine}>
-          <Text style={{ fontSize: 14 }}>{emoji}</Text>
+          <Icon size={14} color={tokens.text2} />
           <Text
             style={[styles.name, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}
             numberOfLines={1}

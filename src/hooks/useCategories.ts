@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { notifyManager, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   addCategory,
@@ -8,6 +9,7 @@ import {
 } from '@/src/api/categories'
 import type { CategoryRow } from '@/src/types'
 import { track } from '@/src/lib/analytics'
+import { categoryIconKey } from '@/src/lib/categoryIcons'
 import { readCategoryCache, writeCategoryCache } from '@/src/lib/categoryCache'
 import { isTransportFailure } from '@/src/api/client'
 
@@ -78,10 +80,19 @@ export function useCategories() {
   return useQuery({ queryKey: key, queryFn: getCategoriesAndCache, staleTime: 30_000 })
 }
 
+/**
+ * Each category's resolved icon by name (picked icon, else emoji, name, then
+ * group), for rows that only carry a category name and so can't see the group.
+ */
+export function useCategoryIcons(): Map<string, string> {
+  const { data } = useCategories()
+  return useMemo(() => new Map((data ?? []).map((c) => [c.name, categoryIconKey(c.name, c.icon, c.group)])), [data])
+}
+
 export function useAddCategory() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (params: { name: string; group?: string }) => addCategory(params.name, params.group),
+    mutationFn: (params: { name: string; group?: string; icon?: string }) => addCategory(params.name, params.group, params.icon),
     onSuccess: (_data, params) => {
       // Envelopes get created from two places: the setup wizard and the
       // inline "new category" row inside log-expense. $screen_name tells them
@@ -95,7 +106,7 @@ export function useAddCategory() {
 export function useUpdateCategory() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (params: { name: string; updates: { newName?: string; group?: string; alertPcts?: number[] | null } }) =>
+    mutationFn: (params: { name: string; updates: { newName?: string; group?: string; alertPcts?: number[] | null; icon?: string } }) =>
       updateCategory(params.name, params.updates),
     onSuccess: async (_data, { name, updates }) => {
       const newName = updates.newName
@@ -115,6 +126,7 @@ export function useUpdateCategory() {
             ...row,
             name: newName,
             ...(updates.group !== undefined ? { group: updates.group } : {}),
+            ...(updates.icon !== undefined ? { icon: updates.icon } : {}),
             ...(updates.alertPcts !== undefined ? {
               alertPcts: updates.alertPcts === null ? undefined : [...updates.alertPcts].sort((a, b) => a - b),
             } : {}),

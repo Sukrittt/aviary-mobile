@@ -12,6 +12,7 @@ import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { formatDateShort } from '@/src/lib/format'
 import { splitEmoji } from '@/src/lib/emoji'
+import { CategoryIcon } from '@/src/components/shared/CategoryIcon'
 import type { RecapSlide } from './slides'
 
 /**
@@ -202,10 +203,9 @@ function CategoryBars({ categories, ink, money, total }: { categories: NonNullab
   const rest = Math.max(0, total - categories.reduce((s, c) => s + c.total, 0))
   const parts = [
     ...categories.map((c, i) => {
-      const { icon, text } = splitEmoji(c.category)
-      return { key: c.category, label: `${icon ? `${icon} ` : ''}${text || c.category}`, amount: c.total, opacity: shades[i] }
+      return { key: c.category, label: splitEmoji(c.category).text || c.category, amount: c.total, opacity: shades[i], isCategory: true }
     }),
-    ...(rest > 0 ? [{ key: '__rest', label: 'Everything else', amount: rest, opacity: 0.16 }] : []),
+    ...(rest > 0 ? [{ key: '__rest', label: 'Everything else', amount: rest, opacity: 0.16, isCategory: false }] : []),
   ]
   return (
     <View style={styles.bars}>
@@ -218,6 +218,7 @@ function CategoryBars({ categories, ink, money, total }: { categories: NonNullab
         {parts.map((p, i) => (
           <WRise key={p.key} delay={450 + i * 110} style={styles.legendRow}>
             <View style={[styles.legendDot, { backgroundColor: ink, opacity: Math.max(p.opacity, 0.3) }]} />
+            {p.isCategory && <CategoryIcon name={p.key} size={14} color={ink} />}
             <Text style={[styles.barLabel, { color: ink }]} numberOfLines={1}>{p.label}</Text>
             <Text style={[styles.barValue, { color: ink }]}>{money(p.amount)} · {Math.round((p.amount / total) * 100)}%</Text>
           </WRise>
@@ -228,10 +229,10 @@ function CategoryBars({ categories, ink, money, total }: { categories: NonNullab
 }
 
 function Receipt({ biggest, accent, money }: { biggest: NonNullable<WeekRecap['biggest']>; accent: string; money: (n: number) => string }) {
-  const { text, icon } = splitEmoji(biggest.category)
+  const { text } = splitEmoji(biggest.category)
   const rows: [string, string][] = [
     ['Item', biggest.item],
-    ['Category', `${icon ? `${icon} ` : ''}${text || biggest.category}`],
+    ['Category', text || biggest.category],
     ['Date', formatDateShort(biggest.date)],
   ]
   return (
@@ -241,7 +242,10 @@ function Receipt({ biggest, accent, money }: { biggest: NonNullable<WeekRecap['b
         {rows.map(([label, value]) => (
           <View key={label} style={styles.receiptRow}>
             <Text style={styles.receiptLabel}>{label}</Text>
-            <Text style={styles.receiptValue} numberOfLines={1}>{value}</Text>
+            <View style={styles.receiptValueRow}>
+              {label === 'Category' && <CategoryIcon name={biggest.category} size={15} color={RECEIPT_INK} />}
+              <Text style={styles.receiptValue} numberOfLines={1}>{value}</Text>
+            </View>
           </View>
         ))}
         <View style={styles.receiptRule} />
@@ -290,6 +294,7 @@ const styles = StyleSheet.create({
   receiptHead: { fontSize: 12, letterSpacing: 2, fontFamily: fontFamily.bodyBlack, marginBottom: 4 },
   receiptRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 16 },
   receiptLabel: { fontSize: 14, color: `${RECEIPT_INK}99`, fontFamily: fontFamily.bodySemiBold },
+  receiptValueRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 },
   receiptValue: { flexShrink: 1, fontSize: 16, color: RECEIPT_INK, fontFamily: fontFamily.bodyBold },
   receiptRule: { borderTopWidth: 2, borderStyle: 'dashed', borderColor: `${RECEIPT_INK}33`, marginVertical: 4 },
   receiptTotalLabel: { color: RECEIPT_INK, fontFamily: fontFamily.bodyBlack },

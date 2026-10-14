@@ -1,6 +1,8 @@
+import type { ReactNode } from "react";
 import {
   Pressable,
   Text,
+  View,
   StyleSheet,
   type ViewStyle,
   type StyleProp,
@@ -28,7 +30,8 @@ export function Chip({
   onAccent,
   style,
 }: {
-  icon?: string;
+  /** An emoji, or a render function handed the chip's current text colour. */
+  icon?: string | ((color: string) => ReactNode);
   label: string;
   selected?: boolean;
   onPress: () => void;
@@ -81,7 +84,9 @@ export function Chip({
         style,
       ]}
     >
-      {icon ? (
+      {typeof icon === "function" ? (
+        <View style={{ marginRight: space.xs }}>{icon(fg)}</View>
+      ) : icon ? (
         // Separate Text node, no custom fontFamily: a ZWJ+variation-selector emoji
         // (e.g. person + gender modifier) sharing one custom-font Text run with the
         // label can make Android silently drop the rest of that run.

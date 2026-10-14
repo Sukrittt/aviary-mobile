@@ -32,8 +32,11 @@ import {
   useDeleteCategory,
   useMoveCategory,
 } from '@/src/hooks/useCategories'
-import { useGroups, useAddGroup, useUpdateGroup, useDeleteGroup, useMoveGroup } from '@/src/hooks/useGroups'
-import { groupEmoji, categoryEmoji, splitEmoji } from '@/src/lib/emoji'
+import { useGroups, useGroupIcons, useAddGroup, useUpdateGroup, useDeleteGroup, useMoveGroup } from '@/src/hooks/useGroups'
+import { categoryTint, splitEmoji } from '@/src/lib/emoji'
+import { categoryIconKey, groupIconKey, type CategoryIconKey } from '@/src/lib/categoryIcons'
+import { CategoryIcon } from '@/src/components/shared/CategoryIcon'
+import { CategoryIconPicker } from '@/src/components/shared/CategoryIconPicker'
 import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { BottomSheet } from '@/src/components/shared/Modal'
@@ -240,8 +243,8 @@ function DraggableCategoryList({
             ]}
           >
             <Pressable style={styles.catRowMain} onPress={() => onMenu(cat.name)}>
-              <View style={[styles.catIconChip, { backgroundColor: tokens.inputBg }]}>
-                <Text style={{ fontSize: 12 }}>{categoryEmoji(cat.name, group)}</Text>
+              <View style={[styles.catIconChip, { backgroundColor: categoryTint(cat.name, tokens).bg }]}>
+                <CategoryIcon name={cat.name} icon={cat.icon} group={group} size={14} color={categoryTint(cat.name, tokens).ink} />
               </View>
               <Text
                 style={[styles.catName, { color: tokens.text, fontFamily: fontFamily.bodyBold }]}
@@ -501,6 +504,7 @@ export default function EnvelopesScreen() {
 
   const categoriesQ = useCategories()
   const groupsQ = useGroups()
+  const groupIcons = useGroupIcons()
   const addCategory = useAddCategory()
   const updateCategory = useUpdateCategory()
   const deleteCategory = useDeleteCategory()
@@ -517,6 +521,8 @@ export default function EnvelopesScreen() {
   const [deleteTarget, setDeleteTarget] = useState<{ kind: 'category' | 'group'; name: string } | null>(null)
   const [draftName, setDraftName] = useState('')
   const [draftGroup, setDraftGroup] = useState('')
+  // Null until the user picks one: a new category's icon follows its name.
+  const [pickedIcon, setPickedIcon] = useState<CategoryIconKey | null>(null)
   const [draftAlertPcts, setDraftAlertPcts] = useState<number[]>(DEFAULT_ALERT_PCTS)
   const [customAlertInput, setCustomAlertInput] = useState('')
   const [sheetError, setSheetError] = useState('')
@@ -651,6 +657,7 @@ export default function EnvelopesScreen() {
   function openAddCategory(group = '') {
     setDraftName('')
     setDraftGroup(group)
+    setPickedIcon(null)
     setDraftAlertPcts(DEFAULT_ALERT_PCTS)
     setCustomAlertInput('')
     setSheetError('')
@@ -658,8 +665,11 @@ export default function EnvelopesScreen() {
   }
   function openRenameCategory(name: string) {
     const cat = categories.find((c) => c.name === name)
-    setDraftName(name)
+    // Renames edit the words only. A legacy name's leading emoji stays on the
+    // stored name and submitSheet puts it back.
+    setDraftName(splitEmoji(name).text)
     setDraftGroup(cat?.group ?? '')
+    setPickedIcon(categoryIconKey(name, cat?.icon, cat?.group))
     setDraftAlertPcts(cat?.alertPcts ? sortedPcts(cat.alertPcts) : DEFAULT_ALERT_PCTS)
     setCustomAlertInput('')
     setSheetError('')
@@ -687,9 +697,15 @@ export default function EnvelopesScreen() {
     setSheet({ kind: 'addGroup' })
   }
   function openRenameGroup(name: string) {
-    setDraftName(name)
+    setDraftName(splitEmoji(name).text)
+    setPickedIcon(groupIconKey(name, groupIcons.get(name)))
     setSheetError('')
     setSheet({ kind: 'renameGroup', name })
+  }
+  /** The stored name for draft text: the old name's emoji, if any, then the words. */
+  function withOldEmoji(oldName: string, text: string) {
+    const { icon } = splitEmoji(oldName)
+    return icon ? `${icon} ${text}` : text
   }
   function closeSheet() {
     setSheet(null)
@@ -713,14 +729,16 @@ export default function EnvelopesScreen() {
     if (!composed) return
     try {
       if (sheet.kind === 'addCategory') {
-        await addCategory.mutateAsync({ name: composed, group: draftGroup })
+        await addCategory.mutateAsync({ name: composed, group: draftGroup, icon: draftIcon })
       } else if (sheet.kind === 'renameCategory') {
         const current = categories.find((c) => c.name === sheet.name)
         const currentGroup = current?.group ?? ''
         const currentAlertPcts = current?.alertPcts ? sortedPcts(current.alertPcts) : DEFAULT_ALERT_PCTS
         const sortedDraft = sortedPcts(draftAlertPcts)
-        const updates: { newName?: string; group?: string; alertPcts?: number[] | null } = {}
-        if (composed !== sheet.name) updates.newName = composed
+        const updates: { newName?: string; group?: string; alertPcts?: number[] | null; icon?: string } = {}
+        const newName = withOldEmoji(sheet.name, composed)
+        if (newName !== sheet.name) updates.newName = newName
+        if (draftIcon !== categoryIconKey(sheet.name, current?.icon, currentGroup)) updates.icon = draftIcon
         if (draftGroup !== currentGroup) updates.group = draftGroup
         if (!pctArraysEqual(sortedDraft, currentAlertPcts)) {
           updates.alertPcts = pctArraysEqual(sortedDraft, DEFAULT_ALERT_PCTS) ? null : sortedDraft
@@ -731,8 +749,14 @@ export default function EnvelopesScreen() {
       } else if (sheet.kind === 'addGroup') {
         await addGroup.mutateAsync(composed)
       } else {
-        if (composed !== sheet.name) {
-          await updateGroup.mutateAsync({ name: sheet.name, newName: composed })
+        const newName = withOldEmoji(sheet.name, composed)
+        const iconChanged = draftIcon !== groupIconKey(sheet.name, groupIcons.get(sheet.name))
+        if (newName !== sheet.name || iconChanged) {
+          await updateGroup.mutateAsync({
+            name: sheet.name,
+            ...(newName !== sheet.name ? { newName } : {}),
+            ...(iconChanged ? { icon: draftIcon } : {}),
+          })
         }
       }
       setSheetSuccess(true)
@@ -797,8 +821,7 @@ export default function EnvelopesScreen() {
 
   const isCatSheet = sheet?.kind === 'addCategory' || sheet?.kind === 'renameCategory'
   const isRenameSheet = sheet?.kind === 'renameCategory' || sheet?.kind === 'renameGroup'
-  const previewIcon = isCatSheet ? categoryEmoji(draftName, draftGroup) : groupEmoji(draftName)
-  const draftHasEmoji = splitEmoji(draftName).icon !== ''
+  const draftIcon: CategoryIconKey = pickedIcon ?? categoryIconKey(draftName, undefined, draftGroup)
   const sheetTitle =
     sheet?.kind === 'addCategory'
       ? 'Add category'
@@ -810,6 +833,19 @@ export default function EnvelopesScreen() {
   const sheetHint = isCatSheet
     ? 'Categories live inside a group. Pick where this one belongs.'
     : 'Groups gather related categories: Food, Home, Transport.'
+  const nameInput = (
+    <TextInput
+      style={[styles.input, { backgroundColor: tokens.inputBg, borderColor: tokens.borderStrong, color: tokens.text }]}
+      value={draftName}
+      onChangeText={setDraftName}
+      placeholder={isCatSheet ? 'Groceries, fuel, gym…' : 'Transport, Health…'}
+      placeholderTextColor={tokens.text3}
+      accessibilityLabel="Name"
+      autoFocus
+      returnKeyType="done"
+      onSubmitEditing={submitSheet}
+    />
+  )
   const draftValid = draftName.trim().length > 0
   const saveLabel = submitting ? 'Saving…' : isCatSheet ? (isRenameSheet ? 'Save' : 'Add category') : isRenameSheet ? 'Save' : 'Create group'
 
@@ -892,7 +928,7 @@ export default function EnvelopesScreen() {
                         <GroupChevron collapsed={collapsed} color={tokens.text3} />
                       </Pressable>
                       <View style={[styles.avatarChip, { backgroundColor: tokens.accentSoft }]}>
-                        <Text style={{ fontSize: 16 }}>{name ? groupEmoji(name) : '📁'}</Text>
+                        <CategoryIcon kind="group" name={name} icon={groupIcons.get(name)} size={18} color={tokens.accentInk} />
                       </View>
                       <View style={styles.groupHeaderLeft}>
                         <Text
@@ -976,25 +1012,22 @@ export default function EnvelopesScreen() {
         <Text style={{ color: tokens.text2, fontSize: 12, marginTop: 4, lineHeight: 17 }}>{sheetHint}</Text>
 
         <Text style={[styles.sectionLabel, { color: tokens.text3 }]}>NAME</Text>
-        <View style={styles.nameRow}>
-          <View style={[styles.iconSwatch, { backgroundColor: tokens.inputBg, borderColor: tokens.borderStrong }]}>
-            <Text style={{ fontSize: 22 }}>{previewIcon}</Text>
+        {sheet?.kind === 'addGroup' ? (
+          <View style={styles.nameRow}>
+            <View style={[styles.iconSwatch, { backgroundColor: tokens.inputBg, borderColor: tokens.borderStrong }]}>
+              <CategoryIcon kind="group" name={draftName} size={24} color={tokens.text2} />
+            </View>
+            {nameInput}
           </View>
-          <TextInput
-            style={[styles.input, { backgroundColor: tokens.inputBg, borderColor: tokens.borderStrong, color: tokens.text }]}
-            value={draftName}
-            onChangeText={setDraftName}
-            placeholder={isCatSheet ? 'Groceries, fuel, gym…' : 'Transport, Health…'}
-            placeholderTextColor={tokens.text3}
-            autoFocus
-            returnKeyType="done"
-            onSubmitEditing={submitSheet}
-          />
-        </View>
-        {draftName.trim() !== '' && !draftHasEmoji && (
-          <Text style={{ color: tokens.text3, fontSize: 11, marginTop: 6, lineHeight: 15 }}>
-            💡 Tip: start the name with an emoji, like {isCatSheet ? '🛒 Groceries' : '🚗 Transport'}, to give it its own icon.
-          </Text>
+        ) : (
+          <CategoryIconPicker
+            value={draftIcon}
+            onChange={setPickedIcon}
+            tint={categoryTint(draftName, tokens)}
+            disabled={submitting}
+          >
+            {nameInput}
+          </CategoryIconPicker>
         )}
 
         {isCatSheet && (
@@ -1033,7 +1066,7 @@ export default function EnvelopesScreen() {
                     },
                   ]}
                 >
-                  <Text style={{ fontSize: 13 }}>{groupEmoji(g)}</Text>
+                  <CategoryIcon kind="group" name={g} icon={groupIcons.get(g)} size={14} color={draftGroup === g ? tokens.onAccent : tokens.text2} />
                   <Text
                     style={{
                       color: draftGroup === g ? tokens.onAccent : tokens.text2,
