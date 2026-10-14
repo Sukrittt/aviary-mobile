@@ -10,7 +10,6 @@ import { CaretRight, ChartLine, MoneyWavy } from '@/src/components/shared/icons'
 import Reanimated, { FadeIn, FadeInDown, FadeOut, LinearTransition } from 'react-native-reanimated'
 import * as Haptics from 'expo-haptics'
 import { rippleHaptic, tap } from '@/src/lib/haptics'
-import { AnimatedTabContent } from '@/src/components/nav/AnimatedTabContent'
 import { Icon } from '@/src/components/shared/Icon'
 import { SlideStrip } from '@/src/components/shared/SlideStrip'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
@@ -310,7 +309,7 @@ export default function HomeScreen() {
   }
 
   return (
-    <AnimatedTabContent>
+    <>
       <Screen
         title={
           <Pressable
@@ -632,7 +631,7 @@ export default function HomeScreen() {
           </Pressable>
         ))}
       </BottomSheet>
-    </AnimatedTabContent>
+    </>
   )
 }
 

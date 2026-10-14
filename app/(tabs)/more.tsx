@@ -8,7 +8,6 @@ import { requestPinWidget } from 'react-native-android-widget'
 import * as ImagePicker from 'expo-image-picker'
 import * as Haptics from 'expo-haptics'
 import { Gift, Brain, Wallet, Bank, TrendUp, Lock, Database, Archive, Repeat, CreditCard, ChatCircle, SquaresFour, CaretRight, Scan, Camera, Images, FileText, Receipt, ChartLine, ClockCounterClockwise, Plus, type PhosphorIcon } from '@/src/components/shared/icons'
-import { AnimatedTabContent } from '@/src/components/nav/AnimatedTabContent'
 import { Screen } from '@/src/components/ui/Screen'
 import { Alert } from '@/src/components/ui/AlertHost'
 import { useTheme } from '@/src/theme/ThemeProvider'
@@ -177,7 +176,7 @@ export default function MoreScreen() {
   const extrasOff = OPT_IN_FEATURES.filter((k) => isHidden(user, k)).length
 
   return (
-    <AnimatedTabContent>
+    <>
       <Screen
         title="You"
         contentContainerStyle={styles.container}
@@ -523,7 +522,7 @@ export default function MoreScreen() {
           </Pressable>
         </View>
       </BottomSheet>
-    </AnimatedTabContent>
+    </>
   )
 }
 

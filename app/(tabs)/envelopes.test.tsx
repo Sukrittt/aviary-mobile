@@ -29,7 +29,6 @@ jest.mock('@/src/hooks/useCollapsedGroups', () => ({
 jest.mock('@/src/theme/ThemeProvider', () => ({ useTheme: () => ({ tokens: jest.requireActual('@/src/theme/tokens').darkTokens, ...jest.requireActual('@/src/theme/scale') }) }))
 jest.mock('@/src/hooks/useRefresh', () => ({ useRefresh: () => ({ refreshing: false, onRefresh: jest.fn() }) }))
 jest.mock('@/src/lib/netStatus', () => ({ useOnline: () => true }))
-jest.mock('@/src/components/nav/AnimatedTabContent', () => ({ AnimatedTabContent: ({ children }: any) => children }))
 jest.mock('@/src/components/ui/Screen', () => ({ Screen: ({ children }: any) => children, useNavPadding: () => 0 }))
 jest.mock('@/src/components/shared/Modal', () => ({ BottomSheet: () => null }))
 jest.mock('react-native-gesture-handler', () => ({

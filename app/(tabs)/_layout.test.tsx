@@ -9,7 +9,8 @@ jest.mock('expo-router', () => ({
   usePathname: () => mockPathname,
   useNavigation: () => ({ getState: () => ({ routes: mockRoutes }), addListener: () => () => {} }),
 }))
-jest.mock('expo-router/js-tabs', () => ({ Tabs: Object.assign(function Tabs() { return null }, { Screen: function Screen() { return null } }) }))
+const mockTabs = jest.fn((_props: { screenOptions?: { animation?: string } }) => null)
+jest.mock('expo-router/js-tabs', () => ({ Tabs: Object.assign((props: { screenOptions?: { animation?: string } }) => mockTabs(props), { Screen: function Screen() { return null } }) }))
 jest.mock('@/src/hooks/useHabitNudges', () => ({ useHabitNudges: () => {} }))
 jest.mock('@/src/features/week-recap/useWeekRecap', () => ({ useWeekRecapGate: () => {} }))
 jest.mock('@/src/features/changelog/useChangelogGate', () => ({ useChangelogGate: () => {} }))
@@ -33,4 +34,9 @@ it('stays hidden when signing out drops the tabs from the stack', () => {
   mockRoutes = [{ name: '(auth)/welcome' }]
   view.rerender(<TabsLayout />)
   expect(tabsNavCover.value).toBe(0)
+})
+
+it('switches tabs instantly, with no fade between them', () => {
+  render(<TabsLayout />, { wrapper: ThemeProvider })
+  expect(mockTabs.mock.calls[0][0].screenOptions?.animation).toBe('none')
 })

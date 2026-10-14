@@ -105,7 +105,6 @@ jest.mock('expo-router', () => ({
 }))
 
 // Its own focus re-render is cheap and not what the tab-switch test measures.
-jest.mock('@/src/components/nav/AnimatedTabContent', () => ({ AnimatedTabContent: ({ children }: any) => children }))
 
 function renderHome() {
   return renderWithProviders(<HomeScreen />)
