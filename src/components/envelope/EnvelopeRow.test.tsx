@@ -25,7 +25,7 @@ const row = (e: Partial<Envelope>) =>
   renderWithProviders(
     <EnvelopeRow
       envelope={{ category: 'Football', group: '', assigned: 0, spent: 0, available: 0, rolledOver: 0, isOverspent: false, spentPct: 0, isCreditCardPayment: false, ...e }}
-      emoji="⚽"
+      icon="SoccerBall"
       hideAmounts={false}
       onMoveMoney={jest.fn()}
       onEditAmount={jest.fn()}

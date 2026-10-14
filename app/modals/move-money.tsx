@@ -11,7 +11,9 @@ import { useCategories } from '@/src/hooks/useCategories'
 import { useRecentExpenses } from '@/src/hooks/useExpenses'
 import { useGroups } from '@/src/hooks/useGroups'
 import { EMPTY } from '@/src/lib/constants'
-import { categoryEmoji,splitEmoji } from '@/src/lib/emoji'
+import { categoryTint, splitEmoji } from '@/src/lib/emoji'
+import { categoryIconKey, type CategoryIconKey } from '@/src/lib/categoryIcons'
+import { CATEGORY_ICON_COMPONENTS, CategoryIcon } from '@/src/components/shared/CategoryIcon'
 import { computeEnvelopeState,currentMonthKey } from '@/src/lib/envelope'
 
 import { fontFamily } from '@/src/theme/fonts'
@@ -47,7 +49,7 @@ function str(v: string | string[] | undefined): string {
 interface SourceItem {
   key: string
   name: string
-  emoji: string
+  icon: CategoryIconKey
   available: number
   /** Higher = safer to borrow from. Ready to Assign is unallocated money, so
    * it always ranks first. Everything else is available/assigned — mirrors
@@ -77,6 +79,7 @@ export default function MoveMoneyModal() {
   const budgets = budgetsQ.data ?? EMPTY
   const expenses = expensesQ.data ?? EMPTY
   const categories = categoriesQ.data ?? EMPTY
+  const iconByName = useMemo(() => new Map(categories.map((c) => [c.name, c.icon])), [categories])
   const groups = groupsQ.data ?? EMPTY
   const month = useMemo(() => currentMonthKey(), [])
 
@@ -119,19 +122,19 @@ export default function MoveMoneyModal() {
   const sources = useMemo<SourceItem[]>(() => {
     const items: SourceItem[] = []
     if (readyToAssign > 0) {
-      items.push({ key: RTA_SENTINEL, name: 'Ready to Assign', emoji: '💰', available: readyToAssign, score: Infinity })
+      items.push({ key: RTA_SENTINEL, name: 'Ready to Assign', icon: 'Coins', available: readyToAssign, score: Infinity })
     }
     for (const e of envelopeSources) {
       items.push({
         key: e.category,
         name: splitEmoji(e.category).text,
-        emoji: categoryEmoji(e.category, e.group),
+        icon: categoryIconKey(e.category, iconByName.get(e.category), e.group),
         available: e.available,
         score: e.assigned > 0 ? e.available / e.assigned : 1,
       })
     }
     return items.sort((a, b) => b.score - a.score)
-  }, [readyToAssign, envelopeSources])
+  }, [readyToAssign, envelopeSources, iconByName])
 
   const pickedRows = sources.filter((s) => s.key in allocs)
   const q = query.trim().toLowerCase()
@@ -268,6 +271,7 @@ export default function MoveMoneyModal() {
           </Text>
           <DestinationCard
             targetCategoryName={targetCategoryName}
+            targetIcon={iconByName.get(targetCategoryName)}
             targetAvail={targetAvail}
             isOverspent={isOverspent}
             shortfall={shortfall}
@@ -491,6 +495,7 @@ export default function MoveMoneyModal() {
 
 function DestinationCard({
   targetCategoryName,
+  targetIcon,
   targetAvail,
   isOverspent,
   shortfall,
@@ -501,6 +506,7 @@ function DestinationCard({
   type,
 }: {
   targetCategoryName: string
+  targetIcon: string | undefined
   targetAvail: number
   isOverspent: boolean
   shortfall: number
@@ -512,11 +518,12 @@ function DestinationCard({
 }) {
   const { formatCurrency } = useCurrency()
 
-  const { icon, text } = splitEmoji(targetCategoryName)
+  const { text } = splitEmoji(targetCategoryName)
+  const tint = categoryTint(targetCategoryName, tokens)
   return (
     <View style={[styles.destCard, { backgroundColor: tokens.card, borderColor: tokens.border, borderRadius: radius.lg, padding: space.md, gap: space.md }]}>
-      <View style={[styles.destIcon, { backgroundColor: tokens.accentSoft, borderRadius: radius.md }]}>
-        <Text style={{ fontSize: type.title }}>{icon || categoryEmoji(targetCategoryName)}</Text>
+      <View style={[styles.destIcon, { backgroundColor: tint.bg, borderRadius: radius.md }]}>
+        <CategoryIcon name={targetCategoryName} icon={targetIcon} size={type.title} color={tint.ink} />
       </View>
       <View style={{ flex: 1, gap: 2 }}>
         <Text style={[styles.destLabel, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold, fontSize: type.micro }]}>MOVING TO</Text>
@@ -604,7 +611,7 @@ function PickedSourceRow({
           amount sits in a compact white field instead of a full-width bar. */}
       <View style={[styles.sourceRow, styles.sourceRowTop, { backgroundColor: tokens.accentSoft, borderColor: tokens.accent, borderRadius: radius.lg, padding: space.md }]}>
         <View style={[styles.sourceIcon, { backgroundColor: tokens.card, borderRadius: radius.sm }]}>
-          <Text style={{ fontSize: type.body }}>{item.emoji}</Text>
+          <SourceIcon icon={item.icon} size={type.body} color={tokens.text2} />
         </View>
         <View style={{ flex: 1, gap: 2 }}>
           <Text style={{ color: tokens.text, fontFamily: fontFamily.bodyBold, fontSize: type.caption }} numberOfLines={1}>
@@ -659,7 +666,7 @@ function PoolSourceRow({
         style={[styles.sourceRow, styles.sourceRowTop, { backgroundColor: tokens.card, borderColor: tokens.border, borderRadius: radius.lg, padding: space.md }]}
       >
         <View style={[styles.sourceIcon, { backgroundColor: tokens.inputBg, borderRadius: radius.sm }]}>
-          <Text style={{ fontSize: type.body }}>{item.emoji}</Text>
+          <SourceIcon icon={item.icon} size={type.body} color={tokens.text2} />
         </View>
         <Text style={{ flex: 1, color: tokens.text, fontFamily: fontFamily.bodyBold, fontSize: type.caption }} numberOfLines={1}>
           {item.name}
@@ -719,3 +726,8 @@ const styles = StyleSheet.create({
   allocInputRow: { flexDirection: 'row', alignItems: 'center', width: 104, height: 40, borderWidth: 1, gap: 4 },
   allocInput: { flex: 1, padding: 0, textAlign: 'right' },
 })
+
+function SourceIcon({ icon, size, color }: { icon: CategoryIconKey; size: number; color: string }) {
+  const Icon = CATEGORY_ICON_COMPONENTS[icon]
+  return <Icon size={size} color={color} />
+}

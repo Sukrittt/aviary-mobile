@@ -20,7 +20,6 @@ import { useRouter, useLocalSearchParams, useFocusEffect, type Href } from "expo
 import * as Haptics from "expo-haptics";
 import { CaretLeft, CaretRight, SlidersHorizontal, Trash, X } from "@/src/components/shared/icons";
 import Reanimated, { FadeIn, FadeOut, LinearTransition } from "react-native-reanimated";
-import type { ThemeTokens } from "@/src/theme/tokens";
 import { AnimatedTabContent } from "@/src/components/nav/AnimatedTabContent";
 import { Screen } from "@/src/components/ui/Screen";
 import { Chip } from "@/src/components/ui/Chip";
@@ -30,7 +29,8 @@ import { useTheme } from "@/src/theme/ThemeProvider";
 import { usePrivacy } from "@/src/context/PrivacyContext";
 import { fontFamily } from "@/src/theme/fonts";
 
-import { categoryEmoji, splitEmoji } from "@/src/lib/emoji";
+import { categoryTint, splitEmoji } from "@/src/lib/emoji";
+import { CategoryIcon } from "@/src/components/shared/CategoryIcon";
 import {
   useExpensesPage,
   useDeleteExpense,
@@ -101,25 +101,6 @@ function formatRangeFilter(range: DateRange): string | null {
   return null;
 }
 
-// Category avatars cycle through the existing soft-hue tokens (hash of the name) so
-// the flat list reads with the same varied-but-controlled color as Slice's own rows,
-// without inventing a new palette.
-const AVATAR_HUES: ((t: ThemeTokens) => string)[] = [
-  (t) => t.mintSoft,
-  (t) => t.violetSoft,
-  (t) => t.blueSoft,
-  (t) => t.accentSoft,
-  (t) => t.warnSoft,
-  (t) => t.coralSoft,
-];
-
-function avatarColorFor(name: string, tokens: ThemeTokens): string {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++)
-    hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
-  return AVATAR_HUES[hash % AVATAR_HUES.length](tokens);
-}
-
 // Id first: two same-item rows logged in the same second share a timestamp,
 // and selecting (or rendering) one must not stand in for both.
 function keyOf(t: ExpenseRow): string {
@@ -136,6 +117,10 @@ export default function ActivityScreen() {
   const online = useOnline();
 
   const categoriesQ = useCategories();
+  const categoryByName = useMemo(
+    () => new Map((categoriesQ.data ?? []).map((c) => [c.name, c])),
+    [categoriesQ.data],
+  );
   const deleteExpense = useDeleteExpense();
   const duplicateCount = useDuplicates().data?.length ?? 0;
   const [deleteNotice, setDeleteNotice] = useState<{ status?: number } | null>(null);
@@ -222,9 +207,7 @@ export default function ActivityScreen() {
     if (period === "custom") return formatRangeFilter(customRange);
     return null;
   }, [customRange, period, selectedDate]);
-  const categoryFilterLabel = selectedCategory
-    ? `${categoryEmoji(selectedCategory)} ${splitEmoji(selectedCategory).text}`
-    : null;
+  const categoryFilterLabel = selectedCategory ? splitEmoji(selectedCategory).text : null;
   const accountFilterLabel = selectedAccount ? accountName(accountsQ.data, selectedAccount) || "Account" : null;
   const hasActiveFilters = Boolean(timeFilterLabel || categoryFilterLabel || accountFilterLabel);
 
@@ -694,7 +677,8 @@ export default function ActivityScreen() {
                 );
               }
               const txn = entry.txn;
-              const avatarBg = avatarColorFor(txn.category, tokens);
+              const tint = categoryTint(txn.category, tokens);
+              const cat = categoryByName.get(txn.category);
               const isSelected = selectedKeys.has(keyOf(txn));
               const content = (
                 <Pressable
@@ -708,10 +692,8 @@ export default function ActivityScreen() {
                 >
                   <SelectTint selected={isSelected} style={styles.rowTint} />
                   <SelectCheck selecting={selecting} selected={isSelected} gap={ROW_GAP} inset={SELECT_INSET} />
-                  <View style={[styles.icon, { backgroundColor: avatarBg }]}>
-                    <Text style={{ fontSize: 15 }}>
-                      {categoryEmoji(txn.category)}
-                    </Text>
+                  <View style={[styles.icon, { backgroundColor: tint.bg }]}>
+                    <CategoryIcon name={txn.category} icon={cat?.icon} group={cat?.group} size={16} color={tint.ink} />
                   </View>
                   <View style={{ flex: 1, minWidth: 0 }}>
                     <Text
@@ -1031,9 +1013,7 @@ export default function ActivityScreen() {
                 { color: tokens.text3, fontFamily: fontFamily.bodyMedium },
               ]}
             >
-              {selectedCategory
-                ? `${categoryEmoji(selectedCategory)} ${splitEmoji(selectedCategory).text}`
-                : "View All"}
+              {categoryFilterLabel ?? "View All"}
             </Text>
           </Pressable>
           {accountOptions.length > 0 && (

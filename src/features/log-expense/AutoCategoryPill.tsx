@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Pressable, StyleSheet, Text, View } from 'react-native'
+import { Pressable, StyleSheet, View } from 'react-native'
 import * as Haptics from 'expo-haptics'
 import Reanimated, {
   cancelAnimation,
@@ -16,9 +16,11 @@ import Reanimated, {
 } from 'react-native-reanimated'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
+import { CATEGORY_ICON_COMPONENTS } from '@/src/components/shared/CategoryIcon'
+import type { CategoryIconKey } from '@/src/lib/categoryIcons'
 
-// While the AI fallback is looking for a category, the pill's emoji slot spins
-// like a slot-machine reel through the user's own category emojis, then eases
+// While the AI fallback is looking for a category, the pill's icon slot spins
+// like a slot-machine reel through the user's own category icons, then eases
 // out onto the pick with a small overshoot. The reel runs entirely on the UI
 // thread (one shared position value), so it stays smooth while JS is busy.
 // Quick answers and hand picks skip the spin and roll a single notch.
@@ -28,16 +30,17 @@ export const PICKING_LABEL = 'Picking…'
 export const SETTLE_MS = 1000
 /** Minimum time the reel spins before settling, so spin + settle lasts at least 2s. */
 export const MIN_SPIN_MS = 2000 - SETTLE_MS
-// Milliseconds per emoji at full spin.
+// Milliseconds per icon at full spin.
 const SPIN_STEP_MS = 85
 // Easing.back(s) leaves t=0 at (s + 3)x the average speed. Landing roughly
 // this many notches ahead keeps the hand-off from full spin seamless.
 const SETTLE_BACK = 1.2
 const SETTLE_NOTCHES = SETTLE_MS / ((SETTLE_BACK + 3) * SPIN_STEP_MS)
-const FALLBACK_EMOJIS = ['🍔', '🚕', '🛒', '🎬', '🏠', '💊']
+const FALLBACK_ICONS: CategoryIconKey[] = ['Hamburger', 'Taxi', 'ShoppingCart', 'FilmSlate', 'House', 'Pill']
 // Short pools repeat so the target's slot is always off-screen when it's set.
 const MIN_REEL = 8
-const EMOJI_BOX = 17
+const ICON_BOX = 17
+const ICON_SIZE = 13
 // Underdamped so a single-notch landing overshoots a touch and clunks into place.
 const LAND_SPRING = { mass: 0.6, damping: 9, stiffness: 220 }
 // The pill's width eases between labels ("Picking…" to the category name).
@@ -53,22 +56,22 @@ const POP_SPRING = { mass: 0.7, damping: 12, stiffness: 160 }
 type Phase = 'idle' | 'rolling' | 'settling'
 
 interface Props {
-  selected: { emoji: string; name: string } | null
+  selected: { icon: CategoryIconKey; name: string } | null
   /** The AI lookup is in flight (already gated by thinkingGate's timing). */
   thinking: boolean
   /** `selected` came from auto-pick, not the user. */
   auto: boolean
   /** Missing-field nudge: the pill turns white with accent text. */
   highlighted: boolean
-  rollEmojis: string[]
+  rollIcons: CategoryIconKey[]
   onPress: () => void
 }
 
-export function AutoCategoryPill({ selected, thinking, auto, highlighted, rollEmojis, onPress }: Props) {
-  const { tokens, space, radius, type } = useTheme()
+export function AutoCategoryPill({ selected, thinking, auto, highlighted, rollIcons, onPress }: Props) {
+  const { tokens, space, radius } = useTheme()
   const reduceMotion = useReducedMotion()
 
-  const selKey = selected ? `${selected.emoji}|${selected.name}` : ''
+  const selKey = selected ? `${selected.icon}|${selected.name}` : ''
   const [phase, setPhase] = useState<Phase>(thinking ? 'rolling' : 'idle')
   const [prevThinking, setPrevThinking] = useState(thinking)
   const [prevSelKey, setPrevSelKey] = useState(selKey)
@@ -108,7 +111,8 @@ export function AutoCategoryPill({ selected, thinking, auto, highlighted, rollEm
   const popStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }))
 
   const busy = phase !== 'idle'
-  const pool = rollEmojis.length > 0 ? rollEmojis : FALLBACK_EMOJIS
+  const pool = rollIcons.length > 0 ? rollIcons : FALLBACK_ICONS
+  const ink = highlighted ? tokens.accent : tokens.onAccent
   const label = busy ? PICKING_LABEL : selected?.name ?? 'Pick a category'
   const pickedForYou = auto && !!selected && !busy
 
@@ -129,8 +133,8 @@ export function AutoCategoryPill({ selected, thinking, auto, highlighted, rollEm
   // (a layout transition only moves the right side). An off-screen copy of
   // the content measures the target width; the real content is right-aligned
   // and clipped, so it stays still while the left edge glides.
-  const hasEmoji = busy || !!selected
-  const labelMax = PILL_MAX_WIDTH - 2 * PAD_X - (hasEmoji ? EMOJI_BOX + 2 + space.xs : 0)
+  const hasIcon = busy || !!selected
+  const labelMax = PILL_MAX_WIDTH - 2 * PAD_X - (hasIcon ? ICON_BOX + 2 + space.xs : 0)
   const [contentW, setContentW] = useState(0)
   const width = useSharedValue(0)
   const widthGeneration = useRef(0)
@@ -167,8 +171,8 @@ export function AutoCategoryPill({ selected, thinking, auto, highlighted, rollEm
         style,
         {
           maxWidth: labelMax,
-          marginLeft: hasEmoji ? space.xs : 0,
-          color: highlighted ? tokens.accent : tokens.onAccent,
+          marginLeft: hasIcon ? space.xs : 0,
+          color: ink,
           fontFamily: fontFamily.bodySemiBold,
         },
       ]}
@@ -187,7 +191,7 @@ export function AutoCategoryPill({ selected, thinking, auto, highlighted, rollEm
     <Reanimated.View style={popStyle}>
       <View style={styles.measure} pointerEvents="none" aria-hidden>
         <View key={label} style={styles.row} onLayout={(e) => onMeasure(e.nativeEvent.layout.width)}>
-          {hasEmoji && <View style={styles.slot} />}
+          {hasIcon && <View style={styles.slot} />}
           {labelText({})}
         </View>
       </View>
@@ -206,12 +210,14 @@ export function AutoCategoryPill({ selected, thinking, auto, highlighted, rollEm
       >
         <View style={[styles.row, contentW > 0 && { width: contentW }]}>
         {reduceMotion ? (
-          hasEmoji && (
-            <Text style={[styles.staticEmoji, { fontSize: type.caption }]}>{busy ? '✨' : selected!.emoji}</Text>
+          hasIcon && (
+            <View style={styles.slot}>
+              <StaticIcon icon={busy ? 'Sparkle' : selected!.icon} color={ink} />
+            </View>
           )
         ) : (
-          hasEmoji && (
-            <EmojiReel phase={phase} target={selected?.emoji ?? null} rollIn={mounted.current} pool={pool} fontSize={type.caption} />
+          hasIcon && (
+            <IconReel phase={phase} target={selected?.icon ?? null} rollIn={mounted.current} pool={pool} color={ink} />
           )
         )}
         {labelText(labelStyle)}
@@ -249,20 +255,20 @@ function BurstLine({ deg, p }: { deg: number; p: SharedValue<number> }) {
 
 interface ReelProps {
   phase: Phase
-  /** The emoji to land on; null while nothing is picked yet. */
-  target: string | null
-  /** Roll the first emoji in from a notch back, instead of mounting still. */
+  /** The icon to land on; null while nothing is picked yet. */
+  target: CategoryIconKey | null
+  /** Roll the first icon in from a notch back, instead of mounting still. */
   rollIn: boolean
-  pool: string[]
-  fontSize: number
+  pool: CategoryIconKey[]
+  color: string
 }
 
-// One-emoji window onto an endless reel. `pos` is the reel's position in
-// emoji units; each item places itself at its wrapped distance from it, so the
+// One-icon window onto an endless reel. `pos` is the reel's position in
+// icon units; each item places itself at its wrapped distance from it, so the
 // reel loops without ever re-rendering. To land on a target, the slot a few
-// notches ahead (still off-screen) has its emoji swapped for the target and
+// notches ahead (still off-screen) has its icon swapped for the target and
 // the reel eases onto that slot.
-function EmojiReel({ phase, target, rollIn, pool, fontSize }: ReelProps) {
+function IconReel({ phase, target, rollIn, pool, color }: ReelProps) {
   const strip = useMemo(() => {
     let s = pool
     while (s.length < MIN_REEL) s = s.concat(pool)
@@ -270,8 +276,8 @@ function EmojiReel({ phase, target, rollIn, pool, fontSize }: ReelProps) {
   }, [pool])
   const n = strip.length
   const pos = useSharedValue(phase === 'idle' && target && rollIn ? -1 : 0)
-  const [overrides, setOverrides] = useState<Record<number, string>>(() => (target ? { 0: target } : {}) as Record<number, string>)
-  const landed = useRef<string | null>(phase === 'idle' && !rollIn ? target : null)
+  const [overrides, setOverrides] = useState<Record<number, CategoryIconKey>>(() => (target ? { 0: target } : {}) as Record<number, CategoryIconKey>)
+  const landed = useRef<CategoryIconKey | null>(phase === 'idle' && !rollIn ? target : null)
 
   useEffect(() => {
     const land = (at: number, anim: number) => {
@@ -305,12 +311,10 @@ function EmojiReel({ phase, target, rollIn, pool, fontSize }: ReelProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, target])
 
-  // Emoji Text nodes carry no custom fontFamily: a ZWJ+variation-selector
-  // emoji sharing a custom-font run can make Android drop the rest of the run.
   return (
     <View style={styles.slot}>
-      {strip.map((emoji, i) => (
-        <ReelItem key={i} index={i} count={n} pos={pos} fontSize={fontSize} emoji={overrides[i] ?? emoji} />
+      {strip.map((icon, i) => (
+        <ReelItem key={i} index={i} count={n} pos={pos} color={color} icon={overrides[i] ?? icon} />
       ))}
     </View>
   )
@@ -320,14 +324,19 @@ interface ReelItemProps {
   index: number
   count: number
   pos: SharedValue<number>
-  fontSize: number
-  emoji: string
+  color: string
+  icon: CategoryIconKey
 }
 
-function ReelItem({ index, count, pos, fontSize, emoji }: ReelItemProps) {
+function StaticIcon({ icon, color }: { icon: CategoryIconKey; color: string }) {
+  const Icon = CATEGORY_ICON_COMPONENTS[icon]
+  return <Icon size={ICON_SIZE} color={color} />
+}
+
+function ReelItem({ index, count, pos, color, icon }: ReelItemProps) {
   const style = useAnimatedStyle(() => {
     const wrapped = (((index - pos.value) % count) + count) % count
-    // Signed distance from the window, in emoji units: 0 is dead centre.
+    // Signed distance from the window, in icon units: 0 is dead centre.
     const y = wrapped > count / 2 ? wrapped - count : wrapped
     const away = Math.min(1, Math.abs(y))
     // Curved like a drum: items tilt, shrink and fade as they leave the window.
@@ -335,13 +344,17 @@ function ReelItem({ index, count, pos, fontSize, emoji }: ReelItemProps) {
       opacity: 1 - away * 0.8,
       transform: [
         { perspective: 120 },
-        { translateY: y * EMOJI_BOX },
+        { translateY: y * ICON_BOX },
         { rotateX: `${-y * 50}deg` },
         { scale: 1 - away * 0.2 },
       ],
     }
   })
-  return <Reanimated.Text style={[styles.slotEmoji, { fontSize }, style]}>{emoji}</Reanimated.Text>
+  return (
+    <Reanimated.View style={[styles.slotIcon, style]}>
+      <StaticIcon icon={icon} color={color} />
+    </Reanimated.View>
+  )
 }
 
 const styles = StyleSheet.create({
@@ -352,7 +365,6 @@ const styles = StyleSheet.create({
   // Wide enough that nothing up to PILL_MAX_WIDTH is squeezed while measuring.
   measure: { position: 'absolute', top: 0, left: 0, width: 300, opacity: 0, flexDirection: 'row' },
   label: { fontSize: 12 },
-  slot: { width: EMOJI_BOX + 2, height: EMOJI_BOX, overflow: 'hidden' },
-  slotEmoji: { position: 'absolute', left: 0, right: 0, top: 0, lineHeight: EMOJI_BOX, textAlign: 'center' },
-  staticEmoji: { lineHeight: EMOJI_BOX },
+  slot: { width: ICON_BOX + 2, height: ICON_BOX, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
+  slotIcon: { position: 'absolute', left: 0, right: 0, top: 0, height: ICON_BOX, alignItems: 'center', justifyContent: 'center' },
 })

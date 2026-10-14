@@ -22,7 +22,7 @@ import { fontFamily } from '@/src/theme/fonts'
 import { useBudgets } from '@/src/hooks/useBudgets'
 import { useLastSpent, useRecentExpenses } from '@/src/hooks/useExpenses'
 import { useCategories } from '@/src/hooks/useCategories'
-import { useGroups } from '@/src/hooks/useGroups'
+import { useGroupIcons, useGroups } from '@/src/hooks/useGroups'
 import {
   computeEnvelopeState,
   currentMonthKey,
@@ -82,6 +82,7 @@ export default function HomeScreen() {
   const lastSpent = useLastSpent().data
   const categoriesQ = useCategories()
   const groupsQ = useGroups()
+  const groupIcons = useGroupIcons()
   const user = useUser().data
 
   const { hideAmounts } = usePrivacy()
@@ -121,6 +122,10 @@ export default function HomeScreen() {
   const expenses = emptyForPreview(expensesQ.data ?? EMPTY)
   const categories = emptyForPreview(categoriesQ.data ?? EMPTY)
   const groups = emptyForPreview(groupsQ.data ?? EMPTY)
+  const categoryIcons = useMemo(
+    () => new Map(categories.flatMap((c) => (c.icon ? [[c.name, c.icon] as const] : []))),
+    [categories],
+  )
 
   const envelopeState = useMemo(
     () => computeEnvelopeState(budgets, expenses, month, categories, groups, lastSpent),
@@ -549,6 +554,8 @@ export default function HomeScreen() {
                 <EnvelopeGroup
                   key={group}
                   group={group}
+                  groupIcon={groupIcons.get(group)}
+                  categoryIcons={categoryIcons}
                   envelopes={envelopes}
                   hideAmounts={hideAmounts}
                   onMoveMoney={handleMoveMoney}
@@ -569,7 +576,7 @@ export default function HomeScreen() {
                   </View>
                   <EnvelopeRow
                     envelope={creditCardEnvelope}
-                    emoji="💳"
+                    icon="CreditCard"
                     displayName="Credit Card Payment"
                     hideAmounts={hideAmounts}
                     onMoveMoney={handleMoveMoney}

@@ -11,6 +11,7 @@ jest.mock('expo-router', () => ({
 }))
 
 const mockUseBillScan = jest.fn()
+jest.mock('@/src/hooks/useCategories', () => ({ ...jest.requireActual('@/src/hooks/useCategories'), useCategoryIcons: () => new Map() }))
 jest.mock('@/src/hooks/useBillScans', () => ({
   useBillScan: (id: string) => mockUseBillScan(id),
 }))

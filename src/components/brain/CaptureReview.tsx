@@ -1,8 +1,8 @@
 import * as Haptics from 'expo-haptics'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 import Reanimated, { FadeInDown, FadeOutLeft, LinearTransition } from 'react-native-reanimated'
-import { CaretDown, Warning, X } from '@/src/components/shared/icons'
+import { CaretDown, Question, Warning, X } from '@/src/components/shared/icons'
 import type { CaptureProposal, ProposalStatus } from '@/src/api/ai'
 import { CategoryPickerSheet } from '@/src/components/shared/CategoryPickerSheet'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
@@ -25,7 +25,8 @@ import { useCategories } from '@/src/hooks/useCategories'
 import { useAddExpense, useRecentExpenses } from '@/src/hooks/useExpenses'
 import { track } from '@/src/lib/analytics'
 import { todayLocal } from '@/src/lib/date'
-import { categoryEmoji, splitEmoji } from '@/src/lib/emoji'
+import { splitEmoji } from '@/src/lib/emoji'
+import { CategoryIcon } from '@/src/components/shared/CategoryIcon'
 import { formatDateShort } from '@/src/lib/format'
 import { unusualAmount } from '@/src/lib/unusualAmount'
 import { useTheme } from '@/src/theme/ThemeProvider'
@@ -84,6 +85,7 @@ export function CaptureReview({ proposal, onSettled, origin = CAPTURE_ORIGIN, lo
   const { formatMoney, currencyPrefix } = useCurrency()
   const expensesQ = useRecentExpenses()
   const categoriesQ = useCategories()
+  const categoryByName = useMemo(() => new Map((categoriesQ.data ?? []).map((c) => [c.name, c])), [categoriesQ.data])
   const addExpense = useAddExpense()
 
   const [status, setStatus] = useState<ProposalStatus>(proposal.status ?? 'pending')
@@ -222,8 +224,9 @@ export function CaptureReview({ proposal, onSettled, origin = CAPTURE_ORIGIN, lo
         const share = rowShare(row)
         const locked = failedRows.has(row.id)
         const unusual = !Number.isNaN(share) && row.category ? unusualAmount(share, row.category, expensesQ.data ?? [], today) : null
-        // Names usually carry their emoji already ("🍜 Eating out"): show it once, as the icon.
-        const { icon, text: envelope } = splitEmoji(row.category)
+        // Names usually carry their emoji already ("🍜 Eating out"): it becomes the icon, not part of the label.
+        const envelope = splitEmoji(row.category).text
+        const cat = categoryByName.get(row.category)
         const incomplete = rowIncomplete(row)
         return (
           <Reanimated.View
@@ -235,7 +238,9 @@ export function CaptureReview({ proposal, onSettled, origin = CAPTURE_ORIGIN, lo
             style={[styles.row, { gap: space.sm, borderTopColor: tokens.border, borderTopWidth: i === 0 ? 0 : StyleSheet.hairlineWidth }]}
           >
             <View style={[styles.iconTile, { backgroundColor: incomplete ? tokens.warnSoft : tokens.inputBg, borderRadius: radius.md }]}>
-              <Text style={styles.iconText}>{row.category ? icon || categoryEmoji(row.category) : '❔'}</Text>
+              {row.category
+                ? <CategoryIcon name={row.category} icon={cat?.icon} group={cat?.group} size={16} color={incomplete ? tokens.warnInk : tokens.text2} />
+                : <Icon icon={Question} size={16} color={tokens.warnInk} />}
             </View>
 
             <View style={[styles.main, { gap: 3 }]}>
@@ -382,7 +387,6 @@ const styles = StyleSheet.create({
   card: { borderWidth: 1, alignSelf: 'stretch' },
   row: { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 8 },
   iconTile: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center' },
-  iconText: { fontSize: 16 },
   main: { flex: 1, minWidth: 0 },
   meta: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' },
   itemInput: { paddingVertical: 0, paddingHorizontal: 0 },

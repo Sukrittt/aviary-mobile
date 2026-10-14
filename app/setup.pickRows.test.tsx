@@ -13,7 +13,7 @@ jest.mock('@/src/api/budgets', () => ({
   getBudgets: jest.fn(async () => []),
   updateBudget: jest.fn(async () => ({})),
 }))
-jest.mock('@/src/api/groups', () => ({ addGroup: jest.fn(async () => ({})) }))
+jest.mock('@/src/api/groups', () => ({ addGroup: jest.fn(async () => ({})), updateGroup: jest.fn(async () => ({})) }))
 jest.mock('@/src/api/categories', () => ({ addCategory: jest.fn(async () => ({})) }))
 jest.mock('@/src/api/accessMode', () => ({ accessMode: { subscribeLogout: () => () => {} } }))
 jest.mock('expo-secure-store', () => ({ getItemAsync: jest.fn(async () => null), setItemAsync: jest.fn(async () => {}), deleteItemAsync: jest.fn(async () => {}) }))
@@ -62,14 +62,27 @@ it('never lets two checked categories share a name, even across groups', () => {
   expect(getByText("You've already got a category called rent.")).toBeTruthy()
 })
 
-it('picks a group emoji from the sheet instead of cycling', () => {
-  const { getByText, getByLabelText, queryByText } = toGroupsStep()
+it('picks a group icon inline beside its name', () => {
+  const { getByLabelText, queryByLabelText } = toGroupsStep()
 
-  fireEvent.press(getByLabelText('Change emoji for Essentials'))
-  expect(getByText('Pick an emoji for Essentials')).toBeTruthy()
-  fireEvent.press(getByLabelText('🐶'))
-  expect(queryByText('Pick an emoji for Essentials')).toBeNull()
-  expect(getByLabelText('Change emoji for Essentials')).toHaveTextContent('🐶')
+  fireEvent.press(getByLabelText('Icon: House. Change icon'))
+  fireEvent.changeText(getByLabelText('Search icons'), 'dog')
+  fireEvent.press(getByLabelText('Dog'))
+  expect(queryByLabelText('Search icons')).toBeNull()
+  expect(getByLabelText('Icon: Dog. Change icon')).toBeTruthy()
+})
+
+it('gives a new category the icon its name suggests until one is picked', () => {
+  const { getByText, getAllByText, getByDisplayValue, getByLabelText, getAllByLabelText } = toGroupsStep()
+  fireEvent.press(getByText('Continue')) // groups
+  fireEvent.press(getAllByText('Add category')[0])
+  const input = getByDisplayValue('')
+  fireEvent.changeText(input, 'Water')
+  expect(getAllByLabelText('Icon: Drop. Change icon')).toHaveLength(1)
+  fireEvent.press(getByLabelText('Icon: Drop. Change icon'))
+  fireEvent.press(getByLabelText('Coffee'))
+  fireEvent.changeText(input, 'Water bill')
+  expect(getByLabelText('Icon: Coffee. Change icon')).toBeTruthy()
 })
 
 it('renames a category from the assign sheet, keeping the old name on a blank or clashing one', () => {
@@ -95,16 +108,16 @@ it('renames a category from the assign sheet, keeping the old name on a blank or
   expect(getByText('Home rent')).toBeTruthy()
 })
 
-it('changes a category emoji from the assign sheet', () => {
-  const { getByText, getByLabelText, queryByLabelText } = toGroupsStep()
+it('changes a category icon from the assign sheet', () => {
+  const { getByText, getByLabelText } = toGroupsStep()
   fireEvent.press(getByText('Continue')) // groups
   fireEvent.press(getByText('Continue')) // categories
 
   fireEvent.press(getByText('Rent'))
-  fireEvent.press(getByLabelText('Change emoji for Rent'))
-  fireEvent.press(getByLabelText('🐶'))
-  expect(queryByLabelText('🐶')).toBeNull()
-  expect(getByLabelText('Change emoji for Rent')).toHaveTextContent('🐶')
+  fireEvent.press(getByLabelText('Icon: House. Change icon'))
+  fireEvent.changeText(getByLabelText('Search icons'), 'dog')
+  fireEvent.press(getByLabelText('Dog'))
+  expect(getByLabelText('Icon: Dog. Change icon')).toBeTruthy()
   fireEvent.press(getByText('Done'))
-  expect(getByText('🐶')).toBeTruthy()
+  expect(getByText('Rent')).toBeTruthy()
 })

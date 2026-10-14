@@ -1,4 +1,4 @@
-import { splitEmoji, groupEmoji, categoryEmoji } from './emoji'
+import { splitEmoji, categoryTint } from './emoji'
 
 describe('splitEmoji', () => {
   it('splits a leading emoji from text', () => {
@@ -18,34 +18,22 @@ describe('splitEmoji', () => {
   })
 })
 
-describe('groupEmoji', () => {
-  it('prefers an embedded emoji over the lookup table', () => {
-    expect(groupEmoji('🎁 Home')).toBe('🎁')
+describe('categoryTint', () => {
+  const tokens = {
+    mint: 'm', mintSoft: 'ms', violet: 'v', violetSoft: 'vs', blue: 'b', blueSoft: 'bs',
+    accentInk: 'a', accentSoft: 'as', warnInk: 'w', warnSoft: 'ws', coral: 'c', coralSoft: 'cs',
+  }
+
+  it('gives the same name the same tint', () => {
+    expect(categoryTint('Groceries', tokens)).toEqual(categoryTint('Groceries', tokens))
   })
 
-  it('falls back to the group lookup table', () => {
-    expect(groupEmoji('Home')).toBe('🏠')
+  it('ignores a leading emoji', () => {
+    expect(categoryTint('🛒 Groceries', tokens)).toEqual(categoryTint('Groceries', tokens))
   })
 
-  it('falls back to a default folder icon for unknown groups', () => {
-    expect(groupEmoji('Unknown Group')).toBe('📁')
-  })
-})
-
-describe('categoryEmoji', () => {
-  it('prefers an embedded emoji', () => {
-    expect(categoryEmoji('🚗 Car')).toBe('🚗')
-  })
-
-  it('falls back to the category lookup table (case-insensitive)', () => {
-    expect(categoryEmoji('Groceries')).toBe('🍅')
-  })
-
-  it('falls back to the group emoji when the category is unknown', () => {
-    expect(categoryEmoji('Mystery Category', 'Travel')).toBe('🛵')
-  })
-
-  it('falls back to a default money icon when nothing matches', () => {
-    expect(categoryEmoji('Mystery Category')).toBe('💰')
+  it('pairs a soft background with its ink', () => {
+    const { bg, ink } = categoryTint('Rent', tokens)
+    expect(bg).toBe(`${ink}s`)
   })
 })

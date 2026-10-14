@@ -22,7 +22,8 @@ import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { DatePicker } from '@/src/components/shared/DatePicker'
 import { BottomSheet } from '@/src/components/shared/Modal'
 import { CategoryPickerSheet } from '@/src/components/shared/CategoryPickerSheet'
-import { categoryEmoji, splitEmoji } from '@/src/lib/emoji'
+import { splitEmoji } from '@/src/lib/emoji'
+import { CategoryIcon } from '@/src/components/shared/CategoryIcon'
 import { todayLocal } from '@/src/lib/date'
 
 // House spring, reused from Modal.tsx's SHEET_TRANSITION — animates fields
@@ -335,9 +336,12 @@ export default function RecurringExpenseModal() {
             accessibilityLabel={category ? `Category: ${splitEmoji(category).text}` : 'Pick a category'}
             style={[styles.input, { backgroundColor: tokens.inputBg, borderColor: tokens.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}
           >
-            <Text style={{ color: category ? tokens.text : tokens.text3, fontFamily: fontFamily.bodyMedium, fontSize: 15 }}>
-              {category ? `${categoryEmoji(category)} ${splitEmoji(category).text}` : 'Pick a category'}
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 1 }}>
+              {category ? <CategoryIcon name={category} icon={categoriesQ.data?.find((c) => c.name === category)?.icon} size={16} color={tokens.text2} /> : null}
+              <Text style={{ color: category ? tokens.text : tokens.text3, fontFamily: fontFamily.bodyMedium, fontSize: 15 }}>
+                {category ? splitEmoji(category).text : 'Pick a category'}
+              </Text>
+            </View>
           </Pressable>
           <Text style={[styles.hint, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>
             {category

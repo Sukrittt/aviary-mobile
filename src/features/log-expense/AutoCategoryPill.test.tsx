@@ -10,8 +10,8 @@ type Props = ComponentProps<typeof AutoCategoryPill>
 beforeEach(() => jest.useFakeTimers())
 afterEach(() => { jest.useRealTimers(); jest.restoreAllMocks() })
 
-const groceries = { emoji: '🛒', name: 'Groceries' }
-const base = { highlighted: false, rollEmojis: ['🍔', '🚕', '🛒'], onPress: () => {} }
+const groceries = { icon: 'ShoppingCart' as const, name: 'Groceries' }
+const base = { highlighted: false, rollIcons: ['Hamburger' as const, 'Taxi' as const, 'ShoppingCart' as const], onPress: () => {} }
 
 // rerender() would drop renderWithProviders' ThemeProvider, so props change
 // through state inside the provider tree instead.
@@ -96,7 +96,7 @@ it('waits for the width spring before flicking the burst, with no burst on first
   const utils = renderPill({ ...base, selected: groceries, thinking: false, auto: false })
   measure(utils, 70)
   expect(utils.queryByTestId('pick-burst')).toBeNull()
-  utils.rerender({ selected: { emoji: '🚕', name: 'Travel' } })
+  utils.rerender({ selected: { icon: 'Taxi', name: 'Travel' } })
   expect(utils.queryByTestId('pick-burst')).toBeNull()
   measure(utils, 60)
   expect(utils.queryByTestId('pick-burst')).toBeNull()
@@ -114,9 +114,9 @@ it('ignores an older width completion when another category has been chosen', ()
   })
   const utils = renderPill({ ...base, selected: groceries, thinking: false, auto: false })
   measure(utils, 70)
-  utils.rerender({ selected: { emoji: '🚕', name: 'Travel' } })
+  utils.rerender({ selected: { icon: 'Taxi', name: 'Travel' } })
   measure(utils, 60)
-  utils.rerender({ selected: { emoji: '🏠', name: 'Rent' } })
+  utils.rerender({ selected: { icon: 'House', name: 'Rent' } })
   measure(utils, 50)
   act(() => completions[0](true))
   expect(utils.queryByTestId('pick-burst')).toBeNull()

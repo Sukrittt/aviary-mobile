@@ -33,6 +33,7 @@ jest.mock('@/src/hooks/useCategories', () => ({
 
 jest.mock('@/src/hooks/useGroups', () => ({
   useGroups: () => ({ data: [], isLoading: false, error: null }),
+  useGroupIcons: () => new Map(),
 }))
 
 let mockOnline = true

@@ -8,7 +8,9 @@ import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { usePrivacy } from '@/src/context/PrivacyContext'
 import { formatDate } from '@/src/lib/format'
-import { splitEmoji } from '@/src/lib/emoji'
+import { categoryTint, splitEmoji } from '@/src/lib/emoji'
+import { useCategoryIcons } from '@/src/hooks/useCategories'
+import { CATEGORY_ICON_COMPONENTS, CategoryIcon } from '@/src/components/shared/CategoryIcon'
 import { useBillScan } from '@/src/hooks/useBillScans'
 import { LoadingPhrase } from '@/src/components/shared/LoadingPhrase'
 import { PopIn } from '@/src/components/shared/PopIn'
@@ -39,6 +41,8 @@ export default function BillScanModal() {
   const scanQ = useBillScan(id)
   const scan = scanQ.data
   const category = splitEmoji(scan?.category ?? '')
+  const categoryIcons = useCategoryIcons()
+  const tint = categoryTint(scan?.category ?? '', tokens)
   const shareGroups = groupByDivisor((scan?.items ?? []).filter(item => !isFeeLine(item.name)))
   const fees = scan ? round2(scan.items.filter(item => isFeeLine(item.name)).reduce((sum, item) => sum + item.price, 0) + feeDiff(scan.total, scan.items)) : 0
   const feesShare = scan ? round2(fees / scan.people_count) : 0
@@ -85,8 +89,10 @@ export default function BillScanModal() {
 
           <PopIn play delay={MOUNT_DELAY + ITEM_STAGGER} style={[styles.card, styles.heroCard, { backgroundColor: tokens.heroA, borderColor: tokens.accentSoft }]}>
             <View style={styles.heroHeading}>
-              <View style={[styles.categoryIcon, { backgroundColor: tokens.accentSoft }]}>
-                <Text style={{ fontSize: 25 }}>{category.icon || '🧾'}</Text>
+              <View style={[styles.categoryIcon, { backgroundColor: scan.category ? tint.bg : tokens.accentSoft }]}>
+                {scan.category
+                  ? <CategoryIcon name={scan.category} icon={categoryIcons.get(scan.category)} size={24} color={tint.ink} />
+                  : <CATEGORY_ICON_COMPONENTS.Receipt size={24} color={tokens.accentInk} />}
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.merchant, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>{scan.merchant}</Text>

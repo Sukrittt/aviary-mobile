@@ -3,7 +3,7 @@ import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import SetupScreen from './setup'
 import { updateBudget } from '@/src/api/budgets'
 import { addCategory, getSplitBuckets } from '@/src/api/categories'
-import { addGroup } from '@/src/api/groups'
+import { addGroup, updateGroup } from '@/src/api/groups'
 import { track } from '@/src/lib/analytics'
 import { INCOME_CATEGORY } from '@/src/lib/envelope'
 
@@ -19,7 +19,7 @@ jest.mock('@/src/api/budgets', () => ({
   getBudgets: jest.fn(async () => []),
   updateBudget: jest.fn(async () => ({})),
 }))
-jest.mock('@/src/api/groups', () => ({ addGroup: jest.fn(async () => ({})) }))
+jest.mock('@/src/api/groups', () => ({ addGroup: jest.fn(async () => ({})), updateGroup: jest.fn(async () => ({})) }))
 jest.mock('@/src/api/categories', () => ({
   addCategory: jest.fn(async () => ({})),
   getSplitBuckets: jest.fn(async () => ({})),
@@ -45,8 +45,13 @@ it('finishes from the income step on the starter budget, income split the sugges
   fireEvent.press(getByText('Finish setup'))
   await waitFor(() => expect(completed()).toHaveLength(1), { timeout: 3000 })
 
-  expect((addGroup as jest.Mock).mock.calls.map(([name]) => name)).toEqual(['🏠 Essentials', '🎬 Lifestyle'])
+  // Plain names; icons travel separately.
+  expect((addGroup as jest.Mock).mock.calls.map(([name]) => name)).toEqual(['Essentials', 'Lifestyle'])
+  // Default groups' icons follow their names, so there's nothing to update.
+  expect(updateGroup).not.toHaveBeenCalled()
   expect(addCategory).toHaveBeenCalledTimes(4)
+  expect(addCategory).toHaveBeenCalledWith('Rent', 'Essentials', 'House')
+  expect(addCategory).toHaveBeenCalledWith('Eating out', 'Lifestyle', 'BowlFood')
   // Defaults are known categories, so there's nothing to ask Jev.
   expect(getSplitBuckets).not.toHaveBeenCalled()
   const rows = assigned()
@@ -102,7 +107,7 @@ it('lets the assign step finish with money left over', async () => {
   expect(getByText(/left\. It'll wait in Ready to Assign$/)).toBeTruthy()
   fireEvent.press(getByText('Finish setup'))
   await waitFor(() => expect(completed()).toHaveLength(1), { timeout: 3000 })
-  expect(assigned()['🏠 Rent']).toBe(1)
+  expect(assigned()['Rent']).toBe(1)
   unmount()
 })
 

@@ -20,7 +20,7 @@ jest.mock('expo-router', () => ({
 jest.mock('@/src/hooks/useBudgets', () => ({ useBudgets: () => ({ data: [] }) }))
 jest.mock('@/src/hooks/useExpenses', () => ({ useRecentExpenses: () => ({ data: [] }) }))
 jest.mock('@/src/hooks/useCategories', () => ({ useCategories: () => ({ data: [] }) }))
-jest.mock('@/src/hooks/useGroups', () => ({ useGroups: () => ({ data: [] }) }))
+jest.mock('@/src/hooks/useGroups', () => ({ useGroups: () => ({ data: [] }), useGroupIcons: () => new Map() }))
 jest.mock('@/src/hooks/useMoneyBrief', () => ({ useMoneyBrief: () => mockBrief }))
 jest.mock('@/src/hooks/useChatSessions', () => ({
   useChatSessions: () => ({ data: mockSessions, isLoading: false }),

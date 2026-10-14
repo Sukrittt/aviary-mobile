@@ -2,8 +2,10 @@ import { useState } from 'react'
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 import { Chip } from '@/src/components/ui/Chip'
 import { useAddCategory } from '@/src/hooks/useCategories'
-import { useGroups } from '@/src/hooks/useGroups'
-import { categoryEmoji, groupEmoji, splitEmoji } from '@/src/lib/emoji'
+import { useGroupIcons, useGroups } from '@/src/hooks/useGroups'
+import { CategoryIcon } from '@/src/components/shared/CategoryIcon'
+import { categoryIconKey } from '@/src/lib/categoryIcons'
+import { splitEmoji } from '@/src/lib/emoji'
 import { useOnline } from '@/src/lib/netStatus'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
@@ -15,6 +17,7 @@ export function AddCategoryForm({ onCreated }: {
 }) {
   const { tokens, space, radius, type } = useTheme()
   const groups = useGroups().data ?? []
+  const groupIcons = useGroupIcons()
   const addCategory = useAddCategory()
   const online = useOnline()
   const [name, setName] = useState('')
@@ -24,7 +27,7 @@ export function AddCategoryForm({ onCreated }: {
 
   function save() {
     if (!canSave) return
-    const category = { name: name.trim(), group }
+    const category = { name: name.trim(), group, icon: categoryIconKey(name.trim(), undefined, group) }
     setError('')
     addCategory.mutate(category, {
       onSuccess: () => onCreated(category),
@@ -40,7 +43,7 @@ export function AddCategoryForm({ onCreated }: {
     <View style={{ gap: space.md }}>
       <Text style={{ color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: type.bodyLg }}>Add category</Text>
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: space.sm }}>
-        <Text style={{ fontSize: 22 }}>{categoryEmoji(name, group)}</Text>
+        <CategoryIcon name={name} group={group} size={22} color={tokens.text2} />
         <TextInput
           accessibilityLabel="Category name"
           value={name}
@@ -54,13 +57,10 @@ export function AddCategoryForm({ onCreated }: {
           style={[styles.input, { backgroundColor: tokens.inputBg, borderColor: tokens.borderStrong, borderRadius: radius.md, color: tokens.text, fontFamily: fontFamily.bodyMedium, fontSize: type.body }]}
         />
       </View>
-      {name.trim() && !splitEmoji(name).icon ? (
-        <Text style={{ color: tokens.text3, fontFamily: fontFamily.bodyMedium, fontSize: type.caption }}>Tip: start the name with an emoji, like 🛒 Groceries, to give it its own icon.</Text>
-      ) : null}
       <Text style={{ color: tokens.text3, fontFamily: fontFamily.bodySemiBold, fontSize: type.caption }}>Group</Text>
       <View pointerEvents={addCategory.isPending ? 'none' : 'auto'} style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm }}>
         <Chip label="Other" selected={!group} onPress={() => setGroup('')} />
-        {groups.map((g) => <Chip key={g} label={splitEmoji(g).text} icon={groupEmoji(g)} selected={group === g} onPress={() => setGroup(g)} />)}
+        {groups.map((g) => <Chip key={g} label={splitEmoji(g).text} icon={(color) => <CategoryIcon kind="group" name={g} icon={groupIcons.get(g)} size={14} color={color} />} selected={group === g} onPress={() => setGroup(g)} />)}
       </View>
       {!online && <Text style={{ color: tokens.text3 }}>You can add categories once you&apos;re back online.</Text>}
       {!!error && <Text accessibilityRole="alert" style={{ color: tokens.coral, fontFamily: fontFamily.bodyMedium }}>{error}</Text>}

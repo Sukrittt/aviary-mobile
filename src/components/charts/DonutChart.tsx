@@ -21,7 +21,6 @@ const AnimatedPath = Reanimated.createAnimatedComponent(Path)
 export interface DonutSegment {
   key: string
   label: string
-  emoji: string
   value: number
   color: string
 }

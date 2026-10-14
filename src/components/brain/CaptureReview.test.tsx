@@ -244,7 +244,7 @@ it('locks a failed row to retry as it was, and Not now keeps the spends that mad
   expect(utils.getByText('Logged 1 spend · ₹240')).toBeTruthy()
 })
 
-it('names what blocks Log, and shows an envelope emoji once', () => {
+it('names what blocks Log, and shows the envelope name without its emoji', () => {
   mockCategories.data = [...ENVELOPES, { name: '🛵 Travel', group: 'Everyday' }]
   const utils = renderWithProviders(
     <CaptureReview
@@ -253,7 +253,7 @@ it('names what blocks Log, and shows an envelope emoji once', () => {
     />,
   )
   expect(utils.getByText('Pick a category for Sneakers to log these.')).toBeTruthy()
-  expect(utils.getByText('🛵')).toBeTruthy()
+  expect(utils.queryByText(/🛵/)).toBeNull()
   expect(utils.getByText('Travel')).toBeTruthy()
 })
 

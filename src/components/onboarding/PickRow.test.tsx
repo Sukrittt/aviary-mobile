@@ -11,11 +11,11 @@ jest.mock('expo-haptics', () => ({
 it('uses the Lucide check icon for a selected row', () => {
   const { getByTestId, queryByText } = renderWithProviders(
     <PickRow
-      emoji="🏠"
+      icon="House"
       name="Essentials"
       on
       placeholder="Group name"
-      onPressEmoji={jest.fn()}
+      onPickIcon={jest.fn()}
       onChangeName={jest.fn()}
       onToggle={jest.fn()}
     />,
@@ -29,11 +29,11 @@ it('animates as a checkbox and gives selection haptics when deselected', () => {
   const onToggle = jest.fn()
   const { getByRole } = renderWithProviders(
     <PickRow
-      emoji="🏠"
+      icon="House"
       name="Essentials"
       on
       placeholder="Group name"
-      onPressEmoji={jest.fn()}
+      onPickIcon={jest.fn()}
       onChangeName={jest.fn()}
       onToggle={onToggle}
     />,
@@ -49,11 +49,11 @@ it('animates as a checkbox and gives selection haptics when deselected', () => {
 
   const deselected = renderWithProviders(
     <PickRow
-      emoji="🏠"
+      icon="House"
       name="Essentials"
       on={false}
       placeholder="Group name"
-      onPressEmoji={jest.fn()}
+      onPickIcon={jest.fn()}
       onChangeName={jest.fn()}
       onToggle={onToggle}
     />,

@@ -14,7 +14,7 @@ const mockAnimations: ((finished: boolean) => void)[] = []
 const mockFrameCallbacks = new Set<() => void>()
 const mockSprings: unknown[] = []
 jest.mock('@/src/hooks/useGroups', () => ({
-  useGroups: () => ({ data: mockGroups }),
+  useGroups: () => ({ data: mockGroups }), useGroupIcons: () => new Map(),
   useMoveGroup: () => ({ mutate: mockMove }),
   useAddGroup: () => ({}), useUpdateGroup: () => ({}), useDeleteGroup: () => ({}),
 }))
