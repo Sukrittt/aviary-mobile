@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { View, Text, Pressable, RefreshControl, StyleSheet, Linking, Platform } from 'react-native'
 import { useQuery } from '@tanstack/react-query'
 import { useRouter, useNavigation, useFocusEffect } from 'expo-router'
-import { CaretRight, ChartLine } from '@/src/components/shared/icons'
+import { CaretRight, ChartLine, MoneyWavy } from '@/src/components/shared/icons'
 import Reanimated, { FadeIn, FadeInDown, FadeOut, LinearTransition } from 'react-native-reanimated'
 import * as Haptics from 'expo-haptics'
 import { rippleHaptic, tap } from '@/src/lib/haptics'
@@ -356,14 +356,22 @@ export default function HomeScreen() {
             style={[heroPress.style, { marginTop: space.sm }]}
           >
             <Card elevated={false} style={[styles.slimRta, rtaCelebrating && { backgroundColor: tokens.pillGoodBg, borderColor: 'transparent' }]}>
-              <Reanimated.Text
+              <Reanimated.View
                 key={rtaCelebrating ? 'celebrate' : 'label'}
                 entering={FadeIn.duration(220)}
                 exiting={FadeOut.duration(180)}
-                style={{ color: tokens.text, fontSize: type.body, fontFamily: fontFamily.bodySemiBold }}
+                style={styles.slimLabel}
               >
-                {rtaCelebrating ? `Every ${currencyUnit(currencyCode)} has a job.` : '💸  Ready to Assign'}
-              </Reanimated.Text>
+                {/* Same tinted MoneyWavy tile as Web's slim row. */}
+                {!rtaCelebrating && (
+                  <View style={[styles.rtaIcon, { backgroundColor: tokens.pillGoodBg }]}>
+                    <Icon icon={MoneyWavy} size={18} color={tokens.pillGood} />
+                  </View>
+                )}
+                <Text style={{ color: tokens.text, fontSize: type.body, fontFamily: fontFamily.bodySemiBold }}>
+                  {rtaCelebrating ? `Every ${currencyUnit(currencyCode)} has a job.` : 'Ready to Assign'}
+                </Text>
+              </Reanimated.View>
               <View style={styles.slimAmount}>
                 <AmountText value={displayedReadyToAssign} size={type.body} color={tokens.mint} weight="displayBold" />
                 {rtaCelebrating ? <CheckIcon color={tokens.mint} size={16} /> : <Icon icon={CaretRight} size={16} color={tokens.text2} />}
@@ -638,6 +646,8 @@ const styles = StyleSheet.create({
   sheetBtnText: { fontSize: 14 },
   heroLabel: { fontSize: 12, letterSpacing: 0.6 },
   slimRta: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14 },
+  slimLabel: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  rtaIcon: { width: 30, height: 30, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
   slimAmount: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   headerMonth: { alignItems: 'center' },
   rolloverCard: { flexDirection: 'row', alignItems: 'center', gap: 12 },
