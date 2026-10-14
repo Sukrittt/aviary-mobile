@@ -2,7 +2,7 @@ import { useMemo, useState, type ReactNode } from 'react'
 import { View, Text, TextInput, Pressable, ScrollView, StyleSheet } from 'react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
-import { splitEmoji } from '@/src/lib/emoji'
+import { categoryTint, splitEmoji } from '@/src/lib/emoji'
 import { useCategories } from '@/src/hooks/useCategories'
 import { useGroupIcons, useGroups } from '@/src/hooks/useGroups'
 import { CategoryIcon } from '@/src/components/shared/CategoryIcon'
@@ -168,7 +168,9 @@ export function CategoryPickerSheet({
                       ]}
                       onPress={() => pick(c.name)}
                     >
-                      <CategoryIcon name={c.name} icon={c.icon} group={group.name} size={16} color={tokens.text2} />
+                      <View style={[styles.iconTile, { backgroundColor: categoryTint(c.name, tokens).bg }]}>
+                        <CategoryIcon name={c.name} icon={c.icon} group={group.name} size={16} color={categoryTint(c.name, tokens).ink} />
+                      </View>
                       <Text style={[styles.optionText, { color: tokens.text, fontFamily: fontFamily.bodyMedium }]}>
                         {splitEmoji(c.name).text}
                       </Text>
@@ -194,9 +196,10 @@ const styles = StyleSheet.create({
   title: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8, textAlign: 'center' },
   search: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, fontSize: 13, marginBottom: 8 },
   scroll: { height: 420 },
-  option: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 12, paddingHorizontal: 8, borderRadius: 12 },
+  option: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, paddingHorizontal: 8, borderRadius: 12 },
   noneOption: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14, paddingHorizontal: 16, borderRadius: 14, marginBottom: 4 },
   optionText: { fontSize: 14 },
+  iconTile: { width: 30, height: 30, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   groupLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 12, marginBottom: 2, paddingHorizontal: 8 },
   groupLabel: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5 },
   groupItems: { borderLeftWidth: StyleSheet.hairlineWidth, marginLeft: 8, paddingLeft: 4 },
