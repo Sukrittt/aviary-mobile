@@ -2,7 +2,7 @@ import { useObserve,wrapRoot } from '@/src/lib/observe'
 import { readCurrencyPreference } from '@/src/lib/currencyPreference'
 import { CurrencyProvider } from '@/src/context/CurrencyProvider'
 import { accessMode,clearAccess,initAccessMode } from '@/src/api/accessMode'
-import { getUser, syncTimezone } from '@/src/api/account'
+import { getUser, syncTimezone, type UserProfile } from '@/src/api/account'
 import { onOnboarded } from '@/src/api/onboardingSignal'
 import { BirdLandingSplash } from '@/src/components/splash/BirdLandingSplash'
 import { CrashScreen } from '@/src/components/shared/CrashScreen'
@@ -31,7 +31,7 @@ import { WidgetSync, lockWidgets } from '@/src/widgets/WidgetSync'
 import { billingKey, useBillingStatus } from '@/src/hooks/useBillingStatus'
 import { accessAllowed } from '@/src/lib/billingStatus'
 import { onAiAllowanceExceeded } from '@/src/lib/aiAllowance'
-import { QueryClient, focusManager } from '@tanstack/react-query'
+import { QueryClient, focusManager, useIsRestoring } from '@tanstack/react-query'
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client'
 import { PERSIST_MAX_AGE, persistOptions, queryPersister } from '@/src/lib/queryPersist'
 import { setAudioModeAsync } from 'expo-audio'
@@ -171,22 +171,40 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
     }
   }, [])
 
+  // A returning user's profile is already in the cache restored from disk, so
+  // the splash doesn't wait on a token refresh plus /api/user (up to ~2s when
+  // the function is cold). The fetch below still lands and can send them back
+  // to setup; it just doesn't re-pick the landing screen.
+  const restoringCache = useIsRestoring()
+  const landedFromCache = useRef(false)
+  useEffect(() => {
+    if (!hasSession || restoringCache || onboarded !== null) return
+    const cached = queryClient.getQueryData<UserProfile>(['user'])
+    if (!cached?.onboardedAt) return
+    landedFromCache.current = true
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- the cache restore is async, so this can't be read during render
+    setOnboarded(true)
+    setLandOnHome(!!cached.getStartedAt && !cached.manualTransactionCompletedAt)
+  }, [hasSession, restoringCache, onboarded])
+
   // Fetch the onboarding flag once per sign-in. Fails open (treats a fetch
   // error as "onboarded") — a flaky /api/user must never trap the user in
   // an onboarding loop.
   useEffect(() => {
     if (!hasSession) {
+      landedFromCache.current = false
       // eslint-disable-next-line react-hooks/set-state-in-effect -- resets stale onboarding state across an account switch, ahead of the async refetch below
       setOnboarded(null)
       return
     }
     let cancelled = false
-    getUser()
+    // fetchQuery, not getUser(): CurrencyProvider's ['user'] query mounts in the
+    // same boot, and this joins its request instead of sending a second one.
+    queryClient.fetchQuery({ queryKey: ['user'], queryFn: getUser, retry: false })
       .then((u) => {
         if (cancelled) return
-        queryClient.setQueryData(['user'], u)
         setOnboarded(!!u.onboardedAt)
-        setLandOnHome(!!u.getStartedAt && !u.manualTransactionCompletedAt)
+        if (!landedFromCache.current) setLandOnHome(!!u.getStartedAt && !u.manualTransactionCompletedAt)
         // Piggybacks on the fetch this effect already makes, rather than
         // costing analytics its own request. Best effort: the id was already
         // attached the moment the session appeared, so a failure here just
