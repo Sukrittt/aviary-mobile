@@ -222,8 +222,8 @@ export function TrendChart({
 
   const baselineY = baseline != null ? zeroY - (baseline / range) * plotH : null
   const selected = selectedKey != null ? bars.find((b) => b.key === selectedKey) : undefined
-  const labelFont = { fontSize: 10, fontFamily: fontFamily.bodyMedium }
-  const boldFont = { fontSize: 10, fontFamily: fontFamily.bodyExtraBold }
+  const labelFont = { fontSize: 12, fontFamily: fontFamily.bodySemiBold }
+  const boldFont = { fontSize: 12, fontFamily: fontFamily.bodyExtraBold }
 
   return (
     <View>
@@ -327,7 +327,7 @@ export function TrendChart({
 }
 
 const styles = StyleSheet.create({
-  axisLabel: { fontSize: 10, paddingHorizontal: 4 },
+  axisLabel: { fontSize: 12, paddingHorizontal: 4 },
   columnRow: { flex: 1, flexDirection: 'row' },
-  partialNote: { fontSize: 10, paddingHorizontal: 4, paddingTop: 4 },
+  partialNote: { fontSize: 12, paddingHorizontal: 4, paddingTop: 4 },
 })

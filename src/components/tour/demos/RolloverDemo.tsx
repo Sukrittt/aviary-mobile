@@ -202,7 +202,7 @@ function QuizOption({ label, good, bad, onPress }: { label: string; good: boolea
           {(good || bad) && (
             <Reanimated.Text
               entering={FadeIn.duration(120)}
-              style={{ color: good ? tokens.mint : tokens.coral, fontFamily: fontFamily.bodyBold, fontSize: 11 }}
+              style={{ color: good ? tokens.mint : tokens.coral, fontFamily: fontFamily.bodyBold, fontSize: 12 }}
             >
               {good ? '✓' : '✕'}
             </Reanimated.Text>

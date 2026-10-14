@@ -115,7 +115,7 @@ const styles = StyleSheet.create({
   card: { borderWidth: 1, borderRadius: 20, overflow: 'hidden' },
   row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14 },
   rowLabel: { fontSize: 14 },
-  rowHint: { fontSize: 11, marginTop: 2 },
+  rowHint: { fontSize: 12, marginTop: 2 },
   divider: { height: StyleSheet.hairlineWidth },
   explainerList: { paddingHorizontal: 16, paddingBottom: 16, gap: 6 },
   explainer: { fontSize: 13, lineHeight: 18 },

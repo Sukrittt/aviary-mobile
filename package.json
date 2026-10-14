@@ -3,8 +3,7 @@
   "version": "2.2.1",
   "main": "src/main.tsx",
   "dependencies": {
-    "@expo-google-fonts/fredoka": "^0.4.1",
-    "@expo-google-fonts/nunito": "^0.4.2",
+    "@expo-google-fonts/geist": "^0.4.2",
     "@expo/metro-runtime": "~57.0.14",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@tanstack/query-async-storage-persister": "^5.101.4",

@@ -147,7 +147,7 @@ const styles = StyleSheet.create({
   promiseText: { flexShrink: 1, fontSize: 12.5, lineHeight: 17 },
   confettiField: { position: 'absolute', top: 0, left: 0, right: 0, height: 340, overflow: 'hidden' },
   badge: { width: 60, height: 60, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
-  title: { fontSize: 32, fontWeight: '600', lineHeight: 37, marginTop: 12, letterSpacing: -0.3 },
+  title: { fontSize: 32, lineHeight: 37, marginTop: 12, letterSpacing: -0.3 },
   blurb: { fontSize: 15, lineHeight: 23, marginTop: 7, maxWidth: 300 },
   summaryList: { marginTop: 22, gap: 8 },
   summaryRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingHorizontal: 16, borderRadius: 18, borderWidth: 1 },

@@ -88,5 +88,5 @@ const styles = StyleSheet.create({
   iconBadge: { width: 64, height: 64, alignItems: 'center', justifyContent: 'center' },
   title: { fontSize: 22 },
   subtitle: { fontSize: 13, textAlign: 'center', maxWidth: 240 },
-  caption: { fontSize: 11 },
+  caption: { fontSize: 12 },
 })

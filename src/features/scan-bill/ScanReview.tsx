@@ -122,7 +122,7 @@ export function ScanReview({ tokens, space, radius, type, insets, setPhase, merc
                 { backgroundColor: tokens.border },
               ]}
             >
-              <Text style={{ color: tokens.text2, fontSize: 11 }}>✕</Text>
+              <Text style={{ color: tokens.text2, fontSize: 12 }}>✕</Text>
             </Pressable>
           )}
         </View>

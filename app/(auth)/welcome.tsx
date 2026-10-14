@@ -256,5 +256,5 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   emailText: { fontSize: 15 },
-  legal: { fontSize: 11, textAlign: "center", lineHeight: 17, marginTop: 6, maxWidth: 280, alignSelf: "center" },
+  legal: { fontSize: 12, textAlign: "center", lineHeight: 17, marginTop: 6, maxWidth: 280, alignSelf: "center" },
 });

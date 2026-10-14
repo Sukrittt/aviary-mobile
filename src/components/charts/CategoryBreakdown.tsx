@@ -674,8 +674,8 @@ export function CategoryBreakdown({
                       <Text
                         style={{
                           color: tokens.text2,
-                          fontSize: 11,
-                          fontFamily: fontFamily.bodyMedium,
+                          fontSize: 12,
+                          fontFamily: fontFamily.bodySemiBold,
                         }}
                       >
                         Filtered total
@@ -733,9 +733,9 @@ export function CategoryBreakdown({
                       <Text
                         style={{
                           color: tokens.text2,
-                          fontSize: 10,
+                          fontSize: 12,
                           lineHeight: 13,
-                          fontFamily: fontFamily.bodyMedium,
+                          fontFamily: fontFamily.bodySemiBold,
                           textAlign: "center",
                         }}
                       >
@@ -882,7 +882,7 @@ export function CategoryBreakdown({
                               style={{
                                 color:
                                   row.deltaPct > 0 ? tokens.coral : tokens.mint,
-                                fontSize: 10,
+                                fontSize: 12,
                                 fontFamily: fontFamily.bodySemiBold,
                               }}
                             >
@@ -913,8 +913,8 @@ export function CategoryBreakdown({
                       <Text
                         style={{
                           color: tokens.text3,
-                          fontSize: 11,
-                          fontFamily: fontFamily.bodyMedium,
+                          fontSize: 12,
+                          fontFamily: fontFamily.bodySemiBold,
                           marginTop: 6,
                         }}
                       >
@@ -935,7 +935,7 @@ export function CategoryBreakdown({
                           <Text
                             style={{
                               color: tokens.accent,
-                              fontSize: 11,
+                              fontSize: 12,
                               fontFamily: fontFamily.bodySemiBold,
                               marginTop: 4,
                             }}
@@ -1156,8 +1156,8 @@ export function CategoryBreakdown({
           <Text
             style={{
               color: tokens.coral,
-              fontSize: 11,
-              fontFamily: fontFamily.bodyMedium,
+              fontSize: 12,
+              fontFamily: fontFamily.bodySemiBold,
               marginTop: 8,
             }}
           >

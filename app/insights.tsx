@@ -127,8 +127,8 @@ function MonthStepper({
               <Text
                 style={{
                   color: tokens.text3,
-                  fontSize: 11,
-                  fontFamily: fontFamily.bodyMedium,
+                  fontSize: 12,
+                  fontFamily: fontFamily.bodySemiBold,
                 }}
               >
                 {back} {back === 1 ? "month" : "months"} back
@@ -147,7 +147,7 @@ function MonthStepper({
                 <Text
                   style={{
                     color: tokens.accentInk,
-                    fontSize: 11,
+                    fontSize: 12,
                     fontFamily: fontFamily.bodySemiBold,
                   }}
                 >
@@ -568,8 +568,8 @@ export default function InsightsScreen() {
             <Text
               style={{
                 color: tokens.text3,
-                fontSize: 11,
-                fontFamily: fontFamily.bodyMedium,
+                fontSize: 12,
+                fontFamily: fontFamily.bodySemiBold,
                 marginTop: 2,
               }}
             >
@@ -659,8 +659,8 @@ export default function InsightsScreen() {
                 <Text
                   style={{
                     color: tokens.text3,
-                    fontSize: 11,
-                    fontFamily: fontFamily.bodyMedium,
+                    fontSize: 12,
+                    fontFamily: fontFamily.bodySemiBold,
                     marginTop: space.sm,
                   }}
                 >
@@ -772,8 +772,8 @@ export default function InsightsScreen() {
           <Text
             style={{
               color: tokens.text3,
-              fontSize: 11,
-              fontFamily: fontFamily.bodyMedium,
+              fontSize: 12,
+              fontFamily: fontFamily.bodySemiBold,
               marginTop: 2,
             }}
           >
@@ -798,8 +798,8 @@ export default function InsightsScreen() {
         <Text
           style={{
             color: tokens.text3,
-            fontSize: 11,
-            fontFamily: fontFamily.bodyMedium,
+            fontSize: 12,
+            fontFamily: fontFamily.bodySemiBold,
             marginHorizontal: space.sm,
           }}
         >

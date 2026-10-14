@@ -76,5 +76,5 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 12 },
   valueWrap: { alignItems: 'flex-end', gap: 2, maxWidth: 110 },
   value: { fontSize: 14 },
-  valueLabel: { fontSize: 11 },
+  valueLabel: { fontSize: 12 },
 })

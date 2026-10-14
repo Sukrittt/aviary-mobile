@@ -236,7 +236,7 @@ const styles = StyleSheet.create({
   heroHeading: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   categoryIcon: { width: 48, height: 48, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   shareHero: { paddingTop: 22, paddingBottom: 18, gap: 4 },
-  eyebrow: { fontSize: 11, letterSpacing: 1.2 },
+  eyebrow: { fontSize: 12, letterSpacing: 1.2 },
   breakdownRow: { paddingVertical: 6 },
   merchant: { fontSize: 21 },
   summaryMeta: { fontSize: 12, marginTop: 2 },
@@ -246,5 +246,5 @@ const styles = StyleSheet.create({
   divider: { height: StyleSheet.hairlineWidth },
   sectionLabel: { fontSize: 18, marginTop: 6, marginBottom: -4 },
   itemName: { fontSize: 14, lineHeight: 21 },
-  itemMeta: { fontSize: 10, marginTop: 6, alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 7, overflow: 'hidden' },
+  itemMeta: { fontSize: 12, marginTop: 6, alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 7, overflow: 'hidden' },
 })

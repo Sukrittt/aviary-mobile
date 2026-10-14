@@ -177,7 +177,7 @@ const styles = StyleSheet.create({
   main: { flex: 1, gap: 6 },
   topLine: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   name: { fontSize: 13, flexShrink: 1 },
-  metaLine: { fontSize: 10, marginTop: 2 },
+  metaLine: { fontSize: 12, marginTop: 2 },
   spentOf: { marginLeft: 'auto', fontSize: 12, fontVariant: ['tabular-nums'] },
   // Fixed width so every row's bar ends at the same x, whatever the amount.
   availableCol: { width: 84, alignItems: 'flex-end' },

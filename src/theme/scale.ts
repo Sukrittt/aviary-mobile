@@ -21,7 +21,7 @@ export const radius = {
 } as const
 
 export const type = {
-  micro: 11,
+  micro: 12,
   caption: 13,
   body: 15,
   bodyLg: 17,

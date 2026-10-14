@@ -9,7 +9,7 @@
 // reports for the cell, so it lands as an actual square.
 import { FlexWidget, OverlapWidget, TextWidget, SvgWidget } from "react-native-android-widget";
 import type { ThemeTokens } from "@/src/theme/tokens";
-import { fontFamily } from "@/src/theme/fonts";
+import { widgetFontFamily as fontFamily } from "@/src/theme/fonts";
 import { headerRightLabel, heroFontSize, widgetMood, type WidgetData } from "./data";
 import { WidgetSurface, color } from "./surface";
 import { plusSvg } from "./icons";

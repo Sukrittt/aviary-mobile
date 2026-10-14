@@ -713,7 +713,7 @@ const styles = StyleSheet.create({
     borderRadius: 1,
   },
   exportHistoryDate: { fontSize: 13 },
-  exportHistoryStatus: { fontSize: 11, marginTop: 1 },
+  exportHistoryStatus: { fontSize: 12, marginTop: 1 },
   clearRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -723,7 +723,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   clearTitle: { fontSize: 14 },
-  clearHint: { fontSize: 11, marginTop: 2 },
+  clearHint: { fontSize: 12, marginTop: 2 },
   analyticsRow: {
     flexDirection: "row",
     alignItems: "center",

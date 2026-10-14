@@ -538,7 +538,7 @@ export function SubscriptionsPanel({ subscriptions, loading }: Props) {
 }
 
 const styles = StyleSheet.create({
-  eyebrow: { fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5 },
+  eyebrow: { fontSize: 12, textTransform: "uppercase", letterSpacing: 0.5 },
   tile: {
     width: 40,
     height: 40,
@@ -556,5 +556,5 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingVertical: 4,
   },
-  sectionTitle: { fontSize: 11, letterSpacing: 0.5 },
+  sectionTitle: { fontSize: 12, letterSpacing: 0.5 },
 });

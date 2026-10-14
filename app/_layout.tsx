@@ -300,7 +300,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
   const logExpenseAnimation = pathname === '/loading' || pathname === '/setup' ? 'none' : 'fade'
 
   // The native splash only covers the pre-JS gap: it hides as soon as fonts
-  // are ready (the BirdLandingSplash overlay needs Fredoka to draw
+  // are ready (the BirdLandingSplash overlay needs Geist to draw
   // its wordmark), not the whole auth/onboarding resolve. That's deliberate —
   // an earlier JS splash forced a 2s minimum plus a remote Lottie fetch on
   // every cold boot. The local bird animation fetches nothing; it fills

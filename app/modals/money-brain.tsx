@@ -516,7 +516,7 @@ export default function MoneyBrainModal() {
             </View>
           ) : briefQ.isError ? (
             <View style={styles.errorRow}>
-              <Text style={{ color: tokens.coral, fontSize: 12, fontFamily: fontFamily.bodyMedium, flex: 1 }}>
+              <Text style={{ color: tokens.coral, fontSize: 12, fontFamily: fontFamily.bodySemiBold, flex: 1 }}>
                 Couldn&apos;t load your money brief.
               </Text>
               <Pressable onPress={() => briefQ.refetch()}>
@@ -687,20 +687,20 @@ const styles = StyleSheet.create({
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 2, padding: 3, borderRadius: 100, borderWidth: 1 },
   pillButton: { flexDirection: 'row', alignItems: 'center', gap: 5, height: 32, paddingHorizontal: 10, borderRadius: 100 },
   pillButtonPrimary: { paddingHorizontal: 12 },
-  pillText: { fontSize: 12, fontWeight: '700' },
+  pillText: { fontSize: 12 },
   newPill: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 36, paddingHorizontal: 14, borderRadius: 100 },
-  newPillText: { fontSize: 12, fontWeight: '800' },
+  newPillText: { fontSize: 12 },
   iconButton: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   badge: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   title: { fontSize: 18 },
   subtitle: { fontSize: 12, marginTop: 2 },
   body: { flexGrow: 1, padding: 20, paddingTop: 4, gap: 16 },
   card: { padding: 18, borderRadius: 20, borderWidth: 1 },
-  cardLabel: { fontSize: 10, letterSpacing: 0.6 },
+  cardLabel: { fontSize: 12, letterSpacing: 0.6 },
   cardValue: { fontSize: 18, marginTop: 6 },
   narrative: { fontSize: 13, marginTop: 12, lineHeight: 19 },
   errorRow: { flexDirection: 'row', alignItems: 'center', marginTop: 12, gap: 12 },
-  sectionLabel: { fontSize: 11, letterSpacing: 0.6 },
+  sectionLabel: { fontSize: 12, letterSpacing: 0.6 },
   chipRow: { flexDirection: 'row', gap: 8, paddingRight: 4 },
   exampleRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8 },
   chip: { borderWidth: 1, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 10 },

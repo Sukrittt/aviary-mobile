@@ -617,7 +617,7 @@ function PickedSourceRow({
           <Text style={{ color: tokens.text, fontFamily: fontFamily.bodyBold, fontSize: type.caption }} numberOfLines={1}>
             {item.name}
           </Text>
-          <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodyMedium, fontSize: 11 }} numberOfLines={1}>
+          <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodySemiBold, fontSize: 12 }} numberOfLines={1}>
             {formatCurrency(item.available, hideAmounts)} → {formatCurrency(item.available - alloc, hideAmounts)}
           </Text>
         </View>
@@ -675,7 +675,7 @@ function PoolSourceRow({
           <Text style={{ color: tokens.text, fontFamily: fontFamily.bodySemiBold, fontSize: type.caption }}>
             {formatCurrency(item.available, hideAmounts)}
           </Text>
-          <Text style={{ color: tokens.text3, fontSize: 10, fontFamily: fontFamily.bodyBold }}>AVAILABLE</Text>
+          <Text style={{ color: tokens.text3, fontSize: 12, fontFamily: fontFamily.bodyBold }}>AVAILABLE</Text>
         </View>
       </Pressable>
     </Reanimated.View>

@@ -247,7 +247,7 @@ const styles = StyleSheet.create({
   description: { fontSize: 13, lineHeight: 18 },
   meta: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
   status: { paddingHorizontal: 9, paddingVertical: 2, borderRadius: 100 },
-  statusText: { fontSize: 11 },
+  statusText: { fontSize: 12 },
   author: { fontSize: 12 },
   sheetTitle: { fontSize: 19 },
   input: { borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 14, fontSize: 15 },

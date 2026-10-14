@@ -500,7 +500,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   headerTitle: { fontSize: 19 },
-  headerSub: { fontSize: 11.5, marginTop: 1 },
+  headerSub: { fontSize: 12, marginTop: 1 },
   addButton: {
     flexDirection: "row",
     alignItems: "center",
@@ -533,7 +533,7 @@ const styles = StyleSheet.create({
   },
   discoveryText: { flex: 1, fontSize: 14 },
   section: { gap: 8 },
-  sectionLabel: { fontSize: 11, letterSpacing: 0.6 },
+  sectionLabel: { fontSize: 12, letterSpacing: 0.6 },
   rowCard: { borderWidth: 1, borderRadius: 14 },
   rowInner: {
     flexDirection: "row",
@@ -558,7 +558,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     overflow: "hidden",
   },
-  pillText: { fontSize: 11, lineHeight: 13 },
+  pillText: { fontSize: 12, lineHeight: 15 },
   rowMeta: { fontSize: 12, flexShrink: 1 },
   rowAmount: { fontSize: 15 },
   // Fills the space under the header so the loading phrase and the empty state

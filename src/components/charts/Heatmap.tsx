@@ -106,7 +106,7 @@ function DayCell({ row, col, day, isToday, isFuture, bg, textColor, borderColor,
         mountStyle,
       ]}
     >
-      <Text style={{ color: textColor, fontSize: 11, fontFamily: bold ? fontFamily.bodyBold : undefined }}>{day}</Text>
+      <Text style={{ color: textColor, fontSize: 12, fontFamily: bold ? fontFamily.bodyBold : undefined }}>{day}</Text>
     </AnimatedPressable>
   )
 }
@@ -206,8 +206,8 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', gap: 6, marginTop: 6 },
   cell: { flex: 1, aspectRatio: 1 },
   filledCell: { alignItems: 'center', justifyContent: 'center', borderRadius: 10 },
-  weekdayLabel: { flex: 1, textAlign: 'center', fontSize: 10 },
+  weekdayLabel: { flex: 1, textAlign: 'center', fontSize: 12 },
   legendRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, marginTop: 12 },
-  legendLabel: { fontSize: 10 },
+  legendLabel: { fontSize: 12 },
   legendSwatch: { width: 10, height: 10, borderRadius: 3 },
 })
