@@ -1,4 +1,6 @@
-import { rippleTickTimes } from './haptics'
+import * as Haptics from 'expo-haptics'
+import { Platform } from 'react-native'
+import { rippleTickTimes, tap } from './haptics'
 
 describe('rippleTickTimes', () => {
   it('gives one tick per item, starting immediately', () => {
@@ -13,5 +15,29 @@ describe('rippleTickTimes', () => {
 
   it('gives no ticks for nothing to move', () => {
     expect(rippleTickTimes(0)).toEqual([])
+  })
+})
+
+describe('tap', () => {
+  const os = Platform.OS
+  afterEach(() => {
+    Platform.OS = os
+    jest.restoreAllMocks()
+  })
+
+  it('plays a rigid impact on iOS', () => {
+    Platform.OS = 'ios'
+    const impact = jest.spyOn(Haptics, 'impactAsync').mockResolvedValue()
+    tap()
+    expect(impact).toHaveBeenCalledWith(Haptics.ImpactFeedbackStyle.Rigid)
+  })
+
+  it('plays the system clock tick on Android, not the buzzy impact fallback', () => {
+    Platform.OS = 'android'
+    const impact = jest.spyOn(Haptics, 'impactAsync').mockResolvedValue()
+    const android = jest.spyOn(Haptics, 'performAndroidHapticsAsync').mockResolvedValue()
+    tap()
+    expect(android).toHaveBeenCalledWith(Haptics.AndroidHaptics.Clock_Tick)
+    expect(impact).not.toHaveBeenCalled()
   })
 })

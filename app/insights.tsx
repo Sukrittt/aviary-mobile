@@ -5,7 +5,6 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { ArrowLeft, Plus, Play } from "@/src/components/shared/icons";
-import * as Haptics from "expo-haptics";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { usePrivacy } from "@/src/context/PrivacyContext";
 import { fontFamily } from "@/src/theme/fonts";
@@ -47,6 +46,7 @@ import {
   monthComparison,
 } from "@/src/lib/monthly";
 import { FORCE_EMPTY_STATE_PREVIEW, emptyForPreview } from "@/src/lib/emptyStatePreview";
+import { tap } from "@/src/lib/haptics";
 
 const TREND_MONTHS = 12;
 const HEATMAP_WEEKS = 12;
@@ -536,7 +536,7 @@ export default function InsightsScreen() {
           earliestMonth={earliestMonth}
           onBack={() => router.back()}
           onShift={(delta) => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+            tap();
             setInsightMonth((m) => shiftMonthKey(m, delta));
           }}
           onReset={() => setInsightMonth(month)}

@@ -1,4 +1,3 @@
-import * as Haptics from 'expo-haptics'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 import Reanimated, { FadeInDown, FadeOutLeft, LinearTransition } from 'react-native-reanimated'
@@ -31,6 +30,7 @@ import { formatDateShort } from '@/src/lib/format'
 import { unusualAmount } from '@/src/lib/unusualAmount'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
+import { tap } from '@/src/lib/haptics'
 
 /** Same beat as every other in-place success in the app (CLAUDE.md): let the check draw, then settle. */
 const SUCCESS_MS = 1100
@@ -136,7 +136,7 @@ export function CaptureReview({ proposal, onSettled, origin = CAPTURE_ORIGIN, lo
 
   async function submit() {
     if (!ready || busy) return
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+    tap()
     setPhase('saving')
     setError('')
     const toLog = kept
@@ -306,7 +306,7 @@ export function CaptureReview({ proposal, onSettled, origin = CAPTURE_ORIGIN, lo
 
             <Pressable
               onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+                tap()
                 update(row.id, { removed: true })
                 // Removing the last one means none of these are wanted: settle as Not now once
                 // it has slid out, rather than leave an empty card that can only say "Nothing to log".

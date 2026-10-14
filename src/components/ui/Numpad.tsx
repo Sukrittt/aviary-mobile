@@ -7,6 +7,7 @@ import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { motion } from '@/src/theme/scale'
 import { OPERATORS } from '@/src/lib/calcAmount'
+import { tap } from '@/src/lib/haptics'
 
 const BASE_KEYS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', 'del'] as const
 const CALC_TOGGLE = '+/.'
@@ -65,7 +66,7 @@ export function Numpad({
   const keyColor = onAccent ? '#ffffff' : tokens.text
 
   const press = (k: string) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+    tap()
     if (k === 'del') onBackspace()
     else if (k === CALC_TOGGLE) setCalcOpen((o) => !o)
     else onDigit(k)

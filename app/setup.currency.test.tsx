@@ -66,7 +66,7 @@ it('selects currency before income, preserves it on back, and saves it with onbo
   expect(Haptics.impactAsync).toHaveBeenCalledTimes(4)
   fireEvent.press(getByText('Finish setup'))
   expect(Haptics.impactAsync).toHaveBeenCalledTimes(5)
-  expect(Haptics.impactAsync).toHaveBeenLastCalledWith(Haptics.ImpactFeedbackStyle.Light)
+  expect(Haptics.impactAsync).toHaveBeenLastCalledWith(Haptics.ImpactFeedbackStyle.Rigid)
   await waitFor(() => expect(updateUser).toHaveBeenCalledWith({ currencyCode: 'USD' }), { timeout: 3000 })
   // The trial's start instant is the server's, so the app no longer sends an
   // onboardedAt at all — it asks the server to complete onboarding.

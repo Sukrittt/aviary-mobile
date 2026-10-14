@@ -10,11 +10,11 @@ import Animated, {
   withTiming,
   Easing,
 } from 'react-native-reanimated'
-import * as Haptics from 'expo-haptics'
 import { Check, FolderOpen, Sparkle, Tag, Cardholder, type PhosphorIcon } from '@/src/components/shared/icons'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import type { ThemeTokens } from '@/src/theme/tokens'
 import { fontFamily } from '@/src/theme/fonts'
+import { tap } from '@/src/lib/haptics'
 
 
 // SetupWizard.dc.html:44,53-93,537-542 — the "your budget is ready" celebration
@@ -131,7 +131,7 @@ export function SetupDone({
 
       <Pressable
         onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+          tap()
           onFinish()
         }}
         style={[styles.cta, { backgroundColor: tokens.accent }]}

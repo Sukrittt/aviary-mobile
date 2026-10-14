@@ -12,6 +12,7 @@ import { fontFamily } from '@/src/theme/fonts'
 import { AmountText } from '@/src/components/ui/AmountText'
 import { TourRow } from '@/src/components/tour/parts'
 import { ASSIGN_ROWS, TOUR_INCOME } from '@/src/components/tour/content'
+import { tap } from '@/src/lib/haptics'
 
 /** Chapter 1: hand out the income until Ready to Assign hits zero. */
 export function AssignDemo({ onComplete }: { onComplete: () => void }) {
@@ -86,7 +87,7 @@ export function AssignDemo({ onComplete }: { onComplete: () => void }) {
       })}
 
       <Pressable accessibilityRole="button" onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+          tap()
           setFunded({})
         }}
         style={styles.reset} hitSlop={8}>

@@ -10,6 +10,7 @@ import { Icon } from '@/src/components/shared/Icon'
 import { sendMagicAuthCode } from '@/src/api/magicAuth'
 import { changeEmail } from '@/src/api/account'
 import { track } from '@/src/lib/analytics'
+import { tap } from '@/src/lib/haptics'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -42,7 +43,7 @@ export default function EmailScreen() {
       setInvalid(true)
       return
     }
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+    tap()
     setInvalid(false)
     setError('')
     setPending(true)

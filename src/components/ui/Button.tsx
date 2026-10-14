@@ -1,10 +1,10 @@
 import { Pressable, Text, StyleSheet, type ViewStyle, type StyleProp } from 'react-native'
 import Animated, { useSharedValue, useAnimatedStyle, withSpring } from 'react-native-reanimated'
-import * as Haptics from 'expo-haptics'
 import { type PhosphorIcon } from '@/src/components/shared/icons'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { Icon } from '@/src/components/shared/Icon'
+import { tap } from '@/src/lib/haptics'
 
 export const AnimatedPressable = Animated.createAnimatedComponent(Pressable)
 
@@ -59,7 +59,7 @@ export function Button({
       accessibilityState={{ disabled: !!disabled }}
       disabled={disabled}
       onPress={() => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+        tap()
         onPress()
       }}
       onPressIn={press.onPressIn}
@@ -112,7 +112,7 @@ export function IconButton({
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       onPress={() => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+        tap()
         onPress()
       }}
       onPressIn={press.onPressIn}

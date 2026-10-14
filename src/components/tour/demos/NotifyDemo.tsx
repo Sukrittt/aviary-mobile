@@ -9,6 +9,7 @@ import { fontFamily } from '@/src/theme/fonts'
 import { SectionLabel, ResultCard } from '@/src/components/tour/parts'
 import { useTourContent } from '@/src/components/tour/useTourContent'
 import { NOTIFY_ENVELOPE, NOTIFY_PCTS, type NotifyCadence } from '@/src/components/tour/content'
+import { tap } from '@/src/lib/haptics'
 
 const CADENCES: { value: NotifyCadence; label: string }[] = [
   { value: 'off', label: 'Off' },
@@ -141,7 +142,7 @@ export function NotifyDemo({ onComplete }: { onComplete: () => void }) {
           <Pressable
             accessibilityRole="button"
             onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+              tap()
               spend()
             }}
             style={[styles.pill, { backgroundColor: over ? tokens.pillBg : tokens.accent, borderRadius: radius.full, paddingHorizontal: space.md }]}

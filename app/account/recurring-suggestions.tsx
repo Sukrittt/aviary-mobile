@@ -25,6 +25,7 @@ import {
 } from '@/src/hooks/useRecurringSuggestions'
 import { recurringSuggestionErrorMessage } from '@/src/api/recurringSuggestions'
 import type { RecurringSuggestion, ScanMonths } from '@/src/types/recurringSuggestions'
+import { tap } from '@/src/lib/haptics'
 
 const SCAN_PHRASES = [
   'Reading your expenses…',
@@ -340,7 +341,7 @@ function SuggestionRow({
             <Pressable
               disabled={busy}
               onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+                tap()
                 onReview()
               }}
               onPressIn={reviewPress.onPressIn}
@@ -355,7 +356,7 @@ function SuggestionRow({
               hitSlop={8}
               disabled={busy}
               onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+                tap()
                 onDismiss()
               }}
               onPressIn={dismissPress.onPressIn}

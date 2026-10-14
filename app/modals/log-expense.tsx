@@ -57,7 +57,6 @@ import { IncomeFloodButton } from "@/src/features/log-expense/IncomeFloodButton"
 import { useCachedUser } from "@/src/hooks/useUser";
 import { isHidden } from "@/src/lib/features";
 import { useBounce } from "@/src/hooks/useBounce";
-import * as Haptics from "expo-haptics";
 import Reanimated from "react-native-reanimated";
 import { useCallback,useEffect,useMemo,useRef,useState } from "react";
 import {
@@ -73,6 +72,7 @@ View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { track } from "@/src/lib/analytics";
+import { tap } from "@/src/lib/haptics";
 
 function str(v: string | string[] | undefined): string {
   return typeof v === "string" ? v : "";
@@ -525,7 +525,7 @@ export default function LogExpenseScreen() {
               onPressIn={severalBounce.onPressIn}
               onPressOut={severalBounce.onPressOut}
               onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+                tap();
                 severalBounce.kick();
                 captureTip.close("try");
                 router.push({ pathname: "/modals/money-brain", params: { capture: "1" } });
