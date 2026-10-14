@@ -24,7 +24,7 @@ trial that has **already expired**, and be locked out on day one.
 
 `scripts/billing-launch-migration.mjs` is what fixes this. It does two things:
 
-1. Grants a fresh 45-day trial to onboarded users with no billing account.
+1. Grants a fresh 30-day trial to onboarded users with no billing account.
 2. Moves any trial that started *before the launch instant* onto the launch
    window, and re-stamps its cohort as `legacy-launch-v1`.
 
