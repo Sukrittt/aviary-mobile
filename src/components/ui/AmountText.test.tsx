@@ -118,6 +118,21 @@ describe('AmountText', () => {
     timingSpy.mockRestore()
   })
 
+  it('re-seats rolled digits when the font shrinks under them', () => {
+    // A `fit` hero shrinks as digits are added. A finished roll's offset was in
+    // the old row height, so without a snap the slot stays half a glyph off.
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { gcTime: Infinity } } })
+    // Typing 9s: every slot rolls '9' -> '9' on each keystroke, so the roll
+    // effect's deps never change and only the row height does.
+    const { rerender } = renderWithProviders(<AmountText value={99999} rawText="99,999" size={40} animate />)
+    rerender(wrapWithProviders(<AmountText value={999999} rawText="9,99,999" size={40} animate />, queryClient))
+    const setValue = jest.spyOn(Animated.Value.prototype, 'setValue')
+    rerender(wrapWithProviders(<AmountText value={9999999} rawText="99,99,999" size={20} animate />, queryClient))
+    // Rolled-up slots rest at -rowHeight, now round(20 * 1.2).
+    expect(setValue).toHaveBeenCalledWith(-24)
+    setValue.mockRestore()
+  })
+
   it('rolls when digit count shrinks even if the surviving digit coincidentally matches', () => {
     // ₹400 -> ₹0: right-aligning pairs the '0' both had in their ones place,
     // and the '4'/'0' higher-order digits aren't rendered at all in the

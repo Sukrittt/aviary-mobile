@@ -207,6 +207,15 @@ function Digit({
   // with no gesture or worklet, and it keeps the primitive renderable under Jest.
   const translateY = useRef(new Animated.Value(0)).current
 
+  // A `fit` hero shrinks as digits are added, so the offset a roll ended on is
+  // in the old row's pixels. Snap to the resting offset for the new height, or a
+  // slot that doesn't re-roll sits half a glyph off. Declared before the roll so
+  // a keystroke that changes both still rolls at the new height.
+  useEffect(() => {
+    translateY.setValue(changed && direction === 'up' ? -rowHeight : 0)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rowHeight])
+
   useEffect(() => {
     if (!changed) return
     // Increase rolls up (old exits top, new enters from bottom); decrease
