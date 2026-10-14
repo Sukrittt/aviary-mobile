@@ -20,7 +20,6 @@ import { useRouter, useLocalSearchParams, useFocusEffect, type Href } from "expo
 import * as Haptics from "expo-haptics";
 import { CaretLeft, CaretRight, SlidersHorizontal, Trash, X } from "@/src/components/shared/icons";
 import Reanimated, { FadeIn, FadeOut, LinearTransition } from "react-native-reanimated";
-import { AnimatedTabContent } from "@/src/components/nav/AnimatedTabContent";
 import { Screen } from "@/src/components/ui/Screen";
 import { Chip } from "@/src/components/ui/Chip";
 import { IconButton } from "@/src/components/ui/Button";
@@ -496,7 +495,7 @@ export default function ActivityScreen() {
   }
 
   return (
-    <AnimatedTabContent>
+    <>
       {deleteNotice && <ExpenseNoticeScreen status={deleteNotice.status} action="delete" onBack={() => setDeleteNotice(null)} />}
       <Screen
         ref={scrollRef}
@@ -1037,7 +1036,7 @@ export default function ActivityScreen() {
           noneLabel="All categories"
         />
       </Screen>
-    </AnimatedTabContent>
+    </>
   );
 }
 

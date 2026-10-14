@@ -24,7 +24,6 @@ let mockParams: Record<string, string> = {}
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: mockPush, back: jest.fn(), replace: jest.fn(), setParams: mockSetParams }),
   useIsFocused: () => true,
-  // AnimatedTabContent derives the swipe's current slot from the pathname.
   usePathname: () => '/more',
   useLocalSearchParams: () => mockParams,
 }))

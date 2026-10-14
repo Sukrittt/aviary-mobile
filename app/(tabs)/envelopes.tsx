@@ -18,7 +18,6 @@ import Reanimated, {
   type SharedValue,
 } from 'react-native-reanimated'
 import { scheduleOnRN } from 'react-native-worklets'
-import { AnimatedTabContent } from '@/src/components/nav/AnimatedTabContent'
 import { Screen, useNavPadding } from '@/src/components/ui/Screen'
 import { Chip } from '@/src/components/ui/Chip'
 import { IconButton } from '@/src/components/ui/Button'
@@ -851,7 +850,7 @@ export default function EnvelopesScreen() {
   const saveLabel = submitting ? 'Saving…' : isCatSheet ? (isRenameSheet ? 'Save' : 'Add category') : isRenameSheet ? 'Save' : 'Create group'
 
   return (
-    <AnimatedTabContent>
+    <>
       <Screen
         title="Categories"
         actions={<IconButton icon={Plus} accessibilityLabel="New group" onPress={openAddGroup} />}
@@ -1254,7 +1253,7 @@ export default function EnvelopesScreen() {
         </View>
       )}
       </Screen>
-    </AnimatedTabContent>
+    </>
   )
 }
 
