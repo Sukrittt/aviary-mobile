@@ -3,6 +3,8 @@ import { splitEmoji, categoryTint } from './emoji'
 describe('splitEmoji', () => {
   it('splits a leading emoji from text', () => {
     expect(splitEmoji('🏠 Rent')).toEqual({ icon: '🏠', text: 'Rent' })
+    expect(splitEmoji('👨🏽‍🍳 Cook')).toEqual({ icon: '👨🏽‍🍳', text: 'Cook' })
+    expect(splitEmoji('👍🏽 Tips')).toEqual({ icon: '👍🏽', text: 'Tips' })
   })
 
   it('handles a ZWJ sequence emoji (cook)', () => {

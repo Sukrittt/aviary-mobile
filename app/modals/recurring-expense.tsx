@@ -337,7 +337,7 @@ export default function RecurringExpenseModal() {
             style={[styles.input, { backgroundColor: tokens.inputBg, borderColor: tokens.border, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}
           >
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 1 }}>
-              {category ? <CategoryIcon name={category} icon={categoriesQ.data?.find((c) => c.name === category)?.icon} size={16} color={tokens.text2} /> : null}
+              {category ? <CategoryIcon name={category} icon={categoriesQ.data?.find((c) => c.name === category)?.icon} group={categoriesQ.data?.find((c) => c.name === category)?.group} size={16} color={tokens.text2} /> : null}
               <Text style={{ color: category ? tokens.text : tokens.text3, fontFamily: fontFamily.bodyMedium, fontSize: 15 }}>
                 {category ? splitEmoji(category).text : 'Pick a category'}
               </Text>

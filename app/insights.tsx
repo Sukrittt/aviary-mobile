@@ -12,7 +12,7 @@ import { fontFamily } from "@/src/theme/fonts";
 import { useBudgets } from "@/src/hooks/useBudgets";
 import { useExpenses } from "@/src/hooks/useExpenses";
 import { useCategories } from "@/src/hooks/useCategories";
-import { useGroups } from "@/src/hooks/useGroups";
+import { useGroupIcons, useGroups } from "@/src/hooks/useGroups";
 import { useSubscriptions } from "@/src/hooks/useSubscriptions";
 import { useRefresh } from "@/src/hooks/useRefresh";
 import {
@@ -251,6 +251,7 @@ export default function InsightsScreen() {
   const expensesQuery = useExpenses();
   const categoriesQuery = useCategories();
   const groupsQuery = useGroups();
+  const groupIcons = useGroupIcons();
   const budgets = emptyForPreview(budgetsQuery.data ?? EMPTY);
   const expenses = emptyForPreview(expensesQuery.data ?? EMPTY);
   const categories = emptyForPreview(categoriesQuery.data ?? EMPTY);
@@ -384,6 +385,7 @@ export default function InsightsScreen() {
       groups,
       insightMonth,
       "category",
+      groupIcons,
     );
     const previous = categoryBreakdown(
       budgets,
@@ -392,6 +394,7 @@ export default function InsightsScreen() {
       groups,
       prevMonthKey(insightMonth),
       "category",
+      groupIcons,
     );
     return withDelta(rows, previous);
   }, [
@@ -400,6 +403,7 @@ export default function InsightsScreen() {
     categories,
     groups,
     insightMonth,
+    groupIcons,
   ]);
 
   const groupRows = useMemo(() => {
@@ -410,6 +414,7 @@ export default function InsightsScreen() {
       groups,
       insightMonth,
       "group",
+      groupIcons,
     );
     const previous = categoryBreakdown(
       budgets,
@@ -418,9 +423,10 @@ export default function InsightsScreen() {
       groups,
       prevMonthKey(insightMonth),
       "group",
+      groupIcons,
     );
     return withDelta(rows, previous);
-  }, [budgets, expenses, categories, groups, insightMonth]);
+  }, [budgets, expenses, categories, groups, insightMonth, groupIcons]);
 
   const breakdownRows =
     breakdownMode === "category" ? categoryRows : groupRows;

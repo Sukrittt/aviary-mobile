@@ -242,7 +242,10 @@ function Receipt({ biggest, accent, money }: { biggest: NonNullable<WeekRecap['b
         {rows.map(([label, value]) => (
           <View key={label} style={styles.receiptRow}>
             <Text style={styles.receiptLabel}>{label}</Text>
-            <Text style={styles.receiptValue} numberOfLines={1}>{value}</Text>
+            <View style={styles.receiptValueRow}>
+              {label === 'Category' && <CategoryIcon name={biggest.category} size={15} color={RECEIPT_INK} />}
+              <Text style={styles.receiptValue} numberOfLines={1}>{value}</Text>
+            </View>
           </View>
         ))}
         <View style={styles.receiptRule} />
@@ -291,6 +294,7 @@ const styles = StyleSheet.create({
   receiptHead: { fontSize: 12, letterSpacing: 2, fontFamily: fontFamily.bodyBlack, marginBottom: 4 },
   receiptRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 16 },
   receiptLabel: { fontSize: 14, color: `${RECEIPT_INK}99`, fontFamily: fontFamily.bodySemiBold },
+  receiptValueRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 },
   receiptValue: { flexShrink: 1, fontSize: 16, color: RECEIPT_INK, fontFamily: fontFamily.bodyBold },
   receiptRule: { borderTopWidth: 2, borderStyle: 'dashed', borderColor: `${RECEIPT_INK}33`, marginVertical: 4 },
   receiptTotalLabel: { color: RECEIPT_INK, fontFamily: fontFamily.bodyBlack },

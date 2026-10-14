@@ -79,7 +79,7 @@ export default function MoveMoneyModal() {
   const budgets = budgetsQ.data ?? EMPTY
   const expenses = expensesQ.data ?? EMPTY
   const categories = categoriesQ.data ?? EMPTY
-  const iconByName = useMemo(() => new Map(categories.map((c) => [c.name, c.icon])), [categories])
+  const iconByName = useMemo(() => new Map(categories.map((c) => [c.name, categoryIconKey(c.name, c.icon, c.group)])), [categories])
   const groups = groupsQ.data ?? EMPTY
   const month = useMemo(() => currentMonthKey(), [])
 

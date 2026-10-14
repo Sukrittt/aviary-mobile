@@ -91,6 +91,8 @@ export function categoryBreakdown(
   groupNames: string[],
   month: string,
   mode: 'category' | 'group',
+  /** Picked group icons by name, from useGroupIcons(). */
+  groupIcons?: Map<string, string>,
 ): BreakdownRow[] {
   const spentByCategory = new Map<string, number>()
   for (const e of expenseRows) {
@@ -153,7 +155,7 @@ export function categoryBreakdown(
     const spent = spentByGroup.get(group) ?? 0
     // No folder fallback: an unknown group would get the same generic glyph
     // as every other one, which reads as noise next to the colour dot.
-    const icon = groupIconKey(group)
+    const icon = groupIconKey(group, groupIcons?.get(group))
     return {
       key: group,
       label: splitEmoji(group).text,

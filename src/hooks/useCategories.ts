@@ -9,6 +9,7 @@ import {
 } from '@/src/api/categories'
 import type { CategoryRow } from '@/src/types'
 import { track } from '@/src/lib/analytics'
+import { categoryIconKey } from '@/src/lib/categoryIcons'
 import { readCategoryCache, writeCategoryCache } from '@/src/lib/categoryCache'
 import { isTransportFailure } from '@/src/api/client'
 
@@ -79,10 +80,13 @@ export function useCategories() {
   return useQuery({ queryKey: key, queryFn: getCategoriesAndCache, staleTime: 30_000 })
 }
 
-/** Picked category icons by name, for rows that only carry a category name. */
+/**
+ * Each category's resolved icon by name (picked icon, else emoji, name, then
+ * group), for rows that only carry a category name and so can't see the group.
+ */
 export function useCategoryIcons(): Map<string, string> {
   const { data } = useCategories()
-  return useMemo(() => new Map((data ?? []).flatMap((c) => (c.icon ? [[c.name, c.icon] as const] : []))), [data])
+  return useMemo(() => new Map((data ?? []).map((c) => [c.name, categoryIconKey(c.name, c.icon, c.group)])), [data])
 }
 
 export function useAddCategory() {

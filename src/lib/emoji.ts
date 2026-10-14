@@ -2,7 +2,8 @@ import type { ThemeTokens } from '@/src/theme/tokens'
 // Category/group names from the API may embed a legacy emoji as the leading
 // character (e.g. "🏠 Rent"). splitEmoji() pulls that out; categoryIcons.ts
 // maps it to an icon.
-const LEADING_EMOJI_RE = /^(\p{Extended_Pictographic}(?:️|‍\p{Extended_Pictographic})*)\s*/u
+// Skin-tone modifiers ride along, so "👨🏽‍🍳 Cook" splits to "Cook".
+const LEADING_EMOJI_RE = /^(\p{Extended_Pictographic}\p{Emoji_Modifier}?(?:️|‍\p{Extended_Pictographic}\p{Emoji_Modifier}?)*)\s*/u
 
 export function splitEmoji(raw: string): { icon: string; text: string } {
   const trimmed = raw.trim()
