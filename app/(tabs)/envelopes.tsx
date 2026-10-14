@@ -857,7 +857,7 @@ export default function EnvelopesScreen() {
         scroll={false}
       >
         <View style={styles.metaRow}>
-          <Text style={{ color: tokens.text3, fontSize: 11, fontFamily: fontFamily.bodyMedium }}>
+          <Text style={{ color: tokens.text3, fontSize: 12, fontFamily: fontFamily.bodySemiBold }}>
             {groups.length} group{groups.length === 1 ? '' : 's'} · {categories.length} categor
             {categories.length === 1 ? 'y' : 'ies'}
           </Text>
@@ -937,7 +937,7 @@ export default function EnvelopesScreen() {
                         >
                           {name ? splitEmoji(name).text : OTHER_LABEL}
                         </Text>
-                        <Text style={{ color: tokens.text3, fontSize: 10, marginTop: 2, fontFamily: fontFamily.bodyMedium }}>
+                        <Text style={{ color: tokens.text3, fontSize: 12, marginTop: 2, fontFamily: fontFamily.bodySemiBold }}>
                           {items.length === 0 ? 'empty' : `${items.length} categor${items.length === 1 ? 'y' : 'ies'}`}
                         </Text>
                       </View>
@@ -996,7 +996,7 @@ export default function EnvelopesScreen() {
                   <Icon icon={Plus} size={14} color={tokens.text2} weight="bold" />
                   <Text style={{ color: tokens.text2, fontSize: 13, fontFamily: fontFamily.bodyBold }}>New group</Text>
                 </Pressable>
-                <Text style={{ color: tokens.text3, fontSize: 10, textAlign: 'center', marginTop: 2, fontFamily: fontFamily.bodyMedium }}>
+                <Text style={{ color: tokens.text3, fontSize: 12, textAlign: 'center', marginTop: 2, fontFamily: fontFamily.bodySemiBold }}>
                   Tap a group to collapse · drag a handle to reorder
                 </Text>
               </Reanimated.View>
@@ -1158,7 +1158,7 @@ export default function EnvelopesScreen() {
                 <Text style={{ color: tokens.text2, fontSize: 12, fontFamily: fontFamily.bodyBold }}>Add</Text>
               </Pressable>
             </View>
-            <Text style={{ color: tokens.text3, fontSize: 11, marginTop: 6 }}>
+            <Text style={{ color: tokens.text3, fontSize: 12, marginTop: 6 }}>
               {draftAlertPcts.length}/{MAX_ALERT_PCTS} selected
               {draftAlertPcts.length >= MAX_ALERT_PCTS ? ` · You can only select up to ${MAX_ALERT_PCTS} options.` : ''}
             </Text>
@@ -1302,10 +1302,10 @@ const styles = StyleSheet.create({
   addGroupBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1, borderStyle: 'dashed', borderRadius: 22, paddingVertical: 16 },
   sheetHandle: { width: 38, height: 4, borderRadius: 100, alignSelf: 'center', marginBottom: 14 },
   sheetTitle: { fontSize: 18 },
-  sectionLabel: { fontSize: 11, letterSpacing: 0.8, marginTop: 18, marginBottom: 8 },
+  sectionLabel: { fontSize: 12, letterSpacing: 0.8, marginTop: 18, marginBottom: 8 },
   nameRow: { flexDirection: 'row', gap: 10, alignItems: 'stretch' },
   iconSwatch: { width: 52, minHeight: 56, borderRadius: 16, borderWidth: 1, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  input: { flex: 1, minWidth: 0, borderWidth: 1, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 14, fontSize: 15, fontWeight: '700' },
+  input: { flex: 1, minWidth: 0, borderWidth: 1, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 14, fontSize: 15, fontFamily: fontFamily.bodyBold },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 100, borderWidth: 1 },
   customAlertRow: { flexDirection: 'row', gap: 8, marginTop: 8 },
