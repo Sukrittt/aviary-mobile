@@ -601,7 +601,6 @@ export default function LogExpenseScreen() {
               rawText={formatAmountInput(amount)}
               size={type.hero * 1.3}
               color={amount === "" && !flag("amount") ? onAccentDim : "#ffffff"}
-              weight="displayBold"
               animate
               ignoreHide
             />

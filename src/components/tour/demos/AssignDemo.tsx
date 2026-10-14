@@ -51,7 +51,7 @@ export function AssignDemo({ onComplete }: { onComplete: () => void }) {
         <Text style={[styles.heroLabel, { color: tokens.text2, fontFamily: fontFamily.bodyBold, fontSize: type.micro }]}>
           READY TO ASSIGN
         </Text>
-        <AmountText value={readyToAssign} size={type.display} color={heroColor} weight="displayBold" animate ignoreHide id="tour-rta" />
+        <AmountText value={readyToAssign} size={type.display} color={heroColor} animate ignoreHide id="tour-rta" />
         <View style={styles.heroNoteRow}>
         <Text
           style={[

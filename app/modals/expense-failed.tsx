@@ -170,7 +170,7 @@ export default function ExpenseFailedScreen() {
             Couldn&apos;t add
           </Text>
           {/* No `animate`: the odometer roll is a celebration gesture. */}
-          <AmountText value={amount} size={type.display} weight="displayBold" />
+          <AmountText value={amount} size={type.display} />
         </Reanimated.View>
 
         {detail !== '' && (

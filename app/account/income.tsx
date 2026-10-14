@@ -169,13 +169,13 @@ export default function IncomeScreen() {
               {active.length === 0 ? (
                 <>
                   <Text style={[styles.heroLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>Recorded in {monthLabel(month)}</Text>
-                  <AmountText value={receivedTotal} size={40} weight="displayBold" color={tokens.mint} />
+                  <AmountText value={receivedTotal} size={40} color={tokens.mint} />
                 </>
               ) : (
                 <>
                   <Text style={[styles.heroLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>Coming in</Text>
                   <View style={styles.heroAmountRow}>
-                    <AmountText value={single ? single.total : monthlyTotal} size={40} weight="displayBold" color={tokens.mint} animate />
+                    <AmountText value={single ? single.total : monthlyTotal} size={40} color={tokens.mint} animate />
                     <Text style={[styles.heroPer, { color: tokens.text2, fontFamily: fontFamily.bodyBold }]}>{single ? CADENCE_PER[single.frequency] : "a month"}</Text>
                   </View>
                   {single && single.frequency !== "monthly" && (

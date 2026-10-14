@@ -389,7 +389,6 @@ export default function HomeScreen() {
                 value={displayedReadyToAssign}
                 size={type.hero}
                 color={displayedReadyToAssign < 0 ? tokens.coral : tokens.text}
-                weight="displayBold"
                 animate
                 settle
                 id="ready-to-assign"

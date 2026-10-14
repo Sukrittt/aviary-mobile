@@ -11,7 +11,7 @@ import { rippleHaptic } from '@/src/lib/haptics'
  * Every money display in the app. Owns three things that were previously
  * re-implemented per screen: INR formatting, the "hide amounts" mask (read
  * straight from PrivacyContext instead of being threaded down as a prop), and
- * tabular figures so digits do not jitter as a value changes.
+ * tabular figures so digits do not jitter as a value changes. Tracking tightens with size; Geist reads loose at hero sizes.
  *
  * `animate` adds the odometer roll — only the digits that actually changed
  * scroll past their old value. Reserve it for hero numbers; a list of forty
@@ -65,7 +65,7 @@ export function AmountText({
 
   const textStyle: StyleProp<TextStyle> = [
     styles.base,
-    { fontSize: size, color: color ?? tokens.text, fontFamily: fontFamily[weight] },
+    { fontSize: size, color: color ?? tokens.text, fontFamily: fontFamily[weight], letterSpacing: Math.min(-0.5, -0.02 * size) },
     style,
   ]
 
@@ -251,6 +251,6 @@ function Digit({
 }
 
 const styles = StyleSheet.create({
-  base: { fontVariant: ['tabular-nums'], letterSpacing: -0.5 },
+  base: { fontVariant: ['tabular-nums'] },
   row: { flexDirection: 'row', alignItems: 'flex-end' },
 })
