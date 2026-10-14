@@ -50,28 +50,87 @@ function Rows({ count, icon }: { count: number; icon?: number }) {
   return <>{Array.from({ length: count }, (_, i) => <Row key={i} icon={icon} />)}</>
 }
 
-function CardShape({ children }: { children: ReactNode }) {
+function CardShape({ children, style }: { children: ReactNode; style?: StyleProp<ViewStyle> }) {
   const { tokens, radius, space } = useTheme()
   return (
-    <View style={{ borderRadius: radius.lg, borderWidth: 1, borderColor: tokens.border, padding: space.lg, gap: space.sm }}>
+    <View style={[{ borderRadius: radius.lg, borderWidth: 1, borderColor: tokens.border, padding: space.lg, gap: space.sm }, style]}>
       {children}
     </View>
   )
 }
 
+/** Home's category row: icon tile, name and spent/of, progress bar, last spent, available pill. */
+function CategoryRow() {
+  return (
+    <View style={styles.catRow}>
+      <View style={styles.rowText}>
+        <View style={styles.catTop}>
+          <Bone w={26} h={26} r={10} />
+          <Bone w="35%" h={13} />
+          <Bone w={70} h={12} style={styles.pushRight} />
+        </View>
+        <Bone h={6} r={3} />
+        <Bone w={90} h={11} />
+      </View>
+      <View style={styles.pillCol}>
+        <Bone w={60} h={20} r={6} />
+      </View>
+    </View>
+  )
+}
+
+function CategoryGroup({ count }: { count: number }) {
+  const { tokens } = useTheme()
+  return (
+    <View style={[styles.group, { borderTopColor: tokens.border }]}>
+      <View style={styles.groupHead}>
+        <View style={styles.catTop}>
+          <Bone w={16} h={16} r={4} />
+          <Bone w={90} h={13} />
+        </View>
+        <Bone w={70} h={12} />
+      </View>
+      <View style={[styles.groupRows, { borderLeftColor: tokens.border }]}>
+        {Array.from({ length: count }, (_, i) => (
+          <View key={i} style={i > 0 && [styles.rowDivider, { borderTopColor: tokens.border }]}>
+            <CategoryRow />
+          </View>
+        ))}
+      </View>
+    </View>
+  )
+}
+
+/** Mirrors Home with everything assigned: slim Ready to Assign row, then the Categories card. */
 export function HomeSkeleton() {
   const { space, radius } = useTheme()
   return (
-    <Screen title={<Bone w={40} h={40} r={20} />} center={<Bone w={84} h={16} />} contentContainerStyle={{ gap: space.lg }}>
-      <Pulse>
-        <View style={[styles.hero, { paddingVertical: space.lg }]}>
-          <Bone w={110} h={12} />
-          <Bone w={200} h={56} r={radius.md} />
-          <Bone w={140} h={28} r={radius.full} />
+    <Screen
+      title={<Bone w={40} h={40} r={20} />}
+      center={
+        <View style={styles.headerMonth}>
+          <Bone w={90} h={18} />
+          <Bone w={70} h={11} />
         </View>
+      }
+      contentContainerStyle={{ gap: space.lg }}
+    >
+      <Pulse>
+        <CardShape style={[styles.slimRta, { marginTop: space.sm, marginBottom: space.lg }]}>
+          <View style={styles.catTop}>
+            <Bone w={30} h={30} r={9} />
+            <Bone w={120} h={15} />
+          </View>
+          <Bone w={44} h={15} />
+        </CardShape>
         <CardShape>
-          <Bone w={120} h={18} />
-          <Rows count={4} icon={32} />
+          <View style={styles.groupHead}>
+            <Bone w={110} h={20} />
+            <Bone w={96} h={34} r={radius.full} />
+          </View>
+          <View style={{ marginTop: space.sm }}>
+            <CategoryGroup count={3} />
+          </View>
         </CardShape>
       </Pulse>
     </Screen>
@@ -115,7 +174,16 @@ export function EnvelopesSkeleton() {
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  hero: { alignItems: 'center', gap: 10 },
+  headerMonth: { alignItems: 'center', gap: 4 },
+  slimRta: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14 },
+  group: { borderTopWidth: 1, paddingVertical: 8 },
+  groupHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4 },
+  groupRows: { paddingLeft: 12, marginLeft: 6, borderLeftWidth: StyleSheet.hairlineWidth },
+  rowDivider: { borderTopWidth: StyleSheet.hairlineWidth, marginTop: 2, marginLeft: -12, paddingLeft: 12 },
+  catRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
+  catTop: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  pushRight: { marginLeft: 'auto' },
+  pillCol: { width: 84, alignItems: 'flex-end' },
   searchRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
   rowText: { flex: 1, gap: 6 },
