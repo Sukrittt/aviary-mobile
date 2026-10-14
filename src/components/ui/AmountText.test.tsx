@@ -52,6 +52,15 @@ describe('AmountText', () => {
     expect(getByText('₹1,25,000')).toBeTruthy()
   })
 
+  it('shrinks a long numpad entry to fit the screen with `fit`, and leaves short ones alone', () => {
+    const fontSize = (el: ReturnType<ReturnType<typeof renderWithProviders>['getByText']>) =>
+      [el.props.style].flat(Infinity).reduce((n, st) => st?.fontSize ?? n, 0)
+    const long = renderWithProviders(<AmountText value={0} rawText="99,99,99,99,99,99,99,999" size={72} fit />)
+    expect(fontSize(long.getByText('99,99,99,99,99,99,99,999'))).toBeLessThan(72)
+    const short = renderWithProviders(<AmountText value={0} rawText="450" size={72} fit />)
+    expect(fontSize(short.getByText('450'))).toBe(72)
+  })
+
   it('renders negatives with a leading sign', () => {
     const { getByText } = renderWithProviders(<AmountText value={-450} size={20} />)
     expect(getByText('-₹450')).toBeTruthy()

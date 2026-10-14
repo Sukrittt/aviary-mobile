@@ -285,6 +285,7 @@ export function IncomeForm({ existing, flood = false, defaultLabel, intro }: { e
             <AmountText
               value={value}
               rawText={formatAmountInput(amountText)}
+              fit
               size={type.hero}
               weight="displayBold"
               animate

@@ -1,6 +1,6 @@
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { useEffect, useRef } from 'react'
-import { View, Text, Animated, Easing, StyleSheet, type TextStyle, type StyleProp } from 'react-native'
+import { View, Text, Animated, Easing, StyleSheet, useWindowDimensions, type TextStyle, type StyleProp } from 'react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 
@@ -32,6 +32,7 @@ export function AmountText({
   id,
   ignoreHide = false,
   settle = false,
+  fit = false,
 }: {
   value: number
   size: number
@@ -55,13 +56,19 @@ export function AmountText({
    * for instances that stay mounted across the change. */
   id?: string
   settle?: boolean
+  /** Shrink below `size` so the text fits the screen width. For numpad heroes,
+   * where the user can type more digits than fit at full size. */
+  fit?: boolean
 }) {
   const { formatCurrency } = useCurrency()
+  const { width } = useWindowDimensions()
 
   const { tokens } = useTheme()
   const { hideAmounts } = usePrivacy()
   const hide = ignoreHide ? false : hideAmounts
   const text = !hide && rawText !== undefined ? rawText : formatCurrency(value, hide)
+  // ponytail: ~0.6em per glyph (Geist tabular digits) is an estimate, not a measurement; swap for onTextLayout if it ever clips.
+  if (fit) size = Math.min(size, (width - 48) / (text.length * 0.6))
 
   const textStyle: StyleProp<TextStyle> = [
     styles.base,
