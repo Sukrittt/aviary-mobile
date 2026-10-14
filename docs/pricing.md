@@ -39,7 +39,7 @@ All prices are in INR, taxes included, matching the live pricing page. Google Pl
 - Trial starts when onboarding is completed, including initial budget/income setup—not at account signup.
 - No payment details are required during the trial.
 - Users explicitly subscribe to continue after the trial; the trial itself never causes an automatic charge.
-- Existing users receive a fresh 45-day trial when subscriptions launch.
+- Existing users receive a fresh 30-day trial when subscriptions launch.
 - No promise of permanently free existing features has been communicated to users, according to the planning discussion.
 - The earlier six-month trial idea was replaced by a 45-day trial, cut to 30 days in Oct 2026.
 
