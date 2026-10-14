@@ -35,13 +35,13 @@ All prices are in INR, taxes included, matching the live pricing page. Google Pl
 
 ## Trial and launch transition
 
-- Standard trial: **45 days**.
+- Standard trial: **30 days**.
 - Trial starts when onboarding is completed, including initial budget/income setup—not at account signup.
 - No payment details are required during the trial.
 - Users explicitly subscribe to continue after the trial; the trial itself never causes an automatic charge.
 - Existing users receive a fresh 45-day trial when subscriptions launch.
 - No promise of permanently free existing features has been communicated to users, according to the planning discussion.
-- The earlier six-month trial idea was replaced by this 45-day trial.
+- The earlier six-month trial idea was replaced by a 45-day trial, cut to 30 days in Oct 2026.
 
 ## Expiry, export, and retention
 
@@ -69,7 +69,7 @@ Do not promise unlimited premium AI. Decide model selection, included usage, and
 
 Draft, to use once the paid offering is ready:
 
-> Try the full app free for 45 days. No payment details needed.
+> Try the full app free for 30 days. No payment details needed.
 > Then ₹199/month or ₹1,999/year.
 > No ads, ever. Export your data without a subscription while it remains within our retention period.
 
