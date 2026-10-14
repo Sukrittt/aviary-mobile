@@ -21,7 +21,7 @@ function renderNav() {
 it('long-pressing + opens the quick-add menu', () => {
   const { getByRole, getByLabelText, queryByLabelText } = renderNav()
   expect(queryByLabelText('Add income')).toBeNull()
-  fireEvent(getByRole('tab', { name: 'Log expense' }), 'longPress')
+  fireEvent(getByRole('button', { name: 'Log expense' }), 'longPress')
   expect(getByLabelText('Scan a bill')).toBeTruthy()
   fireEvent.press(getByLabelText('Add income'))
   expect(mockPush).toHaveBeenCalledWith(QUICK_INCOME_PATH)
@@ -30,7 +30,7 @@ it('long-pressing + opens the quick-add menu', () => {
 
 it('sends scan a bill through the photo picker on More', () => {
   const { getByRole, getByLabelText } = renderNav()
-  fireEvent(getByRole('tab', { name: 'Log expense' }), 'longPress')
+  fireEvent(getByRole('button', { name: 'Log expense' }), 'longPress')
   fireEvent.press(getByLabelText('Scan a bill'))
   expect(mockNavigate).toHaveBeenCalledWith({ pathname: '/more', params: { scan: '1' } })
 })

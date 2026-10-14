@@ -6,6 +6,7 @@ import { type PhosphorIcon } from '@/src/components/shared/icons'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { NAV_HEIGHT } from '@/src/theme/scale'
+import { NAV_SIDE } from './FloatingNav'
 
 // A short, settled rise out of the + circle: no overshoot.
 const RISE = new Keyframe({
@@ -26,7 +27,7 @@ export function QuickAddMenu({ items, onClose }: { items: QuickAddItem[]; onClos
     <>
       {/* Invisible: the screen stays in full view, a tap anywhere just closes the menu. */}
       <Pressable testID="quick-add-scrim" style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Close menu" />
-      <View pointerEvents="box-none" style={[styles.anchor, { bottom: NAV_HEIGHT + insets.bottom - 14 }]}>
+      <View pointerEvents="box-none" style={[styles.anchor, { bottom: NAV_HEIGHT + insets.bottom - 14, right: NAV_SIDE }]}>
         <Reanimated.View
           entering={RISE}
           exiting={FadeOut.duration(120)}
@@ -65,9 +66,9 @@ export function QuickAddMenu({ items, onClose }: { items: QuickAddItem[]; onClos
 }
 
 const styles = StyleSheet.create({
-  anchor: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
-  // Grows from its bottom edge, where the + circle sits.
-  card: { minWidth: 150, transformOrigin: 'bottom' },
+  anchor: { position: 'absolute', left: 0, alignItems: 'flex-end' },
+  // Grows from its bottom-right corner, where the + disc sits.
+  card: { minWidth: 150, transformOrigin: 'bottom right' },
   row: { flexDirection: 'row', alignItems: 'center' },
   icon: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
 })
