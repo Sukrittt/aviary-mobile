@@ -534,10 +534,14 @@ export default function HomeScreen() {
                 Categories
               </Text>
               {!envelopesEmpty && (
-                <Chip label={allGroupsCollapsed ? 'Expand all' : 'Collapse all'} onPress={toggleCollapseAll} />
+                <Chip
+                  label={allGroupsCollapsed ? 'Expand all' : 'Collapse all'}
+                  onPress={toggleCollapseAll}
+                  style={{ paddingVertical: space.xs, paddingHorizontal: space.md }}
+                />
               )}
             </View>
-            <View style={[{ marginTop: space.xs }, envelopesEmpty && styles.emptyEnvelopesBody]}>
+            <View style={[{ marginTop: space.sm }, envelopesEmpty && styles.emptyEnvelopesBody]}>
               {envelopesEmpty ? (
                 <EmptyState
                   compact
