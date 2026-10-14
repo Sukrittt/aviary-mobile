@@ -10,6 +10,7 @@ import type { CategoryIconKey } from '@/src/lib/categoryIcons'
 import { parseLocalDate, toLocalDateString } from '@/src/lib/date'
 import { ProgressBar } from './ProgressBar'
 import { BottomSheet } from '@/src/components/shared/Modal'
+import { tap } from '@/src/lib/haptics'
 import type { Envelope } from '@/src/lib/envelope'
 import type { ThemeTokens } from '@/src/theme/tokens'
 
@@ -77,6 +78,7 @@ export function EnvelopeRow({
   const [sheetOpen, setSheetOpen] = useState(false)
 
   function openSheet() {
+    tap()
     setSheetOpen(true)
     onSheetOpenChange?.(true)
   }

@@ -4,7 +4,7 @@ import type { LayoutChangeEvent } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { CaretRight, DotsThreeVertical, Plus, Equals } from '@/src/components/shared/icons'
 import * as Haptics from 'expo-haptics'
-import { rippleHaptic } from '@/src/lib/haptics'
+import { rippleHaptic, tap } from '@/src/lib/haptics'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Reanimated, {
   measure,
@@ -639,7 +639,7 @@ export default function EnvelopesScreen() {
   const allGroupsCollapsed = allGroupKeys.length > 0 && allGroupKeys.every((k) => collapsedGroups.has(k))
 
   function toggleGroup(key: string) {
-    Haptics.selectionAsync().catch(() => {})
+    tap()
     setCollapsedGroups((prev) => {
       const next = new Set(prev)
       if (next.has(key)) next.delete(key)
@@ -786,6 +786,7 @@ export default function EnvelopesScreen() {
     setDeleteTarget({ kind, name })
   }
   function openCategoryMenu(name: string) {
+    tap()
     setMenuTarget({ kind: 'category', name })
   }
   function openGroupMenu(name: string) {
