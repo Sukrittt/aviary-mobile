@@ -28,7 +28,6 @@ useLogExpenseSubmitPublisher,
 } from "@/src/features/log-expense/SubmitContext";
 import {
 missingFields,
-missingFieldsMessage,
 } from "@/src/features/log-expense/missingFields";
 import { useCategories } from "@/src/hooks/useCategories";
 import { useCategoryMap } from "@/src/hooks/useCategoryMap";
@@ -49,7 +48,7 @@ import { useTheme } from "@/src/theme/ThemeProvider";
 import { fontFamily } from "@/src/theme/fonts";
 import { NAV_HEIGHT } from "@/src/theme/scale";
 import { useIsFocused,useLocalSearchParams,useRouter } from "expo-router";
-import { CaretDown, ChatText, Plus, Tag, Warning, Wallet } from "@/src/components/shared/icons";
+import { CaretDown, ChatText, Plus, Warning } from "@/src/components/shared/icons";
 import { useCaptureTip } from "@/src/hooks/useCaptureTip";
 import { noteManualLog, type CaptureTipReason } from "@/src/lib/captureTip";
 import { CaptureTipBubble } from "@/src/features/log-expense/CaptureTipBubble";
@@ -208,7 +207,6 @@ export default function LogExpenseScreen() {
   // Bumped each time the nav's add circle is tapped with the form incomplete.
   // 0 = never, so nothing is highlighted before the first blocked submit.
   const [nudge, setNudge] = useState(0);
-  const onInvalid = useCallback(() => setNudge((n) => n + 1), []);
   // Typo guard: an amount far above the category's usual blocks the first
   // save with a toast; saving again with the same amount and category goes through.
   const [unusualWarnedFor, setUnusualWarnedFor] = useState("");
@@ -323,6 +321,14 @@ export default function LogExpenseScreen() {
   // account it would default to. Never offline: logging must keep working there.
   const accountsPending = online && accountsQ.isLoading;
   const canSubmit = missing.length === 0 && !conflict && !deleted && !accountsPending;
+  // A blocked + does the next step instead of describing it: with only the
+  // category left it opens the picker; otherwise the amount shakes and the
+  // category pill lights up, which is all the keypad screen needs to say.
+  const onlyCategoryMissing = missing.length === 1 && missing[0] === "category";
+  const onInvalid = useCallback(() => {
+    if (onlyCategoryMissing) setPickerOpen(true);
+    else setNudge((n) => n + 1);
+  }, [onlyCategoryMissing]);
   const flag = (f: (typeof missing)[number]) => nudge > 0 && missing.includes(f);
   const saving = addExpense.isPending || updateExpense.isPending || savePhoto.isPending;
   const unusual = useMemo(
@@ -557,14 +563,6 @@ export default function LogExpenseScreen() {
           onDismiss={() => captureTip.close("dismiss")}
         />
       )}
-
-      <Toast
-        trigger={nudge}
-        message={missingFieldsMessage(missing)}
-        icon={missing[0] === "amount" ? Wallet : Tag}
-        // Clear of the header title with room to breathe.
-        style={{ top: insets.top + space.xxxl + space.xl }}
-      />
 
       <Toast
         trigger={unusualNudge}

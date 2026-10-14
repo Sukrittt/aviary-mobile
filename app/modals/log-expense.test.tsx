@@ -206,19 +206,21 @@ it('offers logging several at once only for a new expense, not an edit', () => {
   expect(utils.queryByLabelText('Log several spends at once')).toBeNull()
 })
 
-it('names what is still missing when an incomplete submit is blocked', async () => {
-  const utils = setup()
-  const { getByLabelText, queryByText, findByText } = utils
-  expect(queryByText('Add an amount and category')).toBeNull()
-
+it('shakes the amount instead of a toast when a blocked submit has no amount', async () => {
+  const { getByLabelText, queryByText, findByText } = setup()
   act(() => {
     ;(globalThis as any).__onInvalid()
   })
-  expect(await findByText('Add an amount and category')).toBeTruthy()
+  expect(queryByText('Add an amount and category')).toBeNull()
+  // Category pill lights up, picker stays shut: the amount comes first.
+  expect(queryByText(/Groceries/)).toBeNull()
 
-  // The copy tracks the form live while the toast is up.
+  // Blocked again with only the category left: + opens the picker outright.
   fireEvent.press(getByLabelText('4'))
-  expect(await findByText('Pick a category')).toBeTruthy()
+  act(() => {
+    ;(globalThis as any).__onInvalid()
+  })
+  expect(await findByText(/Groceries/)).toBeTruthy()
 })
 
 it('saves a blank "What was it for?" under the category name', async () => {
