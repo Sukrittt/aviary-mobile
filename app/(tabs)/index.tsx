@@ -6,11 +6,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { View, Text, Pressable, RefreshControl, StyleSheet, Linking, Platform } from 'react-native'
 import { useQuery } from '@tanstack/react-query'
 import { useRouter, useNavigation, useFocusEffect } from 'expo-router'
-import { ChevronRight, LineChart } from 'lucide-react-native'
+import { CaretRight, ChartLine, MoneyWavy } from '@/src/components/shared/icons'
 import Reanimated, { FadeIn, FadeInDown, FadeOut, LinearTransition } from 'react-native-reanimated'
 import * as Haptics from 'expo-haptics'
-import { rippleHaptic } from '@/src/lib/haptics'
-import { AnimatedTabContent } from '@/src/components/nav/AnimatedTabContent'
+import { rippleHaptic, tap } from '@/src/lib/haptics'
 import { Icon } from '@/src/components/shared/Icon'
 import { SlideStrip } from '@/src/components/shared/SlideStrip'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
@@ -22,7 +21,7 @@ import { fontFamily } from '@/src/theme/fonts'
 import { useBudgets } from '@/src/hooks/useBudgets'
 import { useLastSpent, useRecentExpenses } from '@/src/hooks/useExpenses'
 import { useCategories } from '@/src/hooks/useCategories'
-import { useGroups } from '@/src/hooks/useGroups'
+import { useGroupIcons, useGroups } from '@/src/hooks/useGroups'
 import {
   computeEnvelopeState,
   currentMonthKey,
@@ -33,7 +32,7 @@ import {
 } from '@/src/lib/envelope'
 
 import { EMPTY } from '@/src/lib/constants'
-import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
+import { HomeSkeleton } from '@/src/components/shared/TabSkeleton'
 import { useRefresh } from '@/src/hooks/useRefresh'
 import { useCollapsedGroups } from '@/src/hooks/useCollapsedGroups'
 import { useDismissedRolloverBanner } from '@/src/hooks/useDismissedRolloverBanner'
@@ -44,6 +43,7 @@ import { EnvelopeGroup } from '@/src/components/envelope/EnvelopeGroup'
 import { EnvelopeRow } from '@/src/components/envelope/EnvelopeRow'
 import { Screen } from '@/src/components/ui/Screen'
 import { Card } from '@/src/components/ui/Card'
+import { Chip } from '@/src/components/ui/Chip'
 import { AnimatedPressable, IconButton, usePressSpring } from '@/src/components/ui/Button'
 import { AmountText } from '@/src/components/ui/AmountText'
 import { OfflineScreen } from '@/src/components/shared/OfflineScreen'
@@ -82,6 +82,7 @@ export default function HomeScreen() {
   const lastSpent = useLastSpent().data
   const categoriesQ = useCategories()
   const groupsQ = useGroups()
+  const groupIcons = useGroupIcons()
   const user = useUser().data
 
   const { hideAmounts } = usePrivacy()
@@ -121,6 +122,10 @@ export default function HomeScreen() {
   const expenses = emptyForPreview(expensesQ.data ?? EMPTY)
   const categories = emptyForPreview(categoriesQ.data ?? EMPTY)
   const groups = emptyForPreview(groupsQ.data ?? EMPTY)
+  const categoryIcons = useMemo(
+    () => new Map(categories.flatMap((c) => (c.icon ? [[c.name, c.icon] as const] : []))),
+    [categories],
+  )
 
   const envelopeState = useMemo(
     () => computeEnvelopeState(budgets, expenses, month, categories, groups, lastSpent),
@@ -212,7 +217,7 @@ export default function HomeScreen() {
   const allGroupsCollapsed = allGroupNames.length > 0 && allGroupNames.every((g) => collapsedGroups.has(g))
 
   function toggleGroup(group: string) {
-    Haptics.selectionAsync().catch(() => {})
+    tap()
     setCollapsedGroups((prev) => {
       const next = new Set(prev)
       if (next.has(group)) next.delete(group)
@@ -277,11 +282,7 @@ export default function HomeScreen() {
   const hasError = !FORCE_EMPTY_STATE_PREVIEW && [budgetsQ, expensesQ, categoriesQ, groupsQ].some((q) => q.error && q.data === undefined)
 
   if (isLoading) {
-    return (
-      <View style={[styles.center, { backgroundColor: tokens.bg }]}>
-        <LoadingCaption />
-      </View>
-    )
+    return <HomeSkeleton />
   }
 
   // Offline blocks the whole screen, not just this one query error — a single
@@ -304,7 +305,7 @@ export default function HomeScreen() {
   }
 
   return (
-    <AnimatedTabContent>
+    <>
       <Screen
         title={
           <Pressable
@@ -325,7 +326,7 @@ export default function HomeScreen() {
           </View>
         }
         actions={
-          isHidden(user, 'insights') ? undefined : <IconButton icon={LineChart} color={tokens.accentInk} background={tokens.accentSoft} accessibilityLabel="Insights" onPress={() => router.push('/insights')} />
+          isHidden(user, 'insights') ? undefined : <IconButton icon={ChartLine} color={tokens.accentInk} background={tokens.accentSoft} accessibilityLabel="Insights" onPress={() => router.push('/insights')} />
         }
         contentContainerStyle={{ gap: space.lg }}
         refreshControl={
@@ -341,7 +342,7 @@ export default function HomeScreen() {
             accessibilityLabel="Ready to Assign options"
             accessibilityHint="Everything's assigned. Change or add income, or set Ready to Assign"
             onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+              tap()
               setIncomeSheetOpen(true)
             }}
             onPressIn={heroPress.onPressIn}
@@ -350,17 +351,25 @@ export default function HomeScreen() {
             style={[heroPress.style, { marginTop: space.sm }]}
           >
             <Card elevated={false} style={[styles.slimRta, rtaCelebrating && { backgroundColor: tokens.pillGoodBg, borderColor: 'transparent' }]}>
-              <Reanimated.Text
+              <Reanimated.View
                 key={rtaCelebrating ? 'celebrate' : 'label'}
                 entering={FadeIn.duration(220)}
                 exiting={FadeOut.duration(180)}
-                style={{ color: tokens.text, fontSize: type.body, fontFamily: fontFamily.bodySemiBold }}
+                style={styles.slimLabel}
               >
-                {rtaCelebrating ? `Every ${currencyUnit(currencyCode)} has a job.` : '💸  Ready to Assign'}
-              </Reanimated.Text>
+                {/* Same tinted MoneyWavy tile as Web's slim row. */}
+                {!rtaCelebrating && (
+                  <View style={[styles.rtaIcon, { backgroundColor: tokens.pillGoodBg }]}>
+                    <Icon icon={MoneyWavy} size={18} color={tokens.pillGood} />
+                  </View>
+                )}
+                <Text style={{ color: tokens.text, fontSize: type.body, fontFamily: fontFamily.bodySemiBold }}>
+                  {rtaCelebrating ? `Every ${currencyUnit(currencyCode)} has a job.` : 'Ready to Assign'}
+                </Text>
+              </Reanimated.View>
               <View style={styles.slimAmount}>
                 <AmountText value={displayedReadyToAssign} size={type.body} color={tokens.mint} weight="displayBold" />
-                {rtaCelebrating ? <CheckIcon color={tokens.mint} size={16} /> : <Icon icon={ChevronRight} size={16} color={tokens.text2} />}
+                {rtaCelebrating ? <CheckIcon color={tokens.mint} size={16} /> : <Icon icon={CaretRight} size={16} color={tokens.text2} />}
               </View>
             </Card>
           </AnimatedPressable>
@@ -372,7 +381,7 @@ export default function HomeScreen() {
               accessibilityLabel="Ready to Assign options"
               accessibilityHint="Change or add income, or set Ready to Assign"
               onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+                tap()
                 setIncomeSheetOpen(true)
               }}
               onPressIn={heroPress.onPressIn}
@@ -384,7 +393,6 @@ export default function HomeScreen() {
                 value={displayedReadyToAssign}
                 size={type.hero}
                 color={displayedReadyToAssign < 0 ? tokens.coral : tokens.text}
-                weight="displayBold"
                 animate
                 settle
                 id="ready-to-assign"
@@ -395,7 +403,7 @@ export default function HomeScreen() {
             <AnimatedPressable
               accessibilityRole="button"
               onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+                tap()
                 if (envelopeState.income === 0) {
                   router.push(changeIncomeHref)
                 } else setIncomeSheetOpen(true)
@@ -408,7 +416,7 @@ export default function HomeScreen() {
               <Text style={{ color: envelopeState.income === 0 ? tokens.accentInk : tokens.text, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>
                 {envelopeState.income === 0 ? 'Set your income' : `Income · ${formatCurrency(envelopeState.income, hideAmounts)}`}
               </Text>
-              <Icon icon={ChevronRight} size={14} color={envelopeState.income === 0 ? tokens.accentInk : tokens.text2} />
+              <Icon icon={CaretRight} size={14} color={envelopeState.income === 0 ? tokens.accentInk : tokens.text2} />
             </AnimatedPressable>
           </View>
         )}
@@ -526,29 +534,31 @@ export default function HomeScreen() {
           <Card elevated={false} style={envelopesEmpty && styles.emptyEnvelopesCard}>
             <View style={styles.cardHeadRow}>
               <Text style={[styles.cardTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: type.bodyLg }]}>
-                Envelopes
+                Categories
               </Text>
               {!envelopesEmpty && (
-                <Pressable onPress={toggleCollapseAll} accessibilityRole="button" hitSlop={8}>
-                  <Text style={{ color: tokens.accentInk, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>
-                    {allGroupsCollapsed ? 'Expand all' : 'Collapse all'}
-                  </Text>
-                </Pressable>
+                <Chip
+                  label={allGroupsCollapsed ? 'Expand all' : 'Collapse all'}
+                  onPress={toggleCollapseAll}
+                  style={{ paddingVertical: space.xs, paddingHorizontal: space.md }}
+                />
               )}
             </View>
-            <View style={[{ marginTop: space.xs }, envelopesEmpty && styles.emptyEnvelopesBody]}>
+            <View style={[{ marginTop: space.sm }, envelopesEmpty && styles.emptyEnvelopesBody]}>
               {envelopesEmpty ? (
                 <EmptyState
                   compact
                   subject="envelopes"
-                  title="Your envelopes are waiting"
+                  title="Your categories are waiting"
                   description="Give every kind of spending a place to land."
-                  action={{ label: 'Add your first envelope', onPress: () => router.navigate('/(tabs)/envelopes') }}
+                  action={{ label: 'Add your first category', onPress: () => router.navigate('/(tabs)/envelopes') }}
                 />
               ) : groupedEnvelopes.map(({ group, envelopes }) => (
                 <EnvelopeGroup
                   key={group}
                   group={group}
+                  groupIcon={groupIcons.get(group)}
+                  categoryIcons={categoryIcons}
                   envelopes={envelopes}
                   hideAmounts={hideAmounts}
                   onMoveMoney={handleMoveMoney}
@@ -565,11 +575,11 @@ export default function HomeScreen() {
                   style={[styles.ccWrap, { borderTopColor: tokens.border, paddingTop: space.sm, marginTop: space.sm }]}
                 >
                   <View style={styles.ccBadgeRow}>
-                    <Text style={{ fontSize: 9, fontWeight: '600', color: tokens.accent }}>PAYOFF</Text>
+                    <Text style={{ fontSize: 12, fontFamily: fontFamily.bodyBold, color: tokens.accent }}>PAYOFF</Text>
                   </View>
                   <EnvelopeRow
                     envelope={creditCardEnvelope}
-                    emoji="💳"
+                    icon="CreditCard"
                     displayName="Credit Card Payment"
                     hideAmounts={hideAmounts}
                     onMoveMoney={handleMoveMoney}
@@ -588,7 +598,7 @@ export default function HomeScreen() {
             <Text style={{ color: tokens.text2, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>
               Trends, daily spend and subscriptions
             </Text>
-            <Icon icon={ChevronRight} size={16} color={tokens.text2} />
+            <Icon icon={CaretRight} size={16} color={tokens.text2} />
           </Pressable>
         </View>}
       </Screen>
@@ -617,20 +627,21 @@ export default function HomeScreen() {
           </Pressable>
         ))}
       </BottomSheet>
-    </AnimatedTabContent>
+    </>
   )
 }
 
 const styles = StyleSheet.create({
   appIconButton: { width: 40, height: 40 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   hero: { alignItems: 'center', gap: 6 },
   incomePill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 6, marginTop: 4 },
   sheetTitle: { fontSize: 16, marginBottom: 8 },
   sheetBtn: { paddingVertical: 12 },
   sheetBtnText: { fontSize: 14 },
-  heroLabel: { fontSize: 10, letterSpacing: 0.6 },
+  heroLabel: { fontSize: 12, letterSpacing: 0.6 },
   slimRta: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14 },
+  slimLabel: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  rtaIcon: { width: 30, height: 30, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
   slimAmount: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   headerMonth: { alignItems: 'center' },
   rolloverCard: { flexDirection: 'row', alignItems: 'center', gap: 12 },

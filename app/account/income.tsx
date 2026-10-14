@@ -4,7 +4,7 @@ import { View, Text, Pressable, ScrollView, RefreshControl, StyleSheet } from "r
 import { useRouter } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ArrowLeft, Pencil, Plus, Trash2 } from "lucide-react-native";
+import { ArrowLeft, PencilSimple, Plus, Trash } from "@/src/components/shared/icons";
 import Reanimated from "react-native-reanimated";
 import { OfflineScreen } from "@/src/components/shared/OfflineScreen";
 import { useOnline } from "@/src/lib/netStatus";
@@ -27,6 +27,7 @@ import { formatDateShort } from "@/src/lib/format";
 import { toLocalDateString } from "@/src/lib/date";
 import { currentMonthKey, monthLabel } from "@/src/lib/envelope";
 import type { AccountRow, IncomeRow, RecurringIncomeRow } from "@/src/types";
+import { tap } from "@/src/lib/haptics";
 
 const LOADING_PHRASES = ["Counting what comes in…", "Checking paydays…", "Almost there…"];
 const CADENCE_LABELS: Record<string, string> = { daily: "Every day", weekly: "Every week", monthly: "Every month", yearly: "Every year" };
@@ -169,13 +170,13 @@ export default function IncomeScreen() {
               {active.length === 0 ? (
                 <>
                   <Text style={[styles.heroLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>Recorded in {monthLabel(month)}</Text>
-                  <AmountText value={receivedTotal} size={40} weight="displayBold" color={tokens.mint} />
+                  <AmountText value={receivedTotal} size={40} color={tokens.mint} />
                 </>
               ) : (
                 <>
                   <Text style={[styles.heroLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>Coming in</Text>
                   <View style={styles.heroAmountRow}>
-                    <AmountText value={single ? single.total : monthlyTotal} size={40} weight="displayBold" color={tokens.mint} animate />
+                    <AmountText value={single ? single.total : monthlyTotal} size={40} color={tokens.mint} animate />
                     <Text style={[styles.heroPer, { color: tokens.text2, fontFamily: fontFamily.bodyBold }]}>{single ? CADENCE_PER[single.frequency] : "a month"}</Text>
                   </View>
                   {single && single.frequency !== "monthly" && (
@@ -243,10 +244,10 @@ export default function IncomeScreen() {
                       <Text style={[styles.rowAmount, { color: tokens.mint, fontFamily: fontFamily.bodyBold }]}>+{formatCurrency(Number(row.amount) || 0, hideAmounts)}</Text>
                       <View style={styles.rowActions}>
                         <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); router.push(`/modals/add-income?id=${encodeURIComponent(row.id)}`); }} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Edit ${row.label}`}>
-                          <Pencil size={17} color={tokens.text3} />
+                          <PencilSimple size={17} color={tokens.text3} />
                         </Pressable>
                         <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); setDeleting(row); }} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Delete ${row.label}`}>
-                          <Trash2 size={17} color={tokens.text3} />
+                          <Trash size={17} color={tokens.text3} />
                         </Pressable>
                       </View>
                     </PopIn>
@@ -314,7 +315,7 @@ function ScheduleItem({ row, index, accounts }: { row: RecurringIncomeRow; index
       <Reanimated.View style={press.style}>
         <Pressable
           onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+            tap();
             router.push(`/modals/recurring-income?id=${encodeURIComponent(row.id)}`);
           }}
           onPressIn={press.onPressIn}
@@ -378,9 +379,9 @@ const styles = StyleSheet.create({
   heroPer: { fontSize: 15 },
   tileRow: { flexDirection: "row", gap: 8, marginTop: 6 },
   tile: { flex: 1, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 8, gap: 1 },
-  tileName: { fontSize: 11.5 },
+  tileName: { fontSize: 12 },
   tileAmount: { fontSize: 17 },
-  tileCount: { fontSize: 10.5 },
+  tileCount: { fontSize: 12 },
   progress: { height: 8, borderRadius: 999, overflow: "hidden", marginTop: 8 },
   progressFill: { height: "100%", borderRadius: 999 },
   heroLabel: { fontSize: 12, textTransform: "uppercase", letterSpacing: 0.5 },
@@ -403,7 +404,7 @@ const styles = StyleSheet.create({
   },
   discoveryText: { flex: 1, fontSize: 14 },
   section: { gap: 8 },
-  sectionLabel: { fontSize: 11, letterSpacing: 0.6 },
+  sectionLabel: { fontSize: 12, letterSpacing: 0.6 },
   rowCard: { borderWidth: 1, borderRadius: 14 },
   rowInner: {
     flexDirection: "row",

@@ -11,7 +11,7 @@ import { currentMonthKey, INCOME_CATEGORY, monthLabel } from "@/src/lib/envelope
 import { fontFamily } from "@/src/theme/fonts";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { X } from "lucide-react-native";
+import { X } from "@/src/components/shared/icons";
 import { useEffect, useState } from "react";
 import {
   Animated,
@@ -219,6 +219,7 @@ export default function EditMonthIncomeModal() {
             <AmountText
               value={value}
               rawText={formatAmountInput(amountText)}
+              fit
               size={type.hero}
               weight="displayBold"
               animate

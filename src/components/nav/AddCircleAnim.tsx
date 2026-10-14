@@ -10,7 +10,7 @@ const AnimatedCircle = Animated.createAnimatedComponent(Circle)
 // NavCircle's Pressable has no overflow:hidden, so this is free to bleed a
 // few px past the circle's edge for the ring/halo without any layout change
 // there. Sized to the ~17px of vertical room the nav row leaves around the
-// circle (see FloatingNav's ROW_HEIGHT/RING_SIZE math) rather than the
+// circle (see FloatingNav's ROW_HEIGHT/ROW_TOP_BLEED math) rather than the
 // reference's 76px box, which would clip against the row.
 const BOX = 64
 const RING_WIDTH = 3

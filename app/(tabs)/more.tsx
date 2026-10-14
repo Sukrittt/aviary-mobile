@@ -7,8 +7,7 @@ import { useQuery } from '@tanstack/react-query'
 import { requestPinWidget } from 'react-native-android-widget'
 import * as ImagePicker from 'expo-image-picker'
 import * as Haptics from 'expo-haptics'
-import { Gift, Brain, Wallet, Landmark, TrendingUp, Lock, Database, Archive, Repeat, CreditCard, MessageCircle, LayoutGrid, ChevronRight, ScanLine, Camera, Images, FileText, Receipt, LineChart, History, Plus, type LucideIcon } from 'lucide-react-native'
-import { AnimatedTabContent } from '@/src/components/nav/AnimatedTabContent'
+import { Gift, Brain, Wallet, Bank, TrendUp, Lock, Database, Archive, Repeat, CreditCard, ChatCircle, SquaresFour, CaretRight, Scan, Camera, Images, FileText, Receipt, ChartLine, ClockCounterClockwise, Plus, type PhosphorIcon } from '@/src/components/shared/icons'
 import { Screen } from '@/src/components/ui/Screen'
 import { Alert } from '@/src/components/ui/AlertHost'
 import { useTheme } from '@/src/theme/ThemeProvider'
@@ -37,7 +36,7 @@ import type { WrappedStatus } from '@/src/api/wrapped'
 import appJson from '@/app.json'
 import { isVersionNewer } from '@/src/lib/version'
 import { hiddenFeatures, isHidden, OPT_IN_FEATURES } from '@/src/lib/features'
-import { FEEDBACK_BOARD_URL } from '@/src/lib/constants'
+import { tap } from '@/src/lib/haptics'
 
 const THEME_OPTIONS = [
   { value: 'light', label: 'Light' },
@@ -177,7 +176,7 @@ export default function MoreScreen() {
   const extrasOff = OPT_IN_FEATURES.filter((k) => isHidden(user, k)).length
 
   return (
-    <AnimatedTabContent>
+    <>
       <Screen
         title="You"
         contentContainerStyle={styles.container}
@@ -207,12 +206,12 @@ export default function MoreScreen() {
                 </Text>
               )}
             </View>
-            <ChevronRight size={16} color={tokens.text3} strokeWidth={2} />
+            <CaretRight size={16} color={tokens.text3} />
           </Pressable>
 
           {/* Early access feedback */}
           <Pressable
-            onPress={() => Linking.openURL(FEEDBACK_BOARD_URL)}
+            onPress={() => router.push('/account/ideas')}
             style={[styles.earlyCard, { backgroundColor: tokens.card, borderColor: tokens.border }]}
           >
             <View style={{ flex: 1, gap: 6 }}>
@@ -223,11 +222,11 @@ export default function MoreScreen() {
                 {"Aviary's still early. Help shape it."}
               </Text>
               <Text style={[styles.rowHint, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
-                Tell us what to fix or build next. We read every one.
+                Post ideas and vote on what we build next. We read every one.
               </Text>
             </View>
             <View style={[styles.featureIcon, { backgroundColor: tokens.mintSoft }]}>
-              <Icon icon={MessageCircle} size={18} color={tokens.mint} />
+              <Icon icon={ChatCircle} size={18} color={tokens.mint} />
             </View>
           </Pressable>
 
@@ -244,7 +243,7 @@ export default function MoreScreen() {
                 onPress={() => router.push('/account/income')}
               />}
               {!isHidden(user, 'accounts') && <FeatureCard
-                icon={Landmark}
+                icon={Bank}
                 label="Accounts"
                 blurb="Bank, card and cash"
                 iconBg={tokens.accentSoft}
@@ -293,7 +292,7 @@ export default function MoreScreen() {
                 onPress={() => router.push('/modals/money-brain')}
               />}
               {!isHidden(user, 'investments') && <FeatureCard
-                icon={TrendingUp}
+                icon={TrendUp}
                 label="Investments"
                 blurb="Portfolio at a glance"
                 iconBg={tokens.mintSoft}
@@ -301,7 +300,7 @@ export default function MoreScreen() {
                 onPress={() => router.push('/investments')}
               />}
               {!isHidden(user, 'billScan') && <FeatureCard
-                icon={ScanLine}
+                icon={Scan}
                 label="Scan a bill"
                 blurb="Split a cart or receipt"
                 iconBg={tokens.mintSoft}
@@ -317,7 +316,7 @@ export default function MoreScreen() {
                 onPress={() => router.push('/subscriptions')}
               />}
               {!isHidden(user, 'insights') && <FeatureCard
-                icon={LineChart}
+                icon={ChartLine}
                 label="Insights"
                 blurb="Trends and breakdowns"
                 iconBg={tokens.blueSoft}
@@ -385,7 +384,7 @@ export default function MoreScreen() {
                     {NOTIFY_OPTIONS.find((o) => o.value === (user?.notifyCadence ?? 'off'))?.label}
                   </Text>
                 </View>
-                <ChevronRight size={16} color={tokens.text3} strokeWidth={2} />
+                <CaretRight size={16} color={tokens.text3} />
               </Pressable>
               <View style={[styles.divider, { backgroundColor: tokens.border }]} />
               <Pressable onPress={() => router.push('/account/features')} style={styles.row}>
@@ -395,7 +394,7 @@ export default function MoreScreen() {
                     {hiddenFeatures(user).length ? `${hiddenFeatures(user).length} hidden` : 'Hide what you don\'t use'}
                   </Text>
                 </View>
-                <ChevronRight size={16} color={tokens.text3} strokeWidth={2} />
+                <CaretRight size={16} color={tokens.text3} />
               </Pressable>
             </View>
           </View>
@@ -411,7 +410,7 @@ export default function MoreScreen() {
                 <>
                   <View style={[styles.divider, { backgroundColor: tokens.border }]} />
                   <AccountRow
-                    icon={LayoutGrid}
+                    icon={SquaresFour}
                     label="Add widget to home screen"
                     onPress={() => void requestPinWidget({ widgetName: 'Envelope' })}
                     tokens={tokens}
@@ -435,7 +434,7 @@ export default function MoreScreen() {
                 </Pressable>
               </Pressable>
               <View style={[styles.divider, { backgroundColor: tokens.border }]} />
-              <AccountRow icon={MessageCircle} label="Help & feedback" hint="Tour, changelog and more" onPress={() => router.push('/account/help')} tokens={tokens} />
+              <AccountRow icon={ChatCircle} label="Help & feedback" hint="Tour, changelog and more" onPress={() => router.push('/account/help')} tokens={tokens} />
               <View style={[styles.divider, { backgroundColor: tokens.border }]} />
               <AccountRow
                 icon={FileText}
@@ -448,7 +447,7 @@ export default function MoreScreen() {
 
           <Pressable
             onPress={async () => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+              tap()
               // A queued offline expense lives only in this device's AsyncStorage,
               // namespaced by user id — signing out doesn't delete it (so signing
               // back in as the same person recovers it), but signing out and back
@@ -518,12 +517,12 @@ export default function MoreScreen() {
             }}
             style={[styles.sourceRow, { backgroundColor: tokens.inputBg }]}
           >
-            <History size={20} color={tokens.text} />
+            <ClockCounterClockwise size={20} color={tokens.text} />
             <Text style={[styles.sourceLabel, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>Previous scans</Text>
           </Pressable>
         </View>
       </BottomSheet>
-    </AnimatedTabContent>
+    </>
   )
 }
 
@@ -531,7 +530,7 @@ function MaintenanceChip() {
   const { tokens } = useTheme()
   return (
     <View style={[styles.chip, { backgroundColor: tokens.warnSoft }]}>
-      <Text style={{ color: tokens.warn, fontFamily: fontFamily.bodyBold, fontSize: 11 }}>Under maintenance</Text>
+      <Text style={{ color: tokens.warn, fontFamily: fontFamily.bodyBold, fontSize: 12 }}>Under maintenance</Text>
     </View>
   )
 }
@@ -545,7 +544,7 @@ function FeatureCard({
   onPress,
   disabled,
 }: {
-  icon: LucideIcon
+  icon: PhosphorIcon
   label: string
   blurb: ReactNode
   iconBg: string
@@ -630,7 +629,7 @@ function AccountRow({
   onPress,
   tokens,
 }: {
-  icon: LucideIcon
+  icon: PhosphorIcon
   label: string
   hint?: string
   onPress: () => void
@@ -643,7 +642,7 @@ function AccountRow({
         <Text style={[styles.rowLabel, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>{label}</Text>
         {hint && <Text style={[styles.rowHint, { color: tokens.text2 }]}>{hint}</Text>}
       </View>
-      <ChevronRight size={16} color={tokens.text3} strokeWidth={2} />
+      <CaretRight size={16} color={tokens.text3} />
     </Pressable>
   )
 }
@@ -658,29 +657,29 @@ const styles = StyleSheet.create({
   email: { fontSize: 12, marginTop: 1 },
   section: { gap: 10 },
   sectionHeadRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', paddingHorizontal: 4 },
-  sectionLabel: { fontSize: 11, letterSpacing: 0.5, paddingHorizontal: 4 },
+  sectionLabel: { fontSize: 12, letterSpacing: 0.5, paddingHorizontal: 4 },
   featureGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   featureCard: { width: '47.5%', gap: 8, padding: 16, borderWidth: 1, borderRadius: 20 },
   featureCardDisabled: { opacity: 0.5 },
   featureIcon: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   featureLabel: { fontSize: 14 },
-  featureBlurb: { fontSize: 11, lineHeight: 15 },
+  featureBlurb: { fontSize: 12, lineHeight: 15 },
   dots: { fontSize: 12, letterSpacing: 2, marginBottom: 3 },
   card: { borderWidth: 1, borderRadius: 20, paddingHorizontal: 16 },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14, gap: 12 },
   rowLabel: { fontSize: 14 },
-  rowHint: { fontSize: 11, marginTop: 2 },
+  rowHint: { fontSize: 12, marginTop: 2 },
   divider: { height: StyleSheet.hairlineWidth },
   segmented: { flexDirection: 'row', gap: 3, padding: 3, borderRadius: 100 },
   segment: { borderRadius: 100, paddingHorizontal: 12, paddingVertical: 8 },
-  segmentText: { fontSize: 11 },
+  segmentText: { fontSize: 12 },
   badge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 100 },
-  badgeText: { fontSize: 11 },
+  badgeText: { fontSize: 12 },
   earlyCard: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16, borderWidth: 1, borderRadius: 22 },
   earlyBadge: { alignSelf: 'flex-start', paddingVertical: 3 },
   logoutButton: { alignItems: 'center', paddingVertical: 16 },
   logoutText: { fontSize: 14 },
-  version: { fontSize: 11, textAlign: 'center' },
+  version: { fontSize: 12, textAlign: 'center' },
   versionBlock: { alignItems: 'center', gap: 7 },
   updateLink: { fontSize: 12, textAlign: 'center' },
   sheetTitle: { fontSize: 17, marginBottom: 12 },

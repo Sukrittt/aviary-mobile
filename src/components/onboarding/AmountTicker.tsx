@@ -10,7 +10,7 @@ import Animated, {
   withDelay,
   Easing,
 } from 'react-native-reanimated'
-import { Play } from 'lucide-react-native'
+import { Play } from '@/src/components/shared/icons'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 
@@ -185,9 +185,9 @@ function DeltaBadge({ tick, delta }: { tick: number; delta: number }) {
   return (
     <Animated.View key={tick} style={[styles.delta, styles.deltaRow, style]}>
       <View style={{ transform: [{ rotate: delta > 0 ? '-90deg' : '90deg' }] }}>
-        <Play size={10} color={color} fill={color} />
+        <Play size={10} color={color} weight="fill" />
       </View>
-      <Animated.Text style={{ color, fontFamily: fontFamily.bodyMedium, fontSize: 11, fontWeight: '500' }}>
+      <Animated.Text style={{ color, fontFamily: fontFamily.bodySemiBold, fontSize: 12 }}>
         {label}
       </Animated.Text>
     </Animated.View>

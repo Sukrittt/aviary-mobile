@@ -6,7 +6,7 @@
 import { FlexWidget, OverlapWidget, TextWidget, SvgWidget } from "react-native-android-widget";
 import { fillColor } from "@/src/components/envelope/ProgressBar";
 import type { ThemeTokens } from "@/src/theme/tokens";
-import { fontFamily } from "@/src/theme/fonts";
+import { widgetFontFamily as fontFamily } from "@/src/theme/fonts";
 import { heroFontSize, layoutFor, widgetMood, withPerDay, type WidgetData } from "./data";
 import { birdFrames, birdSvg, FRAME_MS, heroTint, ringSvg } from "./bird";
 import { doodlesSvg } from "./doodles";

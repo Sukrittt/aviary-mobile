@@ -146,7 +146,7 @@ it('filters the source list by search', async () => {
   fireEvent.press(getByText('Pick sources →'))
   await waitFor(() => expect(getByText('SUGGESTED SOURCES')).toBeTruthy())
 
-  fireEvent.changeText(getByPlaceholderText('Find an envelope'), 'trav')
+  fireEvent.changeText(getByPlaceholderText('Find a category'), 'trav')
   expect(getByText('Travel')).toBeTruthy()
   expect(queryByText('Cook')).toBeNull()
   expect(queryByText('Shopping')).toBeNull()
@@ -159,7 +159,7 @@ it('removes native input padding so the envelope placeholder aligns with the sea
   fireEvent.press(getByText('Pick sources →'))
   await waitFor(() => expect(getByText('SUGGESTED SOURCES')).toBeTruthy())
 
-  const inputStyle = StyleSheet.flatten(getByPlaceholderText('Find an envelope').props.style)
+  const inputStyle = StyleSheet.flatten(getByPlaceholderText('Find a category').props.style)
   expect(inputStyle.padding).toBe(0)
 })
 

@@ -33,6 +33,7 @@ jest.mock('@/src/hooks/useCategories', () => ({
 
 jest.mock('@/src/hooks/useGroups', () => ({
   useGroups: () => ({ data: [], isLoading: false, error: null }),
+  useGroupIcons: () => new Map(),
 }))
 
 let mockOnline = true
@@ -392,4 +393,12 @@ it('shows the offline screen when there is nothing saved to show', async () => {
   mockUseExpensesPage.mockReturnValue({ data: undefined, isLoading: false, error: new Error('Network request failed') })
   const { findByText } = renderWithProviders(<ActivityScreen />)
   expect(await findByText("You're offline")).toBeTruthy()
+})
+
+it('shows the screen-shaped skeleton on a first load, not a loading phrase', () => {
+  mockUseExpensesPage.mockReturnValue({ data: undefined, isLoading: true, error: null })
+  const { getByTestId, getByRole, queryByText } = renderWithProviders(<ActivityScreen />)
+  expect(getByTestId('tab-skeleton')).toBeTruthy()
+  expect(getByRole('header', { name: 'Activity' })).toBeTruthy()
+  expect(queryByText(/…/)).toBeNull()
 })

@@ -1,5 +1,5 @@
 import { AccessibilityInfo, Modal, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native'
-import { ArrowLeft, ArrowRight, RotateCw } from 'lucide-react-native'
+import { ArrowLeft, ArrowRight, ArrowClockwise } from '@/src/components/shared/icons'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
@@ -75,7 +75,7 @@ export function ConflictReview({
               </Text>
             </View>
             <View style={[styles.icon, { backgroundColor: tokens.accentSoft, borderRadius: radius.md }]}>
-              <RotateCw size={24} color={tokens.accentInk} />
+              <ArrowClockwise size={24} color={tokens.accentInk} />
             </View>
             <Text
               accessibilityRole="header"

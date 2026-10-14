@@ -11,14 +11,16 @@ import { useCategories } from '@/src/hooks/useCategories'
 import { useRecentExpenses } from '@/src/hooks/useExpenses'
 import { useGroups } from '@/src/hooks/useGroups'
 import { EMPTY } from '@/src/lib/constants'
-import { categoryEmoji,splitEmoji } from '@/src/lib/emoji'
+import { categoryTint, splitEmoji } from '@/src/lib/emoji'
+import { categoryIconKey, type CategoryIconKey } from '@/src/lib/categoryIcons'
+import { CATEGORY_ICON_COMPONENTS, CategoryIcon } from '@/src/components/shared/CategoryIcon'
 import { computeEnvelopeState,currentMonthKey } from '@/src/lib/envelope'
 
 import { fontFamily } from '@/src/theme/fonts'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import type { ThemeTokens } from '@/src/theme/tokens'
 import { useLocalSearchParams,useRouter } from 'expo-router'
-import { ArrowLeft,Search,Trash2,X } from 'lucide-react-native'
+import { ArrowLeft, MagnifyingGlass, Trash, X } from '@/src/components/shared/icons'
 import { useEffect,useMemo,useState } from 'react'
 import { ActivityIndicator,Animated,KeyboardAvoidingView,Platform,Pressable,ScrollView,StyleSheet,Text,TextInput,View } from 'react-native'
 import Reanimated, { FadeIn,FadeOut,LinearTransition,ZoomIn } from 'react-native-reanimated'
@@ -47,7 +49,7 @@ function str(v: string | string[] | undefined): string {
 interface SourceItem {
   key: string
   name: string
-  emoji: string
+  icon: CategoryIconKey
   available: number
   /** Higher = safer to borrow from. Ready to Assign is unallocated money, so
    * it always ranks first. Everything else is available/assigned — mirrors
@@ -77,6 +79,7 @@ export default function MoveMoneyModal() {
   const budgets = budgetsQ.data ?? EMPTY
   const expenses = expensesQ.data ?? EMPTY
   const categories = categoriesQ.data ?? EMPTY
+  const iconByName = useMemo(() => new Map(categories.map((c) => [c.name, categoryIconKey(c.name, c.icon, c.group)])), [categories])
   const groups = groupsQ.data ?? EMPTY
   const month = useMemo(() => currentMonthKey(), [])
 
@@ -119,19 +122,19 @@ export default function MoveMoneyModal() {
   const sources = useMemo<SourceItem[]>(() => {
     const items: SourceItem[] = []
     if (readyToAssign > 0) {
-      items.push({ key: RTA_SENTINEL, name: 'Ready to Assign', emoji: '💰', available: readyToAssign, score: Infinity })
+      items.push({ key: RTA_SENTINEL, name: 'Ready to Assign', icon: 'Coins', available: readyToAssign, score: Infinity })
     }
     for (const e of envelopeSources) {
       items.push({
         key: e.category,
         name: splitEmoji(e.category).text,
-        emoji: categoryEmoji(e.category, e.group),
+        icon: categoryIconKey(e.category, iconByName.get(e.category), e.group),
         available: e.available,
         score: e.assigned > 0 ? e.available / e.assigned : 1,
       })
     }
     return items.sort((a, b) => b.score - a.score)
-  }, [readyToAssign, envelopeSources])
+  }, [readyToAssign, envelopeSources, iconByName])
 
   const pickedRows = sources.filter((s) => s.key in allocs)
   const q = query.trim().toLowerCase()
@@ -202,7 +205,7 @@ export default function MoveMoneyModal() {
       const msg = err instanceof Error ? err.message : ''
       setError(
         msg.includes('no budget row for')
-          ? 'One of these envelopes changed since you opened this screen. Go back and try again.'
+          ? 'One of these categories changed since you opened this screen. Go back and try again.'
           : 'Could not pull money. Check your connection and try again.',
       )
     }
@@ -247,7 +250,7 @@ export default function MoveMoneyModal() {
       {noOptions ? (
         <View style={[styles.body, { padding: space.xl }]}>
           <Text style={{ color: tokens.text2, fontSize: type.caption, fontFamily: fontFamily.bodyMedium }}>
-            {!target ? `${targetCategoryName} isn't set up as an envelope.` : 'No funds available to pull from.'}
+            {!target ? `${targetCategoryName} isn't in your budget yet.` : 'No funds available to pull from.'}
           </Text>
           <Pressable
             onPress={close}
@@ -268,6 +271,7 @@ export default function MoveMoneyModal() {
           </Text>
           <DestinationCard
             targetCategoryName={targetCategoryName}
+            targetIcon={iconByName.get(targetCategoryName)}
             targetAvail={targetAvail}
             isOverspent={isOverspent}
             shortfall={shortfall}
@@ -283,6 +287,7 @@ export default function MoveMoneyModal() {
               <AmountText
                 value={amount}
                 rawText={formatAmountInput(amountStr)}
+                fit
                 size={type.hero}
                 weight="displayBold"
                 animate
@@ -391,11 +396,11 @@ export default function MoveMoneyModal() {
             </View>
             <View style={[styles.searchRow, { gap: space.sm }]}>
               <View style={[styles.searchBox, { backgroundColor: tokens.inputBg, borderColor: tokens.border, borderRadius: radius.md, paddingHorizontal: space.md, gap: space.sm }]}>
-                <Search size={14} color={tokens.text3} />
+                <MagnifyingGlass size={14} color={tokens.text3} />
                 <TextInput
                   value={query}
                   onChangeText={setQuery}
-                  placeholder="Find an envelope"
+                  placeholder="Find a category"
                   placeholderTextColor={tokens.text3}
                   style={[styles.searchInput, { color: tokens.text, fontFamily: fontFamily.bodySemiBold, fontSize: type.caption }]}
                 />
@@ -491,6 +496,7 @@ export default function MoveMoneyModal() {
 
 function DestinationCard({
   targetCategoryName,
+  targetIcon,
   targetAvail,
   isOverspent,
   shortfall,
@@ -501,6 +507,7 @@ function DestinationCard({
   type,
 }: {
   targetCategoryName: string
+  targetIcon: string | undefined
   targetAvail: number
   isOverspent: boolean
   shortfall: number
@@ -512,11 +519,12 @@ function DestinationCard({
 }) {
   const { formatCurrency } = useCurrency()
 
-  const { icon, text } = splitEmoji(targetCategoryName)
+  const { text } = splitEmoji(targetCategoryName)
+  const tint = categoryTint(targetCategoryName, tokens)
   return (
     <View style={[styles.destCard, { backgroundColor: tokens.card, borderColor: tokens.border, borderRadius: radius.lg, padding: space.md, gap: space.md }]}>
-      <View style={[styles.destIcon, { backgroundColor: tokens.accentSoft, borderRadius: radius.md }]}>
-        <Text style={{ fontSize: type.title }}>{icon || categoryEmoji(targetCategoryName)}</Text>
+      <View style={[styles.destIcon, { backgroundColor: tint.bg, borderRadius: radius.md }]}>
+        <CategoryIcon name={targetCategoryName} icon={targetIcon} size={type.title} color={tint.ink} />
       </View>
       <View style={{ flex: 1, gap: 2 }}>
         <Text style={[styles.destLabel, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold, fontSize: type.micro }]}>MOVING TO</Text>
@@ -604,13 +612,13 @@ function PickedSourceRow({
           amount sits in a compact white field instead of a full-width bar. */}
       <View style={[styles.sourceRow, styles.sourceRowTop, { backgroundColor: tokens.accentSoft, borderColor: tokens.accent, borderRadius: radius.lg, padding: space.md }]}>
         <View style={[styles.sourceIcon, { backgroundColor: tokens.card, borderRadius: radius.sm }]}>
-          <Text style={{ fontSize: type.body }}>{item.emoji}</Text>
+          <SourceIcon icon={item.icon} size={type.body} color={tokens.text2} />
         </View>
         <View style={{ flex: 1, gap: 2 }}>
           <Text style={{ color: tokens.text, fontFamily: fontFamily.bodyBold, fontSize: type.caption }} numberOfLines={1}>
             {item.name}
           </Text>
-          <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodyMedium, fontSize: 11 }} numberOfLines={1}>
+          <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodySemiBold, fontSize: 12 }} numberOfLines={1}>
             {formatCurrency(item.available, hideAmounts)} → {formatCurrency(item.available - alloc, hideAmounts)}
           </Text>
         </View>
@@ -626,7 +634,7 @@ function PickedSourceRow({
           />
         </View>
         <Pressable onPress={onRemove} hitSlop={8} accessibilityLabel="Remove" style={styles.removeBtn}>
-          <Trash2 size={14} color={tokens.text3} />
+          <Trash size={14} color={tokens.text3} />
         </Pressable>
       </View>
     </Reanimated.View>
@@ -659,7 +667,7 @@ function PoolSourceRow({
         style={[styles.sourceRow, styles.sourceRowTop, { backgroundColor: tokens.card, borderColor: tokens.border, borderRadius: radius.lg, padding: space.md }]}
       >
         <View style={[styles.sourceIcon, { backgroundColor: tokens.inputBg, borderRadius: radius.sm }]}>
-          <Text style={{ fontSize: type.body }}>{item.emoji}</Text>
+          <SourceIcon icon={item.icon} size={type.body} color={tokens.text2} />
         </View>
         <Text style={{ flex: 1, color: tokens.text, fontFamily: fontFamily.bodyBold, fontSize: type.caption }} numberOfLines={1}>
           {item.name}
@@ -668,7 +676,7 @@ function PoolSourceRow({
           <Text style={{ color: tokens.text, fontFamily: fontFamily.bodySemiBold, fontSize: type.caption }}>
             {formatCurrency(item.available, hideAmounts)}
           </Text>
-          <Text style={{ color: tokens.text3, fontSize: 10, fontFamily: fontFamily.bodyBold }}>AVAILABLE</Text>
+          <Text style={{ color: tokens.text3, fontSize: 12, fontFamily: fontFamily.bodyBold }}>AVAILABLE</Text>
         </View>
       </Pressable>
     </Reanimated.View>
@@ -719,3 +727,8 @@ const styles = StyleSheet.create({
   allocInputRow: { flexDirection: 'row', alignItems: 'center', width: 104, height: 40, borderWidth: 1, gap: 4 },
   allocInput: { flex: 1, padding: 0, textAlign: 'right' },
 })
+
+function SourceIcon({ icon, size, color }: { icon: CategoryIconKey; size: number; color: string }) {
+  const Icon = CATEGORY_ICON_COMPONENTS[icon]
+  return <Icon size={size} color={color} />
+}

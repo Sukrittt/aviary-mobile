@@ -2,7 +2,7 @@
   "expo": {
     "name": "Aviary",
     "slug": "Mobile",
-    "version": "2.10.0",
+    "version": "2.11.0",
     "runtimeVersion": {
       "policy": "appVersion"
     },

@@ -18,7 +18,6 @@ import { BottomSheet } from "@/src/components/shared/Modal";
 import { AmountText } from "@/src/components/ui/AmountText";
 import { Numpad } from "@/src/components/ui/Numpad";
 import { Nudge } from "@/src/components/ui/Nudge";
-import { Toast } from "@/src/components/ui/Toast";
 import { useAmountEntry } from '@/src/components/ui/useAmountEntry';
 import { clearLogExpenseDraft, getLogExpenseDraft, setLogExpenseDraft } from '@/src/features/log-expense/draft';
 import { evaluateAmount, formatExpression, hasOperator } from '@/src/lib/calcAmount';
@@ -28,7 +27,6 @@ useLogExpenseSubmitPublisher,
 } from "@/src/features/log-expense/SubmitContext";
 import {
 missingFields,
-missingFieldsMessage,
 } from "@/src/features/log-expense/missingFields";
 import { useCategories } from "@/src/hooks/useCategories";
 import { useCategoryMap } from "@/src/hooks/useCategoryMap";
@@ -41,14 +39,15 @@ useUpdateExpense,
 } from "@/src/hooks/useExpenses";
 import { unusualAmount } from "@/src/lib/unusualAmount";
 import { todayLocal } from "@/src/lib/date";
-import { categoryEmoji,splitEmoji } from "@/src/lib/emoji";
+import { splitEmoji } from "@/src/lib/emoji";
+import { categoryIconKey } from "@/src/lib/categoryIcons";
 
 import { useOnline } from "@/src/lib/netStatus";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { fontFamily } from "@/src/theme/fonts";
 import { NAV_HEIGHT } from "@/src/theme/scale";
 import { useIsFocused,useLocalSearchParams,useRouter } from "expo-router";
-import { ChevronDown, MessageSquareText, Plus, Tag, TriangleAlert, WalletMinimal } from "lucide-react-native";
+import { CaretDown, ChatText, Plus, Warning } from "@/src/components/shared/icons";
 import { useCaptureTip } from "@/src/hooks/useCaptureTip";
 import { noteManualLog, type CaptureTipReason } from "@/src/lib/captureTip";
 import { CaptureTipBubble } from "@/src/features/log-expense/CaptureTipBubble";
@@ -56,8 +55,7 @@ import { IncomeFloodButton } from "@/src/features/log-expense/IncomeFloodButton"
 import { useCachedUser } from "@/src/hooks/useUser";
 import { isHidden } from "@/src/lib/features";
 import { useBounce } from "@/src/hooks/useBounce";
-import * as Haptics from "expo-haptics";
-import Reanimated from "react-native-reanimated";
+import Reanimated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { useCallback,useEffect,useMemo,useRef,useState } from "react";
 import {
 Alert,
@@ -72,6 +70,7 @@ View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { track } from "@/src/lib/analytics";
+import { tap } from "@/src/lib/haptics";
 
 function str(v: string | string[] | undefined): string {
   return typeof v === "string" ? v : "";
@@ -123,7 +122,7 @@ const CAPTURE_TIP_COPY: Record<CaptureTipReason, { title: string; body: string }
 export default function LogExpenseScreen() {
   const { formatAmountInput, formatMoney } = useCurrency()
 
-  const { tokens, space, radius, type } = useTheme();
+  const { tokens, space, radius, type, motion } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -207,7 +206,6 @@ export default function LogExpenseScreen() {
   // Bumped each time the nav's add circle is tapped with the form incomplete.
   // 0 = never, so nothing is highlighted before the first blocked submit.
   const [nudge, setNudge] = useState(0);
-  const onInvalid = useCallback(() => setNudge((n) => n + 1), []);
   // Typo guard: an amount far above the category's usual blocks the first
   // save with a toast; saving again with the same amount and category goes through.
   const [unusualWarnedFor, setUnusualWarnedFor] = useState("");
@@ -299,8 +297,8 @@ export default function LogExpenseScreen() {
     }
   }
 
-  const rollEmojis = useMemo(
-    () => [...new Set(categories.map((c) => categoryEmoji(c.name, c.group)).filter(Boolean))],
+  const rollIcons = useMemo(
+    () => [...new Set(categories.map((c) => categoryIconKey(c.name, c.icon, c.group)))],
     [categories],
   );
 
@@ -322,6 +320,14 @@ export default function LogExpenseScreen() {
   // account it would default to. Never offline: logging must keep working there.
   const accountsPending = online && accountsQ.isLoading;
   const canSubmit = missing.length === 0 && !conflict && !deleted && !accountsPending;
+  // A blocked + does the next step instead of describing it: with only the
+  // category left it opens the picker; otherwise the amount shakes and the
+  // category pill lights up, which is all the keypad screen needs to say.
+  const onlyCategoryMissing = missing.length === 1 && missing[0] === "category";
+  const onInvalid = useCallback(() => {
+    if (onlyCategoryMissing) setPickerOpen(true);
+    else setNudge((n) => n + 1);
+  }, [onlyCategoryMissing]);
   const flag = (f: (typeof missing)[number]) => nudge > 0 && missing.includes(f);
   const saving = addExpense.isPending || updateExpense.isPending || savePhoto.isPending;
   const unusual = useMemo(
@@ -359,10 +365,13 @@ export default function LogExpenseScreen() {
     }
   }, [photo, hasSavedPhoto, photoRemoved, savePhotoAsync]);
 
+  // The warning sits under the amount until the user taps + again, or
+  // changes the amount or category it was about.
+  const warnKey = `${amount}|${category}`;
+  const unusualPending = !!unusual && unusualWarnedFor === warnKey;
   const handleSubmit = useCallback(() => {
     if (!canSubmit) return;
     setError("");
-    const warnKey = `${amount}|${category}`;
     if (unusual && unusualWarnedFor !== warnKey) {
       setUnusualWarnedFor(warnKey);
       setUnusualNudge((n) => n + 1);
@@ -460,7 +469,7 @@ export default function LogExpenseScreen() {
         },
       );
     }
-  }, [canSubmit, unusual, unusualWarnedFor, base, amount, expectedVersion, isEdit, origId, origTimestamp, origItem, origAmountInr, item, savedItem, parsedAmount, date, category, notes, paymentMethod, accountId, accounts, editedDraft, router, addMutate, updateMutate, autoPicked, syncPhoto]);
+  }, [canSubmit, unusual, unusualWarnedFor, warnKey, base, amount, expectedVersion, isEdit, origId, origTimestamp, origItem, origAmountInr, item, savedItem, parsedAmount, date, category, notes, paymentMethod, accountId, accounts, editedDraft, router, addMutate, updateMutate, autoPicked, syncPhoto]);
 
   // Publish only when the action or its visible state changes, and only while
   // focused: a prefilled log-expense (habit nudge) stacks over the launch one,
@@ -524,7 +533,7 @@ export default function LogExpenseScreen() {
               onPressIn={severalBounce.onPressIn}
               onPressOut={severalBounce.onPressOut}
               onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+                tap();
                 severalBounce.kick();
                 captureTip.close("try");
                 router.push({ pathname: "/modals/money-brain", params: { capture: "1" } });
@@ -534,7 +543,7 @@ export default function LogExpenseScreen() {
               accessibilityRole="button"
               accessibilityLabel="Log several spends at once"
             >
-              <MessageSquareText size={18} color="#ffffff" />
+              <ChatText size={18} color="#ffffff" />
             </Pressable>
           </Reanimated.View>
         )}
@@ -557,22 +566,6 @@ export default function LogExpenseScreen() {
         />
       )}
 
-      <Toast
-        trigger={nudge}
-        message={missingFieldsMessage(missing)}
-        icon={missing[0] === "amount" ? WalletMinimal : Tag}
-        // Clear of the header title with room to breathe.
-        style={{ top: insets.top + space.xxxl + space.xl }}
-      />
-
-      <Toast
-        trigger={unusualNudge}
-        // The amount and category are already on screen.
-        message={unusual ? `Way above your usual ${formatMoney(Math.round(unusual.typical))}. Tap again to save.` : ""}
-        icon={TriangleAlert}
-        style={{ top: insets.top + space.xxxl + space.xl }}
-      />
-
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={[
@@ -582,6 +575,25 @@ export default function LogExpenseScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={[styles.amountWrap, { gap: space.sm }]}>
+          {unusualPending && unusual && (
+            // Typo guard, inline so it reads as part of the amount rather
+            // than a system alert. Gone once the amount or category changes.
+            <Reanimated.View
+              entering={FadeIn.duration(motion.base)}
+              exiting={FadeOut.duration(motion.fast)}
+              accessibilityRole="alert"
+              style={[
+                styles.unusualNote,
+                { backgroundColor: fieldBg, borderRadius: radius.xl, paddingHorizontal: space.md, gap: space.xs },
+              ]}
+            >
+              <Warning size={16} color="#ffffff" />
+              <Text style={{ color: "#ffffff", fontFamily: fontFamily.bodySemiBold, fontSize: type.caption }}>
+                Way above your usual {formatMoney(Math.round(unusual.typical))}. Tap again to save.
+              </Text>
+            </Reanimated.View>
+          )}
+
           <Nudge trigger={nudge} active={missing.includes("amount")}>
           <Animated.View
             style={{
@@ -598,9 +610,9 @@ export default function LogExpenseScreen() {
             <AmountText
               value={parsedAmount || 0}
               rawText={formatAmountInput(amount)}
+              fit
               size={type.hero * 1.3}
               color={amount === "" && !flag("amount") ? onAccentDim : "#ffffff"}
-              weight="displayBold"
               animate
               ignoreHide
             />
@@ -636,7 +648,7 @@ export default function LogExpenseScreen() {
             >
               More
             </Text>
-            <ChevronDown size={16} color={onAccentDim} />
+            <CaretDown size={16} color={onAccentDim} />
           </Pressable>
 
 
@@ -694,7 +706,7 @@ export default function LogExpenseScreen() {
                 ? {
                     // An edit can carry a category the loaded list lacks
                     // (renamed or deleted since); it still saves, so show it.
-                    emoji: categoryEmoji(category, selectedCategory?.group ?? ""),
+                    icon: categoryIconKey(category, selectedCategory?.icon, selectedCategory?.group),
                     name: splitEmoji(category).text,
                   }
                 : null
@@ -702,7 +714,7 @@ export default function LogExpenseScreen() {
             thinking={suggesting}
             auto={autoPicked}
             highlighted={flag("category")}
-            rollEmojis={rollEmojis}
+            rollIcons={rollIcons}
             onPress={() => setPickerOpen(true)}
           />
           </Nudge>
@@ -867,6 +879,7 @@ const styles = StyleSheet.create({
   body: { paddingTop: 8 },
   footer: {},
   amountWrap: { flex: 1, alignItems: "center", justifyContent: "center" },
+  unusualNote: { flexDirection: "row", alignItems: "center", paddingVertical: 8, maxWidth: "90%" },
   itemRow: { justifyContent: "center" },
   itemInput: { paddingHorizontal: 14, paddingVertical: 14 },
   // A fine warm edge and recessed fill mark missing copy without a white box.

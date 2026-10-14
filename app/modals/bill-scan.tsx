@@ -1,6 +1,6 @@
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { useState } from 'react'
-import { Eye, X } from 'lucide-react-native'
+import { Eye, X } from '@/src/components/shared/icons'
 import { Modal, View, Text, Image, Pressable, ScrollView, StyleSheet } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router'
@@ -8,7 +8,9 @@ import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { usePrivacy } from '@/src/context/PrivacyContext'
 import { formatDate } from '@/src/lib/format'
-import { splitEmoji } from '@/src/lib/emoji'
+import { categoryTint, splitEmoji } from '@/src/lib/emoji'
+import { useCategoryIcons } from '@/src/hooks/useCategories'
+import { CATEGORY_ICON_COMPONENTS, CategoryIcon } from '@/src/components/shared/CategoryIcon'
 import { useBillScan } from '@/src/hooks/useBillScans'
 import { LoadingPhrase } from '@/src/components/shared/LoadingPhrase'
 import { PopIn } from '@/src/components/shared/PopIn'
@@ -39,6 +41,8 @@ export default function BillScanModal() {
   const scanQ = useBillScan(id)
   const scan = scanQ.data
   const category = splitEmoji(scan?.category ?? '')
+  const categoryIcons = useCategoryIcons()
+  const tint = categoryTint(scan?.category ?? '', tokens)
   const shareGroups = groupByDivisor((scan?.items ?? []).filter(item => !isFeeLine(item.name)))
   const fees = scan ? round2(scan.items.filter(item => isFeeLine(item.name)).reduce((sum, item) => sum + item.price, 0) + feeDiff(scan.total, scan.items)) : 0
   const feesShare = scan ? round2(fees / scan.people_count) : 0
@@ -85,8 +89,10 @@ export default function BillScanModal() {
 
           <PopIn play delay={MOUNT_DELAY + ITEM_STAGGER} style={[styles.card, styles.heroCard, { backgroundColor: tokens.heroA, borderColor: tokens.accentSoft }]}>
             <View style={styles.heroHeading}>
-              <View style={[styles.categoryIcon, { backgroundColor: tokens.accentSoft }]}>
-                <Text style={{ fontSize: 25 }}>{category.icon || '🧾'}</Text>
+              <View style={[styles.categoryIcon, { backgroundColor: scan.category ? tint.bg : tokens.accentSoft }]}>
+                {scan.category
+                  ? <CategoryIcon name={scan.category} icon={categoryIcons.get(scan.category)} size={24} color={tint.ink} />
+                  : <CATEGORY_ICON_COMPONENTS.Receipt size={24} color={tokens.accentInk} />}
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.merchant, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>{scan.merchant}</Text>
@@ -230,7 +236,7 @@ const styles = StyleSheet.create({
   heroHeading: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   categoryIcon: { width: 48, height: 48, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   shareHero: { paddingTop: 22, paddingBottom: 18, gap: 4 },
-  eyebrow: { fontSize: 11, letterSpacing: 1.2 },
+  eyebrow: { fontSize: 12, letterSpacing: 1.2 },
   breakdownRow: { paddingVertical: 6 },
   merchant: { fontSize: 21 },
   summaryMeta: { fontSize: 12, marginTop: 2 },
@@ -240,5 +246,5 @@ const styles = StyleSheet.create({
   divider: { height: StyleSheet.hairlineWidth },
   sectionLabel: { fontSize: 18, marginTop: 6, marginBottom: -4 },
   itemName: { fontSize: 14, lineHeight: 21 },
-  itemMeta: { fontSize: 10, marginTop: 6, alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 7, overflow: 'hidden' },
+  itemMeta: { fontSize: 12, marginTop: 6, alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 7, overflow: 'hidden' },
 })

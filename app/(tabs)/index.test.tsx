@@ -46,6 +46,7 @@ jest.mock('@/src/hooks/useCategories', () => ({
 }))
 jest.mock('@/src/hooks/useGroups', () => ({
   useGroups: () => ({ data: ['Everyday'], isLoading: false, error: null, refetch: jest.fn() }),
+  useGroupIcons: () => new Map(),
 }))
 jest.mock('@/src/hooks/useUser', () => ({
   useUser: () => ({ data: mockUser, isLoading: false, error: null }),
@@ -104,7 +105,6 @@ jest.mock('expo-router', () => ({
 }))
 
 // Its own focus re-render is cheap and not what the tab-switch test measures.
-jest.mock('@/src/components/nav/AnimatedTabContent', () => ({ AnimatedTabContent: ({ children }: any) => children }))
 
 function renderHome() {
   return renderWithProviders(<HomeScreen />)
@@ -337,7 +337,7 @@ describe('HomeScreen · Ready to Assign', () => {
       Promise.resolve(key === 'mc-rollover-dismissed-get-started' ? '1' : null),
     )
     const { queryByText, findByText } = renderHome()
-    await findByText('Envelopes')
+    await findByText('Categories')
     expect(queryByText('Get started')).toBeNull()
     ;(SecureStore.getItemAsync as jest.Mock).mockImplementation(() => Promise.resolve(null))
   })

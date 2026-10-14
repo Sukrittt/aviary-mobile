@@ -17,7 +17,7 @@ jest.mock('@/src/api/budgets', () => ({
   getBudgets: jest.fn(async () => []),
   updateBudget: jest.fn(async () => ({})),
 }))
-jest.mock('@/src/api/groups', () => ({ addGroup: jest.fn(async () => ({})) }))
+jest.mock('@/src/api/groups', () => ({ addGroup: jest.fn(async () => ({})), updateGroup: jest.fn(async () => ({})) }))
 jest.mock('@/src/api/categories', () => ({ addCategory: jest.fn(async () => ({})) }))
 jest.mock('@/src/api/accessMode', () => ({ accessMode: { subscribeLogout: () => () => {} } }))
 jest.mock('expo-secure-store', () => ({ getItemAsync: jest.fn(async () => null), setItemAsync: jest.fn(async () => {}), deleteItemAsync: jest.fn(async () => {}) }))
@@ -111,7 +111,7 @@ it('shows the real save step in the Finish button while saving', async () => {
     finish = () => resolve({ onboardedAt: '2026-09-18T12:00:00.000Z', access: {} })
   }))
   const { getByText, findByText, unmount } = walkToFinish()
-  expect(getByText('Creating your envelopes…')).toBeTruthy()
+  expect(getByText('Creating your categories…')).toBeTruthy()
   expect(await findByText('Starting your budget…', {}, { timeout: 3000 })).toBeTruthy()
   finish()
   await waitFor(() => expect(getByText('Continue')).toBeTruthy(), { timeout: 3000 })

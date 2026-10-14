@@ -9,6 +9,7 @@ import { fontFamily } from '@/src/theme/fonts'
 import { SectionLabel, ResultCard } from '@/src/components/tour/parts'
 import { useTourContent } from '@/src/components/tour/useTourContent'
 import { NOTIFY_ENVELOPE, NOTIFY_PCTS, type NotifyCadence } from '@/src/components/tour/content'
+import { tap } from '@/src/lib/haptics'
 
 const CADENCES: { value: NotifyCadence; label: string }[] = [
   { value: 'off', label: 'Off' },
@@ -120,7 +121,7 @@ export function NotifyDemo({ onComplete }: { onComplete: () => void }) {
                 </Text>
                 <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodySemiBold, fontSize: type.micro, lineHeight: 17 }}>{b.body}</Text>
               </View>
-              <Text style={{ color: tokens.text3, fontFamily: fontFamily.bodyBold, fontSize: type.micro - 1 }}>now</Text>
+              <Text style={{ color: tokens.text3, fontFamily: fontFamily.bodyBold, fontSize: type.micro }}>now</Text>
             </Reanimated.View>
           ))
         )}
@@ -141,7 +142,7 @@ export function NotifyDemo({ onComplete }: { onComplete: () => void }) {
           <Pressable
             accessibilityRole="button"
             onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+              tap()
               spend()
             }}
             style={[styles.pill, { backgroundColor: over ? tokens.pillBg : tokens.accent, borderRadius: radius.full, paddingHorizontal: space.md }]}
@@ -160,7 +161,7 @@ export function NotifyDemo({ onComplete }: { onComplete: () => void }) {
           ))}
         </View>
         <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodySemiBold, fontSize: type.micro, lineHeight: 19 }}>
-          Pings the moment you log past 50%, 90% or 100%, and again if you go over. Pick your own lines per envelope, up to five.
+          Pings the moment you log past 50%, 90% or 100%, and again if you go over. Pick your own lines per category, up to five.
           Only the highest line crossed pings, so one big spend never sends three.
         </Text>
       </View>

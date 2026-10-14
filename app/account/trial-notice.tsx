@@ -11,7 +11,7 @@ import { formatDate } from '@/src/lib/billingStatus'
 
 /**
  * Shown once, right after budget setup finishes onboarding, so the trial's
- * end isn't a surprise on day 45. See Mobile/app/_layout.tsx for the onboarding handoff, and
+ * end isn't a surprise on day 30. See Mobile/app/_layout.tsx for the onboarding handoff, and
  * Mobile/app/(tabs)/more.tsx for the same note surfaced
  * later under Plan & billing — that row pushes here with ?from=more, which is
  * what decides whether "Got it" goes back or hands off to the app.
@@ -49,7 +49,7 @@ export default function TrialNoticeScreen() {
           <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodySemiBold, fontSize: type.caption, textAlign: 'center', lineHeight: 20 }}>
             {billing?.trialEndsAt
               ? `Everything's free until ${formatDate(billing.trialEndsAt)}. No card needed, nothing to cancel.`
-              : "Everything's free for 45 days. No card needed, nothing to cancel."}
+              : "Everything's free for 30 days. No card needed, nothing to cancel."}
           </Text>
         </PopIn>
 

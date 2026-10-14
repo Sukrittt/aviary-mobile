@@ -1,4 +1,4 @@
-import { missingFields, missingFieldsMessage } from './missingFields'
+import { missingFields } from './missingFields'
 
 describe('missingFields', () => {
   it('lists every empty field in on-screen order', () => {
@@ -11,20 +11,5 @@ describe('missingFields', () => {
 
   it('is empty for a complete form', () => {
     expect(missingFields({ amount: '450', category: 'Groceries' })).toEqual([])
-  })
-})
-
-describe('missingFieldsMessage', () => {
-  it('names a single field', () => {
-    expect(missingFieldsMessage(['amount'])).toBe('Add an amount')
-    expect(missingFieldsMessage(['category'])).toBe('Pick a category')
-  })
-
-  it('joins both fields', () => {
-    expect(missingFieldsMessage(['amount', 'category'])).toBe('Add an amount and category')
-  })
-
-  it('is empty when nothing is missing', () => {
-    expect(missingFieldsMessage([])).toBe('')
   })
 })

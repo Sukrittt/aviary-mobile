@@ -21,7 +21,8 @@ import {
 } from "@/src/lib/envelope";
 import { currentUserId, sessionGeneration } from "@/src/api/accessMode";
 import { recordLogAndMaybeAsk } from "@/src/lib/reviewPrompt";
-import { categoryEmoji, splitEmoji } from "@/src/lib/emoji";
+import { splitEmoji } from "@/src/lib/emoji";
+import { CategoryIcon } from "@/src/components/shared/CategoryIcon";
 import { formatDateTimeLong } from "@/src/lib/format";
 import { AmountText } from "@/src/components/ui/AmountText";
 import { Button } from "@/src/components/ui/Button";
@@ -312,7 +313,7 @@ export default function ExpenseAddedScreen() {
   // it here as "item · category" read as a duplicate, so the line under the
   // headline is the item name alone.
   const categoryName = splitEmoji(category).text;
-  const categoryIcon = category ? categoryEmoji(category, envelope?.group) : "";
+  const categoryIcon = categoriesQ.data?.find((c) => c.name === category)?.icon;
   // Falls back to the category name when the logged item has no name of its own.
   const subtitle = item || categoryName;
   const subtitleIsCategory = !item && !!category;
@@ -408,12 +409,9 @@ export default function ExpenseAddedScreen() {
             >
               <RevealHaptic delay={STAGGER.detail} />
               {subtitleIsCategory && (
-                // Separate Text node, no custom fontFamily: a ZWJ+variation-selector
-                // emoji sharing one custom-font Text run with the label can make
-                // Android silently drop the rest of that run.
-                <Text style={{ color: tokens.text2, fontSize: type.bodyLg, marginRight: space.xs }}>
-                  {categoryIcon}
-                </Text>
+                <View style={{ marginRight: space.xs }}>
+                  <CategoryIcon name={category} icon={categoryIcon} group={envelope?.group} size={type.bodyLg} color={tokens.text2} />
+                </View>
               )}
               <Text
                 numberOfLines={1}
@@ -556,7 +554,7 @@ export default function ExpenseAddedScreen() {
                 ]}
               >
                 {over
-                  ? "Cover it from another envelope?"
+                  ? "Cover it from another category?"
                   : daysLeft === 0 ? "Less than 24 hrs" : `${daysLeft} days left`}
               </Text>
               {over ? (

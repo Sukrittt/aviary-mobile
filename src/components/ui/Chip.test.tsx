@@ -1,4 +1,5 @@
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
+import { lightTokens } from '@/src/theme/tokens'
 import { Chip } from './Chip'
 
 describe('Chip', () => {
@@ -24,5 +25,10 @@ describe('Chip', () => {
   it('omits the icon node entirely when no icon is passed', () => {
     const { queryByText } = renderWithProviders(<Chip label="Reorder" onPress={() => {}} />)
     expect(queryByText('💇‍♂️')).toBeNull()
+  })
+
+  it('tints a soft selected chip instead of filling it', () => {
+    const { getByText } = renderWithProviders(<Chip label="Open" soft selected onPress={() => {}} />)
+    expect(getByText('Open')).toHaveStyle({ color: lightTokens.accentInk })
   })
 })

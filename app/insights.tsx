@@ -4,15 +4,14 @@ import { View, Text, Pressable, RefreshControl, StyleSheet } from "react-native"
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import { ArrowLeft, Plus, Play } from "lucide-react-native";
-import * as Haptics from "expo-haptics";
+import { ArrowLeft, Plus, Play } from "@/src/components/shared/icons";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { usePrivacy } from "@/src/context/PrivacyContext";
 import { fontFamily } from "@/src/theme/fonts";
 import { useBudgets } from "@/src/hooks/useBudgets";
 import { useExpenses } from "@/src/hooks/useExpenses";
 import { useCategories } from "@/src/hooks/useCategories";
-import { useGroups } from "@/src/hooks/useGroups";
+import { useGroupIcons, useGroups } from "@/src/hooks/useGroups";
 import { useSubscriptions } from "@/src/hooks/useSubscriptions";
 import { useRefresh } from "@/src/hooks/useRefresh";
 import {
@@ -47,6 +46,7 @@ import {
   monthComparison,
 } from "@/src/lib/monthly";
 import { FORCE_EMPTY_STATE_PREVIEW, emptyForPreview } from "@/src/lib/emptyStatePreview";
+import { tap } from "@/src/lib/haptics";
 
 const TREND_MONTHS = 12;
 const HEATMAP_WEEKS = 12;
@@ -127,8 +127,8 @@ function MonthStepper({
               <Text
                 style={{
                   color: tokens.text3,
-                  fontSize: 11,
-                  fontFamily: fontFamily.bodyMedium,
+                  fontSize: 12,
+                  fontFamily: fontFamily.bodySemiBold,
                 }}
               >
                 {back} {back === 1 ? "month" : "months"} back
@@ -147,7 +147,7 @@ function MonthStepper({
                 <Text
                   style={{
                     color: tokens.accentInk,
-                    fontSize: 11,
+                    fontSize: 12,
                     fontFamily: fontFamily.bodySemiBold,
                   }}
                 >
@@ -251,6 +251,7 @@ export default function InsightsScreen() {
   const expensesQuery = useExpenses();
   const categoriesQuery = useCategories();
   const groupsQuery = useGroups();
+  const groupIcons = useGroupIcons();
   const budgets = emptyForPreview(budgetsQuery.data ?? EMPTY);
   const expenses = emptyForPreview(expensesQuery.data ?? EMPTY);
   const categories = emptyForPreview(categoriesQuery.data ?? EMPTY);
@@ -384,6 +385,7 @@ export default function InsightsScreen() {
       groups,
       insightMonth,
       "category",
+      groupIcons,
     );
     const previous = categoryBreakdown(
       budgets,
@@ -392,6 +394,7 @@ export default function InsightsScreen() {
       groups,
       prevMonthKey(insightMonth),
       "category",
+      groupIcons,
     );
     return withDelta(rows, previous);
   }, [
@@ -400,6 +403,7 @@ export default function InsightsScreen() {
     categories,
     groups,
     insightMonth,
+    groupIcons,
   ]);
 
   const groupRows = useMemo(() => {
@@ -410,6 +414,7 @@ export default function InsightsScreen() {
       groups,
       insightMonth,
       "group",
+      groupIcons,
     );
     const previous = categoryBreakdown(
       budgets,
@@ -418,9 +423,10 @@ export default function InsightsScreen() {
       groups,
       prevMonthKey(insightMonth),
       "group",
+      groupIcons,
     );
     return withDelta(rows, previous);
-  }, [budgets, expenses, categories, groups, insightMonth]);
+  }, [budgets, expenses, categories, groups, insightMonth, groupIcons]);
 
   const breakdownRows =
     breakdownMode === "category" ? categoryRows : groupRows;
@@ -530,7 +536,7 @@ export default function InsightsScreen() {
           earliestMonth={earliestMonth}
           onBack={() => router.back()}
           onShift={(delta) => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+            tap();
             setInsightMonth((m) => shiftMonthKey(m, delta));
           }}
           onReset={() => setInsightMonth(month)}
@@ -562,8 +568,8 @@ export default function InsightsScreen() {
             <Text
               style={{
                 color: tokens.text3,
-                fontSize: 11,
-                fontFamily: fontFamily.bodyMedium,
+                fontSize: 12,
+                fontFamily: fontFamily.bodySemiBold,
                 marginTop: 2,
               }}
             >
@@ -586,8 +592,7 @@ export default function InsightsScreen() {
                 >
                   <Play
                     size={10}
-                    color={trendSummary.deltaPct > 0 ? tokens.coral : tokens.mint}
-                    fill={trendSummary.deltaPct > 0 ? tokens.coral : tokens.mint}
+                    color={trendSummary.deltaPct > 0 ? tokens.coral : tokens.mint} weight="fill"
                   />
                 </View>
                 <Text
@@ -654,8 +659,8 @@ export default function InsightsScreen() {
                 <Text
                   style={{
                     color: tokens.text3,
-                    fontSize: 11,
-                    fontFamily: fontFamily.bodyMedium,
+                    fontSize: 12,
+                    fontFamily: fontFamily.bodySemiBold,
                     marginTop: space.sm,
                   }}
                 >
@@ -767,8 +772,8 @@ export default function InsightsScreen() {
           <Text
             style={{
               color: tokens.text3,
-              fontSize: 11,
-              fontFamily: fontFamily.bodyMedium,
+              fontSize: 12,
+              fontFamily: fontFamily.bodySemiBold,
               marginTop: 2,
             }}
           >
@@ -793,8 +798,8 @@ export default function InsightsScreen() {
         <Text
           style={{
             color: tokens.text3,
-            fontSize: 11,
-            fontFamily: fontFamily.bodyMedium,
+            fontSize: 12,
+            fontFamily: fontFamily.bodySemiBold,
             marginHorizontal: space.sm,
           }}
         >

@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react'
 import { View, Text, Pressable, ScrollView, RefreshControl, StyleSheet } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
-import { ArrowLeft, ArrowRight, Plus } from 'lucide-react-native'
+import { ArrowLeft, ArrowRight, Plus } from '@/src/components/shared/icons'
 import { Alert } from '@/src/components/ui/AlertHost'
 import { BottomSheet } from '@/src/components/shared/Modal'
 import { OfflineScreen } from '@/src/components/shared/OfflineScreen'
@@ -427,7 +427,7 @@ const styles = StyleSheet.create({
   },
   holdingName: { fontSize: 15 },
   holdingMeta: { fontSize: 12, marginTop: 2 },
-  recurringBadge: { fontSize: 11, marginTop: 3 },
+  recurringBadge: { fontSize: 12, marginTop: 3 },
   holdingValue: { fontSize: 15 },
   eventRow: { borderWidth: 1, borderRadius: 14, padding: 12 },
   eventTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -435,7 +435,7 @@ const styles = StyleSheet.create({
   eventAmount: { fontSize: 13 },
   eventMeta: { fontSize: 12, marginTop: 2 },
   eventDeltaRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
-  eventDelta: { fontSize: 11 },
+  eventDelta: { fontSize: 12 },
   sheetTitle: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8, textAlign: 'center' },
   sheetOption: { paddingVertical: 14, alignItems: 'center' },
   sheetOptionText: { fontSize: 16 },

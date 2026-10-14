@@ -144,11 +144,7 @@ it('taps a soft haptic as each section is revealed', async () => {
 // subtitle under the headline is the item name alone, even when the item
 // happens to share the category's name.
 it('falls back to the category label only when there is no item name', async () => {
-  // Icon and text are separate Text nodes (not one "🛒 Groceries" string) — a
-  // ZWJ+variation-selector emoji sharing a custom-font Text run with its label
-  // can make Android silently drop the rest of that run.
   const { getByText } = setup({ item: '' })
-  expect(getByText('🛒')).toBeTruthy()
   expect(getByText('Groceries')).toBeTruthy()
   await waitFor(() => expect(getGroups).toHaveBeenCalled())
 })
@@ -272,7 +268,7 @@ it('names an overspend and offers to cover it instead of a negative balance', as
   expect(getByLabelText('₹250')).toBeTruthy()
   expect(queryByText(/left of/)).toBeNull()
   expect(queryByText(/to stay on track/)).toBeNull()
-  await findByText('Cover it from another envelope?', {}, COUNTDOWN_SLOW)
+  await findByText('Cover it from another category?', {}, COUNTDOWN_SLOW)
   fireEvent.press(getByText('Cover it'))
   expect(mockReplace).toHaveBeenCalledWith({ pathname: '/modals/move-money', params: { fromCategory: '🛒 Groceries' } })
 })

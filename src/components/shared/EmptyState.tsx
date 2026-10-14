@@ -1,6 +1,6 @@
 import { useEffect, type ReactNode } from 'react'
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native'
-import { ArrowUpRight } from 'lucide-react-native'
+import { ArrowUpRight } from '@/src/components/shared/icons'
 import Svg, { Circle, G, Path, Rect } from 'react-native-svg'
 import Animated, {
   type AnimatedStyle,

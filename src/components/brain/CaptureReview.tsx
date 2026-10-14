@@ -1,8 +1,7 @@
-import * as Haptics from 'expo-haptics'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 import Reanimated, { FadeInDown, FadeOutLeft, LinearTransition } from 'react-native-reanimated'
-import { ChevronDown, TriangleAlert, X } from 'lucide-react-native'
+import { CaretDown, Question, Warning, X } from '@/src/components/shared/icons'
 import type { CaptureProposal, ProposalStatus } from '@/src/api/ai'
 import { CategoryPickerSheet } from '@/src/components/shared/CategoryPickerSheet'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
@@ -25,11 +24,13 @@ import { useCategories } from '@/src/hooks/useCategories'
 import { useAddExpense, useRecentExpenses } from '@/src/hooks/useExpenses'
 import { track } from '@/src/lib/analytics'
 import { todayLocal } from '@/src/lib/date'
-import { categoryEmoji, splitEmoji } from '@/src/lib/emoji'
+import { splitEmoji } from '@/src/lib/emoji'
+import { CategoryIcon } from '@/src/components/shared/CategoryIcon'
 import { formatDateShort } from '@/src/lib/format'
 import { unusualAmount } from '@/src/lib/unusualAmount'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
+import { tap } from '@/src/lib/haptics'
 
 /** Same beat as every other in-place success in the app (CLAUDE.md): let the check draw, then settle. */
 const SUCCESS_MS = 1100
@@ -60,7 +61,7 @@ export function blockerHint(kept: CaptureRow[]): string | null {
     const out: string[] = []
     if (!name) out.push('Name each spend')
     if (Number.isNaN(rowTotal(row))) out.push(name ? `Fix the amount for ${name}` : 'Fix the amounts')
-    if (!row.category) out.push(name ? `Pick an envelope for ${name}` : 'Pick an envelope for each spend')
+    if (!row.category) out.push(name ? `Pick a category for ${name}` : 'Pick a category for each spend')
     return out
   })
   if (fixes.length === 0) return null
@@ -84,6 +85,7 @@ export function CaptureReview({ proposal, onSettled, origin = CAPTURE_ORIGIN, lo
   const { formatMoney, currencyPrefix } = useCurrency()
   const expensesQ = useRecentExpenses()
   const categoriesQ = useCategories()
+  const categoryByName = useMemo(() => new Map((categoriesQ.data ?? []).map((c) => [c.name, c])), [categoriesQ.data])
   const addExpense = useAddExpense()
 
   const [status, setStatus] = useState<ProposalStatus>(proposal.status ?? 'pending')
@@ -134,7 +136,7 @@ export function CaptureReview({ proposal, onSettled, origin = CAPTURE_ORIGIN, lo
 
   async function submit() {
     if (!ready || busy) return
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+    tap()
     setPhase('saving')
     setError('')
     const toLog = kept
@@ -222,8 +224,9 @@ export function CaptureReview({ proposal, onSettled, origin = CAPTURE_ORIGIN, lo
         const share = rowShare(row)
         const locked = failedRows.has(row.id)
         const unusual = !Number.isNaN(share) && row.category ? unusualAmount(share, row.category, expensesQ.data ?? [], today) : null
-        // Names usually carry their emoji already ("🍜 Eating out"): show it once, as the icon.
-        const { icon, text: envelope } = splitEmoji(row.category)
+        // Names usually carry their emoji already ("🍜 Eating out"): it becomes the icon, not part of the label.
+        const envelope = splitEmoji(row.category).text
+        const cat = categoryByName.get(row.category)
         const incomplete = rowIncomplete(row)
         return (
           <Reanimated.View
@@ -235,7 +238,9 @@ export function CaptureReview({ proposal, onSettled, origin = CAPTURE_ORIGIN, lo
             style={[styles.row, { gap: space.sm, borderTopColor: tokens.border, borderTopWidth: i === 0 ? 0 : StyleSheet.hairlineWidth }]}
           >
             <View style={[styles.iconTile, { backgroundColor: incomplete ? tokens.warnSoft : tokens.inputBg, borderRadius: radius.md }]}>
-              <Text style={styles.iconText}>{row.category ? icon || categoryEmoji(row.category) : '❔'}</Text>
+              {row.category
+                ? <CategoryIcon name={row.category} icon={cat?.icon} group={cat?.group} size={16} color={incomplete ? tokens.warnInk : tokens.text2} />
+                : <Icon icon={Question} size={16} color={tokens.warnInk} />}
             </View>
 
             <View style={[styles.main, { gap: 3 }]}>
@@ -252,16 +257,16 @@ export function CaptureReview({ proposal, onSettled, origin = CAPTURE_ORIGIN, lo
                 <Pressable
                   onPress={() => setPickingFor(row.id)}
                   disabled={busy || locked}
-                  accessibilityLabel={row.category ? `Envelope: ${row.category}. Change it` : 'Pick an envelope'}
+                  accessibilityLabel={row.category ? `Category: ${row.category}. Change it` : 'Pick a category'}
                   style={[styles.chip, { backgroundColor: row.category ? tokens.inputBg : tokens.warnSoft, borderRadius: radius.full }]}
                 >
                   <Text
                     numberOfLines={1}
                     style={{ flexShrink: 1, color: row.category ? tokens.text2 : tokens.warnInk, fontFamily: row.category ? fontFamily.bodySemiBold : fontFamily.bodyBold, fontSize: type.caption }}
                   >
-                    {row.category ? envelope : 'Pick an envelope'}
+                    {row.category ? envelope : 'Pick a category'}
                   </Text>
-                  <Icon icon={ChevronDown} size={13} color={row.category ? tokens.text3 : tokens.warnInk} />
+                  <Icon icon={CaretDown} size={13} color={row.category ? tokens.text3 : tokens.warnInk} />
                 </Pressable>
                 {row.splitWays > 1 && !Number.isNaN(total) && (
                   <Text style={{ color: tokens.text3, fontFamily: fontFamily.bodyMedium, fontSize: type.caption }}>{`${formatMoney(total)} ÷ ${row.splitWays}`}</Text>
@@ -272,7 +277,7 @@ export function CaptureReview({ proposal, onSettled, origin = CAPTURE_ORIGIN, lo
               </View>
               {unusual && (
                 <View style={[styles.meta, { gap: space.xs }]}>
-                  <Icon icon={TriangleAlert} size={12} color={tokens.warn} />
+                  <Icon icon={Warning} size={12} color={tokens.warn} />
                   <Text style={{ color: tokens.warnInk, fontFamily: fontFamily.bodyMedium, fontSize: type.caption, flex: 1 }}>
                     {`Way above your usual ${formatMoney(Math.round(unusual.typical))}. Double-check it.`}
                   </Text>
@@ -301,7 +306,7 @@ export function CaptureReview({ proposal, onSettled, origin = CAPTURE_ORIGIN, lo
 
             <Pressable
               onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+                tap()
                 update(row.id, { removed: true })
                 // Removing the last one means none of these are wanted: settle as Not now once
                 // it has slid out, rather than leave an empty card that can only say "Nothing to log".
@@ -363,8 +368,8 @@ export function CaptureReview({ proposal, onSettled, origin = CAPTURE_ORIGIN, lo
           if (picking) update(picking.id, { category })
           setPickingFor(null)
         }}
-        title="Envelope"
-        noneLabel="No envelope"
+        title="Category"
+        noneLabel="No category"
       />
     </Reanimated.View>
   )
@@ -382,7 +387,6 @@ const styles = StyleSheet.create({
   card: { borderWidth: 1, alignSelf: 'stretch' },
   row: { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 8 },
   iconTile: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center' },
-  iconText: { fontSize: 16 },
   main: { flex: 1, minWidth: 0 },
   meta: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' },
   itemInput: { paddingVertical: 0, paddingHorizontal: 0 },

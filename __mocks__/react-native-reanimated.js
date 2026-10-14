@@ -108,7 +108,11 @@ module.exports = {
   useAnimatedScrollHandler,
   useReducedMotion: () => false,
   withSpring: identity,
-  withTiming: identity,
+  // Settles at once, so completion callbacks (finished: true) run too.
+  withTiming: (toValue, _config, callback) => {
+    callback?.(true)
+    return toValue
+  },
   withDelay: (_delay, toValue) => toValue,
   withSequence: (...values) => values[values.length - 1],
   withRepeat: (value) => value,

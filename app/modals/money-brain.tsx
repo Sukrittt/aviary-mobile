@@ -14,7 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import * as Haptics from 'expo-haptics'
 import Reanimated from 'react-native-reanimated'
 import { useBounce } from '@/src/hooks/useBounce'
-import { ArrowLeft, ArrowRight, ArrowUp, Check, Clock, Plus } from 'lucide-react-native'
+import { ArrowLeft, ArrowRight, ArrowUp, Check, Clock, Plus } from '@/src/components/shared/icons'
 import { Alert } from '@/src/components/ui/AlertHost'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { usePrivacy } from '@/src/context/PrivacyContext'
@@ -49,6 +49,7 @@ import { useQuery } from '@tanstack/react-query'
 import { getSystemStatus } from '@/src/api/systemStatus'
 import { AiAllowanceScreen, AiUnavailableScreen } from '@/src/components/shared/AiUnavailableScreen'
 import { FORCE_EMPTY_STATE_PREVIEW } from '@/src/lib/emptyStatePreview'
+import { tap } from '@/src/lib/haptics'
 
 // Reveal cascade for the first paint of loaded brief content — see Heatmap.tsx
 // for the same shared-value-driven pattern and why `entering` isn't used here.
@@ -118,7 +119,7 @@ function SendButton({ disabled, onPress }: { disabled: boolean; onPress: () => v
         onPressIn={bounce.onPressIn}
         onPressOut={bounce.onPressOut}
         onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+          tap()
           bounce.kick()
           onPress()
         }}
@@ -405,7 +406,7 @@ export default function MoneyBrainModal() {
             Chat history
           </Text>
           <Pressable onPress={startNewChat} style={[styles.newPill, { backgroundColor: tokens.accent }]}>
-            <Icon icon={Plus} size={15} color={tokens.onAccent} strokeWidth={2.4} />
+            <Icon icon={Plus} size={15} color={tokens.onAccent} weight="bold" />
             <Text style={[styles.newPillText, { color: tokens.onAccent, fontFamily: fontFamily.bodySemiBold }]}>
               New
             </Text>
@@ -467,7 +468,7 @@ export default function MoneyBrainModal() {
             hitSlop={6}
             style={[styles.pillButton, styles.pillButtonPrimary, { backgroundColor: tokens.accent }]}
           >
-            <Icon icon={Plus} size={15} color={tokens.onAccent} strokeWidth={2.4} />
+            <Icon icon={Plus} size={15} color={tokens.onAccent} weight="bold" />
             <Text style={[styles.pillText, { color: tokens.onAccent, fontFamily: fontFamily.bodySemiBold }]}>
               New
             </Text>
@@ -516,7 +517,7 @@ export default function MoneyBrainModal() {
             </View>
           ) : briefQ.isError ? (
             <View style={styles.errorRow}>
-              <Text style={{ color: tokens.coral, fontSize: 12, fontFamily: fontFamily.bodyMedium, flex: 1 }}>
+              <Text style={{ color: tokens.coral, fontSize: 12, fontFamily: fontFamily.bodySemiBold, flex: 1 }}>
                 Couldn&apos;t load your money brief.
               </Text>
               <Pressable onPress={() => briefQ.refetch()}>
@@ -602,7 +603,7 @@ export default function MoneyBrainModal() {
                   >
                     {m.ack && (
                       <View style={[styles.ackKicker, { backgroundColor: tokens.mintSoft }]}>
-                        <Icon icon={Check} size={12} color={tokens.mint} strokeWidth={3} />
+                        <Icon icon={Check} size={12} color={tokens.mint} weight="bold" />
                         <Text style={[styles.ackKickerText, { color: tokens.mint, fontFamily: fontFamily.bodyBold }]}>
                           {loggedLabel(messages[i - 1]?.proposal?.expenseIds?.length)}
                         </Text>
@@ -687,20 +688,20 @@ const styles = StyleSheet.create({
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 2, padding: 3, borderRadius: 100, borderWidth: 1 },
   pillButton: { flexDirection: 'row', alignItems: 'center', gap: 5, height: 32, paddingHorizontal: 10, borderRadius: 100 },
   pillButtonPrimary: { paddingHorizontal: 12 },
-  pillText: { fontSize: 12, fontWeight: '700' },
+  pillText: { fontSize: 12 },
   newPill: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 36, paddingHorizontal: 14, borderRadius: 100 },
-  newPillText: { fontSize: 12, fontWeight: '800' },
+  newPillText: { fontSize: 12 },
   iconButton: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   badge: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   title: { fontSize: 18 },
   subtitle: { fontSize: 12, marginTop: 2 },
   body: { flexGrow: 1, padding: 20, paddingTop: 4, gap: 16 },
   card: { padding: 18, borderRadius: 20, borderWidth: 1 },
-  cardLabel: { fontSize: 10, letterSpacing: 0.6 },
+  cardLabel: { fontSize: 12, letterSpacing: 0.6 },
   cardValue: { fontSize: 18, marginTop: 6 },
   narrative: { fontSize: 13, marginTop: 12, lineHeight: 19 },
   errorRow: { flexDirection: 'row', alignItems: 'center', marginTop: 12, gap: 12 },
-  sectionLabel: { fontSize: 11, letterSpacing: 0.6 },
+  sectionLabel: { fontSize: 12, letterSpacing: 0.6 },
   chipRow: { flexDirection: 'row', gap: 8, paddingRight: 4 },
   exampleRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8 },
   chip: { borderWidth: 1, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 10 },

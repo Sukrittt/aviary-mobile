@@ -4,7 +4,7 @@ import * as Haptics from 'expo-haptics'
 import { useFocusEffect, useRouter, type Href } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Reanimated, { FadeIn } from 'react-native-reanimated'
-import { ArrowLeft, X, ChevronRight, ArrowUpRight, Check, Circle } from 'lucide-react-native'
+import { ArrowLeft, X, CaretRight, ArrowUpRight, Check, Circle } from '@/src/components/shared/icons'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { Icon } from '@/src/components/shared/Icon'
@@ -25,6 +25,7 @@ import { RolloverDemo } from '@/src/components/tour/demos/RolloverDemo'
 import { InsightsDemo } from '@/src/components/tour/demos/InsightsDemo'
 import { NotifyDemo } from '@/src/components/tour/demos/NotifyDemo'
 import { ExtrasList } from '@/src/components/tour/demos/ExtrasList'
+import { tap } from '@/src/lib/haptics'
 
 type View3 = 'hub' | 'chapter' | 'done'
 
@@ -112,7 +113,7 @@ export default function GuidedTourScreen() {
           accessibilityRole="button"
           accessibilityLabel={view === 'chapter' ? 'Back to chapters' : 'Close'}
           onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+            tap()
             if (view === 'chapter') setView('hub')
             else exitTour()
           }}
@@ -131,7 +132,7 @@ export default function GuidedTourScreen() {
         </View>
         {view !== 'done' && (
           <Pressable accessibilityRole="button" onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+              tap()
               exitTour()
             }}
             hitSlop={12}>
@@ -192,7 +193,7 @@ export default function GuidedTourScreen() {
               <Pressable
                 accessibilityRole="button"
                 onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+                  tap()
                   openReal(current.href)
                 }}
                 style={[
@@ -246,7 +247,7 @@ export default function GuidedTourScreen() {
               }}
             />
             <Pressable accessibilityRole="button" onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+                tap()
                 setView('hub')
               }}
               hitSlop={8} style={styles.centerLink}>
@@ -336,7 +337,7 @@ function Hub({
               <Pressable
                 accessibilityRole="button"
                 onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+                  tap()
                   onOpen(i)
                 }}
                 style={[
@@ -357,7 +358,7 @@ function Hub({
                   ]}
                 >
                   {isDone ? (
-                    <Icon icon={Check} size={16} color={tokens.accentInk} strokeWidth={3} />
+                    <Icon icon={Check} size={16} color={tokens.accentInk} weight="bold" />
                   ) : (
                     <Text style={{ color: tokens.text2, fontFamily: fontFamily.displaySemiBold, fontSize: type.body }}>{i + 1}</Text>
                   )}
@@ -368,7 +369,7 @@ function Hub({
                     {c.blurb}
                   </Text>
                 </View>
-                <Icon icon={ChevronRight} size={16} color={tokens.text3} />
+                <Icon icon={CaretRight} size={16} color={tokens.text3} />
               </Pressable>
             </PopIn>
           )
@@ -424,7 +425,7 @@ function Done({
           {doneCount === CHAPTERS.length ? 'You know the whole app.' : `Tour done · ${doneCount} of ${CHAPTERS.length} poked.`}
         </Text>
         <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodySemiBold, fontSize: type.caption, textAlign: 'center', lineHeight: 20 }}>
-          Fund the envelopes, log as you go, pull money from other envelopes when life happens, start clean on the 1st. That is the entire loop.
+          Fund your categories, log as you go, pull money from others when life happens, start clean on the 1st. That&apos;s the whole loop.
         </Text>
       </PopIn>
 
@@ -437,17 +438,17 @@ function Done({
               <View style={[styles.tick, { backgroundColor: done.has(i) ? tokens.accentSoft : tokens.inputBg }]}>
                 {done.has(i) ? (
                   <PopIn play delay={160 + i * 60 + 120}>
-                    <Icon icon={Check} size={12} color={tokens.accentInk} strokeWidth={3} />
+                    <Icon icon={Check} size={12} color={tokens.accentInk} weight="bold" />
                   </PopIn>
                 ) : (
-                  <Icon icon={Circle} size={10} color={tokens.text3} strokeWidth={2.5} />
+                  <Icon icon={Circle} size={10} color={tokens.text3} weight="bold" />
                 )}
               </View>
               <Text numberOfLines={1} style={{ flex: 1, color: tokens.text, fontFamily: fontFamily.bodyBold, fontSize: type.caption }}>
                 {c.title}
               </Text>
               <Pressable accessibilityRole="button" onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+                  tap()
                   onOpen(i)
                 }}
                 hitSlop={8}>
@@ -463,7 +464,7 @@ function Done({
       <PopIn play delay={160 + CHAPTERS.length * 60} style={{ width: '100%', gap: space.sm }}>
         <Button label="Back to my money" onPress={onFinish} />
         <Pressable accessibilityRole="button" onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+            tap()
             onStartOver()
           }}
           hitSlop={8} style={styles.centerLink}>

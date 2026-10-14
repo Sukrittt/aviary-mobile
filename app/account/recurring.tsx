@@ -11,8 +11,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ArrowLeft, ChevronRight, Plus, Repeat2 } from "lucide-react-native";
-import * as Haptics from "expo-haptics";
+import { ArrowLeft, CaretRight, Plus, ArrowsClockwise } from "@/src/components/shared/icons";
 import Reanimated from "react-native-reanimated";
 import { OfflineScreen } from "@/src/components/shared/OfflineScreen";
 import { useOnline } from "@/src/lib/netStatus";
@@ -37,6 +36,7 @@ import { CHART_COLOR_CYCLE } from "@/src/theme/chartColors";
 import type { RecurringExpenseRow } from "@/src/types";
 import { EmptyState } from "@/src/components/shared/EmptyState";
 import { FORCE_EMPTY_STATE_PREVIEW, emptyForPreview } from "@/src/lib/emptyStatePreview";
+import { tap } from "@/src/lib/haptics";
 
 const LOADING_PHRASES = [
   "Checking what repeats…",
@@ -451,7 +451,7 @@ function FindRecurringEntry({ style }: { style?: StyleProp<ViewStyle> }) {
     <Reanimated.View style={[press.style, style]}>
       <Pressable
         onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+          tap();
           router.push("/account/recurring-suggestions");
         }}
         onPressIn={press.onPressIn}
@@ -464,7 +464,7 @@ function FindRecurringEntry({ style }: { style?: StyleProp<ViewStyle> }) {
         <View
           style={[styles.discoveryIcon, { backgroundColor: tokens.accentSoft }]}
         >
-          <Icon icon={Repeat2} size={16} color={tokens.accent} />
+          <Icon icon={ArrowsClockwise} size={16} color={tokens.accent} />
         </View>
         <Text
           style={[
@@ -474,7 +474,7 @@ function FindRecurringEntry({ style }: { style?: StyleProp<ViewStyle> }) {
         >
           Find recurring expenses
         </Text>
-        <Icon icon={ChevronRight} size={16} color={tokens.text3} />
+        <Icon icon={CaretRight} size={16} color={tokens.text3} />
       </Pressable>
     </Reanimated.View>
   );
@@ -500,7 +500,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   headerTitle: { fontSize: 19 },
-  headerSub: { fontSize: 11.5, marginTop: 1 },
+  headerSub: { fontSize: 12, marginTop: 1 },
   addButton: {
     flexDirection: "row",
     alignItems: "center",
@@ -533,7 +533,7 @@ const styles = StyleSheet.create({
   },
   discoveryText: { flex: 1, fontSize: 14 },
   section: { gap: 8 },
-  sectionLabel: { fontSize: 11, letterSpacing: 0.6 },
+  sectionLabel: { fontSize: 12, letterSpacing: 0.6 },
   rowCard: { borderWidth: 1, borderRadius: 14 },
   rowInner: {
     flexDirection: "row",
@@ -558,7 +558,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     overflow: "hidden",
   },
-  pillText: { fontSize: 11, lineHeight: 13 },
+  pillText: { fontSize: 12, lineHeight: 15 },
   rowMeta: { fontSize: 12, flexShrink: 1 },
   rowAmount: { fontSize: 15 },
   // Fills the space under the header so the loading phrase and the empty state

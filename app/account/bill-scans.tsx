@@ -9,7 +9,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ArrowLeft, ChevronRight } from "lucide-react-native";
+import { ArrowLeft, CaretRight } from "@/src/components/shared/icons";
 import Reanimated from "react-native-reanimated";
 import { OfflineScreen } from "@/src/components/shared/OfflineScreen";
 import { useOnline } from "@/src/lib/netStatus";
@@ -250,7 +250,7 @@ function BillScanRow({
           >
             {formatCurrency(row.my_share, hideAmounts)}
           </Text>
-          <ChevronRight size={16} color={tokens.text3} strokeWidth={2} />
+          <CaretRight size={16} color={tokens.text3} />
         </Pressable>
       </Reanimated.View>
     </PopIn>
@@ -277,7 +277,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   headerTitle: { fontSize: 19 },
-  headerSub: { fontSize: 11.5, marginTop: 1 },
+  headerSub: { fontSize: 12, marginTop: 1 },
   scroll: { flex: 1 },
   body: { padding: 16, gap: 16 },
   heroBlock: { gap: 4 },

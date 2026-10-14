@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
-import * as Haptics from 'expo-haptics'
+import { tap } from '@/src/lib/haptics'
 
 /** Pull-to-refresh for a screen's ScrollView: refetch everything currently mounted. */
 export function useRefresh() {
@@ -8,7 +8,7 @@ export function useRefresh() {
   const [refreshing, setRefreshing] = useState(false)
 
   const onRefresh = async () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+    tap()
     setRefreshing(true)
     try {
       await qc.refetchQueries({ type: 'active' })

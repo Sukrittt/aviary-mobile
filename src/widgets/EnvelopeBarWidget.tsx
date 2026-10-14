@@ -3,7 +3,7 @@
 // ring gauge, days left and per-day under it, and a round + to log.
 import { FlexWidget, OverlapWidget, SvgWidget, TextWidget } from 'react-native-android-widget'
 import type { ThemeTokens } from '@/src/theme/tokens'
-import { fontFamily } from '@/src/theme/fonts'
+import { widgetFontFamily as fontFamily } from '@/src/theme/fonts'
 import { heroFontSize, widgetMood, withPerDay, type WidgetData } from './data'
 import { WidgetSurface, color } from './surface'
 import { plusSvg } from './icons'

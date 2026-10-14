@@ -10,14 +10,3 @@ export function missingFields(form: { amount: string; category: string }): Expen
   if (!form.category) missing.push('category')
   return missing
 }
-
-const SINGLE: Record<ExpenseField, string> = {
-  amount: 'Add an amount',
-  category: 'Pick a category',
-}
-
-/** Toast copy for a blocked submit, kept to one short line. */
-export function missingFieldsMessage(missing: ExpenseField[]): string {
-  if (missing.length > 1) return 'Add an amount and category'
-  return missing.length ? SINGLE[missing[0]] : ''
-}

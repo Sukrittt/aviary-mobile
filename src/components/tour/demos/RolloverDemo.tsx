@@ -135,7 +135,7 @@ export function RolloverDemo({ onComplete }: { onComplete: () => void }) {
                   {
                     color: isOctober && row.left > 0 && !row.creditCard ? tokens.coral : tokens.text3,
                     fontFamily: fontFamily.bodyBold,
-                    fontSize: type.micro - 2,
+                    fontSize: type.micro,
                   },
                 ]}
               >
@@ -202,7 +202,7 @@ function QuizOption({ label, good, bad, onPress }: { label: string; good: boolea
           {(good || bad) && (
             <Reanimated.Text
               entering={FadeIn.duration(120)}
-              style={{ color: good ? tokens.mint : tokens.coral, fontFamily: fontFamily.bodyBold, fontSize: 11 }}
+              style={{ color: good ? tokens.mint : tokens.coral, fontFamily: fontFamily.bodyBold, fontSize: 12 }}
             >
               {good ? '✓' : '✕'}
             </Reanimated.Text>

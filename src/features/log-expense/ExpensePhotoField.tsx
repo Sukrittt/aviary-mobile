@@ -3,7 +3,7 @@ import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import * as Haptics from 'expo-haptics'
 import * as ImagePicker from 'expo-image-picker'
-import { Camera, ImageIcon, X } from 'lucide-react-native'
+import { Camera, ImageSquare, X } from '@/src/components/shared/icons'
 import { useState } from 'react'
 import { ActivityIndicator, Alert, Image, Modal, Pressable, Text, View } from 'react-native'
 
@@ -96,7 +96,7 @@ export function ExpensePhotoField({ uri, loading, offline, busy, onPicked, onRem
             <Text style={buttonText}>Take photo</Text>
           </Pressable>
           <Pressable onPress={() => void pick('library')} disabled={disabled} accessibilityRole="button" accessibilityLabel="Choose photo" style={button}>
-            <ImageIcon size={16} color={tokens.accentInk} />
+            <ImageSquare size={16} color={tokens.accentInk} />
             <Text style={buttonText}>Choose photo</Text>
           </Pressable>
         </View>

@@ -3,7 +3,7 @@ import { AppState, View, Text, StyleSheet } from 'react-native'
 import { useQueryClient } from '@tanstack/react-query'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
-import { WifiOff } from 'lucide-react-native'
+import { WifiSlash } from '@/src/components/shared/icons'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { formatRelativeTime } from '@/src/lib/format'
@@ -54,7 +54,7 @@ export function OfflineScreen() {
   return (
     <View style={[styles.container, { backgroundColor: tokens.bg, paddingTop: insets.top + 24, gap: space.md }]}>
       <View style={[styles.iconBadge, { backgroundColor: tokens.chipActiveBg, borderRadius: radius.full }]}>
-        <WifiOff size={26} color={tokens.text3} />
+        <WifiSlash size={26} color={tokens.text3} />
       </View>
       <Text style={[styles.title, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
         You&apos;re offline
@@ -88,5 +88,5 @@ const styles = StyleSheet.create({
   iconBadge: { width: 64, height: 64, alignItems: 'center', justifyContent: 'center' },
   title: { fontSize: 22 },
   subtitle: { fontSize: 13, textAlign: 'center', maxWidth: 240 },
-  caption: { fontSize: 11 },
+  caption: { fontSize: 12 },
 })

@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, useWindowDimensions } from 'react-native'
 import { useRouter } from 'expo-router'
-import * as Haptics from 'expo-haptics'
-import { HandCoins } from 'lucide-react-native'
+import { HandCoins } from '@/src/components/shared/icons'
+import { tap } from '@/src/lib/haptics'
 
 const SIZE = 36
 export const QUICK_INCOME_PATH = '/modals/quick-income'
@@ -17,7 +17,7 @@ export function IncomeFloodButton({ top, right }: { top: number; right: number }
   return (
     <Pressable
       onPress={() => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+        tap()
         router.push({ pathname: QUICK_INCOME_PATH, params: { ox: String(width - right - SIZE / 2), oy: String(top + SIZE / 2) } })
       }}
       style={[styles.button, { top, right }]}

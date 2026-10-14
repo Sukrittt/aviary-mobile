@@ -1,38 +1,41 @@
 // Import each weight from its own subpath, never from the package root.
-// Metro doesn't tree-shake, so `from '@expo-google-fonts/nunito'` pulls that
-// package's index, which requires all 16 weights (every italic included) and
+// Metro doesn't tree-shake, so `from '@expo-google-fonts/geist'` pulls that
+// package's index, which requires all 18 weights (every italic included) and
 // ships every one of them in the APK. The subpath entry points require exactly
-// one .ttf each, so only the 8 weights below get bundled.
+// one .ttf each, so only the 4 weights below get bundled.
 import { useFonts } from 'expo-font'
-import { Fredoka_500Medium } from '@expo-google-fonts/fredoka/500Medium'
-import { Fredoka_600SemiBold } from '@expo-google-fonts/fredoka/600SemiBold'
-import { Fredoka_700Bold } from '@expo-google-fonts/fredoka/700Bold'
-import { Nunito_500Medium } from '@expo-google-fonts/nunito/500Medium'
-import { Nunito_600SemiBold } from '@expo-google-fonts/nunito/600SemiBold'
-import { Nunito_700Bold } from '@expo-google-fonts/nunito/700Bold'
-import { Nunito_800ExtraBold } from '@expo-google-fonts/nunito/800ExtraBold'
-import { Nunito_900Black } from '@expo-google-fonts/nunito/900Black'
+import { Geist_400Regular } from '@expo-google-fonts/geist/400Regular'
+import { Geist_500Medium } from '@expo-google-fonts/geist/500Medium'
+import { Geist_600SemiBold } from '@expo-google-fonts/geist/600SemiBold'
+import { Geist_700Bold } from '@expo-google-fonts/geist/700Bold'
 
+// Token names are from the Fredoka/Nunito days; the weights are remapped, not
+// copied. Nunito is rounded and reads light, so its 800/900 look heavy in Geist.
 export const fontFamily = {
-  displayMedium: 'Fredoka_500Medium',
-  displaySemiBold: 'Fredoka_600SemiBold',
+  displayMedium: 'Geist_600SemiBold',
+  displaySemiBold: 'Geist_600SemiBold',
+  displayBold: 'Geist_700Bold',
+  bodyMedium: 'Geist_400Regular',
+  bodySemiBold: 'Geist_500Medium',
+  bodyBold: 'Geist_600SemiBold',
+  bodyExtraBold: 'Geist_700Bold',
+  bodyBlack: 'Geist_700Bold',
+} as const
+
+// Home-screen widgets can't load JS fonts: react-native-android-widget embeds
+// these .ttf files at build time (app.json, assets/fonts). Swapping them is a
+// native change, so widgets stay on Fredoka/Nunito until the next store build.
+export const widgetFontFamily = {
   displayBold: 'Fredoka_700Bold',
-  bodyMedium: 'Nunito_500Medium',
   bodySemiBold: 'Nunito_600SemiBold',
-  bodyBold: 'Nunito_700Bold',
-  bodyExtraBold: 'Nunito_800ExtraBold',
-  bodyBlack: 'Nunito_900Black',
+  bodyMedium: 'Nunito_500Medium',
 } as const
 
 export function useAppFonts() {
   return useFonts({
-    Fredoka_500Medium,
-    Fredoka_600SemiBold,
-    Fredoka_700Bold,
-    Nunito_500Medium,
-    Nunito_600SemiBold,
-    Nunito_700Bold,
-    Nunito_800ExtraBold,
-    Nunito_900Black,
+    Geist_400Regular,
+    Geist_500Medium,
+    Geist_600SemiBold,
+    Geist_700Bold,
   })
 }

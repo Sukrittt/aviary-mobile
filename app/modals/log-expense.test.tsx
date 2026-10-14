@@ -206,19 +206,21 @@ it('offers logging several at once only for a new expense, not an edit', () => {
   expect(utils.queryByLabelText('Log several spends at once')).toBeNull()
 })
 
-it('names what is still missing when an incomplete submit is blocked', async () => {
-  const utils = setup()
-  const { getByLabelText, queryByText, findByText } = utils
-  expect(queryByText('Add an amount and category')).toBeNull()
-
+it('shakes the amount instead of a toast when a blocked submit has no amount', async () => {
+  const { getByLabelText, queryByText, findByText } = setup()
   act(() => {
     ;(globalThis as any).__onInvalid()
   })
-  expect(await findByText('Add an amount and category')).toBeTruthy()
+  expect(queryByText('Add an amount and category')).toBeNull()
+  // Category pill lights up, picker stays shut: the amount comes first.
+  expect(queryByText(/Groceries/)).toBeNull()
 
-  // The copy tracks the form live while the toast is up.
+  // Blocked again with only the category left: + opens the picker outright.
   fireEvent.press(getByLabelText('4'))
-  expect(await findByText('Pick a category')).toBeTruthy()
+  act(() => {
+    ;(globalThis as any).__onInvalid()
+  })
+  expect(await findByText(/Groceries/)).toBeTruthy()
 })
 
 it('saves a blank "What was it for?" under the category name', async () => {
@@ -504,7 +506,7 @@ it('creates a category from a populated picker, closes the modal and uses it for
   fireEvent.changeText(utils.getByPlaceholderText('New category name'), '  🏋️ Gym  ')
   fireEvent.press(utils.getByText('Food'))
   await act(async () => { fireEvent.press(utils.getByLabelText('Save category')) })
-  expect(addCategory).toHaveBeenCalledWith('🏋️ Gym', 'Food')
+  expect(addCategory).toHaveBeenCalledWith('🏋️ Gym', 'Food', 'Barbell')
   expect(utils.getByText('Saving…')).toBeTruthy()
   // The category refetch stays unresolved: selection must appear immediately.
   ;(getCategories as jest.Mock).mockImplementation(() => new Promise(() => {}))
@@ -559,7 +561,7 @@ it('offers category creation when there are no categories yet', async () => {
   fireEvent.press(utils.getByLabelText('Add category in picker'))
   fireEvent.changeText(utils.getByPlaceholderText('New category name'), 'First category')
   await act(async () => { fireEvent.press(utils.getByLabelText('Save category')) })
-  expect(addCategory).toHaveBeenCalledWith('First category', '')
+  expect(addCategory).toHaveBeenCalledWith('First category', '', 'Wallet')
   expect(utils.getByLabelText('Category: First category')).toBeTruthy()
 })
 

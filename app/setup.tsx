@@ -15,7 +15,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
-import { ArrowLeft, CopyX, Info, LayoutGrid, Pencil, Plus } from "lucide-react-native";
+import { ArrowLeft, Copy, Info, SquaresFour, PencilSimple, Plus } from "@/src/components/shared/icons";
 import { Toast } from "@/src/components/ui/Toast";
 import Animated, {
   useSharedValue,
@@ -36,10 +36,14 @@ import { SetupDone } from "@/src/components/onboarding/SetupDone";
 import { AmountTicker } from "@/src/components/onboarding/AmountTicker";
 import { BottomSheet } from "@/src/components/shared/Modal";
 import { LoadingPhrase } from "@/src/components/shared/LoadingPhrase";
+import { CategoryIcon, CATEGORY_ICON_COMPONENTS } from "@/src/components/shared/CategoryIcon";
+import { CategoryIconPicker } from "@/src/components/shared/CategoryIconPicker";
+import { categoryTint } from "@/src/lib/emoji";
+import { categoryIconKey, groupIconKey, type CategoryIconKey } from "@/src/lib/categoryIcons";
 
 import { currentMonthKey, INCOME_CATEGORY } from "@/src/lib/envelope";
 import { getBudgets, updateBudget } from "@/src/api/budgets";
-import { addGroup } from "@/src/api/groups";
+import { addGroup, updateGroup } from "@/src/api/groups";
 import { addCategory, getSplitBuckets } from "@/src/api/categories";
 import {
   BUCKET_LABELS,
@@ -61,6 +65,7 @@ import { completeOnboarding } from "@/src/api/billing";
 import { signalOnboarded } from "@/src/api/onboardingSignal";
 import { DEFAULT_ALERT_PCTS } from "@/src/lib/alerts";
 import { startTimer, track } from "@/src/lib/analytics";
+import { tap } from "@/src/lib/haptics";
 
 // SetupWizard.dc.html — currency → income → done, on a starter budget (the
 // pre-checked groups and categories, income split across them). "Pick my own"
@@ -68,24 +73,6 @@ import { startTimer, track } from "@/src/lib/analytics";
 // per-step: groups/categories aren't
 // reorderable or renameable server-side until they exist, so there's nothing
 // worth syncing mid-flow.
-const EMOJI_CHOICES = [
-  "🏠",
-  "🎬",
-  "🌱",
-  "🛒",
-  "💡",
-  "🚌",
-  "🍜",
-  "📺",
-  "🛍",
-  "🛟",
-  "📈",
-  "🎓",
-  "🐶",
-  "💊",
-  "✈️",
-  "🎁",
-];
 const QUICK_PICKS = ["30000", "50000", "75000", "100000"];
 // Shortest time a Finish-button save step stays on screen.
 const STEP_MIN_MS = 500;
@@ -95,7 +82,8 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 interface Item {
   id: string;
-  emoji: string;
+  /** The picked icon. Unset follows the name (see iconOf). */
+  icon?: CategoryIconKey;
   name: string;
   on: boolean;
 }
@@ -105,7 +93,7 @@ interface LiveCat {
   groupId: string;
   catId: string;
   group: string;
-  emoji: string;
+  icon: CategoryIconKey;
   name: string;
 }
 
@@ -114,28 +102,29 @@ const makeId = () => `setup-${nextId++}`;
 
 function defaultGroups(): Item[] {
   return [
-    { id: "g1", emoji: "🏠", name: "Essentials", on: true },
-    { id: "g2", emoji: "🎬", name: "Lifestyle", on: true },
-    { id: "g3", emoji: "🌱", name: "Savings", on: false },
+    // No icon: a group's follows its name, so saving needs no extra update call.
+    { id: "g1", name: "Essentials", on: true },
+    { id: "g2", name: "Lifestyle", on: true },
+    { id: "g3", name: "Savings", on: false },
   ];
 }
 
 function defaultCats(): Record<string, Item[]> {
   return {
     g1: [
-      { id: makeId(), emoji: "🏠", name: "Rent", on: true },
-      { id: makeId(), emoji: "🛒", name: "Groceries", on: true },
-      { id: makeId(), emoji: "💡", name: "Utilities", on: true },
-      { id: makeId(), emoji: "🚌", name: "Transport", on: false },
+      { id: makeId(), icon: "House", name: "Rent", on: true },
+      { id: makeId(), icon: "ShoppingCart", name: "Groceries", on: true },
+      { id: makeId(), icon: "Lightbulb", name: "Utilities", on: true },
+      { id: makeId(), icon: "Bus", name: "Transport", on: false },
     ],
     g2: [
-      { id: makeId(), emoji: "🍜", name: "Eating out", on: true },
-      { id: makeId(), emoji: "📺", name: "Subscriptions", on: false },
-      { id: makeId(), emoji: "🛍", name: "Shopping", on: false },
+      { id: makeId(), icon: "BowlFood", name: "Eating out", on: true },
+      { id: makeId(), icon: "Repeat", name: "Subscriptions", on: false },
+      { id: makeId(), icon: "ShoppingBag", name: "Shopping", on: false },
     ],
     g3: [
-      { id: makeId(), emoji: "🛟", name: "Emergency fund", on: true },
-      { id: makeId(), emoji: "📈", name: "Investments", on: false },
+      { id: makeId(), icon: "Lifebuoy", name: "Emergency fund", on: true },
+      { id: makeId(), icon: "TrendUp", name: "Investments", on: false },
     ],
   };
 }
@@ -150,8 +139,12 @@ function onForName(item: Item, name: string): boolean {
 const sameName = (a: string, b: string) =>
   a.trim().toLowerCase() === b.trim().toLowerCase();
 
-function label(item: Item): string {
-  return `${item.emoji} ${item.name.trim()}`;
+// A row's icon: the one picked, else whatever its name suggests.
+function iconOf(item: Item, group?: string): CategoryIconKey {
+  if (item.icon) return item.icon;
+  return group === undefined
+    ? groupIconKey(item.name)
+    : categoryIconKey(item.name, undefined, group);
 }
 
 async function ignoreConflict(err: unknown): Promise<void> {
@@ -187,7 +180,7 @@ const TITLES: Record<number, [string, string]> = {
   ],
   3: [
     "Add your categories",
-    "Each one's an envelope: money set aside for one thing, like Groceries. Pick the ones you recognize.",
+    "Each one holds money for one thing, like Groceries. Pick the ones you recognize.",
   ],
   4: [
     "Assign your money",
@@ -260,19 +253,10 @@ function CurrencyWizard({
   // Why a row couldn't be checked (no name yet, or a name another checked row
   // already has); each bump of `n` shows it as a toast.
   const [rowToast, setRowToast] = useState({ n: 0, message: "" });
-  // The row whose emoji sheet is open: a group, or a category when catId is set.
-  const [emojiFor, setEmojiFor] = useState<{
-    groupId: string;
-    catId?: string;
-    emoji: string;
-    name: string;
-  } | null>(null);
   const [buf, setBuf] = useState("");
   // The open category's name as it's being edited in the assign sheet; it
   // only lands on the category when the sheet closes.
   const [nameDraft, setNameDraft] = useState("");
-  // The assign sheet swaps its numpad for the emoji grid while this is on.
-  const [sheetEmojiOpen, setSheetEmojiOpen] = useState(false);
   const [splitInfoOpen, setSplitInfoOpen] = useState(false);
   const [pending, setPending] = useState(false);
   // Real save progress for the Finish button: the step being written and a
@@ -328,7 +312,7 @@ function CurrencyWizard({
             groupId: g.id,
             catId: c.id,
             group: g.name,
-            emoji: c.emoji,
+            icon: iconOf(c, g.name),
             name: c.name,
           });
       });
@@ -503,18 +487,10 @@ function CurrencyWizard({
   const renameCat = (groupId: string, c: Item, name: string) =>
     patchCat(groupId, c.id, renameGuarded(c, name, catDup(c.id), "category"));
 
-  const pickEmoji = (emoji: string) => {
-    if (!emojiFor) return;
-    Haptics.selectionAsync().catch(() => {});
-    if (emojiFor.catId) patchCat(emojiFor.groupId, emojiFor.catId, { emoji });
-    else patchGroup(emojiFor.groupId, { emoji });
-    setEmojiFor(null);
-  };
-
   const addGroupRow = () => {
     Haptics.selectionAsync().catch(() => {});
     const id = makeId();
-    setGroups((gs) => [...gs, { id, emoji: "🎁", name: "", on: false }]);
+    setGroups((gs) => [...gs, { id, name: "", on: false }]);
     setCats((c) => ({ ...c, [id]: [] }));
   };
 
@@ -524,7 +500,7 @@ function CurrencyWizard({
       ...c,
       [groupId]: [
         ...(c[groupId] ?? []),
-        { id: makeId(), emoji: "🎁", name: "", on: false },
+        { id: makeId(), name: "", on: false },
       ],
     }));
   };
@@ -566,7 +542,6 @@ function CurrencyWizard({
     Haptics.selectionAsync().catch(() => {});
     setActiveKey(key);
     setBuf("");
-    setSheetEmojiOpen(false);
     setNameDraft(liveCats().find((c) => c.key === key)?.name ?? "");
   };
 
@@ -620,7 +595,11 @@ function CurrencyWizard({
     const categories = selectedGroups.flatMap((g) =>
       (cats[g.id] ?? [])
         .filter((c) => c.on && c.name.trim())
-        .map((c) => ({ name: label(c), group: label(g) })),
+        .map((c) => ({
+          name: c.name.trim(),
+          group: g.name.trim(),
+          icon: iconOf(c, g.name),
+        })),
     );
     const categoryCount = categories.length;
 
@@ -657,7 +636,7 @@ function CurrencyWizard({
       });
     };
     saveFill.value = 0;
-    setSaveStep("Creating your envelopes…");
+    setSaveStep("Creating your categories…");
     // Each step stays readable for at least STEP_MIN_MS, so a fast write never
     // flashes its text past the user or cuts straight to the next screen.
     let stepShownAt = 0;
@@ -692,12 +671,20 @@ function CurrencyWizard({
       // rows are independent upserts, so they all go out at once alongside.
       await Promise.all([
         (async () => {
-          for (const g of selectedGroups)
-            await addGroup(label(g)).catch(ignoreConflict).then(tick);
+          for (const g of selectedGroups) {
+            const name = g.name.trim();
+            await addGroup(name).catch(ignoreConflict);
+            // POST /api/groups takes no icon; set it after, unless the name already implies it.
+            const icon = iconOf(g);
+            if (icon !== groupIconKey(name)) await updateGroup(name, { icon });
+            tick();
+          }
         })(),
         (async () => {
           for (const c of categories)
-            await addCategory(c.name, c.group).catch(ignoreConflict).then(tick);
+            await addCategory(c.name, c.group, c.icon)
+              .catch(ignoreConflict)
+              .then(tick);
         })(),
         updateBudget(
           month,
@@ -708,15 +695,15 @@ function CurrencyWizard({
         ...live.map((item) =>
           updateBudget(
             month,
-            `${item.emoji} ${item.name.trim()}`,
+            item.name.trim(),
             { assigned: String(amounts[item.key] ?? 0), rolled_over: "0" },
-            versionFor(`${item.emoji} ${item.name.trim()}`),
+            versionFor(item.name.trim()),
           ).then(tick),
         ),
       ]);
       // Last, so a failed write above leaves the user un-onboarded and retrying.
       // Two calls rather than one: the currency is an ordinary profile field,
-      // but completing onboarding starts the 45-day trial, so its instant is
+      // but completing onboarding starts the 30-day trial, so its instant is
       // the server's — this device's clock has no say in when the trial ends.
       await showStep("Starting your budget…");
       await updateUser({ currencyCode });
@@ -799,7 +786,7 @@ function CurrencyWizard({
   };
 
   const pressPrimaryCta = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    tap();
     next();
   };
 
@@ -990,7 +977,7 @@ function CurrencyWizard({
               accessibilityRole="button"
               style={[styles.pickOwn, { borderColor: tokens.borderStrong }]}
             >
-              <LayoutGrid size={15} color={tokens.accentInk} strokeWidth={2.2} />
+              <SquaresFour size={15} color={tokens.accentInk} />
               <Text
                 style={[
                   styles.pickOwnLabel,
@@ -1022,13 +1009,11 @@ function CurrencyWizard({
           {groups.map((g) => (
             <PickRow
               key={g.id}
-              emoji={g.emoji}
+              icon={iconOf(g)}
               name={g.name}
               on={g.on}
               placeholder="Group name"
-              onPressEmoji={() =>
-                setEmojiFor({ groupId: g.id, emoji: g.emoji, name: g.name })
-              }
+              onPickIcon={(icon) => patchGroup(g.id, { icon })}
               onChangeName={(name) => renameGroup(g, name)}
               onToggle={() => toggleGroup(g)}
             />
@@ -1037,13 +1022,13 @@ function CurrencyWizard({
             onPress={addGroupRow}
             style={[styles.addRow, { borderColor: tokens.borderStrong }]}
           >
-            <Plus size={16} color={tokens.text2} strokeWidth={2.2} />
+            <Plus size={16} color={tokens.text2} />
             <Text style={[styles.addRowLabel, { color: tokens.text2 }]}>
               Add your own group
             </Text>
           </Pressable>
           <Text style={[styles.microHint, { color: tokens.text3 }]}>
-            tap a name to rename · tap the emoji to pick another
+            tap a name to rename · tap the icon to pick another
           </Text>
         </ScrollView>
       )}
@@ -1059,7 +1044,7 @@ function CurrencyWizard({
             return (
               <View key={g.id} style={styles.section}>
                 <View style={styles.sectionHeader}>
-                  <Text style={{ fontSize: 14 }}>{g.emoji}</Text>
+                  <CategoryIcon kind="group" name={g.name} icon={iconOf(g)} size={14} color={tokens.text3} />
                   <Text style={[styles.sectionTitle, { color: tokens.text3 }]}>
                     {g.name.toUpperCase()}
                   </Text>
@@ -1070,18 +1055,11 @@ function CurrencyWizard({
                 {rows.map((c) => (
                   <PickRow
                     key={c.id}
-                    emoji={c.emoji}
+                    icon={iconOf(c, g.name)}
                     name={c.name}
                     on={c.on}
                     placeholder="Category name"
-                    onPressEmoji={() =>
-                      setEmojiFor({
-                        groupId: g.id,
-                        catId: c.id,
-                        emoji: c.emoji,
-                        name: c.name,
-                      })
-                    }
+                    onPickIcon={(icon) => patchCat(g.id, c.id, { icon })}
                     onChangeName={(name) => renameCat(g.id, c, name)}
                     onToggle={() => toggleCat(g.id, c)}
                   />
@@ -1090,7 +1068,7 @@ function CurrencyWizard({
                   onPress={() => addCatRow(g.id)}
                   style={[styles.addPill, { borderColor: tokens.borderStrong }]}
                 >
-                  <Plus size={14} color={tokens.text2} strokeWidth={2.4} />
+                  <Plus size={14} color={tokens.text2} weight="bold" />
                   <Text style={[styles.addPillLabel, { color: tokens.text2 }]}>
                     Add category
                   </Text>
@@ -1165,7 +1143,7 @@ function CurrencyWizard({
                   </Text>
                 </View>
               ))}
-              <Info size={13} color={tokens.text3} strokeWidth={2.4} />
+              <Info size={13} color={tokens.text3} weight="bold" />
               {note && (
                 <Text
                   style={[
@@ -1194,7 +1172,7 @@ function CurrencyWizard({
               return (
                 <View key={g.id} style={styles.section}>
                   <View style={styles.sectionHeader}>
-                    <Text style={{ fontSize: 14 }}>{g.emoji}</Text>
+                    <CategoryIcon kind="group" name={g.name} icon={iconOf(g)} size={14} color={tokens.text3} />
                     <Text
                       style={[styles.sectionTitle, { color: tokens.text3 }]}
                     >
@@ -1216,6 +1194,8 @@ function CurrencyWizard({
                     const key = `${g.id}:${c.id}`;
                     const v = amounts[key] ?? 0;
                     const active = activeKey === key;
+                    const RowIcon = CATEGORY_ICON_COMPONENTS[iconOf(c, g.name)];
+                    const tint = categoryTint(c.name, tokens);
                     return (
                       <Pressable
                         key={c.id}
@@ -1232,14 +1212,14 @@ function CurrencyWizard({
                       >
                         <View
                           style={[
-                            styles.assignEmoji,
+                            styles.assignIcon,
                             {
-                              backgroundColor: tokens.inputBg,
+                              backgroundColor: tint.bg,
                               borderColor: tokens.border,
                             },
                           ]}
                         >
-                          <Text style={{ fontSize: 17 }}>{c.emoji}</Text>
+                          <RowIcon size={17} color={tint.ink} />
                         </View>
                         <Text
                           style={[
@@ -1346,22 +1326,14 @@ function CurrencyWizard({
                 { backgroundColor: tokens.borderStrong },
               ]}
             />
-            <View style={styles.sheetHeader}>
-              <Pressable
-                onPress={() => setSheetEmojiOpen((o) => !o)}
-                accessibilityRole="button"
-                accessibilityLabel={`Change emoji for ${activeCat.name}`}
-                accessibilityState={{ expanded: sheetEmojiOpen }}
-                style={[
-                  styles.sheetEmoji,
-                  {
-                    backgroundColor: tokens.inputBg,
-                    borderColor: sheetEmojiOpen ? tokens.accent : tokens.border,
-                  },
-                ]}
-              >
-                <Text style={{ fontSize: 16 }}>{activeCat.emoji}</Text>
-              </Pressable>
+            <CategoryIconPicker
+              value={activeCat.icon}
+              onChange={(icon) => {
+                Haptics.selectionAsync().catch(() => {});
+                patchCat(activeCat.groupId, activeCat.catId, { icon });
+              }}
+              tint={categoryTint(activeCat.name, tokens)}
+            >
               <View
                 style={[styles.sheetNameField, { borderColor: tokens.border }]}
               >
@@ -1380,12 +1352,13 @@ function CurrencyWizard({
                     },
                   ]}
                 />
-                <Pencil size={13} color={tokens.text3} strokeWidth={2.2} />
+                <PencilSimple size={13} color={tokens.text3} />
               </View>
               <View
                 style={[
                   styles.remChipSmall,
                   {
+                    alignSelf: "center",
                     backgroundColor: remColors.bg,
                     borderColor: remColors.color,
                   },
@@ -1408,18 +1381,8 @@ function CurrencyWizard({
                   {formatMoney(Math.abs(rem))}
                 </Text>
               </View>
-            </View>
-            {sheetEmojiOpen ? (
-              <EmojiGrid
-                current={activeCat.emoji}
-                onPick={(emoji) => {
-                  Haptics.selectionAsync().catch(() => {});
-                  patchCat(activeCat.groupId, activeCat.catId, { emoji });
-                  setSheetEmojiOpen(false);
-                }}
-              />
-            ) : (
-              <>
+            </CategoryIconPicker>
+            <>
                 <Text
                   style={[
                     styles.sheetAmount,
@@ -1455,8 +1418,7 @@ function CurrencyWizard({
                   onBackspace={() => pressAmt("del")}
                   onClear={clearAmt}
                 />
-              </>
-            )}
+            </>
             <Pressable
               onPress={closeRow}
               style={[styles.sheetDone, { backgroundColor: tokens.accent }]}
@@ -1541,34 +1503,10 @@ function CurrencyWizard({
         </View>
       </BottomSheet>
 
-      <BottomSheet visible={!!emojiFor} onClose={() => setEmojiFor(null)}>
-        {emojiFor && (
-          <View style={{ gap: 14 }}>
-            <View
-              style={[
-                styles.sheetGrabber,
-                { backgroundColor: tokens.borderStrong },
-              ]}
-            />
-            <Text
-              style={[
-                styles.sheetName,
-                { color: tokens.text, fontFamily: fontFamily.displaySemiBold },
-              ]}
-              numberOfLines={1}
-            >
-              Pick an emoji
-              {emojiFor.name.trim() ? ` for ${emojiFor.name.trim()}` : ""}
-            </Text>
-            <EmojiGrid current={emojiFor.emoji} onPick={pickEmoji} />
-          </View>
-        )}
-      </BottomSheet>
-
       <Toast
         trigger={rowToast.n}
         message={rowToast.message}
-        icon={CopyX}
+        icon={Copy}
         style={{ top: insets.top + 12 }}
       />
     </View>
@@ -1676,45 +1614,6 @@ function SplitButton({
   );
 }
 
-// The 4x4 grid of EMOJI_CHOICES, shared by the group/category emoji sheet and
-// the assign sheet.
-function EmojiGrid({
-  current,
-  onPick,
-}: {
-  current: string;
-  onPick: (emoji: string) => void;
-}) {
-  const { tokens } = useTheme();
-  return (
-    <View style={styles.emojiGrid}>
-      {EMOJI_CHOICES.map((e) => {
-        const active = e === current;
-        return (
-          <Pressable
-            key={e}
-            onPress={() => onPick(e)}
-            accessibilityRole="button"
-            accessibilityLabel={e}
-            accessibilityState={{ selected: active }}
-            style={[
-              styles.emojiOpt,
-              {
-                backgroundColor: active ? tokens.accentSoft : tokens.inputBg,
-                borderColor: active ? tokens.accent : tokens.border,
-              },
-            ]}
-          >
-            <View pointerEvents="none" style={styles.emojiOptContent}>
-              <Text style={styles.emojiOptLabel}>{e}</Text>
-            </View>
-          </Pressable>
-        );
-      })}
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   container: { flex: 1, paddingHorizontal: 22 },
   topRow: {
@@ -1733,7 +1632,7 @@ const styles = StyleSheet.create({
   dots: { flexDirection: "row", gap: 6 },
   title: {
     fontSize: 27,
-    fontWeight: "600",
+    fontFamily: fontFamily.displaySemiBold,
     lineHeight: 31,
     marginTop: 16,
     letterSpacing: -0.2,
@@ -1766,7 +1665,7 @@ const styles = StyleSheet.create({
     borderStyle: "dashed",
   },
   addRowLabel: { fontSize: 13, fontFamily: fontFamily.bodyBold },
-  microHint: { fontSize: 10, paddingHorizontal: 4, paddingTop: 2 },
+  microHint: { fontSize: 12, fontFamily: fontFamily.bodySemiBold, paddingHorizontal: 4, paddingTop: 2 },
   sectionList: { gap: 16, paddingTop: 12 },
   section: { gap: 8 },
   sectionHeader: {
@@ -1775,8 +1674,8 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 4,
   },
-  sectionTitle: { fontSize: 11, letterSpacing: 1, flex: 1 },
-  sectionCount: { fontSize: 11 },
+  sectionTitle: { fontSize: 12, fontFamily: fontFamily.bodyBold, letterSpacing: 1, flex: 1 },
+  sectionCount: { fontSize: 12, fontFamily: fontFamily.bodySemiBold },
   sectionSubtotal: { fontSize: 13 },
   addPill: {
     alignSelf: "flex-start",
@@ -1808,7 +1707,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.22)",
   },
   ctaPhrase: { textAlign: "center" },
-  ctaHint: { fontSize: 11, textAlign: "center", marginTop: 8, minHeight: 15 },
+  ctaHint: { fontSize: 12, fontFamily: fontFamily.bodySemiBold, textAlign: "center", marginTop: 8, minHeight: 15 },
   pickOwn: {
     alignSelf: "center",
     flexDirection: "row",
@@ -1854,7 +1753,7 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     borderWidth: 1.5,
   },
-  assignEmoji: {
+  assignIcon: {
     width: 36,
     height: 36,
     borderRadius: 12,
@@ -1865,7 +1764,7 @@ const styles = StyleSheet.create({
   assignName: { flex: 1, fontSize: 14 },
   assignAmount: { fontSize: 15 },
   assignBucket: {
-    fontSize: 10,
+    fontSize: 12,
     borderRadius: 100,
     paddingHorizontal: 8,
     paddingVertical: 2,
@@ -1892,46 +1791,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  splitInfoBody: { fontSize: 13, lineHeight: 18, fontFamily: fontFamily.bodyMedium },
+  splitInfoBody: { fontSize: 13, lineHeight: 18, fontFamily: fontFamily.bodySemiBold },
 
-  emojiGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-    rowGap: 10,
-  },
-  emojiOpt: {
-    width: "23%",
-    aspectRatio: 1,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  emojiOptContent: {
-    alignItems: "center",
-    justifyContent: "center",
-    height: 80,
-  },
-  emojiOptLabel: {
-    fontSize: 26,
-    textAlign: "center",
-    includeFontPadding: false,
-  },
   sheetGrabber: {
     alignSelf: "center",
     width: 38,
     height: 4,
     borderRadius: 100,
-  },
-  sheetHeader: { flexDirection: "row", alignItems: "center", gap: 10 },
-  sheetEmoji: {
-    width: 34,
-    height: 34,
-    borderRadius: 12,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
   },
   sheetName: { flex: 1, fontSize: 16, paddingVertical: 4 },
   sheetNameField: {
@@ -1950,10 +1816,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
   },
-  remLabelSmall: { fontSize: 10, fontFamily: fontFamily.bodyExtraBold },
+  remLabelSmall: { fontSize: 12, fontFamily: fontFamily.bodyExtraBold },
   remValueSmall: { fontSize: 13 },
   sheetAmount: {
     fontSize: 38,
+    fontVariant: ["tabular-nums"],
     textAlign: "center",
     letterSpacing: -0.4,
     paddingVertical: 4,

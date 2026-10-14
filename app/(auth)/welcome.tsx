@@ -8,7 +8,6 @@ import {
   StyleSheet,
 } from "react-native";
 import { useRouter } from "expo-router";
-import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { fontFamily } from "@/src/theme/fonts";
@@ -17,6 +16,7 @@ import { AuthBackdrop } from "@/src/components/auth/AuthBackdrop";
 import { UnlockIcon } from "@/src/components/shared/UnlockIcon";
 import { BirdLandingMark } from "@/src/components/splash/BirdLandingMark";
 import { WEB_URL } from "@/src/api/client";
+import { tap } from "@/src/lib/haptics";
 
 // Screen 1 of the auth flow (mockup: isWelcome). Google sign-in and the
 // "Continue with email" hop to /(auth)/email — no guest link, guest mode is
@@ -29,8 +29,6 @@ export default function WelcomeScreen() {
   const router = useRouter();
   const { signIn, pending, done, error } = useSignIn();
   const shake = useRef(new Animated.Value(0)).current;
-  const tap = () =>
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
 
   // Mirrors web's @keyframes auth-shake: 0.4s, 10 steps of 40ms.
   const triggerShake = () => {
@@ -256,5 +254,5 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   emailText: { fontSize: 15 },
-  legal: { fontSize: 11, textAlign: "center", lineHeight: 17, marginTop: 6, maxWidth: 280, alignSelf: "center" },
+  legal: { fontSize: 12, textAlign: "center", lineHeight: 17, marginTop: 6, maxWidth: 280, alignSelf: "center" },
 });

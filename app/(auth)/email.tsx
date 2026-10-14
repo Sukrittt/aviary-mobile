@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import * as Haptics from 'expo-haptics'
-import { ArrowLeft, ShieldCheck } from 'lucide-react-native'
+import { ArrowLeft, ShieldCheck } from '@/src/components/shared/icons'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
@@ -10,6 +10,7 @@ import { Icon } from '@/src/components/shared/Icon'
 import { sendMagicAuthCode } from '@/src/api/magicAuth'
 import { changeEmail } from '@/src/api/account'
 import { track } from '@/src/lib/analytics'
+import { tap } from '@/src/lib/haptics'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -42,7 +43,7 @@ export default function EmailScreen() {
       setInvalid(true)
       return
     }
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+    tap()
     setInvalid(false)
     setError('')
     setPending(true)

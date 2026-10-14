@@ -66,7 +66,7 @@ it('falls back to the top category alone on an older server', () => {
 it('prints the biggest spend as a receipt', () => {
   const { getByText } = detail('biggest')
   expect(getByText('Shoes')).toBeTruthy()
-  expect(getByText('🛍️ Shopping')).toBeTruthy()
+  expect(getByText('Shopping')).toBeTruthy()
   expect(getByText('3 Oct')).toBeTruthy()
   expect(getByText('₹2000')).toBeTruthy()
 })

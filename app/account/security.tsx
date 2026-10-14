@@ -12,7 +12,7 @@ import { useOnline } from '@/src/lib/netStatus'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { useRouter } from 'expo-router'
-import { ArrowLeft,Check } from 'lucide-react-native'
+import { ArrowLeft, Check } from '@/src/components/shared/icons'
 import { useEffect,useState } from 'react'
 import { Image,Pressable,RefreshControl,ScrollView,StyleSheet,Text,TextInput,View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -356,7 +356,7 @@ export default function SecurityScreen() {
         <View style={[styles.dangerCard, { borderColor: tokens.coral }]}>
           <Text style={[styles.dangerTitle, { color: tokens.coral, fontFamily: fontFamily.bodyExtraBold }]}>Delete account</Text>
           <Text style={[styles.dangerBody, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
-            Removes envelopes, transactions and recaps. You have 7 days to sign back in and restore before it&apos;s gone for good.
+            Removes categories, transactions and recaps. You have 7 days to sign back in and restore before it&apos;s gone for good.
           </Text>
           <Pressable
             onPress={confirmDelete}
@@ -380,7 +380,7 @@ export default function SecurityScreen() {
       >
         <Text style={[styles.sheetTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Delete account</Text>
         <Text style={[styles.dangerBody, { color: tokens.text2, fontFamily: fontFamily.bodyMedium, marginTop: 8 }]}>
-          Removes envelopes, transactions and recaps. You have 7 days to sign back in and restore before it&apos;s gone for good. Type{' '}
+          Removes categories, transactions and recaps. You have 7 days to sign back in and restore before it&apos;s gone for good. Type{' '}
           <Text style={{ fontFamily: fontFamily.bodyBold, color: tokens.text }}>{user?.email}</Text> to confirm.
         </Text>
         {renewingOnWeb ? (
@@ -479,18 +479,18 @@ const styles = StyleSheet.create({
   card: { borderWidth: 1, borderRadius: 20, overflow: 'hidden' },
   block: { padding: 16 },
   emailRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
-  label: { fontSize: 11 },
+  label: { fontSize: 12 },
   email: { fontSize: 14 },
   verifiedRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 },
-  verified: { fontSize: 11 },
+  verified: { fontSize: 12 },
   divider: { height: StyleSheet.hairlineWidth },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 16 },
   rowLabel: { fontSize: 14 },
-  rowHint: { fontSize: 11, marginTop: 2 },
+  rowHint: { fontSize: 12, marginTop: 2 },
   editButton: { paddingHorizontal: 14, paddingVertical: 9, borderRadius: 100, borderWidth: 1 },
   editButtonText: { fontSize: 12 },
   currentBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 100 },
-  currentBadgeText: { fontSize: 11 },
+  currentBadgeText: { fontSize: 12 },
   warnBanner: { marginTop: 12, padding: 14, borderRadius: 16, borderWidth: 1 },
   warnTitle: { fontSize: 12 },
   warnCopy: { fontSize: 12, marginTop: 4, lineHeight: 17 },
@@ -499,7 +499,7 @@ const styles = StyleSheet.create({
   warnRestoreButton: { marginTop: 12, alignSelf: 'flex-start', paddingHorizontal: 16, paddingVertical: 11, borderRadius: 100 },
   warnRestoreButtonText: { fontSize: 13 },
   section: { gap: 10 },
-  sectionLabel: { fontSize: 11, letterSpacing: 0.5, paddingHorizontal: 4 },
+  sectionLabel: { fontSize: 12, letterSpacing: 0.5, paddingHorizontal: 4 },
   proofCard: { padding: 16 },
   proofCopy: { fontSize: 12, lineHeight: 18 },
   proofRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 12, paddingVertical: 8, borderTopWidth: StyleSheet.hairlineWidth },

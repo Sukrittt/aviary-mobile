@@ -2,9 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { View, Text, ScrollView, Pressable, TextInput, RefreshControl, StyleSheet, Animated, PanResponder } from 'react-native'
 import type { LayoutChangeEvent } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { ChevronRight, MoreVertical, Plus, Equal } from 'lucide-react-native'
+import { CaretRight, DotsThreeVertical, Plus, Equals } from '@/src/components/shared/icons'
 import * as Haptics from 'expo-haptics'
-import { rippleHaptic } from '@/src/lib/haptics'
+import { rippleHaptic, tap } from '@/src/lib/haptics'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Reanimated, {
   measure,
@@ -18,7 +18,6 @@ import Reanimated, {
   type SharedValue,
 } from 'react-native-reanimated'
 import { scheduleOnRN } from 'react-native-worklets'
-import { AnimatedTabContent } from '@/src/components/nav/AnimatedTabContent'
 import { Screen, useNavPadding } from '@/src/components/ui/Screen'
 import { Chip } from '@/src/components/ui/Chip'
 import { IconButton } from '@/src/components/ui/Button'
@@ -32,9 +31,12 @@ import {
   useDeleteCategory,
   useMoveCategory,
 } from '@/src/hooks/useCategories'
-import { useGroups, useAddGroup, useUpdateGroup, useDeleteGroup, useMoveGroup } from '@/src/hooks/useGroups'
-import { groupEmoji, categoryEmoji, splitEmoji } from '@/src/lib/emoji'
-import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
+import { useGroups, useGroupIcons, useAddGroup, useUpdateGroup, useDeleteGroup, useMoveGroup } from '@/src/hooks/useGroups'
+import { categoryTint, splitEmoji } from '@/src/lib/emoji'
+import { categoryIconKey, groupIconKey, type CategoryIconKey } from '@/src/lib/categoryIcons'
+import { CategoryIcon } from '@/src/components/shared/CategoryIcon'
+import { CategoryIconPicker } from '@/src/components/shared/CategoryIconPicker'
+import { EnvelopesSkeleton } from '@/src/components/shared/TabSkeleton'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { BottomSheet } from '@/src/components/shared/Modal'
 import { Icon } from '@/src/components/shared/Icon'
@@ -78,7 +80,7 @@ function GroupChevron({ collapsed, color }: { collapsed: boolean; color: string 
   }))
   return (
     <Reanimated.View style={style}>
-      <Icon icon={ChevronRight} size={14} color={color} strokeWidth={2.5} />
+      <Icon icon={CaretRight} size={14} color={color} weight="bold" />
     </Reanimated.View>
   )
 }
@@ -240,8 +242,8 @@ function DraggableCategoryList({
             ]}
           >
             <Pressable style={styles.catRowMain} onPress={() => onMenu(cat.name)}>
-              <View style={[styles.catIconChip, { backgroundColor: tokens.inputBg }]}>
-                <Text style={{ fontSize: 12 }}>{categoryEmoji(cat.name, group)}</Text>
+              <View style={[styles.catIconChip, { backgroundColor: categoryTint(cat.name, tokens).bg }]}>
+                <CategoryIcon name={cat.name} icon={cat.icon} group={group} size={14} color={categoryTint(cat.name, tokens).ink} />
               </View>
               <Text
                 style={[styles.catName, { color: tokens.text, fontFamily: fontFamily.bodyBold }]}
@@ -251,7 +253,7 @@ function DraggableCategoryList({
               </Text>
               <View style={styles.catActions}>
                 <View {...responder.panHandlers} hitSlop={8} style={styles.dragHandle}>
-                  <Icon icon={Equal} size={14} color={tokens.text3} />
+                  <Icon icon={Equals} size={14} color={tokens.text3} />
                 </View>
               </View>
             </Pressable>
@@ -459,7 +461,7 @@ function DraggableGroupCard({
   const handle = draggable ? (
     <GestureDetector gesture={gestures.grip}>
       <View hitSlop={8} style={styles.dragHandle} accessibilityLabel={`Drag to reorder ${splitEmoji(name).text}`}>
-        <Icon icon={Equal} size={15} color={handleColor} />
+        <Icon icon={Equals} size={15} color={handleColor} />
       </View>
     </GestureDetector>
   ) : null
@@ -501,6 +503,7 @@ export default function EnvelopesScreen() {
 
   const categoriesQ = useCategories()
   const groupsQ = useGroups()
+  const groupIcons = useGroupIcons()
   const addCategory = useAddCategory()
   const updateCategory = useUpdateCategory()
   const deleteCategory = useDeleteCategory()
@@ -517,6 +520,8 @@ export default function EnvelopesScreen() {
   const [deleteTarget, setDeleteTarget] = useState<{ kind: 'category' | 'group'; name: string } | null>(null)
   const [draftName, setDraftName] = useState('')
   const [draftGroup, setDraftGroup] = useState('')
+  // Null until the user picks one: a new category's icon follows its name.
+  const [pickedIcon, setPickedIcon] = useState<CategoryIconKey | null>(null)
   const [draftAlertPcts, setDraftAlertPcts] = useState<number[]>(DEFAULT_ALERT_PCTS)
   const [customAlertInput, setCustomAlertInput] = useState('')
   const [sheetError, setSheetError] = useState('')
@@ -633,7 +638,7 @@ export default function EnvelopesScreen() {
   const allGroupsCollapsed = allGroupKeys.length > 0 && allGroupKeys.every((k) => collapsedGroups.has(k))
 
   function toggleGroup(key: string) {
-    Haptics.selectionAsync().catch(() => {})
+    tap()
     setCollapsedGroups((prev) => {
       const next = new Set(prev)
       if (next.has(key)) next.delete(key)
@@ -651,6 +656,7 @@ export default function EnvelopesScreen() {
   function openAddCategory(group = '') {
     setDraftName('')
     setDraftGroup(group)
+    setPickedIcon(null)
     setDraftAlertPcts(DEFAULT_ALERT_PCTS)
     setCustomAlertInput('')
     setSheetError('')
@@ -658,8 +664,11 @@ export default function EnvelopesScreen() {
   }
   function openRenameCategory(name: string) {
     const cat = categories.find((c) => c.name === name)
-    setDraftName(name)
+    // Renames edit the words only. A legacy name's leading emoji stays on the
+    // stored name and submitSheet puts it back.
+    setDraftName(splitEmoji(name).text)
     setDraftGroup(cat?.group ?? '')
+    setPickedIcon(categoryIconKey(name, cat?.icon, cat?.group))
     setDraftAlertPcts(cat?.alertPcts ? sortedPcts(cat.alertPcts) : DEFAULT_ALERT_PCTS)
     setCustomAlertInput('')
     setSheetError('')
@@ -687,9 +696,15 @@ export default function EnvelopesScreen() {
     setSheet({ kind: 'addGroup' })
   }
   function openRenameGroup(name: string) {
-    setDraftName(name)
+    setDraftName(splitEmoji(name).text)
+    setPickedIcon(groupIconKey(name, groupIcons.get(name)))
     setSheetError('')
     setSheet({ kind: 'renameGroup', name })
+  }
+  /** The stored name for draft text: the old name's emoji, if any, then the words. */
+  function withOldEmoji(oldName: string, text: string) {
+    const { icon } = splitEmoji(oldName)
+    return icon ? `${icon} ${text}` : text
   }
   function closeSheet() {
     setSheet(null)
@@ -713,14 +728,16 @@ export default function EnvelopesScreen() {
     if (!composed) return
     try {
       if (sheet.kind === 'addCategory') {
-        await addCategory.mutateAsync({ name: composed, group: draftGroup })
+        await addCategory.mutateAsync({ name: composed, group: draftGroup, icon: draftIcon })
       } else if (sheet.kind === 'renameCategory') {
         const current = categories.find((c) => c.name === sheet.name)
         const currentGroup = current?.group ?? ''
         const currentAlertPcts = current?.alertPcts ? sortedPcts(current.alertPcts) : DEFAULT_ALERT_PCTS
         const sortedDraft = sortedPcts(draftAlertPcts)
-        const updates: { newName?: string; group?: string; alertPcts?: number[] | null } = {}
-        if (composed !== sheet.name) updates.newName = composed
+        const updates: { newName?: string; group?: string; alertPcts?: number[] | null; icon?: string } = {}
+        const newName = withOldEmoji(sheet.name, composed)
+        if (newName !== sheet.name) updates.newName = newName
+        if (draftIcon !== categoryIconKey(sheet.name, current?.icon, currentGroup)) updates.icon = draftIcon
         if (draftGroup !== currentGroup) updates.group = draftGroup
         if (!pctArraysEqual(sortedDraft, currentAlertPcts)) {
           updates.alertPcts = pctArraysEqual(sortedDraft, DEFAULT_ALERT_PCTS) ? null : sortedDraft
@@ -731,8 +748,14 @@ export default function EnvelopesScreen() {
       } else if (sheet.kind === 'addGroup') {
         await addGroup.mutateAsync(composed)
       } else {
-        if (composed !== sheet.name) {
-          await updateGroup.mutateAsync({ name: sheet.name, newName: composed })
+        const newName = withOldEmoji(sheet.name, composed)
+        const iconChanged = draftIcon !== groupIconKey(sheet.name, groupIcons.get(sheet.name))
+        if (newName !== sheet.name || iconChanged) {
+          await updateGroup.mutateAsync({
+            name: sheet.name,
+            ...(newName !== sheet.name ? { newName } : {}),
+            ...(iconChanged ? { icon: draftIcon } : {}),
+          })
         }
       }
       setSheetSuccess(true)
@@ -762,6 +785,7 @@ export default function EnvelopesScreen() {
     setDeleteTarget({ kind, name })
   }
   function openCategoryMenu(name: string) {
+    tap()
     setMenuTarget({ kind: 'category', name })
   }
   function openGroupMenu(name: string) {
@@ -775,11 +799,7 @@ export default function EnvelopesScreen() {
   if (!online) return <OfflineScreen />
 
   if (isLoading) {
-    return (
-      <View style={[styles.center, { backgroundColor: tokens.bg }]}>
-        <LoadingCaption />
-      </View>
-    )
+    return <EnvelopesSkeleton />
   }
 
   if (hasError) {
@@ -797,8 +817,7 @@ export default function EnvelopesScreen() {
 
   const isCatSheet = sheet?.kind === 'addCategory' || sheet?.kind === 'renameCategory'
   const isRenameSheet = sheet?.kind === 'renameCategory' || sheet?.kind === 'renameGroup'
-  const previewIcon = isCatSheet ? categoryEmoji(draftName, draftGroup) : groupEmoji(draftName)
-  const draftHasEmoji = splitEmoji(draftName).icon !== ''
+  const draftIcon: CategoryIconKey = pickedIcon ?? categoryIconKey(draftName, undefined, draftGroup)
   const sheetTitle =
     sheet?.kind === 'addCategory'
       ? 'Add category'
@@ -810,18 +829,31 @@ export default function EnvelopesScreen() {
   const sheetHint = isCatSheet
     ? 'Categories live inside a group. Pick where this one belongs.'
     : 'Groups gather related categories: Food, Home, Transport.'
+  const nameInput = (
+    <TextInput
+      style={[styles.input, { backgroundColor: tokens.inputBg, borderColor: tokens.borderStrong, color: tokens.text }]}
+      value={draftName}
+      onChangeText={setDraftName}
+      placeholder={isCatSheet ? 'Groceries, fuel, gym…' : 'Transport, Health…'}
+      placeholderTextColor={tokens.text3}
+      accessibilityLabel="Name"
+      autoFocus
+      returnKeyType="done"
+      onSubmitEditing={submitSheet}
+    />
+  )
   const draftValid = draftName.trim().length > 0
   const saveLabel = submitting ? 'Saving…' : isCatSheet ? (isRenameSheet ? 'Save' : 'Add category') : isRenameSheet ? 'Save' : 'Create group'
 
   return (
-    <AnimatedTabContent>
+    <>
       <Screen
-        title="Envelopes"
+        title="Categories"
         actions={<IconButton icon={Plus} accessibilityLabel="New group" onPress={openAddGroup} />}
         scroll={false}
       >
         <View style={styles.metaRow}>
-          <Text style={{ color: tokens.text3, fontSize: 11, fontFamily: fontFamily.bodyMedium }}>
+          <Text style={{ color: tokens.text3, fontSize: 12, fontFamily: fontFamily.bodySemiBold }}>
             {groups.length} group{groups.length === 1 ? '' : 's'} · {categories.length} categor
             {categories.length === 1 ? 'y' : 'ies'}
           </Text>
@@ -854,7 +886,7 @@ export default function EnvelopesScreen() {
           {groupedCategories.length === 0 ? (
             <EmptyState
               subject="envelopes"
-              title="Your envelopes are waiting"
+              title="Your categories are waiting"
               description="Make a group, add a category, and give all your money a place to land."
               action={{ label: "Create your first group", onPress: openAddGroup }}
             />
@@ -892,7 +924,7 @@ export default function EnvelopesScreen() {
                         <GroupChevron collapsed={collapsed} color={tokens.text3} />
                       </Pressable>
                       <View style={[styles.avatarChip, { backgroundColor: tokens.accentSoft }]}>
-                        <Text style={{ fontSize: 16 }}>{name ? groupEmoji(name) : '📁'}</Text>
+                        <CategoryIcon kind="group" name={name} icon={groupIcons.get(name)} size={18} color={tokens.accentInk} />
                       </View>
                       <View style={styles.groupHeaderLeft}>
                         <Text
@@ -901,13 +933,13 @@ export default function EnvelopesScreen() {
                         >
                           {name ? splitEmoji(name).text : OTHER_LABEL}
                         </Text>
-                        <Text style={{ color: tokens.text3, fontSize: 10, marginTop: 2, fontFamily: fontFamily.bodyMedium }}>
+                        <Text style={{ color: tokens.text3, fontSize: 12, marginTop: 2, fontFamily: fontFamily.bodySemiBold }}>
                           {items.length === 0 ? 'empty' : `${items.length} categor${items.length === 1 ? 'y' : 'ies'}`}
                         </Text>
                       </View>
                       {name !== '' && (
                         <Pressable onPress={() => openGroupMenu(name)} hitSlop={8}>
-                          <Icon icon={MoreVertical} size={17} color={tokens.text3} />
+                          <Icon icon={DotsThreeVertical} size={17} color={tokens.text3} />
                         </Pressable>
                       )}
                       {handle}
@@ -928,7 +960,7 @@ export default function EnvelopesScreen() {
                         onPress={() => openAddCategory(name)}
                         style={[styles.addFirstCatBtn, { borderColor: tokens.borderStrong }]}
                       >
-                        <Icon icon={Plus} size={14} color={tokens.accent} strokeWidth={2.5} />
+                        <Icon icon={Plus} size={14} color={tokens.accent} weight="bold" />
                         <Text style={{ color: tokens.accent, fontSize: 13, fontFamily: fontFamily.bodyBold }}>
                           Add first category
                         </Text>
@@ -939,7 +971,7 @@ export default function EnvelopesScreen() {
                         style={[styles.addCatRow, { borderTopColor: tokens.border }]}
                       >
                         <View style={[styles.dashedIconChip, { borderColor: tokens.accent }]}>
-                          <Icon icon={Plus} size={12} color={tokens.accent} strokeWidth={3} />
+                          <Icon icon={Plus} size={12} color={tokens.accent} weight="bold" />
                         </View>
                         <Text style={{ color: tokens.accent, fontSize: 13, fontFamily: fontFamily.bodyBold }}>
                           Add category
@@ -957,10 +989,10 @@ export default function EnvelopesScreen() {
                   onPress={openAddGroup}
                   style={[styles.addGroupBtn, { borderColor: tokens.borderStrong }]}
                 >
-                  <Icon icon={Plus} size={14} color={tokens.text2} strokeWidth={2.5} />
+                  <Icon icon={Plus} size={14} color={tokens.text2} weight="bold" />
                   <Text style={{ color: tokens.text2, fontSize: 13, fontFamily: fontFamily.bodyBold }}>New group</Text>
                 </Pressable>
-                <Text style={{ color: tokens.text3, fontSize: 10, textAlign: 'center', marginTop: 2, fontFamily: fontFamily.bodyMedium }}>
+                <Text style={{ color: tokens.text3, fontSize: 12, textAlign: 'center', marginTop: 2, fontFamily: fontFamily.bodySemiBold }}>
                   Tap a group to collapse · drag a handle to reorder
                 </Text>
               </Reanimated.View>
@@ -976,25 +1008,22 @@ export default function EnvelopesScreen() {
         <Text style={{ color: tokens.text2, fontSize: 12, marginTop: 4, lineHeight: 17 }}>{sheetHint}</Text>
 
         <Text style={[styles.sectionLabel, { color: tokens.text3 }]}>NAME</Text>
-        <View style={styles.nameRow}>
-          <View style={[styles.iconSwatch, { backgroundColor: tokens.inputBg, borderColor: tokens.borderStrong }]}>
-            <Text style={{ fontSize: 22 }}>{previewIcon}</Text>
+        {sheet?.kind === 'addGroup' ? (
+          <View style={styles.nameRow}>
+            <View style={[styles.iconSwatch, { backgroundColor: tokens.inputBg, borderColor: tokens.borderStrong }]}>
+              <CategoryIcon kind="group" name={draftName} size={24} color={tokens.text2} />
+            </View>
+            {nameInput}
           </View>
-          <TextInput
-            style={[styles.input, { backgroundColor: tokens.inputBg, borderColor: tokens.borderStrong, color: tokens.text }]}
-            value={draftName}
-            onChangeText={setDraftName}
-            placeholder={isCatSheet ? 'Groceries, fuel, gym…' : 'Transport, Health…'}
-            placeholderTextColor={tokens.text3}
-            autoFocus
-            returnKeyType="done"
-            onSubmitEditing={submitSheet}
-          />
-        </View>
-        {draftName.trim() !== '' && !draftHasEmoji && (
-          <Text style={{ color: tokens.text3, fontSize: 11, marginTop: 6, lineHeight: 15 }}>
-            💡 Tip: start the name with an emoji, like {isCatSheet ? '🛒 Groceries' : '🚗 Transport'}, to give it its own icon.
-          </Text>
+        ) : (
+          <CategoryIconPicker
+            value={draftIcon}
+            onChange={setPickedIcon}
+            tint={categoryTint(draftName, tokens)}
+            disabled={submitting}
+          >
+            {nameInput}
+          </CategoryIconPicker>
         )}
 
         {isCatSheet && (
@@ -1033,7 +1062,7 @@ export default function EnvelopesScreen() {
                     },
                   ]}
                 >
-                  <Text style={{ fontSize: 13 }}>{groupEmoji(g)}</Text>
+                  <CategoryIcon kind="group" name={g} icon={groupIcons.get(g)} size={14} color={draftGroup === g ? tokens.onAccent : tokens.text2} />
                   <Text
                     style={{
                       color: draftGroup === g ? tokens.onAccent : tokens.text2,
@@ -1125,7 +1154,7 @@ export default function EnvelopesScreen() {
                 <Text style={{ color: tokens.text2, fontSize: 12, fontFamily: fontFamily.bodyBold }}>Add</Text>
               </Pressable>
             </View>
-            <Text style={{ color: tokens.text3, fontSize: 11, marginTop: 6 }}>
+            <Text style={{ color: tokens.text3, fontSize: 12, marginTop: 6 }}>
               {draftAlertPcts.length}/{MAX_ALERT_PCTS} selected
               {draftAlertPcts.length >= MAX_ALERT_PCTS ? ` · You can only select up to ${MAX_ALERT_PCTS} options.` : ''}
             </Text>
@@ -1220,7 +1249,7 @@ export default function EnvelopesScreen() {
         </View>
       )}
       </Screen>
-    </AnimatedTabContent>
+    </>
   )
 }
 
@@ -1243,7 +1272,6 @@ function SheetOption({
 }
 
 const styles = StyleSheet.create({
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   metaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, paddingBottom: 12 },
   metaActions: { flexDirection: 'row', gap: 8 },
   scrollContent: { paddingVertical: 4, gap: GROUP_GAP },
@@ -1269,10 +1297,10 @@ const styles = StyleSheet.create({
   addGroupBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1, borderStyle: 'dashed', borderRadius: 22, paddingVertical: 16 },
   sheetHandle: { width: 38, height: 4, borderRadius: 100, alignSelf: 'center', marginBottom: 14 },
   sheetTitle: { fontSize: 18 },
-  sectionLabel: { fontSize: 11, letterSpacing: 0.8, marginTop: 18, marginBottom: 8 },
+  sectionLabel: { fontSize: 12, letterSpacing: 0.8, marginTop: 18, marginBottom: 8 },
   nameRow: { flexDirection: 'row', gap: 10, alignItems: 'stretch' },
   iconSwatch: { width: 52, minHeight: 56, borderRadius: 16, borderWidth: 1, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
-  input: { flex: 1, minWidth: 0, borderWidth: 1, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 14, fontSize: 15, fontWeight: '700' },
+  input: { flex: 1, minWidth: 0, borderWidth: 1, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 14, fontSize: 15, fontFamily: fontFamily.bodyBold },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 100, borderWidth: 1 },
   customAlertRow: { flexDirection: 'row', gap: 8, marginTop: 8 },

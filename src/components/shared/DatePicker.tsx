@@ -1,12 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native'
-import { Calendar, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react-native'
+import { CalendarBlank, CaretDown, CaretLeft, CaretRight } from '@/src/components/shared/icons'
 import * as Haptics from 'expo-haptics'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { AnimatedPressable, Button, usePressSpring } from '@/src/components/ui/Button'
 import { BottomSheet } from '@/src/components/shared/Modal'
 import { parseLocalDate } from '@/src/lib/date'
+import { tap } from '@/src/lib/haptics'
 
 const STRIP_CELL_WIDTH = 56
 const STRIP_GAP = 8
@@ -102,20 +103,20 @@ const RANGE_PRESETS: [string, number, boolean][] = [
 function MonthNavButton({ dir, onPress }: { dir: 'prev' | 'next'; onPress: () => void }) {
   const { tokens } = useTheme()
   const press = usePressSpring(0.88)
-  const Chevron = dir === 'prev' ? ChevronLeft : ChevronRight
+  const Chevron = dir === 'prev' ? CaretLeft : CaretRight
   return (
     <AnimatedPressable
       accessibilityRole="button"
       accessibilityLabel={dir === 'prev' ? 'Previous month' : 'Next month'}
       onPress={() => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+        tap()
         onPress()
       }}
       onPressIn={press.onPressIn}
       onPressOut={press.onPressOut}
       style={[styles.navBtn, styles.navBtnLarge, { backgroundColor: tokens.inputBg, borderColor: tokens.border }, press.style]}
     >
-      <Chevron size={15} color={tokens.text} strokeWidth={2.5} />
+      <Chevron size={15} color={tokens.text} weight="bold" />
     </AnimatedPressable>
   )
 }
@@ -221,11 +222,11 @@ function RangeDatePicker({ value, onChange, disableFuture = true }: RangeProps) 
       >
         <View style={styles.fieldLeft}>
           <View style={[styles.iconWrap, { backgroundColor: tokens.accentSoft }]}>
-            <Calendar size={15} color={tokens.accentInk} />
+            <CalendarBlank size={15} color={tokens.accentInk} />
           </View>
           <Text style={[styles.fieldText, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>{label}</Text>
         </View>
-        <ChevronDown size={16} color={tokens.text3} style={{ transform: [{ rotate: open ? '180deg' : '0deg' }] }} />
+        <CaretDown size={16} color={tokens.text3} style={{ transform: [{ rotate: open ? '180deg' : '0deg' }] }} />
       </Pressable>
 
       {/* Dismissing the sheet (backdrop, Android back) is a Cancel; only Apply or a full pick keeps the change. */}
@@ -444,7 +445,7 @@ function SingleDatePicker({ value, onChange, disableFuture = true, onAccent = fa
       </ScrollView>
 
       <Pressable onPress={openCalendar} style={styles.linkRow} hitSlop={8}>
-        <Calendar size={14} color={onAccent ? tokens.onAccent : tokens.accent} />
+        <CalendarBlank size={14} color={onAccent ? tokens.onAccent : tokens.accent} />
         <Text style={[styles.link, { color: onAccent ? tokens.onAccent : tokens.accent, fontFamily: fontFamily.bodySemiBold }]}>
           Another date…
         </Text>
@@ -520,7 +521,7 @@ const styles = StyleSheet.create({
   navBtnLarge: { width: 44, height: 44, borderRadius: 22 },
   monthLabel: { fontSize: 14 },
   weekdays: { flexDirection: 'row' },
-  weekday: { flex: 1, textAlign: 'center', fontSize: 10 },
+  weekday: { flex: 1, textAlign: 'center', fontSize: 12 },
   grid: { gap: 0 },
   gridRow: { flexDirection: 'row' },
   cellWrapLarge: { flex: 1, height: 48, alignItems: 'center', justifyContent: 'center', position: 'relative' },
@@ -531,15 +532,15 @@ const styles = StyleSheet.create({
   statusText: { fontSize: 12.5 },
   fromToRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   fromToPill: { flex: 1, borderWidth: 1, borderRadius: 14, paddingVertical: 8, paddingHorizontal: 12, gap: 2 },
-  fromToLabel: { fontSize: 10, letterSpacing: 0.5 },
+  fromToLabel: { fontSize: 12, letterSpacing: 0.5 },
   fromToValue: { fontSize: 13 },
   fromToDivider: { width: 1, height: 26 },
   dateHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
-  dateHeaderLabel: { fontSize: 11, letterSpacing: 0.5 },
-  daysAgo: { fontSize: 11 },
+  dateHeaderLabel: { fontSize: 12, letterSpacing: 0.5 },
+  daysAgo: { fontSize: 12 },
   strip: { flexDirection: 'row', gap: STRIP_GAP },
   stripCell: { width: STRIP_CELL_WIDTH, alignItems: 'center', justifyContent: 'center', paddingVertical: 9, borderRadius: 14, borderWidth: 1, gap: 2 },
-  stripDay: { fontSize: 10 },
+  stripDay: { fontSize: 12 },
   stripNum: { fontSize: 15 },
   linkRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 10, alignSelf: 'flex-start' },
   link: { fontSize: 13 },

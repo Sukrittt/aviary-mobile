@@ -12,7 +12,9 @@ import { useCategories } from '@/src/hooks/useCategories'
 import { useRecentExpenses } from '@/src/hooks/useExpenses'
 import { useGroups } from '@/src/hooks/useGroups'
 import { EMPTY } from '@/src/lib/constants'
-import { categoryEmoji,splitEmoji } from '@/src/lib/emoji'
+import { categoryTint, splitEmoji } from '@/src/lib/emoji'
+import { categoryIconKey, type CategoryIconKey } from '@/src/lib/categoryIcons'
+import { CATEGORY_ICON_COMPONENTS } from '@/src/components/shared/CategoryIcon'
 import { computeEnvelopeState,currentMonthKey,prevMonthKey } from '@/src/lib/envelope'
 import { BudgetWriteError } from '@/src/lib/budgetConflict'
 import { amountSeed } from '@/src/lib/calcAmount'
@@ -22,7 +24,7 @@ import { fontFamily } from '@/src/theme/fonts'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import type { ThemeTokens } from '@/src/theme/tokens'
 import { useLocalSearchParams,useRouter } from 'expo-router'
-import { ChevronDown, X } from 'lucide-react-native'
+import { CaretDown, X } from '@/src/components/shared/icons'
 import { useEffect,useState } from 'react'
 import { ActivityIndicator,Animated,Pressable,ScrollView,StyleSheet,Text,View } from 'react-native'
 import Reanimated,{ FadeIn } from 'react-native-reanimated'
@@ -91,6 +93,7 @@ export default function EditAssignedAmountModal() {
       spent={envelope?.spent ?? 0}
       isCreditCardPayment={!!envelope?.isCreditCardPayment}
       group={envelope?.group ?? ''}
+      icon={categories.find((c) => c.name === category)?.icon}
       lastMonthAssigned={lastMonthAssigned}
       readyToAssign={envelopeState.readyToAssign}
     />
@@ -105,6 +108,7 @@ function EditAmountBody({
   spent,
   isCreditCardPayment,
   group,
+  icon,
   lastMonthAssigned,
   readyToAssign,
   onSwitch,
@@ -116,6 +120,7 @@ function EditAmountBody({
   spent: number
   isCreditCardPayment: boolean
   group: string
+  icon: string | undefined
   lastMonthAssigned: number | undefined
   readyToAssign: number
   onSwitch: (category: string) => Promise<void>
@@ -129,7 +134,7 @@ function EditAmountBody({
   const updateBudget = useUpdateBudget()
 
   const name = isCreditCardPayment ? 'Credit Card Payment' : splitEmoji(category).text
-  const emoji = isCreditCardPayment ? '💳' : categoryEmoji(category, group)
+  const iconKey: CategoryIconKey = isCreditCardPayment ? 'CreditCard' : categoryIconKey(category, icon, group)
 
   const { amount: amountText, setAmount: setAmountText, pushDigit, handleBackspace, shake } = useAmountEntry(amountSeed(currentAssigned))
   const [saving, setSaving] = useState(false)
@@ -263,7 +268,8 @@ function EditAmountBody({
           onPress={() => setPickerOpen(true)}
           disabled={saving || success}
           name={name}
-          emoji={emoji}
+          icon={iconKey}
+          tint={categoryTint(name, tokens)}
           spent={spent}
           currentAssigned={baseAssigned}
           hideAmounts={hideAmounts}
@@ -278,6 +284,7 @@ function EditAmountBody({
             <AmountText
               value={value}
               rawText={formatAmountInput(amountText)}
+              fit
               size={type.hero}
               weight="displayBold"
               animate
@@ -335,7 +342,7 @@ function EditAmountBody({
         onClose={() => setPickerOpen(false)}
         value={category}
         onSelect={switchTo}
-        title="Switch envelope"
+        title="Switch category"
         noneLabel={null}
       />
 
@@ -373,7 +380,8 @@ function EnvelopeCard({
   onPress,
   disabled,
   name,
-  emoji,
+  icon,
+  tint,
   spent,
   currentAssigned,
   hideAmounts,
@@ -385,7 +393,8 @@ function EnvelopeCard({
   onPress: () => void
   disabled: boolean
   name: string
-  emoji: string
+  icon: CategoryIconKey
+  tint: { bg: string; ink: string }
   spent: number
   currentAssigned: number
   hideAmounts: boolean
@@ -396,6 +405,7 @@ function EnvelopeCard({
 }) {
   const { formatCurrency } = useCurrency()
   const press = usePressSpring(0.97)
+  const Icon = CATEGORY_ICON_COMPONENTS[icon]
 
   return (
     <AnimatedPressable
@@ -407,15 +417,15 @@ function EnvelopeCard({
       onPressOut={press.onPressOut}
       disabled={disabled}
       accessibilityRole="button"
-      accessibilityLabel={`Editing ${name}. Switch envelope`}
+      accessibilityLabel={`Editing ${name}. Switch category`}
       style={[
         styles.destCard,
         { backgroundColor: tokens.card, borderColor: tokens.border, borderRadius: radius.lg, padding: space.md, gap: space.md },
         press.style,
       ]}
     >
-      <View style={[styles.destIcon, { backgroundColor: tokens.accentSoft, borderRadius: radius.md }]}>
-        <Text style={{ fontSize: type.title }}>{emoji}</Text>
+      <View style={[styles.destIcon, { backgroundColor: tint.bg, borderRadius: radius.md }]}>
+        <Icon size={type.title} color={tint.ink} />
       </View>
       <View style={{ flex: 1, gap: 2 }}>
         <Text style={[styles.destLabel, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold, fontSize: type.micro }]}>EDITING</Text>
@@ -424,7 +434,7 @@ function EnvelopeCard({
           {formatCurrency(spent, hideAmounts)} spent · {formatCurrency(currentAssigned, hideAmounts)} assigned
         </Text>
       </View>
-      <ChevronDown size={18} color={tokens.text3} style={{ marginRight: space.sm }} />
+      <CaretDown size={18} color={tokens.text3} style={{ marginRight: space.sm }} />
     </AnimatedPressable>
   )
 }

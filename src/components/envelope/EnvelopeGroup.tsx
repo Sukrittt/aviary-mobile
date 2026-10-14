@@ -1,11 +1,13 @@
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { View, Text, Pressable, StyleSheet } from 'react-native'
-import { ChevronRight } from 'lucide-react-native'
+import { CaretRight } from '@/src/components/shared/icons'
 import Reanimated, { FadeIn, FadeOut, LinearTransition, useAnimatedStyle, withSpring } from 'react-native-reanimated'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 
-import { groupEmoji, categoryEmoji, splitEmoji } from '@/src/lib/emoji'
+import { splitEmoji } from '@/src/lib/emoji'
+import { categoryIconKey } from '@/src/lib/categoryIcons'
+import { CategoryIcon } from '@/src/components/shared/CategoryIcon'
 import { Icon } from '@/src/components/shared/Icon'
 import { EnvelopeRow } from './EnvelopeRow'
 import type { Envelope } from '@/src/lib/envelope'
@@ -15,6 +17,10 @@ const TRANSITION = LinearTransition.springify().damping(SPRING.damping).stiffnes
 
 interface Props {
   group: string
+  /** The group's picked icon, from useGroupIcons(). */
+  groupIcon?: string
+  /** Picked category icons by name, from useCategoryIcons(). */
+  categoryIcons?: Map<string, string>
   envelopes: Envelope[]
   hideAmounts: boolean
   onMoveMoney: (category: string) => void
@@ -28,6 +34,8 @@ interface Props {
 /** Expandable group header + its category rows, matching the dc.html "Envelopes" panel. */
 export function EnvelopeGroup({
   group,
+  groupIcon,
+  categoryIcons,
   envelopes,
   hideAmounts,
   onMoveMoney,
@@ -50,9 +58,9 @@ export function EnvelopeGroup({
       <Pressable style={styles.header} onPress={() => onToggle(group)}>
         <View style={styles.headerLeft}>
           <Reanimated.View style={chevronStyle}>
-            <Icon icon={ChevronRight} size={16} color={tokens.text2} />
+            <Icon icon={CaretRight} size={16} color={tokens.text2} />
           </Reanimated.View>
-          <Text style={{ fontSize: 14 }}>{groupEmoji(group)}</Text>
+          <CategoryIcon kind="group" name={group} icon={groupIcon} size={14} color={tokens.text2} />
           <Text style={[styles.name, { color: tokens.text, fontFamily: fontFamily.bodyExtraBold }]}>
             {splitEmoji(group).text}
           </Text>
@@ -75,7 +83,7 @@ export function EnvelopeGroup({
             <View key={e.category} style={i > 0 && [styles.rowDivider, { borderTopColor: tokens.border }]}>
               <EnvelopeRow
                 envelope={e}
-                emoji={categoryEmoji(e.category, group)}
+                icon={categoryIconKey(e.category, categoryIcons?.get(e.category), group)}
                 hideAmounts={hideAmounts}
                 onMoveMoney={onMoveMoney}
                 onEditAmount={onEditAmount}

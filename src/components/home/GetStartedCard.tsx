@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import Reanimated, { FadeInDown, useAnimatedStyle, useSharedValue, withDelay, withSpring } from 'react-native-reanimated'
-import { Check, ChevronRight, CirclePlus, Compass, Mail, WalletCards, type LucideIcon } from 'lucide-react-native'
+import { Check, CaretRight, PlusCircle, Compass, EnvelopeSimple, Cardholder, type PhosphorIcon } from '@/src/components/shared/icons'
 import { Card } from '@/src/components/ui/Card'
 import { Icon } from '@/src/components/shared/Icon'
 import { useTheme } from '@/src/theme/ThemeProvider'
@@ -24,7 +24,7 @@ type Props = {
   onSkip: () => void
 }
 
-type Step = { key: string; icon: LucideIcon; label: string; hint: string; done: boolean; onPress?: () => void }
+type Step = { key: string; icon: PhosphorIcon; label: string; hint: string; done: boolean; onPress?: () => void }
 
 /**
  * A short, finite runway into the product. Setup is complete before Home is
@@ -49,26 +49,26 @@ export function GetStartedCard({
 
   const steps: Step[] = [
     incomeDone
-      ? { key: 'budget', icon: WalletCards, label: 'Set up your budget', hint: 'Your envelopes are ready', done: true }
+      ? { key: 'budget', icon: Cardholder, label: 'Set up your budget', hint: 'Your categories are ready', done: true }
       : {
           key: 'budget',
-          icon: WalletCards,
+          icon: Cardholder,
           label: upcomingPayHint ? 'Add what you have now' : 'Add your income',
-          hint: upcomingPayHint ?? 'Give your envelopes money to hold',
+          hint: upcomingPayHint ?? 'Give your categories money to hold',
           done: false,
           onPress: onAddIncome,
         },
     {
       key: 'fund',
-      icon: Mail,
+      icon: EnvelopeSimple,
       label: 'Assign all your income',
-      hint: fundHint ?? 'Give all of it an envelope',
+      hint: fundHint ?? 'Give all of it a category',
       done: fundDone,
       onPress: onFund,
     },
     {
       key: 'transaction',
-      icon: CirclePlus,
+      icon: PlusCircle,
       label: 'Add a manual transaction',
       hint: 'Log one expense by hand',
       done: manualTransactionDone,
@@ -194,7 +194,7 @@ function StepRow({ step, upNext, radius }: { step: Step; upNext: boolean; radius
           {done ? 'Done' : step.hint}
         </Text>
       </View>
-      {!done && <Icon icon={ChevronRight} size={17} color={upNext ? tokens.accentInk : tokens.text3} />}
+      {!done && <Icon icon={CaretRight} size={17} color={upNext ? tokens.accentInk : tokens.text3} />}
     </Pressable>
   )
 }

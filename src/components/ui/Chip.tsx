@@ -1,6 +1,8 @@
+import type { ReactNode } from "react";
 import {
   Pressable,
   Text,
+  View,
   StyleSheet,
   type ViewStyle,
   type StyleProp,
@@ -19,6 +21,9 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
  *
  * `onAccent` renders the chip for the flood screen, where the ground is `accent`
  * and the usual card/border colors would disappear into it.
+ *
+ * `soft` swaps the solid accent selection for an accentSoft tint, for filter
+ * rows that sit next to a primary CTA and shouldn't compete with it.
  */
 export function Chip({
   icon,
@@ -26,13 +31,16 @@ export function Chip({
   selected,
   onPress,
   onAccent,
+  soft,
   style,
 }: {
-  icon?: string;
+  /** An emoji, or a render function handed the chip's current text colour. */
+  icon?: string | ((color: string) => ReactNode);
   label: string;
   selected?: boolean;
   onPress: () => void;
   onAccent?: boolean;
+  soft?: boolean;
   style?: StyleProp<ViewStyle>;
 }) {
   const { tokens, radius, space, type } = useTheme();
@@ -43,19 +51,25 @@ export function Chip({
       ? tokens.accent
       : "rgba(255, 255, 255, 0.18)"
     : selected
-      ? tokens.accent
+      ? soft
+        ? tokens.accentSoft
+        : tokens.accent
       : tokens.pillBg;
   const fg = onAccent
     ? selected
       ? tokens.accentInk
       : tokens.onAccent
     : selected
-      ? tokens.onAccent
+      ? soft
+        ? tokens.accentInk
+        : tokens.onAccent
       : tokens.text2;
   const border = onAccent
     ? "transparent"
     : selected
-      ? tokens.accent
+      ? soft
+        ? tokens.accentInk
+        : tokens.accent
       : tokens.border;
 
   return (
@@ -81,7 +95,9 @@ export function Chip({
         style,
       ]}
     >
-      {icon ? (
+      {typeof icon === "function" ? (
+        <View style={{ marginRight: space.xs }}>{icon(fg)}</View>
+      ) : icon ? (
         // Separate Text node, no custom fontFamily: a ZWJ+variation-selector emoji
         // (e.g. person + gender modifier) sharing one custom-font Text run with the
         // label can make Android silently drop the rest of that run.

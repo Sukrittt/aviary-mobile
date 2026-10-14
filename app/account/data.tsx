@@ -21,13 +21,7 @@ import Animated, {
   withRepeat,
   withTiming,
 } from "react-native-reanimated";
-import {
-  ArrowLeft,
-  Trash2,
-  CircleCheck,
-  CircleAlert,
-  Clock,
-} from "lucide-react-native";
+import { ArrowLeft, Trash, CheckCircle, WarningCircle, Clock } from "@/src/components/shared/icons";
 import { Alert } from "@/src/components/ui/AlertHost";
 import { OfflineScreen } from "@/src/components/shared/OfflineScreen";
 import { useOnline } from "@/src/lib/netStatus";
@@ -53,14 +47,14 @@ function exportStatusMeta(status: ExportRow["status"], tokens: ThemeTokens) {
   switch (status) {
     case "ready":
       return {
-        icon: CircleCheck,
+        icon: CheckCircle,
         color: tokens.mint,
         soft: tokens.mintSoft,
         label: "Ready to download",
       };
     case "failed":
       return {
-        icon: CircleAlert,
+        icon: WarningCircle,
         color: tokens.coral,
         soft: tokens.coralSoft,
         label: "Failed. Tap for reason",
@@ -543,7 +537,7 @@ export default function DataScreen() {
             { borderColor: tokens.borderStrong, opacity: clearing ? 0.6 : 1 },
           ]}
         >
-          <Icon icon={Trash2} size={16} color={tokens.coral} />
+          <Icon icon={Trash} size={16} color={tokens.coral} />
           <View style={{ flex: 1 }}>
             <Text
               style={[
@@ -554,7 +548,7 @@ export default function DataScreen() {
               {clearing ? "Clearing…" : "Clear all transactions"}
             </Text>
             <Text style={[styles.clearHint, { color: tokens.text2 }]}>
-              Keeps envelopes, wipes history
+              Keeps categories, wipes history
             </Text>
           </View>
         </Pressable>
@@ -578,7 +572,7 @@ export default function DataScreen() {
             { color: tokens.text2, fontFamily: fontFamily.bodyMedium },
           ]}
         >
-          Deletes every transaction. Your envelopes and their assigned amounts
+          Deletes every transaction. Your categories and their assigned amounts
           stay. This can&apos;t be undone.
         </Text>
         <View style={styles.sheetButtonRow}>
@@ -719,7 +713,7 @@ const styles = StyleSheet.create({
     borderRadius: 1,
   },
   exportHistoryDate: { fontSize: 13 },
-  exportHistoryStatus: { fontSize: 11, marginTop: 1 },
+  exportHistoryStatus: { fontSize: 12, marginTop: 1 },
   clearRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -729,7 +723,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   clearTitle: { fontSize: 14 },
-  clearHint: { fontSize: 11, marginTop: 2 },
+  clearHint: { fontSize: 12, marginTop: 2 },
   analyticsRow: {
     flexDirection: "row",
     alignItems: "center",

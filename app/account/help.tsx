@@ -2,20 +2,19 @@ import { useState } from 'react'
 import { View, Text, Pressable, ScrollView, Linking, StyleSheet } from 'react-native'
 import { useRouter } from 'expo-router'
 import * as StoreReview from 'expo-store-review'
-import { ArrowLeft, BookOpen, Compass, MessageCircle, Star, ChevronRight, ChevronUp, ScrollText, ThumbsUp, Globe, type LucideIcon } from 'lucide-react-native'
+import { ArrowLeft, BookOpen, Bug, Compass, ChatCircle, Star, CaretRight, CaretUp, Scroll, ThumbsUp, Globe, type PhosphorIcon } from '@/src/components/shared/icons'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { Icon } from '@/src/components/shared/Icon'
-import { FEEDBACK_BOARD_URL } from '@/src/lib/constants'
 import { WEB_URL } from '@/src/api/client'
 
 const REPO = 'Sukrittt/aviary-mobile'
 
 const ENVELOPES_EXPLAINER = [
   'New money lands in Ready to Assign, unclaimed.',
-  'Move it into envelopes like Rent, Food or Football.',
-  'Log an expense against an envelope and only that envelope drops.',
+  'Move it into categories like Rent, Food or Football.',
+  'Log an expense against a category and only that one drops.',
   "Next month starts clean: the leftover is gone, but your plan carries over so you're not budgeting from zero.",
   'Watch one number: Ready to Assign. At zero, all your money has a job.',
 ]
@@ -39,23 +38,24 @@ export default function HelpScreen() {
 
       <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 32 }]}>
         <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
-          <Pressable onPress={() => Linking.openURL(FEEDBACK_BOARD_URL)} style={styles.row}>
-            <Icon icon={MessageCircle} size={16} />
+          <Pressable onPress={() => router.push('/account/ideas')} style={styles.row}>
+            <Icon icon={ChatCircle} size={16} />
             <View style={{ flex: 1, marginLeft: 12 }}>
               <Text style={[styles.rowLabel, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>Feedback board</Text>
               <Text style={[styles.rowHint, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
-                {"Aviary's in early access. Tell us what to fix or build next."}
+                {"Aviary's in early access. Post ideas and vote on what's next."}
               </Text>
             </View>
-            <Icon icon={ChevronRight} size={16} color={tokens.text3} />
+            <Icon icon={CaretRight} size={16} color={tokens.text3} />
           </Pressable>
+          <LinkRow icon={Bug} label="Report a bug" onPress={() => router.push('/account/feedback')} />
           <View style={[styles.divider, { backgroundColor: tokens.border }]} />
           <Pressable onPress={() => setExplainerOpen((v) => !v)} style={styles.row}>
             <Icon icon={BookOpen} size={16} />
             <Text style={[styles.rowLabel, { flex: 1, marginLeft: 12, color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>
-              How envelopes work
+              How categories work
             </Text>
-            <Icon icon={explainerOpen ? ChevronUp : ChevronRight} size={16} color={tokens.text3} />
+            <Icon icon={explainerOpen ? CaretUp : CaretRight} size={16} color={tokens.text3} />
           </Pressable>
           {explainerOpen && (
             <View style={styles.explainerList}>
@@ -72,9 +72,9 @@ export default function HelpScreen() {
             <Text style={[styles.rowLabel, { flex: 1, marginLeft: 12, color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>
               Take the guided tour
             </Text>
-            <Icon icon={ChevronRight} size={16} color={tokens.text3} />
+            <Icon icon={CaretRight} size={16} color={tokens.text3} />
           </Pressable>
-          <LinkRow icon={ScrollText} label="Changelog" onPress={() => router.push('/account/changelog')} />
+          <LinkRow icon={Scroll} label="Changelog" onPress={() => router.push('/account/changelog')} />
           {rateUrl && <LinkRow icon={ThumbsUp} label="Rate Aviary" onPress={() => Linking.openURL(rateUrl)} />}
           <LinkRow icon={Globe} label="Open web app" onPress={() => Linking.openURL(WEB_URL)} />
           <View style={[styles.divider, { backgroundColor: tokens.border }]} />
@@ -83,7 +83,7 @@ export default function HelpScreen() {
             <Text style={[styles.rowLabel, { flex: 1, marginLeft: 12, color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>
               Star the repo
             </Text>
-            <Icon icon={ChevronRight} size={16} color={tokens.text3} />
+            <Icon icon={CaretRight} size={16} color={tokens.text3} />
           </Pressable>
         </View>
       </ScrollView>
@@ -92,7 +92,7 @@ export default function HelpScreen() {
 }
 
 /** A divider then a plain row, the shape every row after the first takes here. */
-function LinkRow({ icon, label, onPress }: { icon: LucideIcon; label: string; onPress: () => void }) {
+function LinkRow({ icon, label, onPress }: { icon: PhosphorIcon; label: string; onPress: () => void }) {
   const { tokens } = useTheme()
   return (
     <>
@@ -100,7 +100,7 @@ function LinkRow({ icon, label, onPress }: { icon: LucideIcon; label: string; on
       <Pressable onPress={onPress} style={styles.row}>
         <Icon icon={icon} size={16} />
         <Text style={[styles.rowLabel, { flex: 1, marginLeft: 12, color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>{label}</Text>
-        <Icon icon={ChevronRight} size={16} color={tokens.text3} />
+        <Icon icon={CaretRight} size={16} color={tokens.text3} />
       </Pressable>
     </>
   )
@@ -115,7 +115,7 @@ const styles = StyleSheet.create({
   card: { borderWidth: 1, borderRadius: 20, overflow: 'hidden' },
   row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14 },
   rowLabel: { fontSize: 14 },
-  rowHint: { fontSize: 11, marginTop: 2 },
+  rowHint: { fontSize: 12, marginTop: 2 },
   divider: { height: StyleSheet.hairlineWidth },
   explainerList: { paddingHorizontal: 16, paddingBottom: 16, gap: 6 },
   explainer: { fontSize: 13, lineHeight: 18 },

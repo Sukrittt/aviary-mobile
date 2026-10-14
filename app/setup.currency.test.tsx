@@ -15,7 +15,7 @@ jest.mock('@/src/api/budgets', () => ({
   getBudgets: jest.fn(async () => []),
   updateBudget: jest.fn(async () => ({})),
 }))
-jest.mock('@/src/api/groups', () => ({ addGroup: jest.fn(async () => ({})) }))
+jest.mock('@/src/api/groups', () => ({ addGroup: jest.fn(async () => ({})), updateGroup: jest.fn(async () => ({})) }))
 jest.mock('@/src/api/categories', () => ({ addCategory: jest.fn(async () => ({})) }))
 jest.mock('@/src/api/accessMode', () => ({ accessMode: { subscribeLogout: () => () => {} } }))
 jest.mock('expo-secure-store', () => ({ getItemAsync: jest.fn(async () => null), setItemAsync: jest.fn(async () => {}), deleteItemAsync: jest.fn(async () => {}) }))
@@ -23,7 +23,7 @@ jest.mock('expo-localization', () => ({ getLocales: () => [{ currencyCode: 'MXN'
 jest.mock('expo-haptics', () => ({
   selectionAsync: jest.fn(() => Promise.resolve()),
   impactAsync: jest.fn(() => Promise.resolve()),
-  ImpactFeedbackStyle: { Light: 'light' },
+  ImpactFeedbackStyle: { Light: 'light', Rigid: 'rigid' },
 }))
 
 it('defaults to the device region currency', () => {
@@ -66,7 +66,7 @@ it('selects currency before income, preserves it on back, and saves it with onbo
   expect(Haptics.impactAsync).toHaveBeenCalledTimes(4)
   fireEvent.press(getByText('Finish setup'))
   expect(Haptics.impactAsync).toHaveBeenCalledTimes(5)
-  expect(Haptics.impactAsync).toHaveBeenLastCalledWith(Haptics.ImpactFeedbackStyle.Light)
+  expect(Haptics.impactAsync).toHaveBeenLastCalledWith(Haptics.ImpactFeedbackStyle.Rigid)
   await waitFor(() => expect(updateUser).toHaveBeenCalledWith({ currencyCode: 'USD' }), { timeout: 3000 })
   // The trial's start instant is the server's, so the app no longer sends an
   // onboardedAt at all — it asks the server to complete onboarding.

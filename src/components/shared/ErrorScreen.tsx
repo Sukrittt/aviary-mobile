@@ -1,6 +1,6 @@
 import { View, Text, StyleSheet } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { CloudAlert } from 'lucide-react-native'
+import { CloudWarning } from '@/src/components/shared/icons'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { Button } from '@/src/components/ui/Button'
@@ -26,7 +26,7 @@ export function ErrorScreen({
   return (
     <View style={[styles.container, { backgroundColor: tokens.bg, paddingTop: insets.top + 24, gap: space.md }]}>
       <View style={[styles.iconBadge, { backgroundColor: tokens.chipActiveBg, borderRadius: radius.full }]}>
-        <CloudAlert size={26} color={tokens.text3} />
+        <CloudWarning size={26} color={tokens.text3} />
       </View>
       <Text style={[styles.title, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>{title}</Text>
       <Text style={[styles.subtitle, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>{message}</Text>

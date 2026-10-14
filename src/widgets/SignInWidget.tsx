@@ -3,7 +3,7 @@
 // on logout or when the account lost access (see lockWidgets in WidgetSync).
 import { TextWidget } from 'react-native-android-widget'
 import type { ThemeTokens } from '@/src/theme/tokens'
-import { fontFamily } from '@/src/theme/fonts'
+import { widgetFontFamily as fontFamily } from '@/src/theme/fonts'
 import { WidgetSurface, color } from './surface'
 
 export function SignInWidget({

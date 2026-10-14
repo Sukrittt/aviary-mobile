@@ -1,7 +1,7 @@
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { useEffect, useMemo, useState } from "react";
 import { View, Text, Pressable, ScrollView, StyleSheet } from "react-native";
-import { Check, ListFilter, Play } from "lucide-react-native";
+import { Check, FunnelSimple, Play } from "@/src/components/shared/icons";
 import Reanimated, {
   Easing,
   FadeIn,
@@ -23,6 +23,8 @@ import { BottomSheet } from "@/src/components/shared/Modal";
 import { Button } from "@/src/components/ui/Button";
 import { AmountText } from "@/src/components/ui/AmountText";
 import { DonutChart } from "./DonutChart";
+import { CATEGORY_ICON_COMPONENTS } from "@/src/components/shared/CategoryIcon";
+import type { CategoryIconKey } from "@/src/lib/categoryIcons";
 import { EmptyState } from "@/src/components/shared/EmptyState";
 import { useReveal } from "./useReveal";
 import { clampPct } from "@/src/lib/monthly";
@@ -285,7 +287,6 @@ export function CategoryBreakdown({
     const result = big.map((row) => ({
       key: row.key,
       label: row.label,
-      emoji: row.emoji,
       value: row.spent,
       color: colorByKey.get(row.key) ?? tokens.text3,
     }));
@@ -293,7 +294,6 @@ export function CategoryBreakdown({
       result.push({
         key: "__other__",
         label: "Other",
-        emoji: "",
         value: small.reduce((s, r) => s + r.spent, 0),
         color: tokens.text3,
       });
@@ -500,7 +500,7 @@ export function CategoryBreakdown({
               },
             ]}
           >
-            <ListFilter size={18} color={tokens.text} />
+            <FunnelSimple size={18} color={tokens.text} />
             {hasCustomFilter ? (
               <Text
                 style={{
@@ -651,9 +651,7 @@ export function CategoryBreakdown({
                 >
                   {selectedRow ? (
                     <>
-                      {selectedRow.emoji ? (
-                        <Text style={{ fontSize: 22 }}>{selectedRow.emoji}</Text>
-                      ) : null}
+                      <RowIcon icon={selectedRow.icon} size={22} color={tokens.text2} />
                       <AmountText
                         value={selectedRow.spent}
                         size={type.body}
@@ -676,8 +674,8 @@ export function CategoryBreakdown({
                       <Text
                         style={{
                           color: tokens.text2,
-                          fontSize: 11,
-                          fontFamily: fontFamily.bodyMedium,
+                          fontSize: 12,
+                          fontFamily: fontFamily.bodySemiBold,
                         }}
                       >
                         Filtered total
@@ -716,12 +714,7 @@ export function CategoryBreakdown({
                               centerDelta.deltaPct! > 0
                                 ? tokens.coral
                                 : tokens.mint
-                            }
-                            fill={
-                              centerDelta.deltaPct! > 0
-                                ? tokens.coral
-                                : tokens.mint
-                            }
+                            } weight="fill"
                           />
                         </View>
                         <Text
@@ -740,9 +733,9 @@ export function CategoryBreakdown({
                       <Text
                         style={{
                           color: tokens.text2,
-                          fontSize: 10,
+                          fontSize: 12,
                           lineHeight: 13,
-                          fontFamily: fontFamily.bodyMedium,
+                          fontFamily: fontFamily.bodySemiBold,
                           textAlign: "center",
                         }}
                       >
@@ -755,11 +748,7 @@ export function CategoryBreakdown({
                     </>
                   ) : displayRows[0] ? (
                     <>
-                      {displayRows[0].emoji ? (
-                        <Text style={{ fontSize: 22 }}>
-                          {displayRows[0].emoji}
-                        </Text>
-                      ) : null}
+                      <RowIcon icon={displayRows[0].icon} size={22} color={tokens.text2} />
                       <Text
                         style={{
                           color: tokens.text,
@@ -835,14 +824,12 @@ export function CategoryBreakdown({
                       ]}
                     >
                       <View style={styles.legendTop}>
-                        {/* Dot stays even when there's an emoji: it's the only thing
+                        {/* Dot stays even when there's an icon: it's the only thing
                       tying this row to its wedge in the donut above. */}
                         <View
                           style={[styles.legendDot, { backgroundColor: color }]}
                         />
-                        {row.emoji ? (
-                          <Text style={{ fontSize: 13 }}>{row.emoji}</Text>
-                        ) : null}
+                        <RowIcon icon={row.icon} size={13} color={tokens.text2} />
                         <Text
                           style={[
                             styles.legendLabel,
@@ -888,17 +875,14 @@ export function CategoryBreakdown({
                                 size={8}
                                 color={
                                   row.deltaPct > 0 ? tokens.coral : tokens.mint
-                                }
-                                fill={
-                                  row.deltaPct > 0 ? tokens.coral : tokens.mint
-                                }
+                                } weight="fill"
                               />
                             </View>
                             <Text
                               style={{
                                 color:
                                   row.deltaPct > 0 ? tokens.coral : tokens.mint,
-                                fontSize: 10,
+                                fontSize: 12,
                                 fontFamily: fontFamily.bodySemiBold,
                               }}
                             >
@@ -929,8 +913,8 @@ export function CategoryBreakdown({
                       <Text
                         style={{
                           color: tokens.text3,
-                          fontSize: 11,
-                          fontFamily: fontFamily.bodyMedium,
+                          fontSize: 12,
+                          fontFamily: fontFamily.bodySemiBold,
                           marginTop: 6,
                         }}
                       >
@@ -951,7 +935,7 @@ export function CategoryBreakdown({
                           <Text
                             style={{
                               color: tokens.accent,
-                              fontSize: 11,
+                              fontSize: 12,
                               fontFamily: fontFamily.bodySemiBold,
                               marginTop: 4,
                             }}
@@ -1136,9 +1120,7 @@ export function CategoryBreakdown({
                       },
                     ]}
                   />
-                  {row.emoji ? (
-                    <Text style={{ fontSize: 16 }}>{row.emoji}</Text>
-                  ) : null}
+                  <RowIcon icon={row.icon} size={16} color={tokens.text2} />
                   <Text
                     style={{
                       flex: 1,
@@ -1161,7 +1143,7 @@ export function CategoryBreakdown({
                     ]}
                   >
                     {checked ? (
-                      <Check size={14} color={tokens.onAccent} strokeWidth={3} />
+                      <Check size={14} color={tokens.onAccent} weight="bold" />
                     ) : null}
                   </View>
                 </Pressable>
@@ -1174,8 +1156,8 @@ export function CategoryBreakdown({
           <Text
             style={{
               color: tokens.coral,
-              fontSize: 11,
-              fontFamily: fontFamily.bodyMedium,
+              fontSize: 12,
+              fontFamily: fontFamily.bodySemiBold,
               marginTop: 8,
             }}
           >
@@ -1300,3 +1282,9 @@ const styles = StyleSheet.create({
   sheetActions: { flexDirection: "row", gap: 10, marginTop: 16 },
   sheetButton: { flex: 1 },
 });
+
+function RowIcon({ icon, size, color }: { icon: CategoryIconKey | null; size: number; color: string }) {
+  if (!icon) return null;
+  const Icon = CATEGORY_ICON_COMPONENTS[icon];
+  return <Icon size={size} color={color} />;
+}

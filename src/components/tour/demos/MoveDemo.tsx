@@ -8,6 +8,7 @@ import { fontFamily } from '@/src/theme/fonts'
 
 import { SectionLabel, ResultCard } from '@/src/components/tour/parts'
 import { MOVE_AMOUNT, MOVE_IN_ENVELOPE, MOVE_NEED, MOVE_SOURCES } from '@/src/components/tour/content'
+import { tap } from '@/src/lib/haptics'
 
 /** Chapter 3: cover a shortfall by borrowing from an envelope with slack. */
 export function MoveDemo({ onComplete }: { onComplete: () => void }) {
@@ -41,7 +42,7 @@ export function MoveDemo({ onComplete }: { onComplete: () => void }) {
             ELECTRICITY · {formatCurrency(MOVE_NEED)} DUE THE 5TH
           </Text>
           <Text style={{ color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: type.bodyLg }}>
-            {formatCurrency(inEnvelope)} in the envelope
+            {formatCurrency(inEnvelope)} set aside
           </Text>
           <Text
             style={{
@@ -87,7 +88,7 @@ export function MoveDemo({ onComplete }: { onComplete: () => void }) {
               No money left your bank. Only the plan changed, and that is the whole trick.
             </Text>
             <Pressable accessibilityRole="button" onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+                tap()
                 setMoved(null)
               }}
               hitSlop={8}>
@@ -167,7 +168,7 @@ function SourceRow({
         </View>
         <View style={styles.right}>
           <Text style={{ color: tokens.text, fontFamily: fontFamily.bodySemiBold, fontSize: type.body }}>{available}</Text>
-          <Text style={[styles.kicker, { color: tokens.text3, fontFamily: fontFamily.bodyBold, fontSize: type.micro - 2 }]}>
+          <Text style={[styles.kicker, { color: tokens.text3, fontFamily: fontFamily.bodyBold, fontSize: type.micro }]}>
             AVAILABLE
           </Text>
         </View>

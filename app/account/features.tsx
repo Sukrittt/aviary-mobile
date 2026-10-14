@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { ArrowLeft } from 'lucide-react-native'
+import { ArrowLeft } from '@/src/components/shared/icons'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { Icon } from '@/src/components/shared/Icon'
@@ -91,7 +91,7 @@ const styles = StyleSheet.create({
   card: { borderWidth: 1, borderRadius: 20, paddingHorizontal: 16 },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14, gap: 12 },
   rowLabel: { fontSize: 14 },
-  rowHint: { fontSize: 11, marginTop: 2 },
+  rowHint: { fontSize: 12, marginTop: 2 },
   divider: { height: StyleSheet.hairlineWidth },
-  footnote: { fontSize: 11, paddingHorizontal: 4, lineHeight: 15 },
+  footnote: { fontSize: 12, paddingHorizontal: 4, lineHeight: 15 },
 })

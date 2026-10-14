@@ -1,6 +1,6 @@
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { useEffect, useRef } from 'react'
-import { View, Text, Animated, Easing, StyleSheet, type TextStyle, type StyleProp } from 'react-native'
+import { View, Text, Animated, Easing, StyleSheet, useWindowDimensions, type TextStyle, type StyleProp } from 'react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 
@@ -11,7 +11,7 @@ import { rippleHaptic } from '@/src/lib/haptics'
  * Every money display in the app. Owns three things that were previously
  * re-implemented per screen: INR formatting, the "hide amounts" mask (read
  * straight from PrivacyContext instead of being threaded down as a prop), and
- * tabular figures so digits do not jitter as a value changes.
+ * tabular figures so digits do not jitter as a value changes. Tracking tightens with size; Geist reads loose at hero sizes.
  *
  * `animate` adds the odometer roll — only the digits that actually changed
  * scroll past their old value. Reserve it for hero numbers; a list of forty
@@ -32,6 +32,7 @@ export function AmountText({
   id,
   ignoreHide = false,
   settle = false,
+  fit = false,
 }: {
   value: number
   size: number
@@ -55,17 +56,23 @@ export function AmountText({
    * for instances that stay mounted across the change. */
   id?: string
   settle?: boolean
+  /** Shrink below `size` so the text fits the screen width. For numpad heroes,
+   * where the user can type more digits than fit at full size. */
+  fit?: boolean
 }) {
   const { formatCurrency } = useCurrency()
+  const { width } = useWindowDimensions()
 
   const { tokens } = useTheme()
   const { hideAmounts } = usePrivacy()
   const hide = ignoreHide ? false : hideAmounts
   const text = !hide && rawText !== undefined ? rawText : formatCurrency(value, hide)
+  // ponytail: ~0.6em per glyph (Geist tabular digits) is an estimate, not a measurement; swap for onTextLayout if it ever clips.
+  if (fit) size = Math.min(size, (width - 48) / (text.length * 0.6))
 
   const textStyle: StyleProp<TextStyle> = [
     styles.base,
-    { fontSize: size, color: color ?? tokens.text, fontFamily: fontFamily[weight] },
+    { fontSize: size, color: color ?? tokens.text, fontFamily: fontFamily[weight], letterSpacing: Math.min(-0.5, -0.02 * size) },
     style,
   ]
 
@@ -200,6 +207,15 @@ function Digit({
   // with no gesture or worklet, and it keeps the primitive renderable under Jest.
   const translateY = useRef(new Animated.Value(0)).current
 
+  // A `fit` hero shrinks as digits are added, so the offset a roll ended on is
+  // in the old row's pixels. Snap to the resting offset for the new height, or a
+  // slot that doesn't re-roll sits half a glyph off. Declared before the roll so
+  // a keystroke that changes both still rolls at the new height.
+  useEffect(() => {
+    translateY.setValue(changed && direction === 'up' ? -rowHeight : 0)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rowHeight])
+
   useEffect(() => {
     if (!changed) return
     // Increase rolls up (old exits top, new enters from bottom); decrease
@@ -251,6 +267,6 @@ function Digit({
 }
 
 const styles = StyleSheet.create({
-  base: { fontVariant: ['tabular-nums'], letterSpacing: -0.5 },
+  base: { fontVariant: ['tabular-nums'] },
   row: { flexDirection: 'row', alignItems: 'flex-end' },
 })

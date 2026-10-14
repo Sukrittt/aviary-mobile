@@ -1,5 +1,5 @@
 import { View, Text, StyleSheet } from 'react-native'
-import { Check } from 'lucide-react-native'
+import { Check } from '@/src/components/shared/icons'
 import { PACKAGE_TYPE, type PurchasesPackage } from 'react-native-purchases'
 import { Icon } from '@/src/components/shared/Icon'
 import { useTheme } from '@/src/theme/ThemeProvider'
@@ -73,7 +73,7 @@ export function CurrentPlan({ status, packages }: { status: BillingStatus; packa
         {BENEFITS.map((b) => (
           <View key={b} style={styles.benefit}>
             <View style={[styles.tick, { backgroundColor: tokens.mintSoft }]}>
-              <Icon icon={Check} size={12} color={tokens.mint} strokeWidth={3} />
+              <Icon icon={Check} size={12} color={tokens.mint} weight="bold" />
             </View>
             <Text style={[styles.benefitText, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>{b}</Text>
           </View>
@@ -85,14 +85,14 @@ export function CurrentPlan({ status, packages }: { status: BillingStatus; packa
 
 const styles = StyleSheet.create({
   card: { borderWidth: 1, borderRadius: 24, padding: 18, gap: 18 },
-  eyebrow: { fontSize: 11, letterSpacing: 1.2 },
+  eyebrow: { fontSize: 12, letterSpacing: 1.2 },
   title: { fontSize: 22 },
   sub: { fontSize: 13, lineHeight: 19 },
   table: { borderWidth: 1, borderRadius: 16 },
   tableRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 12 },
   rowLabel: { fontSize: 13 },
   rowValue: { fontSize: 13, flexShrink: 1, textAlign: 'right' },
-  section: { fontSize: 11, letterSpacing: 1 },
+  section: { fontSize: 12, letterSpacing: 1 },
   benefit: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   tick: { width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
   benefitText: { flex: 1, fontSize: 13, lineHeight: 19 },

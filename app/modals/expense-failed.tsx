@@ -6,11 +6,13 @@ import { useLocalSearchParams, useRouter } from 'expo-router'
 import Reanimated, { FadeIn } from 'react-native-reanimated'
 import LottieView from 'lottie-react-native'
 import * as Haptics from 'expo-haptics'
-import { AlertCircle } from 'lucide-react-native'
+import { WarningCircle } from '@/src/components/shared/icons'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { useAddExpense } from '@/src/hooks/useExpenses'
-import { categoryEmoji, splitEmoji } from '@/src/lib/emoji'
+import { splitEmoji } from '@/src/lib/emoji'
+import { useCategoryIcons } from '@/src/hooks/useCategories'
+import { CategoryIcon } from '@/src/components/shared/CategoryIcon'
 import { AmountText } from '@/src/components/ui/AmountText'
 import { Button } from '@/src/components/ui/Button'
 import { Icon } from '@/src/components/shared/Icon'
@@ -49,6 +51,7 @@ function str(v: string | string[] | undefined): string {
  */
 export default function ExpenseFailedScreen() {
   const { tokens, space, type } = useTheme()
+  const categoryIcons = useCategoryIcons()
   const insets = useSafeAreaInsets()
   const router = useRouter()
   const params = useLocalSearchParams()
@@ -76,7 +79,7 @@ export default function ExpenseFailedScreen() {
   }, [])
 
   const categoryName = splitEmoji(category).text
-  const categoryIcon = category ? categoryEmoji(category) : ''
+  const categoryIcon = categoryIcons.get(category)
   // Same de-dupe as the success screen: an item named after its category reads
   // as a repeated line, not as two facts.
   const sameAsCategory = item.trim().toLowerCase() === categoryName.trim().toLowerCase()
@@ -145,7 +148,7 @@ export default function ExpenseFailedScreen() {
             purely its box. */}
         <View style={[styles.mark, { marginBottom: space.xxl }]}>
           {lottieFailed ? (
-            <Icon icon={AlertCircle} size={MARK * 0.5} color={tokens.coral} strokeWidth={1.5} />
+            <Icon icon={WarningCircle} size={MARK * 0.5} color={tokens.coral} />
           ) : (
             <LottieView
               source={{ uri: ERROR_LOTTIE }}
@@ -167,7 +170,7 @@ export default function ExpenseFailedScreen() {
             Couldn&apos;t add
           </Text>
           {/* No `animate`: the odometer roll is a celebration gesture. */}
-          <AmountText value={amount} size={type.display} weight="displayBold" />
+          <AmountText value={amount} size={type.display} />
         </Reanimated.View>
 
         {detail !== '' && (
@@ -176,12 +179,9 @@ export default function ExpenseFailedScreen() {
             style={{ flexDirection: 'row', alignItems: 'center', marginTop: space.md }}
           >
             {detailShowsIcon && (
-              // Separate Text node, no custom fontFamily: a ZWJ+variation-selector
-              // emoji sharing one custom-font Text run with the label can make
-              // Android silently drop the rest of that run.
-              <Text style={{ color: tokens.text, fontSize: type.bodyLg, marginRight: space.xs }}>
-                {categoryIcon}
-              </Text>
+              <View style={{ marginRight: space.xs }}>
+                <CategoryIcon name={category} icon={categoryIcon} size={type.bodyLg} color={tokens.text} />
+              </View>
             )}
             <Text
               numberOfLines={1}

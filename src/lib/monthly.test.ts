@@ -65,11 +65,11 @@ describe('categoryBreakdown', () => {
     expect(rows.find((r) => r.key === '🍔 Food')?.spent).toBe(200)
   })
 
-  it('splits emoji from the label', () => {
+  it('splits emoji from the label and maps it to an icon', () => {
     const expenses = [expense('2026-08-05', '🍔 Food', '200')]
     const rows = categoryBreakdown([], expenses, categories, groups, '2026-08', 'category')
     const row = rows.find((r) => r.label === 'Food')
-    expect(row?.emoji).toBe('🍔')
+    expect(row?.icon).toBe('Hamburger')
   })
 
   it('joins assigned amounts from budgets', () => {
@@ -134,10 +134,16 @@ describe('categoryBreakdown', () => {
     expect(row?.assignedIsCarried).toBe(false)
   })
 
-  it('falls back to the category emoji table for a name with no leading emoji', () => {
+  it('resolves an icon from the name when there is no leading emoji', () => {
     const expenses = [expense('2026-08-05', 'Cook', '200')]
     const rows = categoryBreakdown([], expenses, [{ name: 'Cook', group: 'Living' }], groups, '2026-08', 'category')
-    expect(rows.find((r) => r.key === 'Cook')?.emoji).toBe('👨‍🍳')
+    expect(rows.find((r) => r.key === 'Cook')?.icon).toBe('CookingPot')
+  })
+
+  it('prefers the picked icon', () => {
+    const expenses = [expense('2026-08-05', 'Cook', '200')]
+    const rows = categoryBreakdown([], expenses, [{ name: 'Cook', group: 'Living', icon: 'Pizza' }], groups, '2026-08', 'category')
+    expect(rows.find((r) => r.key === 'Cook')?.icon).toBe('Pizza')
   })
 
   it('splits the emoji off a group label', () => {
@@ -146,7 +152,7 @@ describe('categoryBreakdown', () => {
     const rows = categoryBreakdown([], expenses, cats, ['🏠 Living'], '2026-08', 'group')
     const row = rows.find((r) => r.key === '🏠 Living')
     expect(row?.label).toBe('Living')
-    expect(row?.emoji).toBe('🏠')
+    expect(row?.icon).toBe('House')
   })
 })
 
@@ -284,29 +290,29 @@ describe('monthComparison', () => {
 
 describe('withDelta', () => {
   it('computes deltaPct against the previous month rows', () => {
-    const rows = [{ key: 'Food', label: 'Food', emoji: '', spent: 150, assigned: 0, assignedIsCarried: false, pct: 0 }]
-    const prevRows = [{ key: 'Food', label: 'Food', emoji: '', spent: 100, assigned: 0, assignedIsCarried: false, pct: 0 }]
+    const rows = [{ key: 'Food', label: 'Food', icon: null, spent: 150, assigned: 0, assignedIsCarried: false, pct: 0 }]
+    const prevRows = [{ key: 'Food', label: 'Food', icon: null, spent: 100, assigned: 0, assignedIsCarried: false, pct: 0 }]
     const result = withDelta(rows, prevRows)
     expect(result[0].deltaPct).toBe(50)
   })
 
   it('clamps deltaPct to +/-999 against a near-zero previous spend', () => {
-    const rows = [{ key: 'Food', label: 'Food', emoji: '', spent: 10000, assigned: 0, assignedIsCarried: false, pct: 0 }]
-    const prevRows = [{ key: 'Food', label: 'Food', emoji: '', spent: 1, assigned: 0, assignedIsCarried: false, pct: 0 }]
+    const rows = [{ key: 'Food', label: 'Food', icon: null, spent: 10000, assigned: 0, assignedIsCarried: false, pct: 0 }]
+    const prevRows = [{ key: 'Food', label: 'Food', icon: null, spent: 1, assigned: 0, assignedIsCarried: false, pct: 0 }]
     const result = withDelta(rows, prevRows)
     expect(result[0].deltaPct).toBe(999)
   })
 
   it('returns null delta when the previous month had zero spend', () => {
-    const rows = [{ key: 'Food', label: 'Food', emoji: '', spent: 150, assigned: 0, assignedIsCarried: false, pct: 0 }]
+    const rows = [{ key: 'Food', label: 'Food', icon: null, spent: 150, assigned: 0, assignedIsCarried: false, pct: 0 }]
     const prevRows: typeof rows = []
     const result = withDelta(rows, prevRows)
     expect(result[0].deltaPct).toBeNull()
   })
 
   it('keeps the real previous spend, including when this month is zero', () => {
-    const rows = [{ key: 'Food', label: 'Food', emoji: '', spent: 0, assigned: 0, assignedIsCarried: false, pct: 0 }]
-    const prevRows = [{ key: 'Food', label: 'Food', emoji: '', spent: 800, assigned: 0, assignedIsCarried: false, pct: 0 }]
+    const rows = [{ key: 'Food', label: 'Food', icon: null, spent: 0, assigned: 0, assignedIsCarried: false, pct: 0 }]
+    const prevRows = [{ key: 'Food', label: 'Food', icon: null, spent: 800, assigned: 0, assignedIsCarried: false, pct: 0 }]
     const result = withDelta(rows, prevRows)
     expect(result[0]).toMatchObject({ deltaPct: -100, prevSpent: 800 })
   })

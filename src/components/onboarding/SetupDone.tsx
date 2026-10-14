@@ -10,11 +10,11 @@ import Animated, {
   withTiming,
   Easing,
 } from 'react-native-reanimated'
-import * as Haptics from 'expo-haptics'
-import { Check, FolderOpen, Sparkles, Tags, WalletCards, type LucideIcon } from 'lucide-react-native'
+import { Check, FolderOpen, Sparkle, Tag, Cardholder, type PhosphorIcon } from '@/src/components/shared/icons'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import type { ThemeTokens } from '@/src/theme/tokens'
 import { fontFamily } from '@/src/theme/fonts'
+import { tap } from '@/src/lib/haptics'
 
 
 // SetupWizard.dc.html:44,53-93,537-542 — the "your budget is ready" celebration
@@ -72,10 +72,10 @@ export function SetupDone({
   const { tokens } = useTheme()
   const confetti = useMemo(() => Array.from({ length: 18 }, (_, i) => i), [])
 
-  const summary: { icon: LucideIcon; label: string; value: string }[] = [
-    { icon: WalletCards, label: 'Monthly income', value: income > 0 ? formatMoney(income) : 'Not set yet' },
+  const summary: { icon: PhosphorIcon; label: string; value: string }[] = [
+    { icon: Cardholder, label: 'Monthly income', value: income > 0 ? formatMoney(income) : 'Not set yet' },
     { icon: FolderOpen, label: 'Groups', value: String(groupCount) },
-    { icon: Tags, label: 'Categories', value: String(categoryCount) },
+    { icon: Tag, label: 'Categories', value: String(categoryCount) },
   ]
 
   return (
@@ -87,7 +87,7 @@ export function SetupDone({
       </View>
 
       <Animated.View entering={FadeIn.duration(350)} style={[styles.badge, { backgroundColor: tokens.mintSoft }]}>
-        <Check size={30} color={tokens.mint} strokeWidth={2.4} />
+        <Check size={30} color={tokens.mint} weight="bold" />
       </Animated.View>
       <Animated.Text
         entering={FadeIn.delay(80).duration(350)}
@@ -99,11 +99,11 @@ export function SetupDone({
         entering={FadeIn.delay(140).duration(350)}
         style={[styles.blurb, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}
       >
-        Everything below can be changed later from Envelopes.
+        Everything below can be changed later from Categories.
       </Animated.Text>
       {/* Sets up the first-week recap from day 0. */}
       <Animated.View entering={FadeIn.delay(170).duration(350)} style={[styles.promise, { backgroundColor: tokens.accentSoft }]}>
-        <Sparkles size={13} color={tokens.accentInk} strokeWidth={2.4} />
+        <Sparkle size={13} color={tokens.accentInk} weight="bold" />
         <Text
           numberOfLines={1}
           style={[styles.promiseText, { color: tokens.accentInk, fontFamily: fontFamily.bodyBold }]}
@@ -118,7 +118,7 @@ export function SetupDone({
           return (
             <View key={s.label} style={[styles.summaryRow, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
               <View style={[styles.summaryIcon, { backgroundColor: tokens.accentSoft }]}>
-                <SummaryIcon size={16} color={tokens.accentInk} strokeWidth={2.2} />
+                <SummaryIcon size={16} color={tokens.accentInk} />
               </View>
               <Text style={[styles.summaryLabel, { color: tokens.text2 }, { fontFamily: fontFamily.bodyMedium }]}>{s.label}</Text>
               <Text style={[styles.summaryValue, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>{s.value}</Text>
@@ -131,7 +131,7 @@ export function SetupDone({
 
       <Pressable
         onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+          tap()
           onFinish()
         }}
         style={[styles.cta, { backgroundColor: tokens.accent }]}
@@ -147,7 +147,7 @@ const styles = StyleSheet.create({
   promiseText: { flexShrink: 1, fontSize: 12.5, lineHeight: 17 },
   confettiField: { position: 'absolute', top: 0, left: 0, right: 0, height: 340, overflow: 'hidden' },
   badge: { width: 60, height: 60, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
-  title: { fontSize: 32, fontWeight: '600', lineHeight: 37, marginTop: 12, letterSpacing: -0.3 },
+  title: { fontSize: 32, lineHeight: 37, marginTop: 12, letterSpacing: -0.3 },
   blurb: { fontSize: 15, lineHeight: 23, marginTop: 7, maxWidth: 300 },
   summaryList: { marginTop: 22, gap: 8 },
   summaryRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingHorizontal: 16, borderRadius: 18, borderWidth: 1 },

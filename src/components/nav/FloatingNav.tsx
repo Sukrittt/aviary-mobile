@@ -27,17 +27,19 @@ import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { useInvalidFeedback } from '@/src/components/ui/useInvalidFeedback'
 import { AddCircleLoad, AddCircleDone } from './AddCircleAnim'
+import type { IconWeight } from '@/src/components/shared/icons'
 import { HomeGlyph, ActivityGlyph, EnvelopeGlyph, ProfileGlyph, PlusGlyph, type NavIconComponent } from './NavIcons'
+import { tap } from '@/src/lib/haptics'
 
 const AnimatedPressable = Reanimated.createAnimatedComponent(Pressable)
 
 export type NavRoute = 'index' | 'activity' | 'envelopes' | 'more'
 
-/** Rendered left-to-right, with the add button occupying the centre slot. */
+/** Rendered left-to-right in the pill. The add action sits outside it, on the right. */
 export const NAV_ROUTES: { name: NavRoute; glyph: NavIconComponent; label: string }[] = [
   { name: 'index', glyph: HomeGlyph, label: 'Home' },
   { name: 'activity', glyph: ActivityGlyph, label: 'Activity' },
-  { name: 'envelopes', glyph: EnvelopeGlyph, label: 'Envelopes' },
+  { name: 'envelopes', glyph: EnvelopeGlyph, label: 'Categories' },
   { name: 'more', glyph: ProfileGlyph, label: 'More' },
 ]
 
@@ -82,62 +84,49 @@ export function nextNavCover(prev: NavCover, pathname: string, onLogExpense: boo
   }
 }
 
-type NavSlot = { kind: 'route'; name: NavRoute; glyph: NavIconComponent; label: string } | { kind: 'add' }
-
-/** Slot order matches NAV_ROUTES, with the add action inserted at the centre. */
-const NAV_SLOTS: NavSlot[] = [
-  ...NAV_ROUTES.slice(0, 2).map((r) => ({ kind: 'route' as const, ...r })),
-  { kind: 'add' as const },
-  ...NAV_ROUTES.slice(2).map((r) => ({ kind: 'route' as const, ...r })),
-]
-
-/** Diameter of the selected circle. The rest scale down from it. */
-const CIRCLE = 56
-/** What an unselected circle shrinks to: 56 * 0.82 ~= 46. */
-const INACTIVE_SCALE = 0.82
+/** Height of the pill and diameter of the add disc beside it. */
+const BAR = 56
+const PILL_PAD = 5
+/** Width of one tab inside the pill; the highlight is the same size and slides between them. */
+const TAB_W = 56
+const TAB_H = BAR - 2 * PILL_PAD
 const ICON = 26
-const RING_GAP = 3
-const RING_WIDTH = 3
-const RING_SIZE = CIRCLE + 2 * (RING_GAP + RING_WIDTH)
-/** Distance between two slot centres. 5 slots = 360, the narrowest common Android width. */
-const SLOT = 72
-// Room for the "floating" shadow (radius 16, vertical offset 6 => ~10px of
-// bleed above the ring, ~24px below) inside the row's own bounds.
-const ROW_TOP_BLEED = 10
-const ROW_BOTTOM_BLEED = 24
-const ROW_HEIGHT = RING_SIZE + ROW_TOP_BLEED + ROW_BOTTOM_BLEED
-// Opaque backdrop behind the whole nav strip, from just above the ring down
-// to the screen edge: content scrolls underneath, and the circles alone
-// don't cover the gaps between slots or the safe-area strip below them, so
-// without this a scrolled row (or the home-indicator area) shows through.
+/** Inset of the pill and the add disc from the screen's sides. Also where QuickAddMenu anchors. */
+export const NAV_SIDE = 16
+// Vertical room around the bar inside the row's own bounds, so the add
+// disc's save animation (AddCircleAnim's 64px box) and halo aren't clipped.
+const ROW_TOP_BLEED = 16
+const ROW_BOTTOM_BLEED = 28
+const ROW_HEIGHT = BAR + ROW_TOP_BLEED + ROW_BOTTOM_BLEED
+// Opaque backdrop behind the whole nav strip, from just above the bar down
+// to the screen edge: content scrolls underneath, and the bar alone doesn't
+// cover the gap beside it or the safe-area strip below it, so without this a
+// scrolled row (or the home-indicator area) shows through.
 const BACKDROP_PAD = 7
-// Gap between the ring and the screen edge, on top of the safe-area inset.
+// Gap between the bar and the screen edge, on top of the safe-area inset.
 // 4px (space.xs) read as flush against the Android 3-button nav bar in
 // testing — bumped so the strip visibly clears it.
 const NAV_BOTTOM_GAP = 10
 // Fade above the backdrop so scrolled content dissolves into it instead of
 // being cut off at a hard edge.
 const BACKDROP_FADE = 24
+/** The highlight's slide: quick and flat, no bounce, so the landing tap follows the press tap closely. */
+const SLIDE = { duration: 110, easing: Easing.out(Easing.cubic) }
 
 /**
- * Detached navigation: free-floating circles laid over the page in one fixed
- * row, with no bar, border or scrim behind them. Content scrolls underneath,
- * so every screen reserves NAV_HEIGHT of bottom padding (see Screen /
- * useNavPadding).
+ * Floating navigation: one pill holding the four tabs, and the add action as
+ * its own disc beside it. Content scrolls underneath, so every screen
+ * reserves NAV_HEIGHT of bottom padding (see Screen / useNavPadding).
  *
- * Every slot is always on screen. The selected one is drawn larger than its
- * neighbours and wears the ring; switching tabs shrinks the old one and grows
- * the new one at once, leaving every slot in between still.
- * (This used to be a swipeable carousel with the active slot centred, which
- * pushed tabs off screen. Testers couldn't find them.)
+ * The selected tab sits on a highlight that slides along the pill. A tab
+ * switch is felt as two small hard ticks: one on touch-down, one when the
+ * highlight lands on the new tab (see `tap` in src/lib/haptics).
  *
- * The centre slot is an action, not a destination — logging an expense — but
- * sized and colored like every other circle until pressed, so it doesn't
- * compete with the active route's accent fill. The nav renders identically on
- * every screen it appears on, log-expense included: the glyph stays Plus
- * throughout (tap to navigate here, or to submit once already here), only its
- * content swaps to a spinner (submitting) or a check (saved), and which slot
- * holds the ring changes.
+ * Add is an action, not a destination, so it lives outside the pill as the
+ * one solid accent thing in the bar. It stays in the same spot on every
+ * screen the nav appears on, log-expense included, where it becomes the save
+ * button: tap to open log-expense, tap again to submit. Only its content
+ * swaps, to a spinner (submitting) or a check (saved).
  */
 export function FloatingNav({
   active,
@@ -156,11 +145,11 @@ export function FloatingNav({
   active: NavRoute | null
   onSelect: (name: NavRoute) => void
   onAdd: () => void
-  /** Long-press shortcut on the add slot only. */
+  /** Long-press shortcut on the add disc only. */
   onAddLongPress?: () => void
   /** Called alongside the shake when an incomplete active add is tapped, so the form can point at what's missing. */
   onAddInvalid?: () => void
-  /** True on the log-expense screen: the add slot becomes "you are here". */
+  /** True on the log-expense screen: the add disc becomes the save button. */
   addActive?: boolean
   /** Meaningful only when addActive: submit in flight, shows a spinner in place of the glyph. */
   addSaving?: boolean
@@ -170,7 +159,7 @@ export function FloatingNav({
   addInvalid?: boolean
   /** Meaningful only when addActive: blocks the tap while saving or after success. */
   addDisabled?: boolean
-  /** Meaningful only when addActive: a first-timer's form is ready, so pulse the add slot and say it saves. */
+  /** Meaningful only when addActive: a first-timer's form is ready, so pulse the add disc and say it saves. */
   addHint?: boolean
   children?: React.ReactNode
 }) {
@@ -187,16 +176,13 @@ export function FloatingNav({
     onAdd()
   }, [addActive, addInvalid, onAdd, onAddInvalid, triggerInvalidFeedback])
 
-  // On log-expense the strip sits over the accent flood in both schemes, so
-  // the idle circles go tone-on-tone there: a translucent white tint with a
-  // softer white glyph, flat (no shadow), so they recede behind the add slot.
-  const idle = addActive ? 'rgba(255, 255, 255, 0.2)' : tokens.cardSolid
+  // On log-expense the bar sits over the accent flood in both schemes, so the
+  // pill goes tone-on-tone there: a translucent white tint with softer white
+  // glyphs, so it recedes behind the save disc.
   // Plain white, not onAccent: onAccent is near-black in the dark scheme and
-  // the flood is the same orange in both, so the add disc stays white.
+  // the flood is the same orange in both, so the save disc stays white.
   const floodDisc = '#ffffff'
   const idleIcon = addActive ? 'rgba(255, 255, 255, 0.7)' : tokens.text3
-  const activeFill = tokens.accent
-  const activeIcon = tokens.onAccent
 
   return (
     <View
@@ -204,71 +190,124 @@ export function FloatingNav({
       style={[styles.wrap, { paddingBottom: NAV_BOTTOM_GAP }]}
     >
       {children}
-      {addActive && addHint && (
-        <View
-          pointerEvents="none"
-          style={[styles.hint, { bottom: NAV_BOTTOM_GAP + (ROW_HEIGHT + insets.bottom + RING_SIZE) / 2 + 6 }]}
-        >
-          <Text style={[styles.hintText, { color: tokens.onAccent, fontFamily: fontFamily.bodySemiBold }]}>Tap + to save</Text>
-        </View>
-      )}
       <View pointerEvents="box-none" style={[styles.row, { height: ROW_HEIGHT + insets.bottom }]}>
-        {NAV_SLOTS.map((slot) =>
-          slot.kind === 'add' ? (
-            <Animated.View
-              key="add"
-              style={{
-                transform: [
-                  { translateX: invalidAddShake.interpolate({ inputRange: [-1, 1], outputRange: [-8, 8] }) },
-                ],
-              }}
-            >
-              {addActive && addHint && <AddHalo color={tokens.onAccent} />}
-              <NavCircle
-                glyph={PlusGlyph}
-                label="Log expense"
-                selected={addActive}
-                // Only ever selected on the accent flood, where an accent disc
-                // vanishes and a ring reads as a stray outline. Invert instead:
-                // solid white disc, accent plus, no ring. Success keeps the
-                // mint disc edge-to-edge so no white rim shows around it.
-                background={addActive ? (addSuccess ? tokens.successBg : floodDisc) : idle}
-                color={addActive ? tokens.accent : idleIcon}
-                ringColor={addActive ? 'transparent' : tokens.accent}
-                onPress={handleAdd}
-                onLongPress={addActive ? undefined : onAddLongPress}
-                disabled={addActive && (addDisabled || addSaving || addSuccess)}
-                dimmed={addActive && (addInvalid || addDisabled || addSaving || addSuccess)}
-                pressHaptic={!(addActive && addInvalid)}
-                overrideContent={
-                  addActive && addSuccess ? (
-                    <View testID="nav-add-success">
-                      <AddCircleDone discColor={tokens.successBg} checkColor={tokens.onSuccess} />
-                    </View>
-                  ) : addActive && addSaving ? (
-                    <View testID="nav-add-saving">
-                      <AddCircleLoad discColor={floodDisc} iconColor={tokens.accent} />
-                    </View>
-                  ) : undefined
-                }
-              />
-            </Animated.View>
-          ) : (
-            <NavCircle
-              key={slot.name}
-              glyph={slot.glyph}
-              label={slot.label}
-              selected={active === slot.name}
-              background={active === slot.name ? activeFill : idle}
-              color={active === slot.name ? activeIcon : idleIcon}
-              ringColor={tokens.accent}
-              onPress={() => onSelect(slot.name)}
-              selectOnPressIn
-              onFlood={addActive}
-            />
-          ),
-        )}
+        <TabPill active={active} onSelect={onSelect} onFlood={addActive} idleIcon={idleIcon} />
+        <Animated.View
+          style={{
+            transform: [
+              { translateX: invalidAddShake.interpolate({ inputRange: [-1, 1], outputRange: [-8, 8] }) },
+            ],
+          }}
+        >
+          {addActive && addHint && (
+            <View pointerEvents="none" style={styles.hint}>
+              <Text style={[styles.hintText, { color: tokens.onAccent, fontFamily: fontFamily.bodySemiBold }]}>Tap + to save</Text>
+            </View>
+          )}
+          {addActive && addHint && <AddHalo color={tokens.onAccent} />}
+          <AddDisc
+            selected={addActive}
+            // On the accent flood an accent disc would vanish, so it inverts:
+            // white disc, accent plus. Success keeps the mint disc
+            // edge-to-edge so no white rim shows around it.
+            background={addActive ? (addSuccess ? tokens.successBg : floodDisc) : tokens.accent}
+            color={addActive ? tokens.accent : tokens.onAccent}
+            onPress={handleAdd}
+            onLongPress={addActive ? undefined : onAddLongPress}
+            disabled={addActive && (addDisabled || addSaving || addSuccess)}
+            dimmed={addActive && (addInvalid || addDisabled || addSaving || addSuccess)}
+            pressHaptic={!(addActive && addInvalid)}
+            overrideContent={
+              addActive && addSuccess ? (
+                <View testID="nav-add-success">
+                  <AddCircleDone discColor={tokens.successBg} checkColor={tokens.onSuccess} />
+                </View>
+              ) : addActive && addSaving ? (
+                <View testID="nav-add-saving">
+                  <AddCircleLoad discColor={floodDisc} iconColor={tokens.accent} />
+                </View>
+              ) : undefined
+            }
+          />
+        </Animated.View>
       </View>
+    </View>
+  )
+}
+
+/**
+ * The four tabs on one pill, with a highlight behind the selected one that
+ * slides across on a switch. Nothing is highlighted off the tabs (log-expense).
+ */
+function TabPill({
+  active,
+  onSelect,
+  onFlood,
+  idleIcon,
+}: {
+  active: NavRoute | null
+  onSelect: (name: NavRoute) => void
+  onFlood: boolean
+  idleIcon: string
+}) {
+  const { tokens } = useTheme()
+  const reduceMotion = useReducedMotion()
+  const index = NAV_ROUTES.findIndex((r) => r.name === active)
+  const x = useSharedValue(Math.max(index, 0) * TAB_W)
+  const shown = useSharedValue(index >= 0 ? 1 : 0)
+  // Where the highlight was last sent, kept on the JS side. Reading x or
+  // shown back here isn't reliable: a JS write lands on the UI thread
+  // asynchronously and a JS read can return a stale copy, which skipped the
+  // slide and left the highlight stuck on the old tab.
+  const prevIndex = useRef(index)
+
+  useEffect(() => {
+    const prev = prevIndex.current
+    prevIndex.current = index
+    if (index < 0) {
+      // Cancelling ends the slide unfinished, so it never taps out of sight.
+      cancelAnimation(x)
+      shown.value = withTiming(0, { duration: 160 })
+      return
+    }
+    // Coming from no highlight (leaving log-expense or a pushed screen): appear in place rather than sliding in from wherever it was last.
+    if (prev < 0 || reduceMotion) {
+      x.value = index * TAB_W
+    } else if (prev !== index) {
+      x.value = withTiming(index * TAB_W, SLIDE, (finished) => {
+        if (finished) runOnJS(tap)()
+      })
+    }
+    shown.value = withTiming(1, { duration: 160 })
+  }, [index, reduceMotion, x, shown])
+
+  const highlightStyle = useAnimatedStyle(() => ({ opacity: shown.value, transform: [{ translateX: x.value }] }))
+
+  return (
+    <View
+      accessibilityRole="tablist"
+      style={[
+        styles.pill,
+        onFlood
+          ? { backgroundColor: 'rgba(255, 255, 255, 0.2)' }
+          : { backgroundColor: tokens.cardSolid, borderWidth: 1, borderColor: tokens.borderStrong },
+      ]}
+    >
+      <Reanimated.View
+        testID="nav-highlight"
+        pointerEvents="none"
+        style={[styles.highlight, { backgroundColor: tokens.accentSoft }, highlightStyle]}
+      />
+      {NAV_ROUTES.map((r) => (
+        <NavTab
+          key={r.name}
+          glyph={r.glyph}
+          label={r.label}
+          selected={active === r.name}
+          color={active === r.name ? tokens.accent : idleIcon}
+          onPress={() => onSelect(r.name)}
+        />
+      ))}
     </View>
   )
 }
@@ -341,67 +380,107 @@ function useColorFade(color: string, duration = 200): SharedValue<string> {
 }
 
 /**
- * Cross-fades `color` instead of cutting. The glyph never swaps rendering
- * mode (always a plain fill), but its SVG `fill` is a render-time prop, not
- * an animatable style, so the tween is faked the same way: the previous color
- * kept as a layer fading out under the new one fading in.
+ * Cross-fades `color` and `weight` instead of cutting. SVG `fill` is a
+ * render-time prop, not an animatable style, so the tween is faked: the
+ * previous look kept as a layer fading out under the new one fading in.
  */
-function NavIcon({ icon: Icon, color, size }: { icon: NavIconComponent; color: string; size: number }) {
-  const [prevColor, setPrevColor] = useState<string | null>(null)
-  const currentColorRef = useRef(color)
+function NavIcon({ icon: Icon, color, weight, size }: { icon: NavIconComponent; color: string; weight: IconWeight; size: number }) {
+  const [prev, setPrev] = useState<{ color: string; weight: IconWeight } | null>(null)
+  const currentRef = useRef({ color, weight })
   const progress = useSharedValue(1)
 
   useEffect(() => {
-    if (currentColorRef.current === color) return
-    setPrevColor(currentColorRef.current)
-    currentColorRef.current = color
+    if (currentRef.current.color === color && currentRef.current.weight === weight) return
+    setPrev(currentRef.current)
+    currentRef.current = { color, weight }
     progress.value = 0
     // Unmount the old-colour layer once it has faded out, rather than keeping a second SVG per icon forever.
     progress.value = withTiming(1, { duration: 200 }, (finished) => {
-      if (finished) runOnJS(setPrevColor)(null)
+      if (finished) runOnJS(setPrev)(null)
     })
-  }, [color, progress])
+  }, [color, weight, progress])
 
   const topStyle = useAnimatedStyle(() => ({ opacity: progress.value }))
   const bottomStyle = useAnimatedStyle(() => ({ opacity: 1 - progress.value }))
 
   return (
     <View style={{ width: size, height: size }}>
-      {prevColor ? (
+      {prev ? (
         <Reanimated.View style={[StyleSheet.absoluteFill, bottomStyle]} pointerEvents="none">
-          <Icon size={size} color={prevColor} />
+          <Icon size={size} color={prev.color} weight={prev.weight} />
         </Reanimated.View>
       ) : null}
       <Reanimated.View style={topStyle} pointerEvents="none">
-        <Icon size={size} color={color} />
+        <Icon size={size} color={color} weight={weight} />
       </Reanimated.View>
     </View>
   )
 }
 
-function NavCircle({
+/**
+ * One tab in the pill. Fires on touch-down like a native tab bar; the
+ * highlight behind it is the pill's, so the tab itself only swaps its glyph.
+ */
+function NavTab({
   glyph,
   label,
   selected,
+  color,
+  onPress,
+}: {
+  glyph: NavIconComponent
+  label: string
+  selected: boolean
+  color: string
+  onPress: () => void
+}) {
+  // Set when touch-down already fired, so the release that follows doesn't
+  // fire again. A screen reader's activate only calls onPress, so that path
+  // still works.
+  const firedOnPressIn = useRef(false)
+  const fire = () => {
+    tap()
+    onPress()
+  }
+  return (
+    <Pressable
+      accessibilityRole="tab"
+      accessibilityLabel={label}
+      accessibilityState={{ selected }}
+      hitSlop={{ top: PILL_PAD + 8, bottom: PILL_PAD + 8 }}
+      onPressIn={() => {
+        firedOnPressIn.current = true
+        fire()
+      }}
+      onPress={() => {
+        if (firedOnPressIn.current) {
+          firedOnPressIn.current = false
+          return
+        }
+        fire()
+      }}
+      style={styles.tab}
+    >
+      <NavIcon icon={glyph} color={color} weight={selected ? 'fill' : 'regular'} size={ICON} />
+    </Pressable>
+  )
+}
+
+/** The add disc beside the pill. Fires on release, since it also long-presses. */
+function AddDisc({
+  selected,
   background,
   color,
-  ringColor,
   onPress,
   onLongPress,
   disabled = false,
   dimmed = disabled,
   pressHaptic = true,
   overrideContent,
-  onFlood = false,
-  selectOnPressIn = false,
-  style,
 }: {
-  glyph: NavIconComponent
-  label: string
   selected: boolean
   background: string
   color: string
-  ringColor: string
   onPress: () => void
   onLongPress?: () => void
   disabled?: boolean
@@ -409,98 +488,43 @@ function NavCircle({
   pressHaptic?: boolean
   /** Replaces the glyph entirely (e.g. a spinner or check) when set. */
   overrideContent?: React.ReactNode
-  /** Sitting on the log-expense accent flood: no distance fade (the tint is already translucent) and no shadow. */
-  onFlood?: boolean
-  /** Fire on touch-down like a native tab bar. The add slot keeps release, since it also long-presses. */
-  selectOnPressIn?: boolean
-  style?: object
 }) {
-  const { motion, tokens } = useTheme()
+  const { motion } = useTheme()
   const pressScale = useSharedValue(1)
-  // Set when touch-down already fired, so the release that follows doesn't
-  // fire again. A screen reader's activate only calls onPress, so that path
-  // still works.
-  const firedOnPressIn = useRef(false)
-  const fire = () => {
-    if (pressHaptic) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
-    onPress()
-  }
   const bgFade = useColorFade(background)
-  const selProgress = useSharedValue(selected ? 1 : 0)
-
-  useEffect(() => {
-    selProgress.value = withTiming(selected ? 1 : 0, { duration: 200 })
-  }, [selected, selProgress])
-
-  // t: 0 when selected, 1 when not. Drives the size and fade, so only the
-  // slots actually changing state move.
-  const circleStyle = useAnimatedStyle(() => {
-    const t = 1 - selProgress.value
-    return {
-      backgroundColor: bgFade.value,
-      opacity: onFlood ? 1 : 1 - t * 0.35,
-      transform: [{ scale: pressScale.value * (1 - t * (1 - INACTIVE_SCALE)) }],
-    }
-  })
-
-  const ringStyle = useAnimatedStyle(() => {
-    const t = 1 - selProgress.value
-    return {
-      borderColor: ringColor,
-      opacity: selProgress.value,
-      transform: [{ scale: pressScale.value * (1 - t * (1 - INACTIVE_SCALE)) }],
-    }
-  })
+  const discStyle = useAnimatedStyle(() => ({
+    backgroundColor: bgFade.value,
+    transform: [{ scale: pressScale.value }],
+  }))
 
   return (
-    <View style={styles.slot}>
-      <View style={styles.ringBox}>
-        <Reanimated.View testID={`nav-ring-${label}`} pointerEvents="none" style={[styles.ring, ringStyle]} />
-        <AnimatedPressable
-          accessibilityRole="tab"
-          accessibilityLabel={label}
-          accessibilityState={{ selected, disabled }}
-          disabled={disabled}
-          hitSlop={{ left: (SLOT - CIRCLE) / 2, right: (SLOT - CIRCLE) / 2, top: 8, bottom: 8 }}
-          onPressIn={() => {
-            pressScale.value = withSpring(0.88, motion.springTight)
-            if (selectOnPressIn) {
-              firedOnPressIn.current = true
-              fire()
-            }
-          }}
-          onPressOut={() => {
-            pressScale.value = withSpring(1, motion.spring)
-          }}
-          onPress={() => {
-            if (firedOnPressIn.current) {
-              firedOnPressIn.current = false
-              return
-            }
-            fire()
-          }}
-          onLongPress={
-            onLongPress &&
-            (() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {})
-              onLongPress()
-            })
-          }
-          style={[
-            styles.circle,
-            { width: CIRCLE, height: CIRCLE, borderRadius: CIRCLE / 2 },
-            // Flat circles: the ring marks the selected one and a hairline
-            // separates the idle ones from the page, so no drop shadows.
-            selected || onFlood ? null : { borderWidth: 1, borderColor: tokens.borderStrong },
-            style,
-            circleStyle,
-            dimmed ? styles.disabled : null,
-          ]}
-        >
-          {overrideContent ?? <NavIcon icon={glyph} color={color} size={ICON} />}
-        </AnimatedPressable>
-      </View>
-    </View>
+    <AnimatedPressable
+      accessibilityRole="button"
+      accessibilityLabel="Log expense"
+      accessibilityState={{ selected, disabled }}
+      disabled={disabled}
+      hitSlop={8}
+      onPressIn={() => {
+        pressScale.value = withSpring(0.88, motion.springTight)
+      }}
+      onPressOut={() => {
+        pressScale.value = withSpring(1, motion.spring)
+      }}
+      onPress={() => {
+        if (pressHaptic) tap()
+        onPress()
+      }}
+      onLongPress={
+        onLongPress &&
+        (() => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {})
+          onLongPress()
+        })
+      }
+      style={[styles.disc, discStyle, dimmed ? styles.disabled : null]}
+    >
+      {overrideContent ?? <NavIcon icon={PlusGlyph} color={color} weight="bold" size={ICON} />}
+    </AnimatedPressable>
   )
 }
 
@@ -512,7 +536,7 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
   },
-  row: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
+  row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: NAV_SIDE },
   backdrop: {
     position: 'absolute',
     left: 0,
@@ -520,28 +544,14 @@ const styles = StyleSheet.create({
     bottom: 0,
   },
   backdropFade: { position: 'absolute', left: 0, right: 0, top: -BACKDROP_FADE, height: BACKDROP_FADE },
-  slot: { width: SLOT, alignItems: 'center', justifyContent: 'center' },
-  ringBox: { width: RING_SIZE, height: RING_SIZE, alignItems: 'center', justifyContent: 'center' },
-  ring: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    right: 0,
-    bottom: 0,
-    borderRadius: RING_SIZE / 2,
-    borderWidth: RING_WIDTH,
-  },
-  circle: { alignItems: 'center', justifyContent: 'center' },
+  pill: { flexDirection: 'row', height: BAR, padding: PILL_PAD, borderRadius: BAR / 2 },
+  highlight: { position: 'absolute', left: PILL_PAD, top: PILL_PAD, width: TAB_W, height: TAB_H, borderRadius: TAB_H / 2 },
+  tab: { width: TAB_W, height: TAB_H, alignItems: 'center', justifyContent: 'center' },
+  disc: { width: BAR, height: BAR, borderRadius: BAR / 2, alignItems: 'center', justifyContent: 'center' },
   disabled: { opacity: 0.5 },
-  halo: {
-    position: 'absolute',
-    left: (SLOT - CIRCLE) / 2,
-    top: (RING_SIZE - CIRCLE) / 2,
-    width: CIRCLE,
-    height: CIRCLE,
-    borderRadius: CIRCLE / 2,
-  },
-  hint: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
+  halo: { position: 'absolute', left: 0, top: 0, width: BAR, height: BAR, borderRadius: BAR / 2 },
+  // Right-aligned over the disc, wide enough that the caption never wraps.
+  hint: { position: 'absolute', right: 0, bottom: BAR + 12, width: 200, alignItems: 'flex-end' },
   hintText: {
     fontSize: 13,
     paddingHorizontal: 12,

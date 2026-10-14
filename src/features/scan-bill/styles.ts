@@ -1,4 +1,5 @@
 import { StyleSheet } from "react-native";
+import { fontFamily } from "@/src/theme/fonts";
 export const styles = StyleSheet.create({
   screen: { flex: 1 },
   header: { flexDirection: "row", alignItems: "center", paddingBottom: 8 },
@@ -12,7 +13,7 @@ export const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  microLabel: { fontSize: 11, fontWeight: "800", letterSpacing: 1 },
+  microLabel: { fontSize: 12, fontFamily: fontFamily.bodyExtraBold, letterSpacing: 1 },
   barTrack: { height: 6, borderRadius: 999, overflow: "hidden", width: "100%" },
   barFill: { height: "100%", borderRadius: 999 },
   searchRow: {

@@ -10,7 +10,7 @@ import Reanimated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated'
-import { X } from 'lucide-react-native'
+import { X } from '@/src/components/shared/icons'
 import Svg, { Path } from 'react-native-svg'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'

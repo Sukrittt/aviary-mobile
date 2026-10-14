@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { View, Text, TextInput, Pressable, ScrollView, StyleSheet } from 'react-native'
-import { Check, ChevronRight, X } from 'lucide-react-native'
+import { Check, CaretRight, X } from '@/src/components/shared/icons'
 import { currencyInfo, searchCurrencies } from '@/src/lib/currencies'
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { useUpdateUser } from '@/src/hooks/useUser'
@@ -63,7 +63,7 @@ export function CurrencyPicker({
     >
       {matches.map(c => <Pressable key={c.code} disabled={disabled} accessibilityRole="button" accessibilityState={{ selected: value === c.code, disabled }} accessibilityLabel={`${c.name}, ${c.code}, ${c.symbol}`} onPress={() => onChange(c.code)} style={({ pressed }) => [styles.currencyOption, { backgroundColor: value === c.code ? tokens.accentSoft : 'transparent' }, pressed && styles.currencyOptionPressed]}>
         <View style={{ flex: 1 }}><Text style={{ color: tokens.text, fontFamily: fontFamily.bodySemiBold }}>{c.name}</Text><Text style={{ color: tokens.text2, fontFamily: fontFamily.bodyMedium }}>{c.code}{c.symbol !== c.code ? ` · ${c.symbol}` : ''}</Text></View>
-        {value === c.code && <View testID="selected-currency-icon" accessible={false}><Check size={20} color={tokens.accentInk} strokeWidth={2.5} /></View>}
+        {value === c.code && <View testID="selected-currency-icon" accessible={false}><Check size={20} color={tokens.accentInk} weight="bold" /></View>}
       </Pressable>)}
       {!matches.length && <Text style={[styles.emptyState, { color: tokens.text3 }]}>No currencies found.</Text>}
     </ScrollView>
@@ -89,7 +89,7 @@ export function CurrencySetting() {
         <Text style={[styles.valueText, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>
           {current.code}{current.symbol !== current.code ? ` · ${current.symbol}` : ''}
         </Text>
-        <ChevronRight size={14} color={tokens.text3} strokeWidth={2.25} />
+        <CaretRight size={14} color={tokens.text3} />
       </View>
     </Pressable>
     <BottomSheet visible={open} onClose={() => setOpen(false)}>
@@ -103,7 +103,7 @@ export function CurrencySetting() {
           onPress={() => setOpen(false)}
           style={({ pressed }) => [styles.closeButton, { backgroundColor: tokens.inputBg, borderColor: tokens.borderStrong }, pressed && styles.closeButtonPressed]}
         >
-          <X size={20} color={tokens.text2} strokeWidth={2.25} />
+          <X size={20} color={tokens.text2} />
         </Pressable>
       </View>
       <Text style={[styles.sheetDescription, { color: tokens.text2 }]}>Changing currency updates how amounts are displayed. Amounts aren’t converted.</Text>
@@ -133,7 +133,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   selectedCopy: { flex: 1, gap: 3 },
-  selectedEyebrow: { fontSize: 10, letterSpacing: 0.7 },
+  selectedEyebrow: { fontSize: 12, letterSpacing: 0.7 },
   selectedName: { fontSize: 15 },
   selectedCodeText: { fontSize: 14, flexShrink: 0 },
   search: {

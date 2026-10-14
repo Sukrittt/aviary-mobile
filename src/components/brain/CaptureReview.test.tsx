@@ -64,12 +64,12 @@ it('shows each row with its envelope, split and date', () => {
   const utils = renderWithProviders(<CaptureReview proposal={proposal} onSettled={mockSettled} />)
 
   expect(utils.getByDisplayValue('Auto')).toBeTruthy()
-  expect(utils.getByLabelText('Envelope: Travel. Change it')).toBeTruthy()
+  expect(utils.getByLabelText('Category: Travel. Change it')).toBeTruthy()
   expect(utils.getByText('₹1,200 ÷ 6')).toBeTruthy()
   expect(utils.getByText('your share ₹200')).toBeTruthy()
   // Yesterday's row says so; today's rows don't.
   expect(utils.getByText('25 Sep')).toBeTruthy()
-  expect(utils.getByLabelText('Pick an envelope')).toBeTruthy()
+  expect(utils.getByLabelText('Pick a category')).toBeTruthy()
 })
 
 it('will not log until every row has an envelope', async () => {
@@ -79,9 +79,9 @@ it('will not log until every row has an envelope', async () => {
   await flush()
   expect(mockAdd).not.toHaveBeenCalled()
 
-  fireEvent.press(utils.getByLabelText('Pick an envelope'))
+  fireEvent.press(utils.getByLabelText('Pick a category'))
   fireEvent.press(utils.getByText('Choose Shopping'))
-  expect(utils.getByLabelText('Envelope: Shopping. Change it')).toBeTruthy()
+  expect(utils.getByLabelText('Category: Shopping. Change it')).toBeTruthy()
 })
 
 it('logs the kept rows with fixed client ids, the split share and source text', async () => {
@@ -244,7 +244,7 @@ it('locks a failed row to retry as it was, and Not now keeps the spends that mad
   expect(utils.getByText('Logged 1 spend · ₹240')).toBeTruthy()
 })
 
-it('names what blocks Log, and shows an envelope emoji once', () => {
+it('names what blocks Log, and shows the envelope name without its emoji', () => {
   mockCategories.data = [...ENVELOPES, { name: '🛵 Travel', group: 'Everyday' }]
   const utils = renderWithProviders(
     <CaptureReview
@@ -252,8 +252,8 @@ it('names what blocks Log, and shows an envelope emoji once', () => {
       onSettled={mockSettled}
     />,
   )
-  expect(utils.getByText('Pick an envelope for Sneakers to log these.')).toBeTruthy()
-  expect(utils.getByText('🛵')).toBeTruthy()
+  expect(utils.getByText('Pick a category for Sneakers to log these.')).toBeTruthy()
+  expect(utils.queryByText(/🛵/)).toBeNull()
   expect(utils.getByText('Travel')).toBeTruthy()
 })
 
@@ -262,8 +262,8 @@ it('makes a row whose envelope was deleted pick a new one', () => {
   const utils = renderWithProviders(
     <CaptureReview proposal={{ ...proposal, items: [proposal.items[0]] }} onSettled={mockSettled} />,
   )
-  expect(utils.getByLabelText('Pick an envelope')).toBeTruthy()
-  expect(utils.getByText('Pick an envelope for Auto to log these.')).toBeTruthy()
+  expect(utils.getByLabelText('Pick a category')).toBeTruthy()
+  expect(utils.getByText('Pick a category for Auto to log these.')).toBeTruthy()
 })
 
 it("won't log before the envelope list is in, unless it failed to load", async () => {

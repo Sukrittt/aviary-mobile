@@ -1,7 +1,7 @@
 import { View, Text, Pressable, ScrollView, RefreshControl, StyleSheet } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { ArrowLeft, Plus, Search } from 'lucide-react-native'
+import { ArrowLeft, Plus, MagnifyingGlass } from '@/src/components/shared/icons'
 import { OfflineScreen } from '@/src/components/shared/OfflineScreen'
 import { useOnline } from '@/src/lib/netStatus'
 import { useTheme } from '@/src/theme/ThemeProvider'
@@ -56,7 +56,7 @@ export default function SubscriptionsScreen() {
           accessibilityLabel="Find subscriptions"
           accessibilityHint="Scan past expenses for services you already pay for"
         >
-          <Icon icon={Search} size={17} color={tokens.accent} />
+          <Icon icon={MagnifyingGlass} size={17} color={tokens.accent} />
           <View style={{ flex: 1 }}>
             <Text style={[styles.findTitle, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>Find subscriptions</Text>
             <Text style={[styles.findBody, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>Scan past expenses for services you already pay for</Text>

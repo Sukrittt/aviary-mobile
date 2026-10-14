@@ -10,7 +10,7 @@ export function SectionLabel({ children }: { children: string }) {
     <Text
       style={[
         styles.sectionLabel,
-        { color: tokens.text3, fontFamily: fontFamily.bodyBold, fontSize: type.micro - 1, paddingTop: space.xs },
+        { color: tokens.text3, fontFamily: fontFamily.bodyBold, fontSize: type.micro, paddingTop: space.xs },
       ]}
     >
       {children}

@@ -1,6 +1,6 @@
 import { useRef } from 'react'
 import { View, Text, TextInput, Pressable, ScrollView, StyleSheet } from 'react-native'
-import { Search, ChevronLeft, ChevronRight } from 'lucide-react-native'
+import { MagnifyingGlass, CaretLeft, CaretRight } from '@/src/components/shared/icons'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
@@ -84,7 +84,7 @@ export function ChatHistoryList({
   return (
     <View style={{ flex: 1 }}>
       <View style={[styles.searchRow, { backgroundColor: tokens.inputBg, borderColor: tokens.borderStrong }]}>
-        <Icon icon={Search} size={16} color={tokens.text3} />
+        <Icon icon={MagnifyingGlass} size={16} color={tokens.text3} />
         <TextInput
           value={query}
           onChangeText={onQueryChange}
@@ -157,7 +157,7 @@ export function ChatHistoryList({
             disabled={page <= 1}
             style={[styles.arrow, { borderColor: tokens.borderStrong, backgroundColor: tokens.inputBg, opacity: page <= 1 ? 0.4 : 1 }]}
           >
-            <Icon icon={ChevronLeft} size={16} color={tokens.text} />
+            <Icon icon={CaretLeft} size={16} color={tokens.text} />
           </Pressable>
           <View style={styles.pagePills}>
             {Array.from({ length: pageCount }, (_, i) => i + 1).map((p) => (
@@ -188,7 +188,7 @@ export function ChatHistoryList({
             disabled={page >= pageCount}
             style={[styles.arrow, { borderColor: tokens.borderStrong, backgroundColor: tokens.inputBg, opacity: page >= pageCount ? 0.4 : 1 }]}
           >
-            <Icon icon={ChevronRight} size={16} color={tokens.text} />
+            <Icon icon={CaretRight} size={16} color={tokens.text} />
           </Pressable>
         </View>
       )}
@@ -211,13 +211,13 @@ const styles = StyleSheet.create({
   searchInput: { flex: 1, fontSize: 13, padding: 0 },
   clearButton: { width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
   list: { paddingHorizontal: 20, paddingBottom: 20, gap: 16 },
-  groupLabel: { fontSize: 11, letterSpacing: 0.6, fontWeight: '700', paddingLeft: 2 },
+  groupLabel: { fontSize: 12, letterSpacing: 0.6, fontFamily: fontFamily.bodyBold, paddingLeft: 2 },
   card: { borderWidth: 1, borderRadius: 20, overflow: 'hidden' },
   row: { padding: 16, gap: 4 },
   title: { fontSize: 14 },
   preview: { fontSize: 12 },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2 },
-  meta: { fontSize: 11 },
+  meta: { fontSize: 12, fontFamily: fontFamily.bodySemiBold },
   dot: { width: 3, height: 3, borderRadius: 1.5 },
   empty: { flex: 1 },
   pager: {

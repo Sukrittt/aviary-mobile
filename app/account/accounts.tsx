@@ -2,7 +2,7 @@ import { useState } from "react";
 import { View, Text, Pressable, ScrollView, RefreshControl, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ArrowLeft, Pencil, Plus, ReceiptText, Trash2 } from "lucide-react-native";
+import { ArrowLeft, PencilSimple, Plus, Invoice, Trash } from "@/src/components/shared/icons";
 import Reanimated from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 import { OfflineScreen } from "@/src/components/shared/OfflineScreen";
@@ -22,6 +22,7 @@ import { useBalanceStatus } from "@/src/hooks/useBalanceCheck";
 import { useRefresh } from "@/src/hooks/useRefresh";
 import { ACCOUNT_TYPE_LABEL, accountErrorMessage } from "@/src/lib/accounts";
 import type { AccountRow, AccountType } from "@/src/types";
+import { tap } from "@/src/lib/haptics";
 
 const LOADING_PHRASES = ["Opening your wallet…", "Shaking the piggy bank…", "Shuffling your cards…", "Counting the coin jar…"];
 const MOUNT_DELAY = 100;
@@ -74,7 +75,7 @@ export default function AccountsScreen() {
     update.mutate(
       { id: a.id, updates: { archived: false } },
       {
-        onSuccess: () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}),
+        onSuccess: () => tap(),
         onError: (err) => {
           buzzError();
           Alert.alert("Couldn't restore this", accountErrorMessage(err));
@@ -166,9 +167,9 @@ function AccountItem({ account, index, onEdit, onTransactions, onDelete }: { acc
   const { tokens } = useTheme();
   const delay = MOUNT_DELAY + Math.min(index, STAGGER_CAP) * ITEM_STAGGER;
   const actions = [
-    { icon: ReceiptText, label: `View ${account.name} transactions`, onPress: onTransactions },
-    { icon: Pencil, label: `Edit ${account.name}`, onPress: onEdit },
-    { icon: Trash2, label: `Delete ${account.name}`, onPress: onDelete },
+    { icon: Invoice, label: `View ${account.name} transactions`, onPress: onTransactions },
+    { icon: PencilSimple, label: `Edit ${account.name}`, onPress: onEdit },
+    { icon: Trash, label: `Delete ${account.name}`, onPress: onDelete },
   ];
   return (
     <PopIn play delay={delay} style={[styles.rowCard, styles.rowInner, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
@@ -189,7 +190,7 @@ function AccountItem({ account, index, onEdit, onTransactions, onDelete }: { acc
   );
 }
 
-function ActionIcon({ icon, label, onPress }: { icon: typeof Pencil; label: string; onPress: () => void }) {
+function ActionIcon({ icon, label, onPress }: { icon: typeof PencilSimple; label: string; onPress: () => void }) {
   const { tokens } = useTheme();
   const press = usePressSpring(0.88);
   return (
@@ -305,7 +306,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   headerTitle: { fontSize: 19 },
-  headerSub: { fontSize: 11.5, marginTop: 1 },
+  headerSub: { fontSize: 12, marginTop: 1 },
   addButton: {
     flexDirection: "row",
     alignItems: "center",
@@ -338,7 +339,7 @@ const styles = StyleSheet.create({
   },
   discoveryText: { flex: 1, fontSize: 14 },
   section: { gap: 8 },
-  sectionLabel: { fontSize: 11, letterSpacing: 0.6 },
+  sectionLabel: { fontSize: 12, letterSpacing: 0.6 },
   rowCard: { borderWidth: 1, borderRadius: 14 },
   rowInner: {
     flexDirection: "row",
@@ -380,7 +381,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     overflow: "hidden",
   },
-  pillText: { fontSize: 11, lineHeight: 13 },
+  pillText: { fontSize: 12, lineHeight: 15 },
   rowMeta: { fontSize: 12, flexShrink: 1 },
   rowAmount: { fontSize: 15 },
   // Fills the space under the header so the loading phrase and the empty state

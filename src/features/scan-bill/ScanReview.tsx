@@ -4,18 +4,14 @@ import { PopIn } from "@/src/components/shared/PopIn";
 import { AmountText } from "@/src/components/ui/AmountText";
 import { Card } from "@/src/components/ui/Card";
 import { Chip } from "@/src/components/ui/Chip";
-import { categoryEmoji, splitEmoji } from "@/src/lib/emoji";
+import { splitEmoji } from "@/src/lib/emoji";
+import { CategoryIcon } from "@/src/components/shared/CategoryIcon";
 
 import {
   round2,
 } from "@/src/lib/split";
 import { fontFamily } from "@/src/theme/fonts";
-import {
-  Check,
-  Plus,
-  Search,
-  Trash2
-} from "lucide-react-native";
+import { Check, Plus, MagnifyingGlass, Trash } from "@/src/components/shared/icons";
 import {
   Pressable,
   ScrollView,
@@ -103,7 +99,7 @@ export function ScanReview({ tokens, space, radius, type, insets, setPhase, merc
             },
           ]}
         >
-          <Search size={16} color={tokens.text3} />
+          <MagnifyingGlass size={16} color={tokens.text3} />
           <TextInput
             value={query}
             onChangeText={setQuery}
@@ -126,7 +122,7 @@ export function ScanReview({ tokens, space, radius, type, insets, setPhase, merc
                 { backgroundColor: tokens.border },
               ]}
             >
-              <Text style={{ color: tokens.text2, fontSize: 11 }}>✕</Text>
+              <Text style={{ color: tokens.text2, fontSize: 12 }}>✕</Text>
             </Pressable>
           )}
         </View>
@@ -218,8 +214,7 @@ export function ScanReview({ tokens, space, radius, type, insets, setPhase, merc
                   {isSelected && (
                     <Check
                       size={13}
-                      color={tokens.onAccent}
-                      strokeWidth={3}
+                      color={tokens.onAccent} weight="bold"
                     />
                   )}
                 </View>
@@ -331,7 +326,7 @@ export function ScanReview({ tokens, space, radius, type, insets, setPhase, merc
                     style={styles.deleteButton}
                     accessibilityLabel={`Remove ${it.name || "item"}`}
                   >
-                    <Trash2 size={16} color={tokens.text3} />
+                    <Trash size={16} color={tokens.text3} />
                   </Pressable>
                 </View>
               </>
@@ -427,7 +422,7 @@ export function ScanReview({ tokens, space, radius, type, insets, setPhase, merc
                       onPress={() => removeItem(it.key)}
                       style={styles.feeDeleteButton}
                     >
-                      <Trash2 size={14} color={tokens.text3} />
+                      <Trash size={14} color={tokens.text3} />
                     </Pressable>
                   </View>
                 ))}
@@ -521,12 +516,7 @@ export function ScanReview({ tokens, space, radius, type, insets, setPhase, merc
         >
           {selectedCategory ? (
             <>
-              {/* Separate Text node, no custom fontFamily: a ZWJ+variation-selector
-                  emoji sharing one custom-font Text run with the label can make
-                  Android silently drop the rest of that run. */}
-              <Text style={{ color: tokens.text, fontSize: type.caption }}>
-                {categoryEmoji(selectedCategory.name, selectedCategory.group)}
-              </Text>
+              <CategoryIcon name={selectedCategory.name} icon={selectedCategory.icon} group={selectedCategory.group} size={type.caption} color={tokens.text} />
               <Text
                 numberOfLines={1}
                 style={{

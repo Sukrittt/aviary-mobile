@@ -3,7 +3,7 @@ import { View, Text, Pressable, ScrollView, RefreshControl, StyleSheet } from 'r
 import { Toggle } from '@/src/components/ui/Toggle'
 import { useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { ArrowLeft } from 'lucide-react-native'
+import { ArrowLeft } from '@/src/components/shared/icons'
 import { OfflineScreen } from '@/src/components/shared/OfflineScreen'
 import { useOnline } from '@/src/lib/netStatus'
 import { useTheme } from '@/src/theme/ThemeProvider'
@@ -116,7 +116,7 @@ export default function NotificationsScreen() {
             </View>
           </View>
           <Text style={[styles.footnote, { color: tokens.text3 }]}>
-            Set thresholds per category in Envelopes.
+            Set thresholds on the Categories tab.
           </Text>
         </View>
 
@@ -221,14 +221,14 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 19 },
   scrollContent: { padding: 16, gap: 20 },
   section: { gap: 10 },
-  sectionLabel: { fontSize: 11, letterSpacing: 0.5, paddingHorizontal: 4 },
+  sectionLabel: { fontSize: 12, letterSpacing: 0.5, paddingHorizontal: 4 },
   card: { borderWidth: 1, borderRadius: 20, paddingHorizontal: 16 },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14, gap: 12 },
   rowLabel: { fontSize: 14 },
-  rowHint: { fontSize: 11, marginTop: 2 },
+  rowHint: { fontSize: 12, marginTop: 2 },
   divider: { height: StyleSheet.hairlineWidth },
   segmented: { flexDirection: 'row', gap: 3, padding: 3, borderRadius: 100 },
   segment: { borderRadius: 100, paddingHorizontal: 12, paddingVertical: 8 },
-  segmentText: { fontSize: 11 },
-  footnote: { fontSize: 11, paddingHorizontal: 4, lineHeight: 15 },
+  segmentText: { fontSize: 12 },
+  footnote: { fontSize: 12, paddingHorizontal: 4, lineHeight: 15 },
 })

@@ -13,7 +13,7 @@ Status legend: `[ ]` not done · `[x]` done · `[~]` in progress
 
 ## The one thing that is easy to forget
 
-**Every completed onboarding already starts a 45-day trial clock**, from the
+**Every completed onboarding already starts a 30-day trial clock**, from the
 moment the backend shipped — not from launch day. Trial creation is
 deliberately *not* behind the enforcement flag, because testing the real
 thing needs real trial data.
@@ -24,7 +24,7 @@ trial that has **already expired**, and be locked out on day one.
 
 `scripts/billing-launch-migration.mjs` is what fixes this. It does two things:
 
-1. Grants a fresh 45-day trial to onboarded users with no billing account.
+1. Grants a fresh 30-day trial to onboarded users with no billing account.
 2. Moves any trial that started *before the launch instant* onto the launch
    window, and re-stamps its cohort as `legacy-launch-v1`.
 
@@ -53,7 +53,7 @@ unrun, existing users are locked out.**
 - [ ] Create two auto-renewing base plans under it
 - [ ] Confirm ₹199 and ₹1,999 are accepted price points for this account and
       region. If Play's minimum is higher, pricing.md changes.
-- [ ] **No free-trial offer on either base plan.** Our 45-day trial is
+- [ ] **No free-trial offer on either base plan.** Our 30-day trial is
       app-managed. A store trial on top would give everyone two.
 
 ⚠️ **Naming must be reconciled.** RevenueCat's packages are `monthly` /

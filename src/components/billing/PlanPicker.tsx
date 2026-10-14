@@ -9,7 +9,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated'
-import { Check } from 'lucide-react-native'
+import { Check } from '@/src/components/shared/icons'
 import { PACKAGE_TYPE, type PurchasesPackage } from 'react-native-purchases'
 import { Button, usePressSpring } from '@/src/components/ui/Button'
 import { Icon } from '@/src/components/shared/Icon'
@@ -40,7 +40,7 @@ function usePop(key: unknown, peak: number, when = true) {
  * (pricing.md): allowances are still to be set.
  */
 export const BENEFITS = [
-  'As many envelopes and expenses as you like',
+  'As many categories and expenses as you like',
   'Snap a bill instead of typing it in',
   'Ask Aviary where your money went',
   'Monthly Wrapped and spending insights',
@@ -118,7 +118,7 @@ export function PlanPicker({
         {BENEFITS.map((b) => (
           <View key={b} style={styles.benefit}>
             <View style={[styles.tick, { backgroundColor: tokens.mintSoft }]}>
-              <Icon icon={Check} size={12} color={tokens.mint} strokeWidth={3} />
+              <Icon icon={Check} size={12} color={tokens.mint} weight="bold" />
             </View>
             <Text style={[styles.benefitText, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>{b}</Text>
           </View>
@@ -203,7 +203,7 @@ function Option({
 
 const styles = StyleSheet.create({
   card: { borderWidth: 1, borderRadius: 24, padding: 18, gap: 18 },
-  eyebrow: { fontSize: 11, letterSpacing: 1.2 },
+  eyebrow: { fontSize: 12, letterSpacing: 1.2 },
   title: { fontSize: 22 },
   sub: { fontSize: 13 },
   option: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1.5, borderRadius: 16, padding: 14 },
@@ -214,9 +214,9 @@ const styles = StyleSheet.create({
   optionDetail: { fontSize: 12 },
   optionPrice: { fontSize: 15 },
   badge: { borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
-  badgeText: { fontSize: 10, letterSpacing: 0.3 },
+  badgeText: { fontSize: 12, letterSpacing: 0.3 },
   benefit: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   tick: { width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
   benefitText: { flex: 1, fontSize: 13, lineHeight: 19 },
-  fine: { fontSize: 11, lineHeight: 16, textAlign: 'center' },
+  fine: { fontSize: 12, lineHeight: 16, textAlign: 'center' },
 })

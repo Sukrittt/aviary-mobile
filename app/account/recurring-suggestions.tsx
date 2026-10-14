@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { View, Text, Pressable, ScrollView, RefreshControl, StyleSheet } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { ArrowLeft, CircleCheck, Repeat2 } from 'lucide-react-native'
+import { ArrowLeft, CheckCircle, ArrowsClockwise } from '@/src/components/shared/icons'
 import * as Haptics from 'expo-haptics'
 import Reanimated from 'react-native-reanimated'
 import { OfflineScreen } from '@/src/components/shared/OfflineScreen'
@@ -25,6 +25,7 @@ import {
 } from '@/src/hooks/useRecurringSuggestions'
 import { recurringSuggestionErrorMessage } from '@/src/api/recurringSuggestions'
 import type { RecurringSuggestion, ScanMonths } from '@/src/types/recurringSuggestions'
+import { tap } from '@/src/lib/haptics'
 
 const SCAN_PHRASES = [
   'Reading your expenses…',
@@ -150,7 +151,7 @@ export default function RecurringSuggestionsScreen() {
         <PopIn play delay={MOUNT_DELAY} style={[styles.introCard, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
           <View style={styles.introRow}>
             <View style={[styles.introIcon, { backgroundColor: tokens.accentSoft }]}>
-              <Icon icon={Repeat2} size={20} color={tokens.accent} />
+              <Icon icon={ArrowsClockwise} size={20} color={tokens.accent} />
             </View>
             <Text style={[styles.introBody, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
               {subscriptionMode
@@ -231,7 +232,7 @@ export default function RecurringSuggestionsScreen() {
                 style={[styles.emptyCard, { backgroundColor: tokens.card, borderColor: tokens.border }]}
               >
                 <View style={[styles.emptyIcon, { backgroundColor: tokens.mintSoft }]}>
-                  <Icon icon={CircleCheck} size={20} color={tokens.mint} />
+                  <Icon icon={CheckCircle} size={20} color={tokens.mint} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.emptyTitle, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>
@@ -340,7 +341,7 @@ function SuggestionRow({
             <Pressable
               disabled={busy}
               onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+                tap()
                 onReview()
               }}
               onPressIn={reviewPress.onPressIn}
@@ -355,7 +356,7 @@ function SuggestionRow({
               hitSlop={8}
               disabled={busy}
               onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+                tap()
                 onDismiss()
               }}
               onPressIn={dismissPress.onPressIn}
@@ -384,7 +385,7 @@ const styles = StyleSheet.create({
   },
   backButton: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   headerTitle: { fontSize: 19 },
-  headerSub: { fontSize: 11.5, marginTop: 1 },
+  headerSub: { fontSize: 12, marginTop: 1 },
   body: { padding: 16, gap: 16, paddingBottom: 32 },
   introCard: { borderWidth: 1, borderRadius: 16, padding: 16 },
   introRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
@@ -406,14 +407,14 @@ const styles = StyleSheet.create({
   rowTop: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   rowTitle: { flexShrink: 1, fontSize: 15 },
   kindPill: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 },
-  kindText: { fontSize: 10.5 },
+  kindText: { fontSize: 12 },
   rowEvidence: { marginTop: 6, gap: 2 },
   rowEvidenceCount: { fontSize: 12.5 },
-  rowEvidenceDates: { fontSize: 11.5, letterSpacing: 0.1 },
-  rowNote: { fontSize: 11.5, lineHeight: 15, marginTop: 6 },
+  rowEvidenceDates: { fontSize: 12, letterSpacing: 0.1 },
+  rowNote: { fontSize: 12, lineHeight: 15, marginTop: 6 },
   rowBottom: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 12 },
   rowAmount: { fontSize: 16 },
-  rowFrequency: { fontSize: 11.5, marginTop: 2, textTransform: 'capitalize' },
+  rowFrequency: { fontSize: 12, marginTop: 2, textTransform: 'capitalize' },
   rowActions: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   reviewButton: { borderRadius: 999, paddingHorizontal: 16, paddingVertical: 9 },
   reviewText: { fontSize: 13 },

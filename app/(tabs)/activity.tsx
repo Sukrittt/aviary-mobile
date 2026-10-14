@@ -18,10 +18,8 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter, useLocalSearchParams, useFocusEffect, type Href } from "expo-router";
 import * as Haptics from "expo-haptics";
-import { ChevronLeft, ChevronRight, SlidersHorizontal, Trash2, X } from "lucide-react-native";
+import { CaretLeft, CaretRight, SlidersHorizontal, Trash, X } from "@/src/components/shared/icons";
 import Reanimated, { FadeIn, FadeOut, LinearTransition } from "react-native-reanimated";
-import type { ThemeTokens } from "@/src/theme/tokens";
-import { AnimatedTabContent } from "@/src/components/nav/AnimatedTabContent";
 import { Screen } from "@/src/components/ui/Screen";
 import { Chip } from "@/src/components/ui/Chip";
 import { IconButton } from "@/src/components/ui/Button";
@@ -30,7 +28,8 @@ import { useTheme } from "@/src/theme/ThemeProvider";
 import { usePrivacy } from "@/src/context/PrivacyContext";
 import { fontFamily } from "@/src/theme/fonts";
 
-import { categoryEmoji, splitEmoji } from "@/src/lib/emoji";
+import { categoryTint, splitEmoji } from "@/src/lib/emoji";
+import { CategoryIcon } from "@/src/components/shared/CategoryIcon";
 import {
   useExpensesPage,
   useDeleteExpense,
@@ -45,7 +44,7 @@ import { useRefresh } from "@/src/hooks/useRefresh";
 import { SwipeableRow } from "@/src/components/activity/SwipeableRow";
 import { SelectCheck, SelectInset, SelectTint } from "@/src/components/shared/SelectCheck";
 import { DeletingRow } from "@/src/components/activity/DeletingRow";
-import { LoadingCaption } from "@/src/components/shared/LoadingCaption";
+import { ActivitySkeleton } from "@/src/components/shared/TabSkeleton";
 import { OfflineScreen } from "@/src/components/shared/OfflineScreen";
 import { ErrorScreen } from "@/src/components/shared/ErrorScreen";
 import { EmptyState } from "@/src/components/shared/EmptyState";
@@ -101,25 +100,6 @@ function formatRangeFilter(range: DateRange): string | null {
   return null;
 }
 
-// Category avatars cycle through the existing soft-hue tokens (hash of the name) so
-// the flat list reads with the same varied-but-controlled color as Slice's own rows,
-// without inventing a new palette.
-const AVATAR_HUES: ((t: ThemeTokens) => string)[] = [
-  (t) => t.mintSoft,
-  (t) => t.violetSoft,
-  (t) => t.blueSoft,
-  (t) => t.accentSoft,
-  (t) => t.warnSoft,
-  (t) => t.coralSoft,
-];
-
-function avatarColorFor(name: string, tokens: ThemeTokens): string {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++)
-    hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
-  return AVATAR_HUES[hash % AVATAR_HUES.length](tokens);
-}
-
 // Id first: two same-item rows logged in the same second share a timestamp,
 // and selecting (or rendering) one must not stand in for both.
 function keyOf(t: ExpenseRow): string {
@@ -136,6 +116,10 @@ export default function ActivityScreen() {
   const online = useOnline();
 
   const categoriesQ = useCategories();
+  const categoryByName = useMemo(
+    () => new Map((categoriesQ.data ?? []).map((c) => [c.name, c])),
+    [categoriesQ.data],
+  );
   const deleteExpense = useDeleteExpense();
   const duplicateCount = useDuplicates().data?.length ?? 0;
   const [deleteNotice, setDeleteNotice] = useState<{ status?: number } | null>(null);
@@ -222,9 +206,7 @@ export default function ActivityScreen() {
     if (period === "custom") return formatRangeFilter(customRange);
     return null;
   }, [customRange, period, selectedDate]);
-  const categoryFilterLabel = selectedCategory
-    ? `${categoryEmoji(selectedCategory)} ${splitEmoji(selectedCategory).text}`
-    : null;
+  const categoryFilterLabel = selectedCategory ? splitEmoji(selectedCategory).text : null;
   const accountFilterLabel = selectedAccount ? accountName(accountsQ.data, selectedAccount) || "Account" : null;
   const hasActiveFilters = Boolean(timeFilterLabel || categoryFilterLabel || accountFilterLabel);
 
@@ -492,11 +474,7 @@ export default function ActivityScreen() {
   if (!online) return <OfflineScreen />;
 
   if (isLoading) {
-    return (
-      <View style={[styles.center, { backgroundColor: tokens.bg }]}>
-        <LoadingCaption />
-      </View>
-    );
+    return <ActivitySkeleton />;
   }
 
   if (hasError) {
@@ -513,7 +491,7 @@ export default function ActivityScreen() {
   }
 
   return (
-    <AnimatedTabContent>
+    <>
       {deleteNotice && <ExpenseNoticeScreen status={deleteNotice.status} action="delete" onBack={() => setDeleteNotice(null)} />}
       <Screen
         ref={scrollRef}
@@ -529,7 +507,7 @@ export default function ActivityScreen() {
                 }}
               />
               <IconButton
-                icon={Trash2}
+                icon={Trash}
                 color={tokens.coral}
                 accessibilityLabel="Delete selected"
                 onPress={() => {
@@ -694,7 +672,8 @@ export default function ActivityScreen() {
                 );
               }
               const txn = entry.txn;
-              const avatarBg = avatarColorFor(txn.category, tokens);
+              const tint = categoryTint(txn.category, tokens);
+              const cat = categoryByName.get(txn.category);
               const isSelected = selectedKeys.has(keyOf(txn));
               const content = (
                 <Pressable
@@ -708,10 +687,8 @@ export default function ActivityScreen() {
                 >
                   <SelectTint selected={isSelected} style={styles.rowTint} />
                   <SelectCheck selecting={selecting} selected={isSelected} gap={ROW_GAP} inset={SELECT_INSET} />
-                  <View style={[styles.icon, { backgroundColor: avatarBg }]}>
-                    <Text style={{ fontSize: 15 }}>
-                      {categoryEmoji(txn.category)}
-                    </Text>
+                  <View style={[styles.icon, { backgroundColor: tint.bg }]}>
+                    <CategoryIcon name={txn.category} icon={cat?.icon} group={cat?.group} size={16} color={tint.ink} />
                   </View>
                   <View style={{ flex: 1, minWidth: 0 }}>
                     <Text
@@ -798,7 +775,7 @@ export default function ActivityScreen() {
               style={{
                 color: tokens.text2,
                 fontSize: 12,
-                fontFamily: fontFamily.bodyMedium,
+                fontFamily: fontFamily.bodySemiBold,
               }}
             >
               {totalCount} transaction{totalCount !== 1 ? "s" : ""}
@@ -807,7 +784,7 @@ export default function ActivityScreen() {
               style={{
                 color: tokens.text2,
                 fontSize: 12,
-                fontFamily: fontFamily.bodyMedium,
+                fontFamily: fontFamily.bodySemiBold,
               }}
             >
               Total: {formatCurrency(totalSpend, hideAmounts)}
@@ -832,7 +809,7 @@ export default function ActivityScreen() {
                 },
               ]}
             >
-              <Icon icon={ChevronLeft} size={17} color={tokens.text2} />
+              <Icon icon={CaretLeft} size={17} color={tokens.text2} />
             </Pressable>
             <Text
               style={[
@@ -857,7 +834,7 @@ export default function ActivityScreen() {
                 },
               ]}
             >
-              <Icon icon={ChevronRight} size={17} color={tokens.text2} />
+              <Icon icon={CaretRight} size={17} color={tokens.text2} />
             </Pressable>
           </View>
         ) : null}
@@ -1031,9 +1008,7 @@ export default function ActivityScreen() {
                 { color: tokens.text3, fontFamily: fontFamily.bodyMedium },
               ]}
             >
-              {selectedCategory
-                ? `${categoryEmoji(selectedCategory)} ${splitEmoji(selectedCategory).text}`
-                : "View All"}
+              {categoryFilterLabel ?? "View All"}
             </Text>
           </Pressable>
           {accountOptions.length > 0 && (
@@ -1057,7 +1032,7 @@ export default function ActivityScreen() {
           noneLabel="All categories"
         />
       </Screen>
-    </AnimatedTabContent>
+    </>
   );
 }
 
@@ -1096,7 +1071,7 @@ function AppliedFilterChip({
         >
           {label}
         </Text>
-        <X size={13} strokeWidth={2.5} color={tokens.text2} />
+        <X size={13} weight="bold" color={tokens.text2} />
       </Pressable>
     </Reanimated.View>
   );
@@ -1141,7 +1116,6 @@ function mergeByDate(expenses: ExpenseRow[], incomes: IncomeRow[]): ListItem[] {
 
 const styles = StyleSheet.create({
   accountFilter: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 14, marginTop: 4 },
-  center: { flex: 1, alignItems: "center", justifyContent: "center" },
   scrollContent: { gap: 4 },
   scrollContentGrow: { flexGrow: 1 },
   searchRow: {
@@ -1161,7 +1135,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   appliedFiltersLabel: {
-    fontSize: 10,
+    fontSize: 12,
     letterSpacing: 0.7,
   },
   clearFiltersText: { fontSize: 12 },

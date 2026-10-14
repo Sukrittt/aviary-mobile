@@ -7,7 +7,7 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import { runOnJS } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
-import { ArrowLeft } from 'lucide-react-native'
+import { ArrowLeft } from '@/src/components/shared/icons'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { useWrapped } from '@/src/hooks/useWrapped'
@@ -430,7 +430,7 @@ const styles = StyleSheet.create({
   progressFillOrigin: { transformOrigin: 'left' },
   topBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingTop: 10 },
   topBarButtons: { flexDirection: 'row', gap: 8 },
-  topBarLabel: { fontSize: 10, letterSpacing: 2, fontWeight: '800' },
+  topBarLabel: { fontSize: 12, letterSpacing: 2, fontFamily: fontFamily.bodyExtraBold },
   centerIndicator: { position: 'absolute', top: '44%', left: 0, right: 0, alignItems: 'center' },
   indicatorBubble: {
     width: 62,
@@ -454,9 +454,9 @@ const styles = StyleSheet.create({
   },
   pausedLabel: {
     marginTop: 10,
-    fontSize: 11,
+    fontSize: 12,
     letterSpacing: 3,
-    fontWeight: '800',
+    fontFamily: fontFamily.bodyExtraBold,
     color: 'rgba(255,255,255,0.85)',
   },
   iconButton: {

@@ -80,6 +80,8 @@ export interface CategoryRow {
   name: string
   group: string
   alertPcts?: number[]
+  /** The Phosphor icon the user picked (a key of CATEGORY_ICONS), if any. */
+  icon?: string
 }
 
 export interface CategoryMap {

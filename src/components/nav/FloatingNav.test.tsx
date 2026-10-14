@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { act, fireEvent } from '@testing-library/react-native'
 import * as Haptics from 'expo-haptics'
 import { Animated, StyleSheet } from 'react-native'
@@ -7,13 +8,14 @@ import {
   navStateFor,
   nextNavCover,
   type NavCover,
+  type NavRoute,
 } from './FloatingNav'
 
 jest.mock('expo-haptics', () => ({
   selectionAsync: jest.fn(() => Promise.resolve()),
   impactAsync: jest.fn(() => Promise.resolve()),
   notificationAsync: jest.fn(() => Promise.resolve()),
-  ImpactFeedbackStyle: { Light: 'light', Medium: 'medium' },
+  ImpactFeedbackStyle: { Light: 'light', Medium: 'medium', Rigid: 'rigid' },
   NotificationFeedbackType: { Error: 'error' },
 }))
 
@@ -40,8 +42,17 @@ describe('FloatingNav', () => {
     const { getByLabelText } = renderWithProviders(
       <FloatingNav active="index" onSelect={onSelect} onAdd={jest.fn()} />,
     )
-    fireEvent.press(getByLabelText('Envelopes'))
+    fireEvent.press(getByLabelText('Categories'))
     expect(onSelect).toHaveBeenCalledWith('envelopes')
+  })
+
+  it('fills the active tab glyph and leaves the rest regular', () => {
+    const { getByTestId, queryByTestId } = renderWithProviders(
+      <FloatingNav active="activity" onSelect={jest.fn()} onAdd={jest.fn()} />,
+    )
+    expect(getByTestId('phosphor-react-native-receipt-fill')).toBeTruthy()
+    expect(getByTestId('phosphor-react-native-house-regular')).toBeTruthy()
+    expect(queryByTestId('phosphor-react-native-house-fill')).toBeNull()
   })
 
   // Tab bars switch on touch-down; waiting for the finger to lift added ~100ms to every switch.
@@ -78,7 +89,7 @@ describe('FloatingNav', () => {
     const { getByLabelText } = renderWithProviders(
       <FloatingNav active="envelopes" onSelect={jest.fn()} onAdd={jest.fn()} />,
     )
-    expect(getByLabelText('Envelopes').props.accessibilityState.selected).toBe(true)
+    expect(getByLabelText('Categories').props.accessibilityState.selected).toBe(true)
     expect(getByLabelText('Home').props.accessibilityState.selected).toBe(false)
   })
 
@@ -89,14 +100,25 @@ describe('FloatingNav', () => {
     expect(getByLabelText('Log expense').props.accessibilityState.selected).toBe(true)
   })
 
-  // On log-expense the add circle inverts to a white disc on the accent
-  // flood; a ring there would read as a stray gray outline.
-  it('draws no ring around the add circle on the log-expense flood', () => {
+  // A switch is two small hard ticks: one on touch-down, one when the highlight lands.
+  it('ticks on touch-down and again when the highlight lands on the new tab', () => {
+    jest.mocked(Haptics.impactAsync).mockClear()
+    function Nav() {
+      const [active, setActive] = useState<NavRoute>('index')
+      return <FloatingNav active={active} onSelect={setActive} onAdd={jest.fn()} />
+    }
+    const { getByLabelText } = renderWithProviders(<Nav />)
+    fireEvent(getByLabelText('Activity'), 'pressIn')
+    expect(Haptics.impactAsync).toHaveBeenCalledTimes(2)
+    expect(Haptics.impactAsync).toHaveBeenNthCalledWith(1, Haptics.ImpactFeedbackStyle.Rigid)
+    expect(Haptics.impactAsync).toHaveBeenNthCalledWith(2, Haptics.ImpactFeedbackStyle.Rigid)
+  })
+
+  it('hides the highlight on log-expense, where no tab is current', () => {
     const { getByTestId } = renderWithProviders(
       <FloatingNav active={null} addActive onSelect={jest.fn()} onAdd={jest.fn()} />,
     )
-    const ring = StyleSheet.flatten(getByTestId('nav-ring-Log expense').props.style)
-    expect(ring.borderColor).toBe('transparent')
+    expect(StyleSheet.flatten(getByTestId('nav-highlight').props.style).opacity).toBe(0)
   })
 
   it('tapping the add circle while addActive still fires onAdd (submit, not back)', () => {

@@ -1,3 +1,4 @@
+import { fireEvent } from '@testing-library/react-native'
 import { availablePill, EnvelopeRow } from './EnvelopeRow'
 import { lightTokens as t } from '@/src/theme/tokens'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
@@ -25,7 +26,7 @@ const row = (e: Partial<Envelope>) =>
   renderWithProviders(
     <EnvelopeRow
       envelope={{ category: 'Football', group: '', assigned: 0, spent: 0, available: 0, rolledOver: 0, isOverspent: false, spentPct: 0, isCreditCardPayment: false, ...e }}
-      emoji="⚽"
+      icon="SoccerBall"
       hideAmounts={false}
       onMoveMoney={jest.fn()}
       onEditAmount={jest.fn()}
@@ -47,4 +48,13 @@ describe('EnvelopeRow', () => {
     expect(queryByText(/∞/)).toBeNull()
     expect(queryByText(/\/₹0/)).toBeNull()
   })
+})
+
+it('taps when the row opens its sheet', () => {
+  const Haptics = jest.requireActual<typeof import('expo-haptics')>('expo-haptics')
+  const impact = jest.spyOn(Haptics, 'impactAsync').mockResolvedValue()
+  const { getByText } = row({})
+  fireEvent.press(getByText('Football'))
+  expect(impact).toHaveBeenCalledWith(Haptics.ImpactFeedbackStyle.Rigid)
+  impact.mockRestore()
 })

@@ -10,14 +10,14 @@ jest.mock('expo-router', () => ({
 }))
 
 const rows: BreakdownRow[] = [
-  { key: 'Investments', label: 'Investments', emoji: '📈', spent: 40000, assigned: 40000, assignedIsCarried: false, pct: 80 },
-  { key: 'Cook', label: 'Cook', emoji: '🧑‍🍳', spent: 8000, assigned: 8000, assignedIsCarried: false, pct: 16 },
-  { key: 'Travel', label: 'Travel', emoji: '🛵', spent: 2000, assigned: 3000, assignedIsCarried: false, pct: 4 },
+  { key: 'Investments', label: 'Investments', icon: 'TrendUp', spent: 40000, assigned: 40000, assignedIsCarried: false, pct: 80 },
+  { key: 'Cook', label: 'Cook', icon: 'CookingPot', spent: 8000, assigned: 8000, assignedIsCarried: false, pct: 16 },
+  { key: 'Travel', label: 'Travel', icon: 'Scooter', spent: 2000, assigned: 3000, assignedIsCarried: false, pct: 4 },
 ]
 
 const groupRows: BreakdownRow[] = [
-  { key: 'Savings', label: 'Savings', emoji: '💰', spent: 40000, assigned: 40000, assignedIsCarried: false, pct: 80 },
-  { key: 'Everyday', label: 'Everyday', emoji: '🧺', spent: 10000, assigned: 11000, assignedIsCarried: false, pct: 20 },
+  { key: 'Savings', label: 'Savings', icon: 'PiggyBank', spent: 40000, assigned: 40000, assignedIsCarried: false, pct: 80 },
+  { key: 'Everyday', label: 'Everyday', icon: 'Basket', spent: 10000, assigned: 11000, assignedIsCarried: false, pct: 20 },
 ]
 
 const categoryGroupMap = new Map([
@@ -217,14 +217,14 @@ describe('CategoryBreakdown group delta under a partial filter', () => {
   it('sums real previous spend, so a member down to zero keeps the badge finite', () => {
     const categoryRows: BreakdownRow[] = [
       // Nothing this month, ₹1,000 last month: deltaPct -100, the case that used to divide by zero.
-      { key: 'Cook', label: 'Cook', emoji: '', spent: 0, assigned: 0, assignedIsCarried: false, pct: 0, deltaPct: -100, prevSpent: 1000 },
-      { key: 'Travel', label: 'Travel', emoji: '', spent: 3000, assigned: 0, assignedIsCarried: false, pct: 75, deltaPct: 200, prevSpent: 1000 },
-      { key: 'Fuel', label: 'Fuel', emoji: '', spent: 1000, assigned: 0, assignedIsCarried: false, pct: 20, deltaPct: null, prevSpent: 0 },
-      { key: 'Investments', label: 'Investments', emoji: '', spent: 1000, assigned: 0, assignedIsCarried: false, pct: 20, deltaPct: null, prevSpent: 0 },
+      { key: 'Cook', label: 'Cook', icon: null, spent: 0, assigned: 0, assignedIsCarried: false, pct: 0, deltaPct: -100, prevSpent: 1000 },
+      { key: 'Travel', label: 'Travel', icon: null, spent: 3000, assigned: 0, assignedIsCarried: false, pct: 75, deltaPct: 200, prevSpent: 1000 },
+      { key: 'Fuel', label: 'Fuel', icon: null, spent: 1000, assigned: 0, assignedIsCarried: false, pct: 20, deltaPct: null, prevSpent: 0 },
+      { key: 'Investments', label: 'Investments', icon: null, spent: 1000, assigned: 0, assignedIsCarried: false, pct: 20, deltaPct: null, prevSpent: 0 },
     ]
     const groups: BreakdownRow[] = [
-      { key: 'Everyday', label: 'Everyday', emoji: '', spent: 4000, assigned: 0, assignedIsCarried: false, pct: 80, deltaPct: 100, prevSpent: 2000 },
-      { key: 'Savings', label: 'Savings', emoji: '', spent: 1000, assigned: 0, assignedIsCarried: false, pct: 20, deltaPct: null, prevSpent: 0 },
+      { key: 'Everyday', label: 'Everyday', icon: null, spent: 4000, assigned: 0, assignedIsCarried: false, pct: 80, deltaPct: 100, prevSpent: 2000 },
+      { key: 'Savings', label: 'Savings', icon: null, spent: 1000, assigned: 0, assignedIsCarried: false, pct: 20, deltaPct: null, prevSpent: 0 },
     ]
     const screen = renderWithProviders(
       <CategoryBreakdown
@@ -256,13 +256,13 @@ describe('CategoryBreakdown group delta under a partial filter', () => {
     // Snacks spent ₹1,000 last month and nothing now, so it only shows up in
     // the group's prevSpent (₹3,000 = Snacks + Travel + Fuel).
     const categoryRows: BreakdownRow[] = [
-      { key: 'Travel', label: 'Travel', emoji: '', spent: 3000, assigned: 0, assignedIsCarried: false, pct: 60, deltaPct: 200, prevSpent: 1000 },
-      { key: 'Fuel', label: 'Fuel', emoji: '', spent: 1000, assigned: 0, assignedIsCarried: false, pct: 20, deltaPct: 0, prevSpent: 1000 },
-      { key: 'Investments', label: 'Investments', emoji: '', spent: 1000, assigned: 0, assignedIsCarried: false, pct: 20, deltaPct: null, prevSpent: 0 },
+      { key: 'Travel', label: 'Travel', icon: null, spent: 3000, assigned: 0, assignedIsCarried: false, pct: 60, deltaPct: 200, prevSpent: 1000 },
+      { key: 'Fuel', label: 'Fuel', icon: null, spent: 1000, assigned: 0, assignedIsCarried: false, pct: 20, deltaPct: 0, prevSpent: 1000 },
+      { key: 'Investments', label: 'Investments', icon: null, spent: 1000, assigned: 0, assignedIsCarried: false, pct: 20, deltaPct: null, prevSpent: 0 },
     ]
     const groups: BreakdownRow[] = [
-      { key: 'Everyday', label: 'Everyday', emoji: '', spent: 4000, assigned: 0, assignedIsCarried: false, pct: 80, deltaPct: 33, prevSpent: 3000 },
-      { key: 'Savings', label: 'Savings', emoji: '', spent: 1000, assigned: 0, assignedIsCarried: false, pct: 20, deltaPct: null, prevSpent: 0 },
+      { key: 'Everyday', label: 'Everyday', icon: null, spent: 4000, assigned: 0, assignedIsCarried: false, pct: 80, deltaPct: 33, prevSpent: 3000 },
+      { key: 'Savings', label: 'Savings', icon: null, spent: 1000, assigned: 0, assignedIsCarried: false, pct: 20, deltaPct: null, prevSpent: 0 },
     ]
     const screen = renderWithProviders(
       <CategoryBreakdown

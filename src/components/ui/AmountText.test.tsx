@@ -52,6 +52,15 @@ describe('AmountText', () => {
     expect(getByText('₹1,25,000')).toBeTruthy()
   })
 
+  it('shrinks a long numpad entry to fit the screen with `fit`, and leaves short ones alone', () => {
+    const fontSize = (el: ReturnType<ReturnType<typeof renderWithProviders>['getByText']>) =>
+      [el.props.style].flat(Infinity).reduce((n, st) => st?.fontSize ?? n, 0)
+    const long = renderWithProviders(<AmountText value={0} rawText="99,99,99,99,99,99,99,999" size={72} fit />)
+    expect(fontSize(long.getByText('99,99,99,99,99,99,99,999'))).toBeLessThan(72)
+    const short = renderWithProviders(<AmountText value={0} rawText="450" size={72} fit />)
+    expect(fontSize(short.getByText('450'))).toBe(72)
+  })
+
   it('renders negatives with a leading sign', () => {
     const { getByText } = renderWithProviders(<AmountText value={-450} size={20} />)
     expect(getByText('-₹450')).toBeTruthy()
@@ -107,6 +116,21 @@ describe('AmountText', () => {
     expect(timingSpy.mock.calls[0][1].toValue).toBe(0)
 
     timingSpy.mockRestore()
+  })
+
+  it('re-seats rolled digits when the font shrinks under them', () => {
+    // A `fit` hero shrinks as digits are added. A finished roll's offset was in
+    // the old row height, so without a snap the slot stays half a glyph off.
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { gcTime: Infinity } } })
+    // Typing 9s: every slot rolls '9' -> '9' on each keystroke, so the roll
+    // effect's deps never change and only the row height does.
+    const { rerender } = renderWithProviders(<AmountText value={99999} rawText="99,999" size={40} animate />)
+    rerender(wrapWithProviders(<AmountText value={999999} rawText="9,99,999" size={40} animate />, queryClient))
+    const setValue = jest.spyOn(Animated.Value.prototype, 'setValue')
+    rerender(wrapWithProviders(<AmountText value={9999999} rawText="99,99,999" size={20} animate />, queryClient))
+    // Rolled-up slots rest at -rowHeight, now round(20 * 1.2).
+    expect(setValue).toHaveBeenCalledWith(-24)
+    setValue.mockRestore()
   })
 
   it('rolls when digit count shrinks even if the surviving digit coincidentally matches', () => {

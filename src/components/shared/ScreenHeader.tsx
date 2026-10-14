@@ -1,8 +1,6 @@
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { fontFamily } from "@/src/theme/fonts";
-import {
-  type LucideIcon
-} from "lucide-react-native";
+import { type PhosphorIcon } from "@/src/components/shared/icons";
 import { type ReactNode } from "react";
 import {
   Pressable,
@@ -23,7 +21,7 @@ export function ScreenHeader({
   style, titleStyle, leftStyle, includeSafeArea = true,
 }: {
   onLeft?: () => void;
-  leftIcon?: LucideIcon;
+  leftIcon?: PhosphorIcon;
   title: string;
   subtitle?: string;
   right?: ReactNode;
