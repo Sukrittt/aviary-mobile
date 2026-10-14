@@ -255,18 +255,25 @@ function TabPill({
   const index = NAV_ROUTES.findIndex((r) => r.name === active)
   const x = useSharedValue(Math.max(index, 0) * TAB_W)
   const shown = useSharedValue(index >= 0 ? 1 : 0)
+  // Where the highlight was last sent, kept on the JS side. Reading x or
+  // shown back here isn't reliable: a JS write lands on the UI thread
+  // asynchronously and a JS read can return a stale copy, which skipped the
+  // slide and left the highlight stuck on the old tab.
+  const prevIndex = useRef(index)
 
   useEffect(() => {
+    const prev = prevIndex.current
+    prevIndex.current = index
     if (index < 0) {
       // Cancelling ends the slide unfinished, so it never taps out of sight.
       cancelAnimation(x)
       shown.value = withTiming(0, { duration: 160 })
       return
     }
-    // Coming from no highlight (leaving log-expense): appear in place rather than sliding in from wherever it was last.
-    if (shown.value === 0 || reduceMotion) {
+    // Coming from no highlight (leaving log-expense or a pushed screen): appear in place rather than sliding in from wherever it was last.
+    if (prev < 0 || reduceMotion) {
       x.value = index * TAB_W
-    } else if (x.value !== index * TAB_W) {
+    } else if (prev !== index) {
       x.value = withTiming(index * TAB_W, SLIDE, (finished) => {
         if (finished) runOnJS(penTap)()
       })
