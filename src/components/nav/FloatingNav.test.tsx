@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { act, fireEvent } from '@testing-library/react-native'
 import * as Haptics from 'expo-haptics'
 import { Animated, StyleSheet } from 'react-native'
@@ -7,13 +8,14 @@ import {
   navStateFor,
   nextNavCover,
   type NavCover,
+  type NavRoute,
 } from './FloatingNav'
 
 jest.mock('expo-haptics', () => ({
   selectionAsync: jest.fn(() => Promise.resolve()),
   impactAsync: jest.fn(() => Promise.resolve()),
   notificationAsync: jest.fn(() => Promise.resolve()),
-  ImpactFeedbackStyle: { Light: 'light', Medium: 'medium' },
+  ImpactFeedbackStyle: { Light: 'light', Medium: 'medium', Soft: 'soft' },
   NotificationFeedbackType: { Error: 'error' },
 }))
 
@@ -98,14 +100,24 @@ describe('FloatingNav', () => {
     expect(getByLabelText('Log expense').props.accessibilityState.selected).toBe(true)
   })
 
-  // On log-expense the add circle inverts to a white disc on the accent
-  // flood; a ring there would read as a stray gray outline.
-  it('draws no ring around the add circle on the log-expense flood', () => {
+  // A switch is two taps: light on touch-down, soft when the highlight lands.
+  it('taps lightly on touch-down and softly when the highlight lands on the new tab', () => {
+    jest.mocked(Haptics.impactAsync).mockClear()
+    function Nav() {
+      const [active, setActive] = useState<NavRoute>('index')
+      return <FloatingNav active={active} onSelect={setActive} onAdd={jest.fn()} />
+    }
+    const { getByLabelText } = renderWithProviders(<Nav />)
+    fireEvent(getByLabelText('Activity'), 'pressIn')
+    expect(Haptics.impactAsync).toHaveBeenNthCalledWith(1, Haptics.ImpactFeedbackStyle.Light)
+    expect(Haptics.impactAsync).toHaveBeenNthCalledWith(2, Haptics.ImpactFeedbackStyle.Soft)
+  })
+
+  it('hides the highlight on log-expense, where no tab is current', () => {
     const { getByTestId } = renderWithProviders(
       <FloatingNav active={null} addActive onSelect={jest.fn()} onAdd={jest.fn()} />,
     )
-    const ring = StyleSheet.flatten(getByTestId('nav-ring-Log expense').props.style)
-    expect(ring.borderColor).toBe('transparent')
+    expect(StyleSheet.flatten(getByTestId('nav-highlight').props.style).opacity).toBe(0)
   })
 
   it('tapping the add circle while addActive still fires onAdd (submit, not back)', () => {
