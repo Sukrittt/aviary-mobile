@@ -46,6 +46,21 @@ module.exports = defineConfig([
             "No em dashes in user-facing copy — split it into two sentences. See CLAUDE.md's 'voice and copy' section.",
         },
       ],
+      // Metro doesn't tree-shake: a runtime import from the package root bundles
+      // all 1,500 icons in every weight. Types are fine, they're erased.
+      "@typescript-eslint/no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "phosphor-react-native",
+              allowTypeImports: true,
+              message:
+                "Import icons from '@/components/shared/icons' (add a deep import there if it's missing). The package root bundles every icon.",
+            },
+          ],
+        },
+      ],
       "react-hooks/refs": "off",
       "react-hooks/immutability": "off",
       "@typescript-eslint/no-require-imports": [
