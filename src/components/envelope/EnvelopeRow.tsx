@@ -4,7 +4,7 @@ import { View, Text, Pressable, StyleSheet } from 'react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 
-import { splitEmoji } from '@/src/lib/emoji'
+import { categoryTint, splitEmoji } from '@/src/lib/emoji'
 import { CATEGORY_ICON_COMPONENTS } from '@/src/components/shared/CategoryIcon'
 import type { CategoryIconKey } from '@/src/lib/categoryIcons'
 import { parseLocalDate, toLocalDateString } from '@/src/lib/date'
@@ -88,6 +88,7 @@ export function EnvelopeRow({
 
   const pill = availablePill(envelope, tokens)
   const Icon = CATEGORY_ICON_COMPONENTS[icon]
+  const tint = categoryTint(envelope.category, tokens)
   const name = displayName ?? splitEmoji(envelope.category).text
   // Spending with nothing assigned: "₹713/₹0" and "Used ∞" said nothing useful.
   const unbudgeted = envelope.assigned === 0 && envelope.spent > 0
@@ -96,7 +97,9 @@ export function EnvelopeRow({
     <View style={styles.row}>
       <Pressable style={styles.main} onPress={openSheet}>
         <View style={styles.topLine}>
-          <Icon size={14} color={tokens.text2} />
+          <View style={[styles.iconTile, { backgroundColor: tint.bg }]}>
+            <Icon size={14} color={tint.ink} />
+          </View>
           <Text
             style={[styles.name, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}
             numberOfLines={1}
@@ -176,6 +179,7 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
   main: { flex: 1, gap: 6 },
   topLine: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  iconTile: { width: 26, height: 26, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   name: { fontSize: 13, flexShrink: 1 },
   metaLine: { fontSize: 12, marginTop: 2 },
   spentOf: { marginLeft: 'auto', fontSize: 12, fontVariant: ['tabular-nums'] },
