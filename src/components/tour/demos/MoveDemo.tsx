@@ -167,7 +167,7 @@ function SourceRow({
         </View>
         <View style={styles.right}>
           <Text style={{ color: tokens.text, fontFamily: fontFamily.bodySemiBold, fontSize: type.body }}>{available}</Text>
-          <Text style={[styles.kicker, { color: tokens.text3, fontFamily: fontFamily.bodyBold, fontSize: type.micro - 2 }]}>
+          <Text style={[styles.kicker, { color: tokens.text3, fontFamily: fontFamily.bodyBold, fontSize: type.micro }]}>
             AVAILABLE
           </Text>
         </View>

@@ -111,7 +111,7 @@ export function EnvelopeRow({
         </View>
         <ProgressBar pct={envelope.spentPct} over={envelope.isOverspent} />
         {!envelope.isCreditCardPayment && (
-          <Text style={[styles.metaLine, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>
+          <Text style={[styles.metaLine, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>
             {unbudgeted ? 'Not budgeted · ' : ''}Last spent {lastSpentLabel(envelope.lastSpentDate)}
           </Text>
         )}

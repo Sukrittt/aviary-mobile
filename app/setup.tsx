@@ -1664,7 +1664,7 @@ const styles = StyleSheet.create({
     borderStyle: "dashed",
   },
   addRowLabel: { fontSize: 13, fontFamily: fontFamily.bodyBold },
-  microHint: { fontSize: 12, paddingHorizontal: 4, paddingTop: 2 },
+  microHint: { fontSize: 12, fontFamily: fontFamily.bodySemiBold, paddingHorizontal: 4, paddingTop: 2 },
   sectionList: { gap: 16, paddingTop: 12 },
   section: { gap: 8 },
   sectionHeader: {
@@ -1673,8 +1673,8 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 4,
   },
-  sectionTitle: { fontSize: 12, letterSpacing: 1, flex: 1 },
-  sectionCount: { fontSize: 12 },
+  sectionTitle: { fontSize: 12, fontFamily: fontFamily.bodyBold, letterSpacing: 1, flex: 1 },
+  sectionCount: { fontSize: 12, fontFamily: fontFamily.bodySemiBold },
   sectionSubtotal: { fontSize: 13 },
   addPill: {
     alignSelf: "flex-start",
@@ -1706,7 +1706,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.22)",
   },
   ctaPhrase: { textAlign: "center" },
-  ctaHint: { fontSize: 12, textAlign: "center", marginTop: 8, minHeight: 15 },
+  ctaHint: { fontSize: 12, fontFamily: fontFamily.bodySemiBold, textAlign: "center", marginTop: 8, minHeight: 15 },
   pickOwn: {
     alignSelf: "center",
     flexDirection: "row",

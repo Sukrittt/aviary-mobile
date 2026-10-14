@@ -556,5 +556,5 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingVertical: 4,
   },
-  sectionTitle: { fontSize: 12, letterSpacing: 0.5 },
+  sectionTitle: { fontSize: 12, fontFamily: fontFamily.bodyBold, letterSpacing: 0.5 },
 });

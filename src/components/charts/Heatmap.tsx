@@ -106,7 +106,7 @@ function DayCell({ row, col, day, isToday, isFuture, bg, textColor, borderColor,
         mountStyle,
       ]}
     >
-      <Text style={{ color: textColor, fontSize: 12, fontFamily: bold ? fontFamily.bodyBold : undefined }}>{day}</Text>
+      <Text style={{ color: textColor, fontSize: 12, fontFamily: bold ? fontFamily.bodyBold : fontFamily.bodySemiBold }}>{day}</Text>
     </AnimatedPressable>
   )
 }

@@ -217,7 +217,7 @@ const styles = StyleSheet.create({
   title: { fontSize: 14 },
   preview: { fontSize: 12 },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2 },
-  meta: { fontSize: 12 },
+  meta: { fontSize: 12, fontFamily: fontFamily.bodySemiBold },
   dot: { width: 3, height: 3, borderRadius: 1.5 },
   empty: { flex: 1 },
   pager: {

@@ -120,7 +120,7 @@ export function NotifyDemo({ onComplete }: { onComplete: () => void }) {
                 </Text>
                 <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodySemiBold, fontSize: type.micro, lineHeight: 17 }}>{b.body}</Text>
               </View>
-              <Text style={{ color: tokens.text3, fontFamily: fontFamily.bodyBold, fontSize: type.micro - 1 }}>now</Text>
+              <Text style={{ color: tokens.text3, fontFamily: fontFamily.bodyBold, fontSize: type.micro }}>now</Text>
             </Reanimated.View>
           ))
         )}

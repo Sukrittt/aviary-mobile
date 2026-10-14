@@ -135,7 +135,7 @@ export function RolloverDemo({ onComplete }: { onComplete: () => void }) {
                   {
                     color: isOctober && row.left > 0 && !row.creditCard ? tokens.coral : tokens.text3,
                     fontFamily: fontFamily.bodyBold,
-                    fontSize: type.micro - 2,
+                    fontSize: type.micro,
                   },
                 ]}
               >

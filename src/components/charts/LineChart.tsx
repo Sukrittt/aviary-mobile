@@ -83,7 +83,7 @@ export function LineChart({
   }
 
   const p = active != null ? pts[active] : null
-  const axisText = [styles.axis, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]
+  const axisText = [styles.axis, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]
 
   return (
     <View>
