@@ -21,6 +21,7 @@ import { DatePicker } from '@/src/components/shared/DatePicker'
 import { BottomSheet } from '@/src/components/shared/Modal'
 import { CategoryPickerSheet } from '@/src/components/shared/CategoryPickerSheet'
 import { categoryEmoji, splitEmoji } from '@/src/lib/emoji'
+import { suggestPresets } from '@/src/lib/subscriptionPresets'
 
 // House spring, reused from Modal.tsx's SHEET_TRANSITION — animates fields
 // sliding into place when the DatePicker above them opens/closes instead of snapping.
@@ -34,7 +35,7 @@ function str(v: string | string[] | undefined): string {
 
 // Route-param driven per holding-action.tsx's pattern: {service} → edit mode, no params → add.
 export default function SubscriptionModal() {
-  const { currencySymbol } = useCurrency()
+  const { currencySymbol, currencyCode } = useCurrency()
 
   const { tokens } = useTheme()
   const insets = useSafeAreaInsets()
@@ -201,6 +202,19 @@ export default function SubscriptionModal() {
             style={[styles.input, { backgroundColor: tokens.inputBg, borderColor: tokens.border, color: tokens.text, fontFamily: fontFamily.bodyMedium }]}
             autoFocus={!isEdit}
           />
+          {isEdit || isReviewingSuggestion ? null : (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.presetRow}>
+              {suggestPresets(currencyCode, service).map((name) => (
+                <Pressable
+                  key={name}
+                  onPress={() => setService(name)}
+                  style={[styles.chip, { backgroundColor: tokens.pillBg, borderColor: tokens.border }]}
+                >
+                  <Text style={[styles.presetText, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>{name}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          )}
         </View>
 
         <View style={styles.field}>
@@ -379,6 +393,8 @@ const styles = StyleSheet.create({
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: { borderWidth: 1, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8 },
   chipText: { fontSize: 13, textTransform: 'capitalize' },
+  presetRow: { gap: 8 },
+  presetText: { fontSize: 13 },
   categoryHint: { fontSize: 12, lineHeight: 16, marginTop: 2 },
   confirmButton: { borderRadius: 14, paddingVertical: 15, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
   confirmText: { fontSize: 16 },

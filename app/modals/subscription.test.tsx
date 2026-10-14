@@ -79,3 +79,13 @@ it('keeps in-progress edits when the list refetches', () => {
 
   expect(utils.getByDisplayValue('799')).toBeTruthy()
 })
+
+it('suggests services for the currency and fills the name on tap', () => {
+  mockParams = {}
+  const { getByText, getByDisplayValue, queryByText } = renderWithProviders(<SubscriptionModal />)
+
+  expect(getByText('Netflix')).toBeTruthy()
+  fireEvent.press(getByText('Spotify'))
+  expect(getByDisplayValue('Spotify')).toBeTruthy()
+  expect(queryByText('Netflix')).toBeNull()
+})
