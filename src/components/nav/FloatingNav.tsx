@@ -262,6 +262,8 @@ function TabPill({
 
   useEffect(() => {
     if (index < 0) {
+      // A slide cut short by leaving the tabs mustn't tap when it lands out of sight.
+      armed.value = false
       shown.value = withTiming(0, { duration: 160 })
       return
     }
