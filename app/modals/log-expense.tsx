@@ -18,7 +18,6 @@ import { BottomSheet } from "@/src/components/shared/Modal";
 import { AmountText } from "@/src/components/ui/AmountText";
 import { Numpad } from "@/src/components/ui/Numpad";
 import { Nudge } from "@/src/components/ui/Nudge";
-import { Toast } from "@/src/components/ui/Toast";
 import { useAmountEntry } from '@/src/components/ui/useAmountEntry';
 import { clearLogExpenseDraft, getLogExpenseDraft, setLogExpenseDraft } from '@/src/features/log-expense/draft';
 import { evaluateAmount, formatExpression, hasOperator } from '@/src/lib/calcAmount';
@@ -56,7 +55,7 @@ import { IncomeFloodButton } from "@/src/features/log-expense/IncomeFloodButton"
 import { useCachedUser } from "@/src/hooks/useUser";
 import { isHidden } from "@/src/lib/features";
 import { useBounce } from "@/src/hooks/useBounce";
-import Reanimated from "react-native-reanimated";
+import Reanimated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { useCallback,useEffect,useMemo,useRef,useState } from "react";
 import {
 Alert,
@@ -123,7 +122,7 @@ const CAPTURE_TIP_COPY: Record<CaptureTipReason, { title: string; body: string }
 export default function LogExpenseScreen() {
   const { formatAmountInput, formatMoney } = useCurrency()
 
-  const { tokens, space, radius, type } = useTheme();
+  const { tokens, space, radius, type, motion } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -366,10 +365,13 @@ export default function LogExpenseScreen() {
     }
   }, [photo, hasSavedPhoto, photoRemoved, savePhotoAsync]);
 
+  // The warning sits under the amount until the user taps + again, or
+  // changes the amount or category it was about.
+  const warnKey = `${amount}|${category}`;
+  const unusualPending = !!unusual && unusualWarnedFor === warnKey;
   const handleSubmit = useCallback(() => {
     if (!canSubmit) return;
     setError("");
-    const warnKey = `${amount}|${category}`;
     if (unusual && unusualWarnedFor !== warnKey) {
       setUnusualWarnedFor(warnKey);
       setUnusualNudge((n) => n + 1);
@@ -467,7 +469,7 @@ export default function LogExpenseScreen() {
         },
       );
     }
-  }, [canSubmit, unusual, unusualWarnedFor, base, amount, expectedVersion, isEdit, origId, origTimestamp, origItem, origAmountInr, item, savedItem, parsedAmount, date, category, notes, paymentMethod, accountId, accounts, editedDraft, router, addMutate, updateMutate, autoPicked, syncPhoto]);
+  }, [canSubmit, unusual, unusualWarnedFor, warnKey, base, amount, expectedVersion, isEdit, origId, origTimestamp, origItem, origAmountInr, item, savedItem, parsedAmount, date, category, notes, paymentMethod, accountId, accounts, editedDraft, router, addMutate, updateMutate, autoPicked, syncPhoto]);
 
   // Publish only when the action or its visible state changes, and only while
   // focused: a prefilled log-expense (habit nudge) stacks over the launch one,
@@ -564,14 +566,6 @@ export default function LogExpenseScreen() {
         />
       )}
 
-      <Toast
-        trigger={unusualNudge}
-        // The amount and category are already on screen.
-        message={unusual ? `Way above your usual ${formatMoney(Math.round(unusual.typical))}. Tap again to save.` : ""}
-        icon={Warning}
-        style={{ top: insets.top + space.xxxl + space.xl }}
-      />
-
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={[
@@ -581,6 +575,25 @@ export default function LogExpenseScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={[styles.amountWrap, { gap: space.sm }]}>
+          {unusualPending && unusual && (
+            // Typo guard, inline so it reads as part of the amount rather
+            // than a system alert. Gone once the amount or category changes.
+            <Reanimated.View
+              entering={FadeIn.duration(motion.base)}
+              exiting={FadeOut.duration(motion.fast)}
+              accessibilityRole="alert"
+              style={[
+                styles.unusualNote,
+                { backgroundColor: fieldBg, borderRadius: radius.xl, paddingHorizontal: space.md, gap: space.xs },
+              ]}
+            >
+              <Warning size={16} color="#ffffff" />
+              <Text style={{ color: "#ffffff", fontFamily: fontFamily.bodySemiBold, fontSize: type.caption }}>
+                Way above your usual {formatMoney(Math.round(unusual.typical))}. Tap again to save.
+              </Text>
+            </Reanimated.View>
+          )}
+
           <Nudge trigger={nudge} active={missing.includes("amount")}>
           <Animated.View
             style={{
@@ -866,6 +879,7 @@ const styles = StyleSheet.create({
   body: { paddingTop: 8 },
   footer: {},
   amountWrap: { flex: 1, alignItems: "center", justifyContent: "center" },
+  unusualNote: { flexDirection: "row", alignItems: "center", paddingVertical: 8, maxWidth: "90%" },
   itemRow: { justifyContent: "center" },
   itemInput: { paddingHorizontal: 14, paddingVertical: 14 },
   // A fine warm edge and recessed fill mark missing copy without a white box.
