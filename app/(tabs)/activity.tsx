@@ -44,7 +44,7 @@ import { useRefresh } from "@/src/hooks/useRefresh";
 import { SwipeableRow } from "@/src/components/activity/SwipeableRow";
 import { SelectCheck, SelectInset, SelectTint } from "@/src/components/shared/SelectCheck";
 import { DeletingRow } from "@/src/components/activity/DeletingRow";
-import { LoadingCaption } from "@/src/components/shared/LoadingCaption";
+import { ActivitySkeleton } from "@/src/components/shared/TabSkeleton";
 import { OfflineScreen } from "@/src/components/shared/OfflineScreen";
 import { ErrorScreen } from "@/src/components/shared/ErrorScreen";
 import { EmptyState } from "@/src/components/shared/EmptyState";
@@ -474,11 +474,7 @@ export default function ActivityScreen() {
   if (!online) return <OfflineScreen />;
 
   if (isLoading) {
-    return (
-      <View style={[styles.center, { backgroundColor: tokens.bg }]}>
-        <LoadingCaption />
-      </View>
-    );
+    return <ActivitySkeleton />;
   }
 
   if (hasError) {
@@ -1120,7 +1116,6 @@ function mergeByDate(expenses: ExpenseRow[], incomes: IncomeRow[]): ListItem[] {
 
 const styles = StyleSheet.create({
   accountFilter: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 14, marginTop: 4 },
-  center: { flex: 1, alignItems: "center", justifyContent: "center" },
   scrollContent: { gap: 4 },
   scrollContentGrow: { flexGrow: 1 },
   searchRow: {

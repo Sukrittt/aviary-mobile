@@ -36,7 +36,7 @@ import { categoryTint, splitEmoji } from '@/src/lib/emoji'
 import { categoryIconKey, groupIconKey, type CategoryIconKey } from '@/src/lib/categoryIcons'
 import { CategoryIcon } from '@/src/components/shared/CategoryIcon'
 import { CategoryIconPicker } from '@/src/components/shared/CategoryIconPicker'
-import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
+import { EnvelopesSkeleton } from '@/src/components/shared/TabSkeleton'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { BottomSheet } from '@/src/components/shared/Modal'
 import { Icon } from '@/src/components/shared/Icon'
@@ -799,11 +799,7 @@ export default function EnvelopesScreen() {
   if (!online) return <OfflineScreen />
 
   if (isLoading) {
-    return (
-      <View style={[styles.center, { backgroundColor: tokens.bg }]}>
-        <LoadingCaption />
-      </View>
-    )
+    return <EnvelopesSkeleton />
   }
 
   if (hasError) {
@@ -1276,7 +1272,6 @@ function SheetOption({
 }
 
 const styles = StyleSheet.create({
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   metaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, paddingBottom: 12 },
   metaActions: { flexDirection: 'row', gap: 8 },
   scrollContent: { paddingVertical: 4, gap: GROUP_GAP },
