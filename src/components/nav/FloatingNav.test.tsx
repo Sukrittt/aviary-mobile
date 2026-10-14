@@ -15,7 +15,7 @@ jest.mock('expo-haptics', () => ({
   selectionAsync: jest.fn(() => Promise.resolve()),
   impactAsync: jest.fn(() => Promise.resolve()),
   notificationAsync: jest.fn(() => Promise.resolve()),
-  ImpactFeedbackStyle: { Light: 'light', Medium: 'medium', Soft: 'soft' },
+  ImpactFeedbackStyle: { Light: 'light', Medium: 'medium', Rigid: 'rigid' },
   NotificationFeedbackType: { Error: 'error' },
 }))
 
@@ -100,8 +100,8 @@ describe('FloatingNav', () => {
     expect(getByLabelText('Log expense').props.accessibilityState.selected).toBe(true)
   })
 
-  // A switch is two taps: light on touch-down, soft when the highlight lands.
-  it('taps lightly on touch-down and softly when the highlight lands on the new tab', () => {
+  // A switch is two small hard ticks: one on touch-down, one when the highlight lands.
+  it('ticks on touch-down and again when the highlight lands on the new tab', () => {
     jest.mocked(Haptics.impactAsync).mockClear()
     function Nav() {
       const [active, setActive] = useState<NavRoute>('index')
@@ -109,8 +109,9 @@ describe('FloatingNav', () => {
     }
     const { getByLabelText } = renderWithProviders(<Nav />)
     fireEvent(getByLabelText('Activity'), 'pressIn')
-    expect(Haptics.impactAsync).toHaveBeenNthCalledWith(1, Haptics.ImpactFeedbackStyle.Light)
-    expect(Haptics.impactAsync).toHaveBeenNthCalledWith(2, Haptics.ImpactFeedbackStyle.Soft)
+    expect(Haptics.impactAsync).toHaveBeenCalledTimes(2)
+    expect(Haptics.impactAsync).toHaveBeenNthCalledWith(1, Haptics.ImpactFeedbackStyle.Rigid)
+    expect(Haptics.impactAsync).toHaveBeenNthCalledWith(2, Haptics.ImpactFeedbackStyle.Rigid)
   })
 
   it('hides the highlight on log-expense, where no tab is current', () => {

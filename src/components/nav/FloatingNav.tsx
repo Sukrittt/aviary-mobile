@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   View,
   Animated,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -12,7 +13,6 @@ import Reanimated, {
   useSharedValue,
   useAnimatedStyle,
   useDerivedValue,
-  useAnimatedReaction,
   withSpring,
   withTiming,
   interpolateColor,
@@ -110,8 +110,8 @@ const NAV_BOTTOM_GAP = 10
 // Fade above the backdrop so scrolled content dissolves into it instead of
 // being cut off at a hard edge.
 const BACKDROP_FADE = 24
-/** The highlight's slide. Firm, so it lands quickly enough for the second haptic tap to feel like part of the press. */
-const SLIDE_SPRING = { damping: 18, stiffness: 320 }
+/** The highlight's slide: quick and flat, no bounce, so the landing tap follows the press tap closely. */
+const SLIDE = { duration: 110, easing: Easing.out(Easing.cubic) }
 
 /**
  * Floating navigation: one pill holding the four tabs, and the add action as
@@ -119,8 +119,8 @@ const SLIDE_SPRING = { damping: 18, stiffness: 320 }
  * reserves NAV_HEIGHT of bottom padding (see Screen / useNavPadding).
  *
  * The selected tab sits on a highlight that slides along the pill. A tab
- * switch is felt as two taps: a light one on touch-down, a soft one when the
- * highlight lands on the new tab.
+ * switch is felt as two small hard ticks: one on touch-down, one when the
+ * highlight lands on the new tab (see penTap).
  *
  * Add is an action, not a destination, so it lives outside the pill as the
  * one solid accent thing in the bar. It stays in the same spot on every
@@ -237,7 +237,7 @@ export function FloatingNav({
 
 /**
  * The four tabs on one pill, with a highlight behind the selected one that
- * springs across on a switch. Nothing is highlighted off the tabs (log-expense).
+ * slides across on a switch. Nothing is highlighted off the tabs (log-expense).
  */
 function TabPill({
   active,
@@ -255,37 +255,24 @@ function TabPill({
   const index = NAV_ROUTES.findIndex((r) => r.name === active)
   const x = useSharedValue(Math.max(index, 0) * TAB_W)
   const shown = useSharedValue(index >= 0 ? 1 : 0)
-  const target = useSharedValue(x.value)
-  // Set when a slide starts, cleared by the landing tap, so the tap fires
-  // once per switch even if the spring overshoots back across the target.
-  const armed = useSharedValue(false)
 
   useEffect(() => {
     if (index < 0) {
-      // A slide cut short by leaving the tabs mustn't tap when it lands out of sight.
-      armed.value = false
+      // Cancelling ends the slide unfinished, so it never taps out of sight.
+      cancelAnimation(x)
       shown.value = withTiming(0, { duration: 160 })
       return
     }
-    target.value = index * TAB_W
     // Coming from no highlight (leaving log-expense): appear in place rather than sliding in from wherever it was last.
     if (shown.value === 0 || reduceMotion) {
       x.value = index * TAB_W
-    } else if (x.value !== target.value) {
-      armed.value = true
-      x.value = withSpring(index * TAB_W, SLIDE_SPRING)
+    } else if (x.value !== index * TAB_W) {
+      x.value = withTiming(index * TAB_W, SLIDE, (finished) => {
+        if (finished) runOnJS(penTap)()
+      })
     }
     shown.value = withTiming(1, { duration: 160 })
-  }, [index, reduceMotion, x, shown, target, armed])
-
-  useAnimatedReaction(
-    () => armed.value && Math.abs(x.value - target.value) < 1,
-    (landed) => {
-      if (!landed) return
-      armed.value = false
-      runOnJS(landingTap)()
-    },
-  )
+  }, [index, reduceMotion, x, shown])
 
   const highlightStyle = useAnimatedStyle(() => ({ opacity: shown.value, transform: [{ translateX: x.value }] }))
 
@@ -318,9 +305,17 @@ function TabPill({
   )
 }
 
-/** Second half of a tab switch's two-tap haptic, when the highlight lands. */
-function landingTap() {
-  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft).catch(() => {})
+/**
+ * One small, hard tick. A tab switch plays it twice, on touch-down and when
+ * the highlight lands, like two pens dropping on a table. Android's
+ * impactAsync falls back to a buzzy vibrator pattern, so it uses the
+ * system's crisp clock tick instead.
+ */
+function penTap() {
+  const tap = Platform.OS === 'android'
+    ? Haptics.performAndroidHapticsAsync(Haptics.AndroidHaptics.Clock_Tick)
+    : Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Rigid)
+  tap.catch(() => {})
 }
 
 /** A soft ring breathing out from the add circle. Reduced motion keeps it still. */
@@ -450,7 +445,7 @@ function NavTab({
   // still works.
   const firedOnPressIn = useRef(false)
   const fire = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+    penTap()
     onPress()
   }
   return (

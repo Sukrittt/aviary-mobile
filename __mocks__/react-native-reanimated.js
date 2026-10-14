@@ -28,17 +28,6 @@ function useDerivedValue(fn) {
   return { value: fn() }
 }
 
-// Re-checked after every render, firing `react` when the prepared value changes.
-function useAnimatedReaction(prepare, react) {
-  const prev = React.useRef(null)
-  React.useEffect(() => {
-    const current = prepare()
-    if (current === prev.current) return
-    react(current, prev.current)
-    prev.current = current
-  })
-}
-
 function useAnimatedRef() {
   return React.useRef(null)
 }
@@ -115,12 +104,15 @@ module.exports = {
   useAnimatedStyle,
   useAnimatedProps,
   useDerivedValue,
-  useAnimatedReaction,
   useAnimatedRef,
   useAnimatedScrollHandler,
   useReducedMotion: () => false,
   withSpring: identity,
-  withTiming: identity,
+  // Settles at once, so completion callbacks (finished: true) run too.
+  withTiming: (toValue, _config, callback) => {
+    callback?.(true)
+    return toValue
+  },
   withDelay: (_delay, toValue) => toValue,
   withSequence: (...values) => values[values.length - 1],
   withRepeat: (value) => value,
