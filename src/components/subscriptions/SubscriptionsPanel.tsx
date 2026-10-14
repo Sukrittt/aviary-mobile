@@ -28,6 +28,7 @@ import { EmptyState } from "@/src/components/shared/EmptyState";
 import type { ThemeTokens } from "@/src/theme/tokens";
 import { CHART_COLOR_CYCLE } from "@/src/theme/chartColors";
 import type { SubscriptionRow } from "@/src/types";
+import { brandColor } from "@/src/lib/subscriptionPresets";
 import { FORCE_EMPTY_STATE_PREVIEW, emptyForPreview } from "@/src/lib/emptyStatePreview";
 
 interface Props {
@@ -36,55 +37,6 @@ interface Props {
 }
 
 const CHEVRON_SPRING = { damping: 64, stiffness: 600 };
-
-const BRAND_COLORS: Record<string, { solid: string; soft: string }> = {
-  netflix: { solid: "#E50914", soft: "rgba(229, 9, 20, 0.22)" },
-  hotstar: { solid: "#0C3B7C", soft: "rgba(12, 59, 124, 0.22)" },
-  "disney+": { solid: "#0C3B7C", soft: "rgba(12, 59, 124, 0.22)" },
-  prime: { solid: "#00A8E1", soft: "rgba(0, 168, 225, 0.22)" },
-  "amazon prime": { solid: "#00A8E1", soft: "rgba(0, 168, 225, 0.22)" },
-  spotify: { solid: "#1DB954", soft: "rgba(29, 185, 84, 0.22)" },
-  apple: { solid: "#A2AAAD", soft: "rgba(162, 170, 173, 0.22)" },
-  "apple music": { solid: "#FA2D48", soft: "rgba(250, 45, 72, 0.22)" },
-  "apple tv": { solid: "#A2AAAD", soft: "rgba(162, 170, 173, 0.22)" },
-  youtube: { solid: "#FF0000", soft: "rgba(255, 0, 0, 0.22)" },
-  "youtube premium": { solid: "#FF0000", soft: "rgba(255, 0, 0, 0.22)" },
-  google: { solid: "#4285F4", soft: "rgba(66, 133, 244, 0.22)" },
-  "google one": { solid: "#4285F4", soft: "rgba(66, 133, 244, 0.22)" },
-  microsoft: { solid: "#00A4EF", soft: "rgba(0, 164, 239, 0.22)" },
-  office: { solid: "#D83B01", soft: "rgba(216, 59, 1, 0.22)" },
-  "microsoft 365": { solid: "#D83B01", soft: "rgba(216, 59, 1, 0.22)" },
-  notion: { solid: "#FFFFFF", soft: "rgba(255, 255, 255, 0.22)" },
-  slack: { solid: "#4A154B", soft: "rgba(74, 21, 75, 0.22)" },
-  discord: { solid: "#5865F2", soft: "rgba(88, 101, 242, 0.22)" },
-  figma: { solid: "#A259FF", soft: "rgba(162, 89, 255, 0.22)" },
-  canva: { solid: "#00C4CC", soft: "rgba(0, 196, 204, 0.22)" },
-  adobe: { solid: "#FF0000", soft: "rgba(255, 0, 0, 0.22)" },
-  dropbox: { solid: "#0061FF", soft: "rgba(0, 97, 255, 0.22)" },
-  twitch: { solid: "#9146FF", soft: "rgba(145, 70, 255, 0.22)" },
-  hulu: { solid: "#1CE783", soft: "rgba(28, 231, 131, 0.22)" },
-  "hbo max": { solid: "#B537F2", soft: "rgba(181, 55, 242, 0.22)" },
-  max: { solid: "#002BE7", soft: "rgba(0, 43, 231, 0.22)" },
-  jio: { solid: "#0A2F8F", soft: "rgba(10, 47, 143, 0.22)" },
-  jiocinema: { solid: "#0A2F8F", soft: "rgba(10, 47, 143, 0.22)" },
-  airtel: { solid: "#ED1C24", soft: "rgba(237, 28, 36, 0.22)" },
-  zee5: { solid: "#8B2FC9", soft: "rgba(139, 47, 201, 0.22)" },
-  sonyliv: { solid: "#0066CC", soft: "rgba(0, 102, 204, 0.22)" },
-  voot: { solid: "#E4002B", soft: "rgba(228, 0, 43, 0.22)" },
-  github: { solid: "#6e40c9", soft: "rgba(110, 64, 201, 0.22)" },
-  chatgpt: { solid: "#10A37F", soft: "rgba(16, 163, 127, 0.22)" },
-  openai: { solid: "#10A37F", soft: "rgba(16, 163, 127, 0.22)" },
-  mastercard: { solid: "#EB001B", soft: "rgba(235, 0, 27, 0.22)" },
-  visa: { solid: "#1A1F71", soft: "rgba(26, 31, 113, 0.22)" },
-};
-
-function brandColor(service: string): { solid: string; soft: string } | null {
-  const lower = service.toLowerCase();
-  for (const [key, val] of Object.entries(BRAND_COLORS)) {
-    if (lower.includes(key)) return val;
-  }
-  return null;
-}
 
 const SUBSCRIPTION_PHRASES = [
   "Counting your recurring charges…",
