@@ -1631,7 +1631,7 @@ const styles = StyleSheet.create({
   dots: { flexDirection: "row", gap: 6 },
   title: {
     fontSize: 27,
-    fontWeight: "600",
+    fontFamily: fontFamily.displaySemiBold,
     lineHeight: 31,
     marginTop: 16,
     letterSpacing: -0.2,
@@ -1664,7 +1664,7 @@ const styles = StyleSheet.create({
     borderStyle: "dashed",
   },
   addRowLabel: { fontSize: 13, fontFamily: fontFamily.bodyBold },
-  microHint: { fontSize: 10, paddingHorizontal: 4, paddingTop: 2 },
+  microHint: { fontSize: 12, fontFamily: fontFamily.bodySemiBold, paddingHorizontal: 4, paddingTop: 2 },
   sectionList: { gap: 16, paddingTop: 12 },
   section: { gap: 8 },
   sectionHeader: {
@@ -1673,8 +1673,8 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 4,
   },
-  sectionTitle: { fontSize: 11, letterSpacing: 1, flex: 1 },
-  sectionCount: { fontSize: 11 },
+  sectionTitle: { fontSize: 12, fontFamily: fontFamily.bodyBold, letterSpacing: 1, flex: 1 },
+  sectionCount: { fontSize: 12, fontFamily: fontFamily.bodySemiBold },
   sectionSubtotal: { fontSize: 13 },
   addPill: {
     alignSelf: "flex-start",
@@ -1706,7 +1706,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.22)",
   },
   ctaPhrase: { textAlign: "center" },
-  ctaHint: { fontSize: 11, textAlign: "center", marginTop: 8, minHeight: 15 },
+  ctaHint: { fontSize: 12, fontFamily: fontFamily.bodySemiBold, textAlign: "center", marginTop: 8, minHeight: 15 },
   pickOwn: {
     alignSelf: "center",
     flexDirection: "row",
@@ -1763,7 +1763,7 @@ const styles = StyleSheet.create({
   assignName: { flex: 1, fontSize: 14 },
   assignAmount: { fontSize: 15 },
   assignBucket: {
-    fontSize: 10,
+    fontSize: 12,
     borderRadius: 100,
     paddingHorizontal: 8,
     paddingVertical: 2,
@@ -1790,7 +1790,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  splitInfoBody: { fontSize: 13, lineHeight: 18, fontFamily: fontFamily.bodyMedium },
+  splitInfoBody: { fontSize: 13, lineHeight: 18, fontFamily: fontFamily.bodySemiBold },
 
   sheetGrabber: {
     alignSelf: "center",
@@ -1815,10 +1815,11 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
   },
-  remLabelSmall: { fontSize: 10, fontFamily: fontFamily.bodyExtraBold },
+  remLabelSmall: { fontSize: 12, fontFamily: fontFamily.bodyExtraBold },
   remValueSmall: { fontSize: 13 },
   sheetAmount: {
     fontSize: 38,
+    fontVariant: ["tabular-nums"],
     textAlign: "center",
     letterSpacing: -0.4,
     paddingVertical: 4,

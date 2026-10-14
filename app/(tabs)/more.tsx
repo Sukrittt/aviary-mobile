@@ -530,7 +530,7 @@ function MaintenanceChip() {
   const { tokens } = useTheme()
   return (
     <View style={[styles.chip, { backgroundColor: tokens.warnSoft }]}>
-      <Text style={{ color: tokens.warn, fontFamily: fontFamily.bodyBold, fontSize: 11 }}>Under maintenance</Text>
+      <Text style={{ color: tokens.warn, fontFamily: fontFamily.bodyBold, fontSize: 12 }}>Under maintenance</Text>
     </View>
   )
 }
@@ -657,29 +657,29 @@ const styles = StyleSheet.create({
   email: { fontSize: 12, marginTop: 1 },
   section: { gap: 10 },
   sectionHeadRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', paddingHorizontal: 4 },
-  sectionLabel: { fontSize: 11, letterSpacing: 0.5, paddingHorizontal: 4 },
+  sectionLabel: { fontSize: 12, letterSpacing: 0.5, paddingHorizontal: 4 },
   featureGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   featureCard: { width: '47.5%', gap: 8, padding: 16, borderWidth: 1, borderRadius: 20 },
   featureCardDisabled: { opacity: 0.5 },
   featureIcon: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   featureLabel: { fontSize: 14 },
-  featureBlurb: { fontSize: 11, lineHeight: 15 },
+  featureBlurb: { fontSize: 12, lineHeight: 15 },
   dots: { fontSize: 12, letterSpacing: 2, marginBottom: 3 },
   card: { borderWidth: 1, borderRadius: 20, paddingHorizontal: 16 },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14, gap: 12 },
   rowLabel: { fontSize: 14 },
-  rowHint: { fontSize: 11, marginTop: 2 },
+  rowHint: { fontSize: 12, marginTop: 2 },
   divider: { height: StyleSheet.hairlineWidth },
   segmented: { flexDirection: 'row', gap: 3, padding: 3, borderRadius: 100 },
   segment: { borderRadius: 100, paddingHorizontal: 12, paddingVertical: 8 },
-  segmentText: { fontSize: 11 },
+  segmentText: { fontSize: 12 },
   badge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 100 },
-  badgeText: { fontSize: 11 },
+  badgeText: { fontSize: 12 },
   earlyCard: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16, borderWidth: 1, borderRadius: 22 },
   earlyBadge: { alignSelf: 'flex-start', paddingVertical: 3 },
   logoutButton: { alignItems: 'center', paddingVertical: 16 },
   logoutText: { fontSize: 14 },
-  version: { fontSize: 11, textAlign: 'center' },
+  version: { fontSize: 12, textAlign: 'center' },
   versionBlock: { alignItems: 'center', gap: 7 },
   updateLink: { fontSize: 12, textAlign: 'center' },
   sheetTitle: { fontSize: 17, marginBottom: 12 },

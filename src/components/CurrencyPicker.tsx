@@ -133,7 +133,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   selectedCopy: { flex: 1, gap: 3 },
-  selectedEyebrow: { fontSize: 10, letterSpacing: 0.7 },
+  selectedEyebrow: { fontSize: 12, letterSpacing: 0.7 },
   selectedName: { fontSize: 15 },
   selectedCodeText: { fontSize: 14, flexShrink: 0 },
   search: {

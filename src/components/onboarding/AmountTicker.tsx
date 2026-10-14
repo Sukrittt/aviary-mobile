@@ -187,7 +187,7 @@ function DeltaBadge({ tick, delta }: { tick: number; delta: number }) {
       <View style={{ transform: [{ rotate: delta > 0 ? '-90deg' : '90deg' }] }}>
         <Play size={10} color={color} weight="fill" />
       </View>
-      <Animated.Text style={{ color, fontFamily: fontFamily.bodyMedium, fontSize: 11, fontWeight: '500' }}>
+      <Animated.Text style={{ color, fontFamily: fontFamily.bodySemiBold, fontSize: 12 }}>
         {label}
       </Animated.Text>
     </Animated.View>

@@ -83,7 +83,7 @@ export function LineChart({
   }
 
   const p = active != null ? pts[active] : null
-  const axisText = [styles.axis, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]
+  const axisText = [styles.axis, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]
 
   return (
     <View>
@@ -156,7 +156,7 @@ const TIP_WIDTH = 110
 
 const styles = StyleSheet.create({
   axisRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
-  axis: { fontSize: 11 },
+  axis: { fontSize: 12 },
   tip: { position: 'absolute', width: TIP_WIDTH, alignItems: 'center', paddingVertical: 5, borderWidth: 1, borderRadius: 10 },
   tipValue: { fontSize: 12 },
 })

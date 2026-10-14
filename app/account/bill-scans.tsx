@@ -277,7 +277,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   headerTitle: { fontSize: 19 },
-  headerSub: { fontSize: 11.5, marginTop: 1 },
+  headerSub: { fontSize: 12, marginTop: 1 },
   scroll: { flex: 1 },
   body: { padding: 16, gap: 16 },
   heroBlock: { gap: 4 },

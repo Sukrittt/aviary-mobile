@@ -60,7 +60,7 @@ export function InsightCard({ icon, title, subtitle, valueLabel, amount, tone, h
         <Text style={[styles.value, { color: solid, fontFamily: fontFamily.bodyBold }]} numberOfLines={1}>
           {formatCurrency(amount, hideAmounts)}
         </Text>
-        <Text style={[styles.valueLabel, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]} numberOfLines={1}>
+        <Text style={[styles.valueLabel, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]} numberOfLines={1}>
           {valueLabel}
         </Text>
       </View>
@@ -76,5 +76,5 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 12 },
   valueWrap: { alignItems: 'flex-end', gap: 2, maxWidth: 110 },
   value: { fontSize: 14 },
-  valueLabel: { fontSize: 11 },
+  valueLabel: { fontSize: 12 },
 })

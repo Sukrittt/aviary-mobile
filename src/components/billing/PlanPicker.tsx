@@ -203,7 +203,7 @@ function Option({
 
 const styles = StyleSheet.create({
   card: { borderWidth: 1, borderRadius: 24, padding: 18, gap: 18 },
-  eyebrow: { fontSize: 11, letterSpacing: 1.2 },
+  eyebrow: { fontSize: 12, letterSpacing: 1.2 },
   title: { fontSize: 22 },
   sub: { fontSize: 13 },
   option: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1.5, borderRadius: 16, padding: 14 },
@@ -214,9 +214,9 @@ const styles = StyleSheet.create({
   optionDetail: { fontSize: 12 },
   optionPrice: { fontSize: 15 },
   badge: { borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
-  badgeText: { fontSize: 10, letterSpacing: 0.3 },
+  badgeText: { fontSize: 12, letterSpacing: 0.3 },
   benefit: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   tick: { width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
   benefitText: { flex: 1, fontSize: 13, lineHeight: 19 },
-  fine: { fontSize: 11, lineHeight: 16, textAlign: 'center' },
+  fine: { fontSize: 12, lineHeight: 16, textAlign: 'center' },
 })

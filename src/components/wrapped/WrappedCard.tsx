@@ -244,6 +244,7 @@ const styles = StyleSheet.create({
   // Android, so a tight one would cap how big the number can ever render.
   bigNumber: {
     fontSize: 72,
+    fontVariant: ['tabular-nums'],
     letterSpacing: -1.5,
     paddingBottom: 6,
     includeFontPadding: false,

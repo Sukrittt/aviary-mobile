@@ -264,7 +264,7 @@ export function DonutChart({
   if (!nextLayout.length) {
     return (
       <View style={[styles.empty, { width: size, height: size }]}>
-        <Text style={{ color: tokens.text3, fontFamily: fontFamily.bodyMedium, fontSize: 12 }}>
+        <Text style={{ color: tokens.text3, fontFamily: fontFamily.bodySemiBold, fontSize: 12 }}>
           No spending data yet
         </Text>
       </View>

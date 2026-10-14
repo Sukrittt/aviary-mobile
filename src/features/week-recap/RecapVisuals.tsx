@@ -298,6 +298,6 @@ const styles = StyleSheet.create({
   receiptValue: { flexShrink: 1, fontSize: 16, color: RECEIPT_INK, fontFamily: fontFamily.bodyBold },
   receiptRule: { borderTopWidth: 2, borderStyle: 'dashed', borderColor: `${RECEIPT_INK}33`, marginVertical: 4 },
   receiptTotalLabel: { color: RECEIPT_INK, fontFamily: fontFamily.bodyBlack },
-  receiptTotal: { fontSize: 24, fontFamily: fontFamily.displayBold },
+  receiptTotal: { fontSize: 24, fontFamily: fontFamily.displayBold, fontVariant: ['tabular-nums'] },
   confetti: { position: 'absolute', top: 0, left: 0, right: 0, height: 420 },
 })

@@ -780,7 +780,7 @@ export default function ActivityScreen() {
               style={{
                 color: tokens.text2,
                 fontSize: 12,
-                fontFamily: fontFamily.bodyMedium,
+                fontFamily: fontFamily.bodySemiBold,
               }}
             >
               {totalCount} transaction{totalCount !== 1 ? "s" : ""}
@@ -789,7 +789,7 @@ export default function ActivityScreen() {
               style={{
                 color: tokens.text2,
                 fontSize: 12,
-                fontFamily: fontFamily.bodyMedium,
+                fontFamily: fontFamily.bodySemiBold,
               }}
             >
               Total: {formatCurrency(totalSpend, hideAmounts)}
@@ -1141,7 +1141,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   appliedFiltersLabel: {
-    fontSize: 10,
+    fontSize: 12,
     letterSpacing: 0.7,
   },
   clearFiltersText: { fontSize: 12 },

@@ -161,7 +161,7 @@ function ExtraRow({ icon: ExtraIcon, label, pitch, on, onToggle }: { icon: Phosp
 }
 
 const styles = StyleSheet.create({
-  title: { fontSize: 32, fontWeight: '600', lineHeight: 37, letterSpacing: -0.3 },
+  title: { fontSize: 32, lineHeight: 37, letterSpacing: -0.3 },
   blurb: { fontSize: 15, lineHeight: 23, marginTop: 7, maxWidth: 320 },
   list: { gap: 8, paddingTop: 20, paddingBottom: 8 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 14, borderRadius: 18, borderWidth: 1.5 },

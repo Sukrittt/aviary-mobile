@@ -572,7 +572,7 @@ export default function HomeScreen() {
                   style={[styles.ccWrap, { borderTopColor: tokens.border, paddingTop: space.sm, marginTop: space.sm }]}
                 >
                   <View style={styles.ccBadgeRow}>
-                    <Text style={{ fontSize: 9, fontWeight: '600', color: tokens.accent }}>PAYOFF</Text>
+                    <Text style={{ fontSize: 12, fontFamily: fontFamily.bodyBold, color: tokens.accent }}>PAYOFF</Text>
                   </View>
                   <EnvelopeRow
                     envelope={creditCardEnvelope}
@@ -636,7 +636,7 @@ const styles = StyleSheet.create({
   sheetTitle: { fontSize: 16, marginBottom: 8 },
   sheetBtn: { paddingVertical: 12 },
   sheetBtnText: { fontSize: 14 },
-  heroLabel: { fontSize: 10, letterSpacing: 0.6 },
+  heroLabel: { fontSize: 12, letterSpacing: 0.6 },
   slimRta: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14 },
   slimAmount: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   headerMonth: { alignItems: 'center' },

@@ -198,7 +198,7 @@ const styles = StyleSheet.create({
   noneOption: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 14, paddingHorizontal: 16, borderRadius: 14, marginBottom: 4 },
   optionText: { fontSize: 14 },
   groupLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 12, marginBottom: 2, paddingHorizontal: 8 },
-  groupLabel: { fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5 },
+  groupLabel: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5 },
   groupItems: { borderLeftWidth: StyleSheet.hairlineWidth, marginLeft: 8, paddingLeft: 4 },
   recentsSection: { marginBottom: 4 },
   recentsRow: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 8 },

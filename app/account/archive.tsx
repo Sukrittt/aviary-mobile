@@ -966,7 +966,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   headerTitle: { fontSize: 19 },
-  headerSub: { fontSize: 11.5, marginTop: 1 },
+  headerSub: { fontSize: 12, marginTop: 1 },
   restoreAllButton: {
     paddingHorizontal: 13,
     paddingVertical: 8,
@@ -992,7 +992,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   chipText: { fontSize: 12.5 },
-  chipCount: { fontSize: 11 },
+  chipCount: { fontSize: 12 },
   scrollContent: { padding: 16, gap: 9 },
   intro: { fontSize: 12, lineHeight: 17, textAlign: "center" },
   nextCard: {
@@ -1003,9 +1003,9 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
   },
-  nextLabel: { fontSize: 10.5, letterSpacing: 0.9 },
+  nextLabel: { fontSize: 12, letterSpacing: 0.9 },
   nextName: { fontSize: 20, marginTop: 3 },
-  nextNote: { fontSize: 11.5, marginTop: 2 },
+  nextNote: { fontSize: 12, marginTop: 2 },
   nextClock: {
     minWidth: 68,
     borderRadius: 16,
@@ -1017,7 +1017,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   nextClockNum: { fontSize: 20 },
-  nextClockUnit: { fontSize: 9, fontWeight: "800", letterSpacing: 0.6 },
+  nextClockUnit: { fontSize: 12, fontFamily: fontFamily.bodyExtraBold, letterSpacing: 0.6 },
   // Web's .archive-band / .archive-row: a flat divided list, not cards.
   bandLabel: {
     fontSize: 14,
@@ -1039,7 +1039,7 @@ const styles = StyleSheet.create({
   nameRow: { flexDirection: "row", alignItems: "baseline", gap: 8 },
   itemName: { flex: 1, fontSize: 14.5 },
   itemAmount: { fontSize: 13.5 },
-  itemContext: { fontSize: 11.5, marginTop: 2 },
+  itemContext: { fontSize: 12, marginTop: 2 },
   cardBottom: { flexDirection: "row", alignItems: "center", gap: 8 },
   daysPill: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999 },
   daysText: { fontSize: 12 },
@@ -1077,9 +1077,9 @@ const styles = StyleSheet.create({
   },
   pageStatus: { minWidth: 92, alignItems: "center", gap: 1 },
   pageLabel: { fontSize: 12.5 },
-  pageRange: { fontSize: 10.5 },
+  pageRange: { fontSize: 12 },
   footnote: {
-    fontSize: 11,
+    fontSize: 12,
     textAlign: "center",
     lineHeight: 16,
     paddingTop: 8,
