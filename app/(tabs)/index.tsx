@@ -217,7 +217,7 @@ export default function HomeScreen() {
   const allGroupsCollapsed = allGroupNames.length > 0 && allGroupNames.every((g) => collapsedGroups.has(g))
 
   function toggleGroup(group: string) {
-    Haptics.selectionAsync().catch(() => {})
+    tap()
     setCollapsedGroups((prev) => {
       const next = new Set(prev)
       if (next.has(group)) next.delete(group)

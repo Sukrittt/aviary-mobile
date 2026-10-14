@@ -1,3 +1,4 @@
+import { fireEvent } from '@testing-library/react-native'
 import { availablePill, EnvelopeRow } from './EnvelopeRow'
 import { lightTokens as t } from '@/src/theme/tokens'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
@@ -47,4 +48,13 @@ describe('EnvelopeRow', () => {
     expect(queryByText(/∞/)).toBeNull()
     expect(queryByText(/\/₹0/)).toBeNull()
   })
+})
+
+it('taps when the row opens its sheet', () => {
+  const Haptics = jest.requireActual<typeof import('expo-haptics')>('expo-haptics')
+  const impact = jest.spyOn(Haptics, 'impactAsync').mockResolvedValue()
+  const { getByText } = row({})
+  fireEvent.press(getByText('Football'))
+  expect(impact).toHaveBeenCalledWith(Haptics.ImpactFeedbackStyle.Rigid)
+  impact.mockRestore()
 })
