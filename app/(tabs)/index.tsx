@@ -33,7 +33,7 @@ import {
 } from '@/src/lib/envelope'
 
 import { EMPTY } from '@/src/lib/constants'
-import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
+import { HomeSkeleton } from '@/src/components/shared/TabSkeleton'
 import { useRefresh } from '@/src/hooks/useRefresh'
 import { useCollapsedGroups } from '@/src/hooks/useCollapsedGroups'
 import { useDismissedRolloverBanner } from '@/src/hooks/useDismissedRolloverBanner'
@@ -283,11 +283,7 @@ export default function HomeScreen() {
   const hasError = !FORCE_EMPTY_STATE_PREVIEW && [budgetsQ, expensesQ, categoriesQ, groupsQ].some((q) => q.error && q.data === undefined)
 
   if (isLoading) {
-    return (
-      <View style={[styles.center, { backgroundColor: tokens.bg }]}>
-        <LoadingCaption />
-      </View>
-    )
+    return <HomeSkeleton />
   }
 
   // Offline blocks the whole screen, not just this one query error — a single
@@ -638,7 +634,6 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   appIconButton: { width: 40, height: 40 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   hero: { alignItems: 'center', gap: 6 },
   incomePill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 6, marginTop: 4 },
   sheetTitle: { fontSize: 16, marginBottom: 8 },
