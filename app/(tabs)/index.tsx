@@ -44,6 +44,7 @@ import { EnvelopeGroup } from '@/src/components/envelope/EnvelopeGroup'
 import { EnvelopeRow } from '@/src/components/envelope/EnvelopeRow'
 import { Screen } from '@/src/components/ui/Screen'
 import { Card } from '@/src/components/ui/Card'
+import { Chip } from '@/src/components/ui/Chip'
 import { AnimatedPressable, IconButton, usePressSpring } from '@/src/components/ui/Button'
 import { AmountText } from '@/src/components/ui/AmountText'
 import { OfflineScreen } from '@/src/components/shared/OfflineScreen'
@@ -533,11 +534,7 @@ export default function HomeScreen() {
                 Categories
               </Text>
               {!envelopesEmpty && (
-                <Pressable onPress={toggleCollapseAll} accessibilityRole="button" hitSlop={8}>
-                  <Text style={{ color: tokens.accentInk, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>
-                    {allGroupsCollapsed ? 'Expand all' : 'Collapse all'}
-                  </Text>
-                </Pressable>
+                <Chip label={allGroupsCollapsed ? 'Expand all' : 'Collapse all'} onPress={toggleCollapseAll} />
               )}
             </View>
             <View style={[{ marginTop: space.xs }, envelopesEmpty && styles.emptyEnvelopesBody]}>
