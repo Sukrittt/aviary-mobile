@@ -115,16 +115,27 @@ export default function IdeasScreen() {
         </Text>
 
         <View style={styles.toolbar}>
-          <View style={styles.chips}>
-            <Chip label="Top" selected={sort === 'top'} onPress={() => setSort('top')} />
-            <Chip label="New" selected={sort === 'new'} onPress={() => setSort('new')} />
+          <View style={styles.tabs} accessibilityRole="tablist">
+            {(['top', 'new'] as const).map((s) => (
+              <Pressable
+                key={s}
+                onPress={() => setSort(s)}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: sort === s }}
+                style={[styles.tab, { borderBottomColor: sort === s ? tokens.accentInk : 'transparent' }]}
+              >
+                <Text style={[styles.tabText, { color: sort === s ? tokens.text : tokens.text3, fontFamily: fontFamily.bodyBold }]}>
+                  {s === 'top' ? 'Top' : 'New'}
+                </Text>
+              </Pressable>
+            ))}
           </View>
           <Button label="Pitch an idea" icon={Plus} size="small" onPress={() => setAdding(true)} />
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
-          <Chip label="All" selected={status === null} onPress={() => setStatus(null)} />
+          <Chip label="All" soft selected={status === null} onPress={() => setStatus(null)} />
           {STATUSES.map((s) => (
-            <Chip key={s} label={STATUS_LABEL[s]} selected={status === s} onPress={() => setStatus(s)} />
+            <Chip key={s} label={STATUS_LABEL[s]} soft selected={status === s} onPress={() => setStatus(s)} />
           ))}
         </ScrollView>
 
@@ -274,6 +285,9 @@ const styles = StyleSheet.create({
   intro: { fontSize: 13, lineHeight: 18 },
   toolbar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   chips: { flexDirection: 'row', gap: 8 },
+  tabs: { flexDirection: 'row', gap: 20 },
+  tab: { paddingVertical: 6, borderBottomWidth: 2 },
+  tabText: { fontSize: 16 },
   note: { fontSize: 13, textAlign: 'center', marginTop: 12 },
   card: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderRadius: 20, paddingVertical: 14, paddingHorizontal: 16 },
   meta: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
