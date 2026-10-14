@@ -4,6 +4,8 @@ import { getUser } from '@/src/api/account'
 import { CurrencyScope } from './CurrencyContext'
 
 export function CurrencyProvider({ enabled, initialCurrency = 'INR', children }: { initialCurrency?: string; enabled: boolean; children: ReactNode }) {
-  const profile = useQuery({ queryKey: ['user'], queryFn: getUser, enabled, staleTime: 30_000, refetchOnWindowFocus: true })
+  // retry: false matches app/_layout.tsx's onboarding check, which shares this
+  // request on boot and fails open straight away rather than after a retry.
+  const profile = useQuery({ queryKey: ['user'], queryFn: getUser, enabled, staleTime: 30_000, refetchOnWindowFocus: true, retry: false })
   return <CurrencyScope code={enabled ? profile.data?.currencyCode ?? initialCurrency : 'INR'}>{children}</CurrencyScope>
 }

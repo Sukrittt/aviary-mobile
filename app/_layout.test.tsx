@@ -145,6 +145,18 @@ it('does not retain cache timers after the layout is cleaned up', async () => {
 })
 
 describe('RootLayout', () => {
+  it('lands a returning user from the restored profile without waiting on /api/user, and asks for it once', async () => {
+    mockFontsLoaded = true
+    mockInitAccessMode.mockResolvedValue('real')
+    mockGetUser.mockReturnValue(new Promise(() => {}))
+    testClients[0].setQueryData(['user'], { email: 'a@b.com', emailVerified: true, onboardedAt: '2026-01-01T00:00:00.000Z' })
+
+    const { findByTestId } = render(<RootLayout />)
+    expect(await findByTestId('screen:modals/log-expense')).toBeTruthy()
+    // CurrencyProvider's ['user'] query and the onboarding check share one request.
+    expect(mockGetUser).toHaveBeenCalledTimes(1)
+  })
+
   it('keeps the cache restored from disk when the saved session is restored, and clears it on a new sign-in', async () => {
     const notifySignIn = () => (accessMode.subscribe as jest.Mock).mock.calls.forEach(([fn]) => fn('real'))
     mockInitAccessMode.mockImplementation(async () => {
