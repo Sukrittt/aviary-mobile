@@ -22,6 +22,7 @@ import { useBalanceStatus } from "@/src/hooks/useBalanceCheck";
 import { useRefresh } from "@/src/hooks/useRefresh";
 import { ACCOUNT_TYPE_LABEL, accountErrorMessage } from "@/src/lib/accounts";
 import type { AccountRow, AccountType } from "@/src/types";
+import { tap } from "@/src/lib/haptics";
 
 const LOADING_PHRASES = ["Opening your wallet…", "Shaking the piggy bank…", "Shuffling your cards…", "Counting the coin jar…"];
 const MOUNT_DELAY = 100;
@@ -74,7 +75,7 @@ export default function AccountsScreen() {
     update.mutate(
       { id: a.id, updates: { archived: false } },
       {
-        onSuccess: () => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {}),
+        onSuccess: () => tap(),
         onError: (err) => {
           buzzError();
           Alert.alert("Couldn't restore this", accountErrorMessage(err));

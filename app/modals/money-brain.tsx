@@ -49,6 +49,7 @@ import { useQuery } from '@tanstack/react-query'
 import { getSystemStatus } from '@/src/api/systemStatus'
 import { AiAllowanceScreen, AiUnavailableScreen } from '@/src/components/shared/AiUnavailableScreen'
 import { FORCE_EMPTY_STATE_PREVIEW } from '@/src/lib/emptyStatePreview'
+import { tap } from '@/src/lib/haptics'
 
 // Reveal cascade for the first paint of loaded brief content — see Heatmap.tsx
 // for the same shared-value-driven pattern and why `entering` isn't used here.
@@ -118,7 +119,7 @@ function SendButton({ disabled, onPress }: { disabled: boolean; onPress: () => v
         onPressIn={bounce.onPressIn}
         onPressOut={bounce.onPressOut}
         onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+          tap()
           bounce.kick()
           onPress()
         }}

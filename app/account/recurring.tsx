@@ -12,7 +12,6 @@ import {
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ArrowLeft, CaretRight, Plus, ArrowsClockwise } from "@/src/components/shared/icons";
-import * as Haptics from "expo-haptics";
 import Reanimated from "react-native-reanimated";
 import { OfflineScreen } from "@/src/components/shared/OfflineScreen";
 import { useOnline } from "@/src/lib/netStatus";
@@ -37,6 +36,7 @@ import { CHART_COLOR_CYCLE } from "@/src/theme/chartColors";
 import type { RecurringExpenseRow } from "@/src/types";
 import { EmptyState } from "@/src/components/shared/EmptyState";
 import { FORCE_EMPTY_STATE_PREVIEW, emptyForPreview } from "@/src/lib/emptyStatePreview";
+import { tap } from "@/src/lib/haptics";
 
 const LOADING_PHRASES = [
   "Checking what repeats…",
@@ -451,7 +451,7 @@ function FindRecurringEntry({ style }: { style?: StyleProp<ViewStyle> }) {
     <Reanimated.View style={[press.style, style]}>
       <Pressable
         onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+          tap();
           router.push("/account/recurring-suggestions");
         }}
         onPressIn={press.onPressIn}

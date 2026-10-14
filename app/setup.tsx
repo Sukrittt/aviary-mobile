@@ -65,6 +65,7 @@ import { completeOnboarding } from "@/src/api/billing";
 import { signalOnboarded } from "@/src/api/onboardingSignal";
 import { DEFAULT_ALERT_PCTS } from "@/src/lib/alerts";
 import { startTimer, track } from "@/src/lib/analytics";
+import { tap } from "@/src/lib/haptics";
 
 // SetupWizard.dc.html — currency → income → done, on a starter budget (the
 // pre-checked groups and categories, income split across them). "Pick my own"
@@ -785,7 +786,7 @@ function CurrencyWizard({
   };
 
   const pressPrimaryCta = () => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    tap();
     next();
   };
 

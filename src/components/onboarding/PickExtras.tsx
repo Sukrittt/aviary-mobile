@@ -9,6 +9,7 @@ import { Alert } from '@/src/components/ui/AlertHost'
 import { useUser, useUpdateUser } from '@/src/hooks/useUser'
 import { HIDEABLE_FEATURES, OPT_IN_FEATURES, hiddenFeatures, type HideableFeature } from '@/src/lib/features'
 import { track } from '@/src/lib/analytics'
+import { tap } from '@/src/lib/haptics'
 
 /** One line each for OPT_IN_FEATURES, in the order they're offered. */
 export const EXTRAS: { key: HideableFeature; icon: PhosphorIcon; pitch: string }[] = [
@@ -48,7 +49,7 @@ export function PickExtras({ onDone }: { onDone: () => void }) {
   // Waits for the save before leaving: setup unmounts on onDone, which would drop a failure silently.
   const finish = async () => {
     if (saving) return
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+    tap()
     setSaving(true)
     // Saved even when nothing's picked, so the choice sticks whatever the account's age.
     const coreHidden = hiddenFeatures(user).filter((k) => !OPT_IN_FEATURES.includes(k))

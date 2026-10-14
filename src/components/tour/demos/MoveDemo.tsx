@@ -8,6 +8,7 @@ import { fontFamily } from '@/src/theme/fonts'
 
 import { SectionLabel, ResultCard } from '@/src/components/tour/parts'
 import { MOVE_AMOUNT, MOVE_IN_ENVELOPE, MOVE_NEED, MOVE_SOURCES } from '@/src/components/tour/content'
+import { tap } from '@/src/lib/haptics'
 
 /** Chapter 3: cover a shortfall by borrowing from an envelope with slack. */
 export function MoveDemo({ onComplete }: { onComplete: () => void }) {
@@ -87,7 +88,7 @@ export function MoveDemo({ onComplete }: { onComplete: () => void }) {
               No money left your bank. Only the plan changed, and that is the whole trick.
             </Text>
             <Pressable accessibilityRole="button" onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+                tap()
                 setMoved(null)
               }}
               hitSlop={8}>

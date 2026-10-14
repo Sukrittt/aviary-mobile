@@ -27,6 +27,7 @@ import { formatDateShort } from "@/src/lib/format";
 import { toLocalDateString } from "@/src/lib/date";
 import { currentMonthKey, monthLabel } from "@/src/lib/envelope";
 import type { AccountRow, IncomeRow, RecurringIncomeRow } from "@/src/types";
+import { tap } from "@/src/lib/haptics";
 
 const LOADING_PHRASES = ["Counting what comes in…", "Checking paydays…", "Almost there…"];
 const CADENCE_LABELS: Record<string, string> = { daily: "Every day", weekly: "Every week", monthly: "Every month", yearly: "Every year" };
@@ -314,7 +315,7 @@ function ScheduleItem({ row, index, accounts }: { row: RecurringIncomeRow; index
       <Reanimated.View style={press.style}>
         <Pressable
           onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+            tap();
             router.push(`/modals/recurring-income?id=${encodeURIComponent(row.id)}`);
           }}
           onPressIn={press.onPressIn}

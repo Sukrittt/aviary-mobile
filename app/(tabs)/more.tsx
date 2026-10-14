@@ -37,6 +37,7 @@ import type { WrappedStatus } from '@/src/api/wrapped'
 import appJson from '@/app.json'
 import { isVersionNewer } from '@/src/lib/version'
 import { hiddenFeatures, isHidden, OPT_IN_FEATURES } from '@/src/lib/features'
+import { tap } from '@/src/lib/haptics'
 
 const THEME_OPTIONS = [
   { value: 'light', label: 'Light' },
@@ -447,7 +448,7 @@ export default function MoreScreen() {
 
           <Pressable
             onPress={async () => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+              tap()
               // A queued offline expense lives only in this device's AsyncStorage,
               // namespaced by user id — signing out doesn't delete it (so signing
               // back in as the same person recovers it), but signing out and back

@@ -3,7 +3,6 @@ import { useMemo, useState } from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { CaretRight } from "@/src/components/shared/icons";
-import * as Haptics from "expo-haptics";
 import Reanimated, {
   FadeIn,
   FadeOut,
@@ -30,6 +29,7 @@ import { CHART_COLOR_CYCLE } from "@/src/theme/chartColors";
 import type { SubscriptionRow } from "@/src/types";
 import { brandColor } from "@/src/lib/subscriptionPresets";
 import { FORCE_EMPTY_STATE_PREVIEW, emptyForPreview } from "@/src/lib/emptyStatePreview";
+import { tap } from "@/src/lib/haptics";
 
 interface Props {
   subscriptions: SubscriptionRow[];
@@ -200,9 +200,7 @@ function SubscriptionRowItem({
     <Reanimated.View style={press.style}>
       <Pressable
         onPress={() => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(
-            () => {},
-          );
+          tap();
           onPress();
         }}
         onPressIn={press.onPressIn}
@@ -259,9 +257,7 @@ function SubscriptionRowItem({
             <Pressable
               hitSlop={8}
               onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(
-                  () => {},
-                );
+                tap();
                 onViewTransactions();
               }}
             >

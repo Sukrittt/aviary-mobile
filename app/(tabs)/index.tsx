@@ -9,7 +9,7 @@ import { useRouter, useNavigation, useFocusEffect } from 'expo-router'
 import { CaretRight, ChartLine } from '@/src/components/shared/icons'
 import Reanimated, { FadeIn, FadeInDown, FadeOut, LinearTransition } from 'react-native-reanimated'
 import * as Haptics from 'expo-haptics'
-import { rippleHaptic } from '@/src/lib/haptics'
+import { rippleHaptic, tap } from '@/src/lib/haptics'
 import { AnimatedTabContent } from '@/src/components/nav/AnimatedTabContent'
 import { Icon } from '@/src/components/shared/Icon'
 import { SlideStrip } from '@/src/components/shared/SlideStrip'
@@ -346,7 +346,7 @@ export default function HomeScreen() {
             accessibilityLabel="Ready to Assign options"
             accessibilityHint="Everything's assigned. Change or add income, or set Ready to Assign"
             onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+              tap()
               setIncomeSheetOpen(true)
             }}
             onPressIn={heroPress.onPressIn}
@@ -377,7 +377,7 @@ export default function HomeScreen() {
               accessibilityLabel="Ready to Assign options"
               accessibilityHint="Change or add income, or set Ready to Assign"
               onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+                tap()
                 setIncomeSheetOpen(true)
               }}
               onPressIn={heroPress.onPressIn}
@@ -399,7 +399,7 @@ export default function HomeScreen() {
             <AnimatedPressable
               accessibilityRole="button"
               onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+                tap()
                 if (envelopeState.income === 0) {
                   router.push(changeIncomeHref)
                 } else setIncomeSheetOpen(true)

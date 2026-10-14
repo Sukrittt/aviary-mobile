@@ -25,6 +25,7 @@ import { RolloverDemo } from '@/src/components/tour/demos/RolloverDemo'
 import { InsightsDemo } from '@/src/components/tour/demos/InsightsDemo'
 import { NotifyDemo } from '@/src/components/tour/demos/NotifyDemo'
 import { ExtrasList } from '@/src/components/tour/demos/ExtrasList'
+import { tap } from '@/src/lib/haptics'
 
 type View3 = 'hub' | 'chapter' | 'done'
 
@@ -112,7 +113,7 @@ export default function GuidedTourScreen() {
           accessibilityRole="button"
           accessibilityLabel={view === 'chapter' ? 'Back to chapters' : 'Close'}
           onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+            tap()
             if (view === 'chapter') setView('hub')
             else exitTour()
           }}
@@ -131,7 +132,7 @@ export default function GuidedTourScreen() {
         </View>
         {view !== 'done' && (
           <Pressable accessibilityRole="button" onPress={() => {
-              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+              tap()
               exitTour()
             }}
             hitSlop={12}>
@@ -192,7 +193,7 @@ export default function GuidedTourScreen() {
               <Pressable
                 accessibilityRole="button"
                 onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+                  tap()
                   openReal(current.href)
                 }}
                 style={[
@@ -246,7 +247,7 @@ export default function GuidedTourScreen() {
               }}
             />
             <Pressable accessibilityRole="button" onPress={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+                tap()
                 setView('hub')
               }}
               hitSlop={8} style={styles.centerLink}>
@@ -336,7 +337,7 @@ function Hub({
               <Pressable
                 accessibilityRole="button"
                 onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+                  tap()
                   onOpen(i)
                 }}
                 style={[
@@ -447,7 +448,7 @@ function Done({
                 {c.title}
               </Text>
               <Pressable accessibilityRole="button" onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+                  tap()
                   onOpen(i)
                 }}
                 hitSlop={8}>
@@ -463,7 +464,7 @@ function Done({
       <PopIn play delay={160 + CHAPTERS.length * 60} style={{ width: '100%', gap: space.sm }}>
         <Button label="Back to my money" onPress={onFinish} />
         <Pressable accessibilityRole="button" onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+            tap()
             onStartOver()
           }}
           hitSlop={8} style={styles.centerLink}>

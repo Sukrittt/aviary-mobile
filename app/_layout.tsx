@@ -17,6 +17,7 @@ import { identifyUser,initAnalytics,trackScreen } from '@/src/lib/analytics'
 import { clearCategoryCache,readCategoryCache } from '@/src/lib/categoryCache'
 import { clearGroupCache,readGroupCache } from '@/src/lib/groupCache'
 import { initPurchases } from '@/src/lib/purchases'
+import { tap } from '@/src/lib/haptics'
 import {
 addNotificationResponseListener,addPushTokenListener,checkColdStartNotification,configureNotificationHandler,
 registerForPushNotificationsAsync,unregisterDevicePushToken
@@ -297,6 +298,16 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
     return () => clearTimeout(timer)
   }, [resolving])
 
+  const showSplash = splashUp || resolving || exchanging
+  // One tap as the launch splash lifts, so the app lands under your thumb.
+  // Only the first time: a later sign-in re-raises the overlay silently.
+  const splashTapped = useRef(false)
+  useEffect(() => {
+    if (showSplash || splashTapped.current) return
+    splashTapped.current = true
+    tap()
+  }, [showSplash])
+
   const logExpenseAnimation = pathname === '/loading' || pathname === '/setup' ? 'none' : 'fade'
 
   // The native splash only covers the pre-JS gap: it hides as soon as fonts
@@ -452,7 +463,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
       </Stack>
       <LogExpenseNavigation />
       {splashUp ? null : <MaintenanceBanner />}
-      {splashUp || resolving || exchanging ? <View style={StyleSheet.absoluteFill}><BirdLandingSplash /></View> : null}
+      {showSplash ? <View style={StyleSheet.absoluteFill}><BirdLandingSplash /></View> : null}
       <AlertHost />
       {/* Same gate as the (tabs) Stack.Protected block above: fires the same
           budgets/expenses queries those screens already fetch, so it must only

@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   View,
   Animated,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -30,6 +29,7 @@ import { useInvalidFeedback } from '@/src/components/ui/useInvalidFeedback'
 import { AddCircleLoad, AddCircleDone } from './AddCircleAnim'
 import type { IconWeight } from '@/src/components/shared/icons'
 import { HomeGlyph, ActivityGlyph, EnvelopeGlyph, ProfileGlyph, PlusGlyph, type NavIconComponent } from './NavIcons'
+import { tap } from '@/src/lib/haptics'
 
 const AnimatedPressable = Reanimated.createAnimatedComponent(Pressable)
 
@@ -120,7 +120,7 @@ const SLIDE = { duration: 110, easing: Easing.out(Easing.cubic) }
  *
  * The selected tab sits on a highlight that slides along the pill. A tab
  * switch is felt as two small hard ticks: one on touch-down, one when the
- * highlight lands on the new tab (see penTap).
+ * highlight lands on the new tab (see `tap` in src/lib/haptics).
  *
  * Add is an action, not a destination, so it lives outside the pill as the
  * one solid accent thing in the bar. It stays in the same spot on every
@@ -275,7 +275,7 @@ function TabPill({
       x.value = index * TAB_W
     } else if (prev !== index) {
       x.value = withTiming(index * TAB_W, SLIDE, (finished) => {
-        if (finished) runOnJS(penTap)()
+        if (finished) runOnJS(tap)()
       })
     }
     shown.value = withTiming(1, { duration: 160 })
@@ -310,19 +310,6 @@ function TabPill({
       ))}
     </View>
   )
-}
-
-/**
- * One small, hard tick. A tab switch plays it twice, on touch-down and when
- * the highlight lands, like two pens dropping on a table. Android's
- * impactAsync falls back to a buzzy vibrator pattern, so it uses the
- * system's crisp clock tick instead.
- */
-function penTap() {
-  const tap = Platform.OS === 'android'
-    ? Haptics.performAndroidHapticsAsync(Haptics.AndroidHaptics.Clock_Tick)
-    : Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Rigid)
-  tap.catch(() => {})
 }
 
 /** A soft ring breathing out from the add circle. Reduced motion keeps it still. */
@@ -452,7 +439,7 @@ function NavTab({
   // still works.
   const firedOnPressIn = useRef(false)
   const fire = () => {
-    penTap()
+    tap()
     onPress()
   }
   return (
@@ -524,7 +511,7 @@ function AddDisc({
         pressScale.value = withSpring(1, motion.spring)
       }}
       onPress={() => {
-        if (pressHaptic) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+        if (pressHaptic) tap()
         onPress()
       }}
       onLongPress={

@@ -7,6 +7,7 @@ import { fontFamily } from '@/src/theme/fonts'
 import { AnimatedPressable, Button, usePressSpring } from '@/src/components/ui/Button'
 import { BottomSheet } from '@/src/components/shared/Modal'
 import { parseLocalDate } from '@/src/lib/date'
+import { tap } from '@/src/lib/haptics'
 
 const STRIP_CELL_WIDTH = 56
 const STRIP_GAP = 8
@@ -108,7 +109,7 @@ function MonthNavButton({ dir, onPress }: { dir: 'prev' | 'next'; onPress: () =>
       accessibilityRole="button"
       accessibilityLabel={dir === 'prev' ? 'Previous month' : 'Next month'}
       onPress={() => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
+        tap()
         onPress()
       }}
       onPressIn={press.onPressIn}
