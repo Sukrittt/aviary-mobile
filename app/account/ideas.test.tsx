@@ -98,7 +98,7 @@ it('posts an idea from the sheet with the shared check animation', async () => {
   mockPost.mockResolvedValue(undefined)
   const { findByText, getByText, getByPlaceholderText, queryByText } = renderWithProviders(<IdeasScreen />)
   await findByText('Split bills')
-  fireEvent.press(getByText('Post an idea'))
+  fireEvent.press(getByText('Pitch an idea'))
   fireEvent.changeText(getByPlaceholderText('What would make Aviary better?'), 'Dark charts')
   await act(async () => fireEvent.press(getByText('Post idea')))
   expect(mockPost).toHaveBeenCalledWith('Dark charts', '')
@@ -111,7 +111,7 @@ it('shows written copy, not server text, when rate limited', async () => {
   const alert = jest.spyOn(Alert, 'alert')
   const { findByText, getByText, getByPlaceholderText } = renderWithProviders(<IdeasScreen />)
   await findByText('Split bills')
-  fireEvent.press(getByText('Post an idea'))
+  fireEvent.press(getByText('Pitch an idea'))
   fireEvent.changeText(getByPlaceholderText('What would make Aviary better?'), 'Dark charts')
   await act(async () => fireEvent.press(getByText('Post idea')))
   expect(alert).toHaveBeenCalledWith("Couldn't post that", "You've posted a few already. Try again later.")
@@ -119,6 +119,6 @@ it('shows written copy, not server text, when rate limited', async () => {
 
 it('opens the private bug report', async () => {
   const { getByText } = renderWithProviders(<IdeasScreen />)
-  fireEvent.press(getByText('Report a bug'))
+  fireEvent.press(getByText('Report it privately'))
   expect(mockPush).toHaveBeenCalledWith('/account/feedback')
 })

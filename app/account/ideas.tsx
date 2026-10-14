@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { View, Text, TextInput, Pressable, ScrollView, StyleSheet } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Bug, CaretDown, CaretUp, Plus } from '@/src/components/shared/icons'
+import { ArrowFatDown, ArrowFatUp, ArrowLeft, CalendarDots, Hourglass, Lightbulb, Plus, SealCheck, XCircle, type PhosphorIcon } from '@/src/components/shared/icons'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Alert } from '@/src/components/ui/AlertHost'
 import { useTheme } from '@/src/theme/ThemeProvider'
@@ -16,6 +16,8 @@ import { Button } from '@/src/components/ui/Button'
 import { listIdeas, postIdea, voteIdea, type Idea, type IdeaSort, type IdeaStatus } from '@/src/api/ideas'
 import { applyVote, toggleVote, type VoteValue } from '@/src/lib/ideaVotes'
 import { track } from '@/src/lib/analytics'
+import { formatRelativeTime } from '@/src/lib/format'
+import type { ThemeTokens } from '@/src/theme/tokens'
 
 const STATUS_LABEL: Record<IdeaStatus, string> = {
   open: 'Open',
@@ -24,7 +26,25 @@ const STATUS_LABEL: Record<IdeaStatus, string> = {
   shipped: 'Shipped',
   declined: 'Declined',
 }
+const STATUS_ICON: Record<IdeaStatus, PhosphorIcon> = {
+  open: Lightbulb,
+  planned: CalendarDots,
+  in_progress: Hourglass,
+  shipped: SealCheck,
+  declined: XCircle,
+}
 const STATUSES = Object.keys(STATUS_LABEL) as IdeaStatus[]
+
+/** Status pill colours, matching Web's .ideas-status.is-* tints. */
+function statusColors(status: IdeaStatus, tokens: ThemeTokens): { bg: string; fg: string } {
+  switch (status) {
+    case 'planned': return { bg: tokens.blueSoft, fg: tokens.blue }
+    case 'in_progress': return { bg: tokens.warnSoft, fg: tokens.warnInk }
+    case 'shipped': return { bg: tokens.mintSoft, fg: tokens.mint }
+    case 'declined': return { bg: tokens.coralSoft, fg: tokens.coral }
+    default: return { bg: tokens.pillBg, fg: tokens.text2 }
+  }
+}
 const LOADING_PHRASES = ['Gathering ideas…', 'Counting the votes…']
 
 /**
@@ -87,16 +107,19 @@ export default function IdeasScreen() {
 
       <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 32 }]}>
         <Text style={[styles.intro, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
-          Post an idea or vote on what we build next. We read every one.
+          Post an idea or vote on what we build next. Found a bug?{' '}
+          <Text onPress={() => router.push('/account/feedback')} accessibilityRole="link" style={{ color: tokens.accentInk, fontFamily: fontFamily.bodyBold }}>
+            Report it privately
+          </Text>
+          .
         </Text>
-        <View style={styles.actions}>
-          <Button label="Post an idea" icon={Plus} onPress={() => setAdding(true)} style={{ flex: 1 }} />
-          <Button label="Report a bug" icon={Bug} variant="secondary" onPress={() => router.push('/account/feedback')} style={{ flex: 1 }} />
-        </View>
 
-        <View style={styles.chips}>
-          <Chip label="Top" selected={sort === 'top'} onPress={() => setSort('top')} />
-          <Chip label="New" selected={sort === 'new'} onPress={() => setSort('new')} />
+        <View style={styles.toolbar}>
+          <View style={styles.chips}>
+            <Chip label="Top" selected={sort === 'top'} onPress={() => setSort('top')} />
+            <Chip label="New" selected={sort === 'new'} onPress={() => setSort('new')} />
+          </View>
+          <Button label="Pitch an idea" icon={Plus} size="small" onPress={() => setAdding(true)} />
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
           <Chip label="All" selected={status === null} onPress={() => setStatus(null)} />
@@ -108,31 +131,44 @@ export default function IdeasScreen() {
         {isLoading && <LoadingPhrase phrases={LOADING_PHRASES} color={tokens.text2} style={{ fontFamily: fontFamily.bodyMedium, textAlign: 'center' }} />}
         {note && <Text style={[styles.note, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>{note}</Text>}
 
-        {ideas?.map((idea) => (
-          <View key={idea.id} style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
-            <View style={styles.vote} accessibilityLabel={`Score ${idea.score}`}>
-              <VoteArrow icon={CaretUp} label="Upvote" on={idea.myVote === 1} onPress={() => tap(idea, 1)} />
-              <Text style={[styles.score, { color: tokens.text, fontFamily: fontFamily.bodyExtraBold }]}>{idea.score}</Text>
-              <VoteArrow icon={CaretDown} label="Downvote" on={idea.myVote === -1} onPress={() => tap(idea, -1)} />
-            </View>
-            <View style={{ flex: 1, gap: 4 }}>
-              <Text style={[styles.title, { color: tokens.text, fontFamily: fontFamily.bodyExtraBold }]}>{idea.title}</Text>
-              {!!idea.description && (
-                <Text style={[styles.description, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>{idea.description}</Text>
-              )}
-              <View style={styles.meta}>
-                <View style={[styles.status, { backgroundColor: idea.status === 'shipped' ? tokens.mintSoft : tokens.pillBg }]}>
-                  <Text style={[styles.statusText, { color: idea.status === 'shipped' ? tokens.mint : tokens.text2, fontFamily: fontFamily.bodyBold }]}>
-                    {STATUS_LABEL[idea.status]}
+        {ideas?.map((idea) => {
+          const author = idea.mine ? 'You' : (idea.authorFirstName ?? 'Someone')
+          const pill = statusColors(idea.status, tokens)
+          const voteColor = idea.myVote === 1 ? tokens.accent : idea.myVote === -1 ? tokens.violet : tokens.text
+          return (
+            <View key={idea.id} style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
+              <View style={{ flex: 1, gap: 6 }}>
+                <View style={styles.meta}>
+                  <View style={[styles.status, { backgroundColor: pill.bg }]}>
+                    <Icon icon={STATUS_ICON[idea.status]} size={12} color={pill.fg} weight="bold" />
+                    <Text style={[styles.metaText, { color: pill.fg, fontFamily: fontFamily.bodyBold }]}>{STATUS_LABEL[idea.status]}</Text>
+                  </View>
+                  <View style={styles.author}>
+                    <View style={[styles.avatar, { backgroundColor: tokens.accentSoft }]}>
+                      <Text style={[styles.avatarText, { color: tokens.accentInk, fontFamily: fontFamily.bodyBold }]}>{author.charAt(0).toUpperCase()}</Text>
+                    </View>
+                    <Text style={[styles.metaText, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>{author}</Text>
+                  </View>
+                  <Text style={[styles.metaText, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>
+                    · {formatRelativeTime(Date.parse(idea.createdAt))}
                   </Text>
                 </View>
-                <Text style={[styles.author, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>
-                  {idea.mine ? 'You' : (idea.authorFirstName ?? 'Someone')}
-                </Text>
+                <Text style={[styles.title, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>{idea.title}</Text>
+                {!!idea.description && (
+                  <Text numberOfLines={3} style={[styles.description, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>{idea.description}</Text>
+                )}
+              </View>
+              <View
+                style={[styles.vote, { backgroundColor: idea.myVote === 1 ? tokens.accentSoft : tokens.inputBg }]}
+                accessibilityLabel={`Score ${idea.score}`}
+              >
+                <VoteArrow icon={ArrowFatUp} label="Upvote" on={idea.myVote === 1} color={tokens.accent} onPress={() => tap(idea, 1)} />
+                <Text style={[styles.score, { color: voteColor, fontFamily: fontFamily.bodyBold }]}>{idea.score}</Text>
+                <VoteArrow icon={ArrowFatDown} label="Downvote" on={idea.myVote === -1} color={tokens.violet} onPress={() => tap(idea, -1)} />
               </View>
             </View>
-          </View>
-        ))}
+          )
+        })}
       </ScrollView>
 
       <BottomSheet visible={adding} onClose={() => setAdding(false)}>
@@ -147,7 +183,7 @@ export default function IdeasScreen() {
   )
 }
 
-function VoteArrow({ icon, label, on, onPress }: { icon: typeof CaretUp; label: string; on: boolean; onPress: () => void }) {
+function VoteArrow({ icon, label, on, color, onPress }: { icon: PhosphorIcon; label: string; on: boolean; color: string; onPress: () => void }) {
   const { tokens } = useTheme()
   return (
     <Pressable
@@ -156,9 +192,9 @@ function VoteArrow({ icon, label, on, onPress }: { icon: typeof CaretUp; label: 
       accessibilityRole="button"
       accessibilityLabel={label}
       accessibilityState={{ selected: on }}
-      style={[styles.arrow, { backgroundColor: on ? tokens.accent : tokens.pillBg }]}
+      style={styles.arrow}
     >
-      <Icon icon={icon} size={18} color={on ? tokens.onAccent : tokens.text2} />
+      <Icon icon={icon} size={16} color={on ? color : tokens.text2} weight={on ? 'fill' : 'bold'} />
     </Pressable>
   )
 }
@@ -236,19 +272,21 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 19 },
   scrollContent: { padding: 16, gap: 12 },
   intro: { fontSize: 13, lineHeight: 18 },
-  actions: { flexDirection: 'row', gap: 10 },
+  toolbar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   chips: { flexDirection: 'row', gap: 8 },
   note: { fontSize: 13, textAlign: 'center', marginTop: 12 },
-  card: { flexDirection: 'row', gap: 12, borderWidth: 1, borderRadius: 20, padding: 14 },
-  vote: { alignItems: 'center', gap: 4, minWidth: 36 },
-  arrow: { width: 34, height: 28, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  score: { fontSize: 15, fontVariant: ['tabular-nums'] },
-  title: { fontSize: 15 },
-  description: { fontSize: 13, lineHeight: 18 },
-  meta: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
-  status: { paddingHorizontal: 9, paddingVertical: 2, borderRadius: 100 },
-  statusText: { fontSize: 12 },
-  author: { fontSize: 12 },
+  card: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderRadius: 20, paddingVertical: 14, paddingHorizontal: 16 },
+  meta: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
+  metaText: { fontSize: 12 },
+  status: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 9, paddingVertical: 3, borderRadius: 100 },
+  author: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  avatar: { width: 20, height: 20, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  avatarText: { fontSize: 12 },
+  title: { fontSize: 16, lineHeight: 21 },
+  description: { fontSize: 13, lineHeight: 19 },
+  vote: { flexDirection: 'row', alignItems: 'center', gap: 2, padding: 4, borderRadius: 100 },
+  arrow: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  score: { fontSize: 14, fontVariant: ['tabular-nums'], minWidth: 24, textAlign: 'center' },
   sheetTitle: { fontSize: 19 },
   input: { borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 14, fontSize: 15 },
   textArea: { minHeight: 90, textAlignVertical: 'top' },
