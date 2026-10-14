@@ -49,7 +49,7 @@ export default function TrialNoticeScreen() {
           <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodySemiBold, fontSize: type.caption, textAlign: 'center', lineHeight: 20 }}>
             {billing?.trialEndsAt
               ? `Everything's free until ${formatDate(billing.trialEndsAt)}. No card needed, nothing to cancel.`
-              : "Everything's free for 45 days. No card needed, nothing to cancel."}
+              : "Everything's free for 30 days. No card needed, nothing to cancel."}
           </Text>
         </PopIn>
 

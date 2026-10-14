@@ -703,7 +703,7 @@ function CurrencyWizard({
       ]);
       // Last, so a failed write above leaves the user un-onboarded and retrying.
       // Two calls rather than one: the currency is an ordinary profile field,
-      // but completing onboarding starts the 45-day trial, so its instant is
+      // but completing onboarding starts the 30-day trial, so its instant is
       // the server's — this device's clock has no say in when the trial ends.
       await showStep("Starting your budget…");
       await updateUser({ currencyCode });
