@@ -4,9 +4,9 @@ import { useIsFocused } from 'expo-router'
 
 /**
  * Wraps a tab screen's scrollable body (not its fixed header) so it scales in
- * on focus. The fade itself is the navigator's (`animation: 'fade'` in
- * app/(tabs)/_layout.tsx); this used to fade too, and the two stacked made
- * every switch read slower than either alone.
+ * on focus. Tab switches themselves cut (`animation: 'none'` in
+ * app/(tabs)/_layout.tsx); this used to fade too, and a fade on top of a
+ * fade made every switch read slower than either alone.
  */
 export function AnimatedTabContent({ children }: { children: React.ReactNode }) {
   const isFocused = useIsFocused()
