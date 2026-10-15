@@ -18,7 +18,7 @@ import { useTheme } from "@/src/theme/ThemeProvider";
 import { usePrivacy } from "@/src/context/PrivacyContext";
 import { fontFamily } from "@/src/theme/fonts";
 
-import { categoryTint } from "@/src/lib/emoji";
+import { categoryTint, chartInk } from "@/src/lib/emoji";
 import { PopIn } from "@/src/components/shared/PopIn";
 import { BottomSheet } from "@/src/components/shared/Modal";
 import { Button } from "@/src/components/ui/Button";
@@ -152,7 +152,7 @@ export function CategoryBreakdown({
 }: Props) {
   const { currencySymbol, formatCurrency } = useCurrency()
 
-  const { tokens, space, radius, type } = useTheme();
+  const { tokens, scheme, space, radius, type } = useTheme();
   const { hideAmounts } = usePrivacy();
   const router = useRouter();
   const [expanded, setExpanded] = useState(false);
@@ -277,10 +277,13 @@ export function CategoryBreakdown({
   // Same name-hashed tint as the category's icon tile on Home, so a category
   // is one colour everywhere instead of whatever its rank here happens to be.
   const tintByKey = useMemo(() => {
-    const map = new Map<string, { bg: string; ink: string }>();
-    rows.forEach((row) => map.set(row.key, categoryTint(row.label, tokens)));
+    const map = new Map<string, { bg: string; ink: string; chart: string }>();
+    rows.forEach((row) => {
+      const tint = categoryTint(row.label, tokens);
+      map.set(row.key, { ...tint, chart: chartInk(tint.ink, scheme) });
+    });
     return map;
-  }, [rows, tokens]);
+  }, [rows, tokens, scheme]);
 
   const segments = useMemo(() => {
     const big = displayRows.filter((r) => r.pct >= DONUT_TAIL_PCT);
@@ -289,18 +292,18 @@ export function CategoryBreakdown({
       key: row.key,
       label: row.label,
       value: row.spent,
-      color: tintByKey.get(row.key)?.ink ?? tokens.text3,
+      color: tintByKey.get(row.key)?.chart ?? chartInk(tokens.text3, scheme),
     }));
     if (small.length > 0) {
       result.push({
         key: "__other__",
         label: "Other",
         value: small.reduce((s, r) => s + r.spent, 0),
-        color: tokens.text3,
+        color: chartInk(tokens.text3, scheme),
       });
     }
     return result;
-  }, [displayRows, tintByKey, tokens]);
+  }, [displayRows, tintByKey, tokens, scheme]);
 
   const selectedRow = displayRows.find((r) => r.key === selectedKey) ?? null;
   // A selected row bucketed into the donut's "Other" wedge (below the tail
@@ -814,7 +817,7 @@ export function CategoryBreakdown({
           <View style={{ marginTop: space.md, gap: space.sm }}>
             {visibleRows.map((row, i) => {
               const tint = tintByKey.get(row.key);
-              const color = tint?.ink ?? tokens.text3;
+              const color = tint?.chart ?? chartInk(tokens.text3, scheme);
               const isSelected = selectedKey === row.key;
               const hasBudget = !row.assignedIsCarried && row.assigned > 0;
               const rowDelay =
@@ -1308,11 +1311,11 @@ function RowMark({
   fallback,
 }: {
   icon: CategoryIconKey | null;
-  tint: { bg: string; ink: string } | undefined;
+  tint: { bg: string; ink: string; chart: string } | undefined;
   fallback: string;
 }) {
   if (!icon || !tint) {
-    return <View style={[styles.legendDot, { backgroundColor: tint?.ink ?? fallback }]} />;
+    return <View style={[styles.legendDot, { backgroundColor: tint?.chart ?? fallback }]} />;
   }
   const Icon = CATEGORY_ICON_COMPONENTS[icon];
   return (

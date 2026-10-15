@@ -2,7 +2,7 @@ import { act, fireEvent } from '@testing-library/react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { CategoryBreakdown } from './CategoryBreakdown'
 import type { BreakdownRow } from '@/src/lib/monthly'
-import { categoryTint } from '@/src/lib/emoji'
+import { categoryTint, chartInk } from '@/src/lib/emoji'
 import { lightTokens } from '@/src/theme/tokens'
 
 const mockPush = jest.fn()
@@ -300,7 +300,7 @@ describe('CategoryBreakdown colours', () => {
     const { UNSAFE_root } = renderBreakdown()
     const strokes = UNSAFE_root.findAll((n) => typeof n.props.stroke === 'string').map((n) => n.props.stroke)
     for (const label of ['Investments', 'Cook']) {
-      expect(strokes).toContain(categoryTint(label, lightTokens).ink)
+      expect(strokes).toContain(chartInk(categoryTint(label, lightTokens).ink, 'light'))
     }
   })
 })
