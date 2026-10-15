@@ -18,7 +18,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter, useLocalSearchParams, useFocusEffect, type Href } from "expo-router";
 import * as Haptics from "expo-haptics";
-import { CaretLeft, CaretRight, SlidersHorizontal, Trash, X } from "@/src/components/shared/icons";
+import { CaretLeft, CaretRight, MoneyWavy, SlidersHorizontal, Trash, X } from "@/src/components/shared/icons";
 import Reanimated, { FadeIn, FadeOut, LinearTransition } from "react-native-reanimated";
 import { Screen } from "@/src/components/ui/Screen";
 import { Chip } from "@/src/components/ui/Chip";
@@ -57,7 +57,7 @@ import { FORCE_EMPTY_STATE_PREVIEW, emptyForPreview } from "@/src/lib/emptyState
 type PeriodKey = "all" | "week" | "month" | "custom";
 
 const CHIP_TRANSITION = LinearTransition.springify().damping(64).stiffness(700);
-const PAGE_SIZE = 30;
+const PAGE_SIZE = 10;
 const ROW_GAP = 12;
 // Breathing room inside the select tint, which has no row padding to sit in.
 const SELECT_INSET = 12;
@@ -655,7 +655,7 @@ export default function ActivityScreen() {
                     style={[styles.row, { backgroundColor: tokens.bg }]}
                   >
                     <View style={[styles.icon, { backgroundColor: tokens.mintSoft }]}>
-                      <Text style={{ fontSize: 15 }}>💰</Text>
+                      <Icon icon={MoneyWavy} size={16} color={tokens.mint} />
                     </View>
                     <View style={{ flex: 1, minWidth: 0 }}>
                       <Text style={[styles.rowItem, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]} numberOfLines={1}>
