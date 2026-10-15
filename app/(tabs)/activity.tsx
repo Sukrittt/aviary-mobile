@@ -18,6 +18,8 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter, useLocalSearchParams, useFocusEffect, type Href } from "expo-router";
 import * as Haptics from "expo-haptics";
+import { tap } from "@/src/lib/haptics";
+import { AnimatedPressable, usePressSpring } from "@/src/components/ui/Button";
 import { CaretLeft, CaretRight, MoneyWavy, SlidersHorizontal, Trash, X } from "@/src/components/shared/icons";
 import Reanimated, { FadeIn, FadeOut, LinearTransition } from "react-native-reanimated";
 import { Screen } from "@/src/components/ui/Screen";
@@ -110,6 +112,7 @@ export default function ActivityScreen() {
   const { formatCurrency } = useCurrency()
 
   const { tokens, scheme } = useTheme();
+  const categoryRowPress = usePressSpring();
   const { refreshing, onRefresh } = useRefresh();
   const { hideAmounts } = usePrivacy();
   const router = useRouter();
@@ -983,13 +986,17 @@ export default function ActivityScreen() {
               />
             </View>
           )}
-          <Pressable
+          <AnimatedPressable
+            accessibilityRole="button"
             style={[
-              styles.categoryOption,
               styles.categoryFilterRow,
-              { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: tokens.border },
+              { backgroundColor: tokens.pillBg, borderColor: tokens.border },
+              categoryRowPress.style,
             ]}
+            onPressIn={categoryRowPress.onPressIn}
+            onPressOut={categoryRowPress.onPressOut}
             onPress={() => {
+              tap();
               setCategorySheetOpen(false);
               setCategoryPickerOpen(true);
             }}
@@ -997,7 +1004,7 @@ export default function ActivityScreen() {
             <Text
               style={[
                 styles.categoryOptionText,
-                { color: tokens.text, fontFamily: fontFamily.bodySemiBold },
+                { flex: 1, color: tokens.text, fontFamily: fontFamily.bodySemiBold },
               ]}
             >
               Category
@@ -1008,9 +1015,10 @@ export default function ActivityScreen() {
                 { color: tokens.text3, fontFamily: fontFamily.bodyMedium },
               ]}
             >
-              {categoryFilterLabel ?? "View All"}
+              {categoryFilterLabel ?? "View all"}
             </Text>
-          </Pressable>
+            <Icon icon={CaretRight} size={14} color={tokens.text3} />
+          </AnimatedPressable>
           {accountOptions.length > 0 && (
             <View style={[styles.accountFilter, { borderTopColor: tokens.border }]}>
               <AccountChips
@@ -1162,17 +1170,16 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 10,
   },
-  categoryOption: {
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    borderRadius: 12,
-  },
   categoryOptionText: { fontSize: 14 },
   categoryFilterRow: {
-    marginTop: 4,
+    marginTop: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    borderWidth: 1,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    gap: 6,
   },
   customRangeWrap: { marginBottom: 10 },
   search: {

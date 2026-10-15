@@ -13,6 +13,7 @@ import Reanimated, {
   withTiming,
   type SharedValue,
 } from 'react-native-reanimated'
+import { tap } from '@/src/lib/haptics'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 
@@ -276,6 +277,7 @@ export function DonutChart({
   const r = (size - thickness) / 2 - (LIFT + 2)
 
   function toggle(key: string) {
+    tap()
     onSelect(selectedKey === key ? null : key)
   }
 

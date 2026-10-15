@@ -6,6 +6,8 @@ import { categoryTint } from '@/src/lib/emoji'
 import { lightTokens } from '@/src/theme/tokens'
 
 const mockPush = jest.fn()
+const mockTap = jest.fn()
+jest.mock('@/src/lib/haptics', () => ({ ...jest.requireActual('@/src/lib/haptics'), tap: () => mockTap() }))
 jest.mock('expo-router', () => ({
   useIsFocused: () => true,
   useRouter: () => ({ push: mockPush }),
@@ -300,5 +302,17 @@ describe('CategoryBreakdown colours', () => {
     for (const label of ['Investments', 'Cook']) {
       expect(strokes).toContain(categoryTint(label, lightTokens).ink)
     }
+  })
+})
+
+describe('CategoryBreakdown haptics', () => {
+  it('ticks on the mode, measure and filter controls', () => {
+    const { getByLabelText, onModeChange } = renderBreakdown()
+    mockTap.mockClear()
+    fireEvent.press(getByLabelText('By group'))
+    fireEvent.press(getByLabelText('Measure by percent of budget used'))
+    fireEvent.press(getByLabelText('Filter chart'))
+    expect(onModeChange).toHaveBeenCalledWith('group')
+    expect(mockTap).toHaveBeenCalledTimes(3)
   })
 })
