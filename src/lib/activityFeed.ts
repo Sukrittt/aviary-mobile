@@ -23,12 +23,16 @@ export function groupByDay(rows: readonly ExpenseRow[]): FeedItem[] {
 // until shortly before it expires (the server signs feed URLs for an hour).
 // Keyed by the path, which changes when a photo is replaced.
 const REUSE_MS = 50 * 60 * 1000
+// Far more photos than one session scrolls past; past it, the oldest go.
+const MAX_SEEN = 500
 const seen = new Map<string, { url: string; at: number }>()
 
 export function stablePhotoUrl(url: string, now: number = Date.now()): string {
   const path = url.split('?')[0]
   const hit = seen.get(path)
   if (hit && now - hit.at < REUSE_MS) return hit.url
+  seen.delete(path)
   seen.set(path, { url, at: now })
+  if (seen.size > MAX_SEEN) seen.delete(seen.keys().next().value!)
   return url
 }

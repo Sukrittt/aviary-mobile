@@ -29,4 +29,10 @@ describe('stablePhotoUrl', () => {
     stablePhotoUrl('https://blob.test/u/e3-a.jpg?sig=1', 0)
     expect(stablePhotoUrl('https://blob.test/u/e3-b.jpg?sig=1', 1000)).toBe('https://blob.test/u/e3-b.jpg?sig=1')
   })
+
+  it('forgets the oldest photos past its cap instead of growing forever', () => {
+    stablePhotoUrl('https://blob.test/u/old.jpg?sig=1', 0)
+    for (let i = 0; i < 500; i++) stablePhotoUrl(`https://blob.test/u/p${i}.jpg?sig=1`, 0)
+    expect(stablePhotoUrl('https://blob.test/u/old.jpg?sig=2', 1000)).toBe('https://blob.test/u/old.jpg?sig=2')
+  })
 })
