@@ -1,18 +1,17 @@
 import { useEffect } from 'react'
-import { Pressable, StyleSheet, Text, View, useColorScheme } from 'react-native'
+import { StyleSheet, View } from 'react-native'
 import { posthog } from '@/src/lib/analytics'
-import { darkTokens, lightTokens } from '@/src/theme/tokens'
-import { fontFamily } from '@/src/theme/fonts'
+import { ThemeProvider, useTheme } from '@/src/theme/ThemeProvider'
+import { EmptyState } from './EmptyState'
+import { Button } from '@/src/components/ui/Button'
 
 /**
  * The root ErrorBoundary's screen. It renders in place of the whole root
- * layout, so ThemeProvider and friends are gone: tokens come straight from the
- * system scheme and nothing here may call useTheme. The error itself goes to
- * PostHog, never to the screen.
+ * layout, so the providers are gone; it brings its own ThemeProvider, which
+ * reads the saved appearance, so a Light pick on a dark phone stays light here
+ * too. The error itself goes to PostHog, never to the screen.
  */
 export function CrashScreen({ error, retry }: { error: Error; retry: () => void }) {
-  const tokens = useColorScheme() === 'dark' ? darkTokens : lightTokens
-
   useEffect(() => {
     try {
       posthog.captureException(error)
@@ -22,20 +21,22 @@ export function CrashScreen({ error, retry }: { error: Error; retry: () => void 
   }, [error])
 
   return (
+    <ThemeProvider>
+      <CrashBody retry={retry} />
+    </ThemeProvider>
+  )
+}
+
+function CrashBody({ retry }: { retry: () => void }) {
+  const { tokens } = useTheme()
+  return (
     <View style={[styles.root, { backgroundColor: tokens.bg }]}>
-      <Text accessibilityRole="header" style={[styles.title, { color: tokens.text }]}>Something went wrong</Text>
-      <Text style={[styles.body, { color: tokens.text2 }]}>Our bird hit a branch. Give it another go.</Text>
-      <Pressable accessibilityRole="button" onPress={retry} style={[styles.button, { backgroundColor: tokens.accentInk }]}>
-        <Text style={[styles.label, { color: tokens.onAccent }]}>Try again</Text>
-      </Pressable>
+      <EmptyState mood="searching" title="Something went wrong" description="Our bird hit a branch. Give it another go." />
+      <Button label="Try again" onPress={retry} />
     </View>
   )
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 12 },
-  title: { fontFamily: fontFamily.displaySemiBold, fontSize: 24, textAlign: 'center' },
-  body: { fontFamily: fontFamily.bodyMedium, fontSize: 16, textAlign: 'center' },
-  button: { marginTop: 12, paddingVertical: 14, paddingHorizontal: 28, borderRadius: 999 },
-  label: { fontFamily: fontFamily.bodyBold, fontSize: 16 },
+  root: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
 })

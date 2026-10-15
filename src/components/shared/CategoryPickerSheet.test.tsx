@@ -7,7 +7,7 @@ import { getRecentExpenses } from '@/src/api/expenses'
 import { CategoryPickerSheet } from './CategoryPickerSheet'
 
 jest.mock('@/src/api/categories', () => ({ getCategories: jest.fn() }))
-jest.mock('@/src/api/groups', () => ({ getGroups: jest.fn(), getGroupIcons: jest.fn(() => Promise.resolve(new Map())) }))
+jest.mock('@/src/api/groups', () => ({ getGroups: jest.fn(), getGroupIcons: jest.fn(() => Promise.resolve([])) }))
 jest.mock('@/src/api/expenses', () => ({ getRecentExpenses: jest.fn() }))
 jest.mock('expo-secure-store', () => ({
   getItemAsync: jest.fn(() => Promise.resolve(null)),
