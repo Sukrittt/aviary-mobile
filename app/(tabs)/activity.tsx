@@ -18,7 +18,10 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter, useLocalSearchParams, useFocusEffect, type Href } from "expo-router";
 import * as Haptics from "expo-haptics";
-import { CaretLeft, CaretRight, MoneyWavy, SlidersHorizontal, Trash, X } from "@/src/components/shared/icons";
+import { CaretLeft, CaretRight, Images, MoneyWavy, Rows, SlidersHorizontal, Trash, X } from "@/src/components/shared/icons";
+import { ActivityFeed } from "@/src/components/activity/ActivityFeed";
+import { useActivityView } from "@/src/hooks/useActivityView";
+import { track } from "@/src/lib/analytics";
 import Reanimated, { FadeIn, FadeOut, LinearTransition } from "react-native-reanimated";
 import { Screen } from "@/src/components/ui/Screen";
 import { Chip } from "@/src/components/ui/Chip";
@@ -49,7 +52,7 @@ import { OfflineScreen } from "@/src/components/shared/OfflineScreen";
 import { ErrorScreen } from "@/src/components/shared/ErrorScreen";
 import { EmptyState } from "@/src/components/shared/EmptyState";
 import type { ExpenseRow, IncomeRow } from "@/src/types";
-import { parseLocalDate, toLocalDateString } from "@/src/lib/date";
+import { formatDayLabel, parseLocalDate, toLocalDateString } from "@/src/lib/date";
 import { useOnline } from "@/src/lib/netStatus";
 import { EMPTY } from "@/src/lib/constants";
 import { FORCE_EMPTY_STATE_PREVIEW, emptyForPreview } from "@/src/lib/emptyStatePreview";
@@ -62,26 +65,6 @@ const ROW_GAP = 12;
 // Breathing room inside the select tint, which has no row padding to sit in.
 const SELECT_INSET = 12;
 
-
-function toDateInput(d: Date): string {
-  return toLocalDateString(d);
-}
-
-function formatDateHeader(iso: string): string {
-  const d = parseLocalDate(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  const today = new Date();
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
-  if (iso === toDateInput(today)) return "Today";
-  if (iso === toDateInput(yesterday)) return "Yesterday";
-  return d.toLocaleDateString("en-IN", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: d.getFullYear() !== today.getFullYear() ? "numeric" : undefined,
-  });
-}
 
 function formatShortDate(iso: string): string {
   const d = parseLocalDate(iso);
@@ -126,6 +109,7 @@ export default function ActivityScreen() {
   const qc = useQueryClient();
   const scrollRef = useRef<ScrollView>(null);
   const [page, setPage] = useState(1);
+  const [view, setView] = useActivityView();
 
   const changePage = useCallback((next: number, scrollToTop = false) => {
     setPage(next);
@@ -183,6 +167,8 @@ export default function ActivityScreen() {
   // Multi-select: a long-press starts it, and clearing the last row ends it.
   const [selectedKeys, setSelectedKeys] = useState<ReadonlySet<string>>(() => new Set());
   const selecting = selectedKeys.size > 0;
+  // Selection is the list's; the feed has no checkboxes to show it with.
+  const feedView = view === "feed" && !selecting;
   const [confirmBulk, setConfirmBulk] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
   // Rows hidden the moment a bulk delete starts; failed ones come back.
@@ -200,7 +186,7 @@ export default function ActivityScreen() {
   const incomesQ = useIncomes();
 
   const timeFilterLabel = useMemo(() => {
-    if (selectedDate) return formatDateHeader(selectedDate);
+    if (selectedDate) return formatDayLabel(selectedDate);
     if (period === "week") return "This Week";
     if (period === "month") return "This Month";
     if (period === "custom") return formatRangeFilter(customRange);
@@ -490,6 +476,117 @@ export default function ActivityScreen() {
     );
   }
 
+  const refreshControl = (
+    <RefreshControl
+      refreshing={refreshing}
+      onRefresh={onRefresh}
+      tintColor={tokens.accent}
+      colors={[tokens.accent]}
+    />
+  );
+  const feedParams = { category: pageParams.category, account: pageParams.account, from, to, q: pageParams.q };
+  const emptyState = (
+    <EmptyState
+      style={styles.emptyState}
+      mood={hasActiveFilters || search.trim() ? "searching" : "snoozing"}
+      title={hasActiveFilters || search.trim() ? "Nothing turned up" : "Your story starts here"}
+      description={hasActiveFilters || search.trim() ? "No transactions for this filter." : "Log your first expense. We'll keep the little details here."}
+      action={hasActiveFilters || search.trim()
+        ? { label: "Clear filters", onPress: () => { clearAllFilters(); setSearch(""); } }
+        : { label: "Log an expense", onPress: () => router.push("/modals/log-expense") }}
+    />
+  );
+  // Search and filters, shared by both views.
+  const controls = (
+    <>
+      <View style={styles.searchRow}>
+        <TextInput
+          value={search}
+          onChangeText={setSearch}
+          placeholder="Search transactions"
+          placeholderTextColor={tokens.text3}
+          style={[
+            styles.search,
+            {
+              backgroundColor:
+                scheme === "dark" ? tokens.cardSolid : tokens.inputBg,
+              color: tokens.text,
+              fontFamily: fontFamily.bodyMedium,
+            },
+          ]}
+        />
+        <IconButton
+          icon={SlidersHorizontal}
+          accessibilityLabel="Filter transactions"
+          onPress={() => setCategorySheetOpen(true)}
+        />
+      </View>
+
+      {hasActiveFilters ? (
+        <Reanimated.View
+          entering={FadeIn.duration(150)}
+          exiting={FadeOut.duration(120)}
+          style={styles.appliedFilters}
+        >
+          <View style={styles.appliedFiltersHeader}>
+            <Text
+              style={[
+                styles.appliedFiltersLabel,
+                { color: tokens.text3, fontFamily: fontFamily.bodyBold },
+              ]}
+            >
+              APPLIED FILTERS
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Clear all filters"
+              hitSlop={8}
+              onPress={clearAllFilters}
+            >
+              <Text
+                style={[
+                  styles.clearFiltersText,
+                  {
+                    color: tokens.accent,
+                    fontFamily: fontFamily.bodySemiBold,
+                  },
+                ]}
+              >
+                Clear all
+              </Text>
+            </Pressable>
+          </View>
+          <Reanimated.View
+            layout={CHIP_TRANSITION}
+            style={styles.appliedFilterRow}
+          >
+            {timeFilterLabel ? (
+              <AppliedFilterChip
+                label={timeFilterLabel}
+                accessibilityLabel="Remove date filter"
+                onRemove={clearTimeFilter}
+              />
+            ) : null}
+            {categoryFilterLabel ? (
+              <AppliedFilterChip
+                label={categoryFilterLabel}
+                accessibilityLabel="Remove category filter"
+                onRemove={() => setSelectedCategory("")}
+              />
+            ) : null}
+            {accountFilterLabel ? (
+              <AppliedFilterChip
+                label={accountFilterLabel}
+                accessibilityLabel="Remove account filter"
+                onRemove={() => setSelectedAccount("")}
+              />
+            ) : null}
+          </Reanimated.View>
+        </Reanimated.View>
+      ) : null}
+    </>
+  );
+
   return (
     <>
       {deleteNotice && <ExpenseNoticeScreen status={deleteNotice.status} action="delete" onBack={() => setDeleteNotice(null)} />}
@@ -522,124 +619,51 @@ export default function ActivityScreen() {
                 }}
               />
             </>
-          ) : duplicateCount > 0 ? (
-            <Chip
-              selected
-              label={`Review ${duplicateCount} duplicate${duplicateCount === 1 ? "" : "s"}`}
-              onPress={() => router.push("/modals/duplicates" as Href)}
-            />
-          ) : undefined
+          ) : (
+            <>
+              {duplicateCount > 0 && (
+                <Chip
+                  selected
+                  label={`Review ${duplicateCount} duplicate${duplicateCount === 1 ? "" : "s"}`}
+                  onPress={() => router.push("/modals/duplicates" as Href)}
+                />
+              )}
+              <IconButton
+                icon={feedView ? Rows : Images}
+                accessibilityLabel={feedView ? "Show as list" : "Show as feed"}
+                onPress={() => {
+                  const next = feedView ? "list" : "feed";
+                  Haptics.selectionAsync().catch(() => {});
+                  openRowRef.current?.reset();
+                  openRowRef.current = null;
+                  setView(next);
+                  track("activity_view_changed", { view: next });
+                }}
+              />
+            </>
+          )
         }
+        scroll={!feedView}
         contentContainerStyle={[
           styles.scrollContent,
           totalCount === 0 && styles.scrollContentGrow,
         ]}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={tokens.accent}
-            colors={[tokens.accent]}
-          />
-        }
+        refreshControl={refreshControl}
       >
-        {/* The nav keeps entry handy; the empty state offers it in context. */}
-        <View style={styles.searchRow}>
-          <TextInput
-            value={search}
-            onChangeText={setSearch}
-            placeholder="Search transactions"
-            placeholderTextColor={tokens.text3}
-            style={[
-              styles.search,
-              {
-                backgroundColor:
-                  scheme === "dark" ? tokens.cardSolid : tokens.inputBg,
-                color: tokens.text,
-                fontFamily: fontFamily.bodyMedium,
-              },
-            ]}
+        {feedView ? (
+          <ActivityFeed
+            params={feedParams}
+            header={controls}
+            empty={emptyState}
+            categoryByName={categoryByName}
+            onOpenActions={setSheetTxn}
+            refreshControl={refreshControl}
           />
-          <IconButton
-            icon={SlidersHorizontal}
-            accessibilityLabel="Filter transactions"
-            onPress={() => setCategorySheetOpen(true)}
-          />
-        </View>
-
-        {hasActiveFilters ? (
-          <Reanimated.View
-            entering={FadeIn.duration(150)}
-            exiting={FadeOut.duration(120)}
-            style={styles.appliedFilters}
-          >
-            <View style={styles.appliedFiltersHeader}>
-              <Text
-                style={[
-                  styles.appliedFiltersLabel,
-                  { color: tokens.text3, fontFamily: fontFamily.bodyBold },
-                ]}
-              >
-                APPLIED FILTERS
-              </Text>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Clear all filters"
-                hitSlop={8}
-                onPress={clearAllFilters}
-              >
-                <Text
-                  style={[
-                    styles.clearFiltersText,
-                    {
-                      color: tokens.accent,
-                      fontFamily: fontFamily.bodySemiBold,
-                    },
-                  ]}
-                >
-                  Clear all
-                </Text>
-              </Pressable>
-            </View>
-            <Reanimated.View
-              layout={CHIP_TRANSITION}
-              style={styles.appliedFilterRow}
-            >
-              {timeFilterLabel ? (
-                <AppliedFilterChip
-                  label={timeFilterLabel}
-                  accessibilityLabel="Remove date filter"
-                  onRemove={clearTimeFilter}
-                />
-              ) : null}
-              {categoryFilterLabel ? (
-                <AppliedFilterChip
-                  label={categoryFilterLabel}
-                  accessibilityLabel="Remove category filter"
-                  onRemove={() => setSelectedCategory("")}
-                />
-              ) : null}
-              {accountFilterLabel ? (
-                <AppliedFilterChip
-                  label={accountFilterLabel}
-                  accessibilityLabel="Remove account filter"
-                  onRemove={() => setSelectedAccount("")}
-                />
-              ) : null}
-            </Reanimated.View>
-          </Reanimated.View>
-        ) : null}
-
+        ) : (
+        <>
+        {controls}
         {totalCount === 0 && visibleIncomes.length === 0 ? (
-          <EmptyState
-            style={styles.emptyState}
-            mood={hasActiveFilters || search.trim() ? "searching" : "snoozing"}
-            title={hasActiveFilters || search.trim() ? "Nothing turned up" : "Your story starts here"}
-            description={hasActiveFilters || search.trim() ? "No transactions for this filter." : "Log your first expense. We'll keep the little details here."}
-            action={hasActiveFilters || search.trim()
-              ? { label: "Clear filters", onPress: () => { clearAllFilters(); setSearch(""); } }
-              : { label: "Log an expense", onPress: () => router.push("/modals/log-expense") }}
-          />
+          emptyState
         ) : (
           <View>
             {listItems.map((entry) => {
@@ -838,6 +862,8 @@ export default function ActivityScreen() {
             </Pressable>
           </View>
         ) : null}
+        </>
+        )}
 
         <BottomSheet
           visible={sheetTxn !== null}
@@ -895,7 +921,9 @@ export default function ActivityScreen() {
             color={tokens.coral}
             onPress={() => {
               if (!deleteTxn) return;
-              setPendingDelete(deleteTxn);
+              // The feed has no collapsing row to wait on.
+              if (feedView) runDelete(deleteTxn);
+              else setPendingDelete(deleteTxn);
               setDeleteTxn(null);
             }}
           />

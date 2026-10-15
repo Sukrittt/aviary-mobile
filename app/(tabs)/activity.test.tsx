@@ -10,12 +10,15 @@ const mockDelete = jest.fn()
 const mockDeleteAsync = jest.fn()
 const mockPush = jest.fn()
 let mockDuplicates: unknown[] = []
+const mockUseExpensesFeed = jest.fn()
 
 jest.mock('@/src/hooks/useExpenses', () => ({
   useExpensesPage: (params: ExpensesPageParams) => mockUseExpensesPage(params),
   useDeleteExpense: () => ({ mutate: mockDelete, mutateAsync: mockDeleteAsync }),
   prefetchExpensesPage: jest.fn(),
   useDuplicates: () => ({ data: mockDuplicates }),
+  useExpensesFeed: () => mockUseExpensesFeed(),
+  useSaveExpensePhoto: () => ({ mutateAsync: jest.fn(), isPending: false }),
   // CategoryPickerSheet (rendered inside a BottomSheet) reads the base,
   // unpaginated hook for its autosuggest word map — unrelated to this
   // screen's own paginated fetch, so a static empty result is enough.
@@ -37,7 +40,7 @@ jest.mock('@/src/hooks/useGroups', () => ({
 }))
 
 let mockOnline = true
-jest.mock('@/src/lib/netStatus', () => ({ useOnline: () => mockOnline, readLastSynced: async () => null }))
+jest.mock('@/src/lib/netStatus', () => ({ useOnline: () => mockOnline, isOnline: () => mockOnline, readLastSynced: async () => null }))
 
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: mockPush, back: jest.fn(), replace: jest.fn() }),
@@ -96,6 +99,7 @@ function pageResult(overrides: Partial<ExpensesPage>): ExpensesPage {
 }
 
 beforeEach(() => {
+  mockUseExpensesFeed.mockReturnValue({ data: { pages: [pageResult({})] }, isLoading: false, isError: false, hasNextPage: false })
   mockIncomes = []
   mockUseExpensesPage.mockReset()
   mockPush.mockReset()
@@ -401,4 +405,29 @@ it('shows the screen-shaped skeleton on a first load, not a loading phrase', () 
   expect(getByTestId('tab-skeleton')).toBeTruthy()
   expect(getByRole('header', { name: 'Activity' })).toBeTruthy()
   expect(queryByText(/…/)).toBeNull()
+})
+
+describe('feed view', () => {
+  beforeEach(() => {
+    mockUseExpensesPage.mockReturnValue({ data: pageResult({}), isLoading: false, error: null })
+    mockDelete.mockReset()
+  })
+
+  it('switches to the feed and back', () => {
+    const screen = renderWithProviders(<ActivityScreen />)
+    fireEvent.press(screen.getByLabelText('Show as feed'))
+    expect(screen.getByLabelText('Add a photo to Item 1')).toBeTruthy()
+    expect(screen.queryByText('1 transaction')).toBeNull()
+    fireEvent.press(screen.getByLabelText('Show as list'))
+    expect(screen.getByText('1 transaction')).toBeTruthy()
+  })
+
+  it('deletes from the feed as soon as the delete is confirmed', () => {
+    const screen = renderWithProviders(<ActivityScreen />)
+    fireEvent.press(screen.getByLabelText('Show as feed'))
+    fireEvent.press(screen.getByLabelText('Item 1, Food. Edit or delete'))
+    fireEvent.press(screen.getByText('Delete'))
+    fireEvent.press(screen.getAllByText('Delete').at(-1)!)
+    expect(mockDelete).toHaveBeenCalledWith(expect.objectContaining({ id: 'row-1' }), expect.anything())
+  })
 })
