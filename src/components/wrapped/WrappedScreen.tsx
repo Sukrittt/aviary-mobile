@@ -94,8 +94,9 @@ export function WrappedScreen() {
   const insets = useSafeAreaInsets()
   const { data, isLoading, error } = useWrapped()
   const { data: judgement } = useWrappedJudgement()
-  /** The persona as it stood when playback began, so it can't swap mid-deck if Jev answers late. */
-  const [frozenJudgement, setFrozenJudgement] = useState<WrappedJudgement | null>(null)
+  /** The deck as it stood when playback began. A refetch (or Jev answering late) mustn't
+   *  reshuffle the slides under the viewer, or shrink the deck past the current index. */
+  const [frozen, setFrozen] = useState<{ data: WrappedData; judgement: WrappedJudgement | null } | null>(null)
 
   const [index, setIndex] = useState(0)
   const [started, setStarted] = useState(false)
@@ -117,12 +118,12 @@ export function WrappedScreen() {
 
   const begin = useCallback((startMuted: boolean) => {
     track('wrapped_opened', { muted: startMuted })
-    setFrozenJudgement(judgement ?? null)
+    if (data) setFrozen({ data, judgement: judgement ?? null })
     setMuted(startMuted)
     setStarted(true)
     progress.setValue(0)
     setIndex(1)
-  }, [progress, judgement])
+  }, [progress, data, judgement])
 
   const restart = useCallback(() => {
     setStarted(false)
@@ -144,9 +145,11 @@ export function WrappedScreen() {
   }
 
   // begin/restart are useCallback'd above, so this only rebuilds when the data or persona changes.
+  const deckData = started && frozen ? frozen.data : data
+  const deckJudgement = started && frozen ? frozen.judgement : (judgement ?? null)
   const slides = useMemo(
-    () => (data ? buildSlides(data, started ? frozenJudgement : (judgement ?? null), begin, restart) : []),
-    [data, started, frozenJudgement, judgement, begin, restart],
+    () => (deckData ? buildSlides(deckData, deckJudgement, begin, restart) : []),
+    [deckData, deckJudgement, begin, restart],
   )
 
   // Which card people stop on is the only thing about Wrapped worth knowing, so each card
