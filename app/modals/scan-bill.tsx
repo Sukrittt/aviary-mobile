@@ -66,8 +66,7 @@ export default function ScanBillScreen() {
       {(phase === "scanning" || phase === "reveal") && (
         <ScanBeam
           imageUri={state.scanImageUri}
-          items={phase === "reveal" ? productItems : null}
-          total={state.billTotal}
+          itemCount={phase === "reveal" ? productItems.length : null}
           onDone={state.finishReveal}
         />
       )}
