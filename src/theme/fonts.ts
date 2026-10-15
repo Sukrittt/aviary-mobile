@@ -24,11 +24,11 @@ export const fontFamily = {
 
 // Home-screen widgets can't load JS fonts: react-native-android-widget embeds
 // these .ttf files at build time (app.json, assets/fonts). Swapping them is a
-// native change, so widgets stay on Fredoka/Nunito until the next store build.
+// native change: it needs a store build, not an OTA update. Same remap as above.
 export const widgetFontFamily = {
-  displayBold: 'Fredoka_700Bold',
-  bodySemiBold: 'Nunito_600SemiBold',
-  bodyMedium: 'Nunito_500Medium',
+  displayBold: 'Geist_700Bold',
+  bodySemiBold: 'Geist_500Medium',
+  bodyMedium: 'Geist_400Regular',
 } as const
 
 export function useAppFonts() {
