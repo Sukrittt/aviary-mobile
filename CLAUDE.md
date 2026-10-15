@@ -20,8 +20,8 @@ The copy is playful (`LoadingCaption.tsx`'s rotating captions, Wrapped's persona
 not corporate. Match that register in every string a user reads: second person, sentence
 case, short. The type is the calm half: Geist for display and body (`src/theme/fonts.ts`),
 so the words carry the personality and the font stays out of the way. Nothing under 12px,
-and small labels use `bodySemiBold` (500) or heavier. Home-screen widgets still embed
-Fredoka/Nunito natively (`widgetFontFamily`) until a store build swaps `assets/fonts`.
+and small labels use `bodySemiBold` (500) or heavier. Home-screen widgets embed Geist
+natively (`widgetFontFamily`, `assets/fonts`), so a widget font change needs a store build.
 
 - No em dashes in user-facing copy. They're the single most recognizable AI-generated
   tell, and a reader notices before they read a word. Split the sentence instead: two

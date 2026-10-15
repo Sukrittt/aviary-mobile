@@ -30,9 +30,9 @@ try {
 const trees = JSON.parse(fs.readFileSync(path.join(here, '.out', 'trees.json'), 'utf8'))
 
 const FONTS = {
-  Fredoka_700Bold: 'assets/fonts/Fredoka_700Bold.ttf',
-  Nunito_500Medium: 'assets/fonts/Nunito_500Medium.ttf',
-  Nunito_600SemiBold: 'assets/fonts/Nunito_600SemiBold.ttf',
+  Geist_400Regular: 'assets/fonts/Geist_400Regular.ttf',
+  Geist_500Medium: 'assets/fonts/Geist_500Medium.ttf',
+  Geist_700Bold: 'assets/fonts/Geist_700Bold.ttf',
 }
 const fontFaces = Object.entries(FONTS)
   .map(([name, file]) => {
