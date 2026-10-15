@@ -1,4 +1,5 @@
-import { Alert, RefreshControl, Text } from 'react-native'
+import { useEffect, useState } from 'react'
+import { Alert, Image, RefreshControl, Text } from 'react-native'
 import { act, fireEvent, waitFor } from '@testing-library/react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import type { ExpenseRow } from '@/src/types'
@@ -20,12 +21,22 @@ const txn = (over: Partial<ExpenseRow>): ExpenseRow => ({
   notes: '', source: '', amount: '300', description: '', payment_method: 'upi', ...over,
 })
 
+let bump: () => void = () => {}
+
+function Harness({ onOpenActions }: { onOpenActions: jest.Mock }) {
+  const [, setN] = useState(0)
+  useEffect(() => {
+    bump = () => setN((n) => n + 1)
+  }, [])
+  return (
+    <ActivityFeed params={{}} header={<Text>header</Text>} empty={<Text>nothing here</Text>} categoryByName={new Map()}
+      onOpenActions={onOpenActions} refreshControl={<RefreshControl refreshing={false} />} />
+  )
+}
+
 function renderFeed(rows: ExpenseRow[], onOpenActions = jest.fn()) {
   mockFeed.mockReturnValue({ data: { pages: [{ rows }] }, isLoading: false, isError: false, hasNextPage: false })
-  return renderWithProviders(
-    <ActivityFeed params={{}} header={<Text>header</Text>} empty={<Text>nothing here</Text>} categoryByName={new Map()}
-      onOpenActions={onOpenActions} refreshControl={<RefreshControl refreshing={false} />} />,
-  )
+  return renderWithProviders(<Harness onOpenActions={onOpenActions} />)
 }
 
 beforeEach(() => jest.clearAllMocks())
@@ -71,4 +82,24 @@ it('takes the photo back off and says so when the upload fails', async () => {
   await waitFor(() => expect(alert).toHaveBeenCalledWith("Photo didn't upload", 'Check your connection and try again.'))
   expect(screen.getByLabelText('Add a photo to Plant')).toBeTruthy()
   expect(mockTrack).not.toHaveBeenCalled()
+})
+
+it('drops the just-picked photo once the server photo changes, so a later removal shows Add a photo again', async () => {
+  jest.spyOn(Alert, 'alert').mockImplementation((_t, _m, buttons) => buttons?.find((b) => b.text === 'Choose photo')?.onPress?.())
+  mockPick.mockResolvedValue({ uri: 'file:///picked.jpg', base64: 'abc', mimeType: 'image/jpeg' })
+  mockSave.mockResolvedValue(undefined)
+  const screen = renderFeed([txn({})])
+  await act(async () => fireEvent.press(screen.getByLabelText('Add a photo to Plant')))
+  await waitFor(() => expect(mockTrack).toHaveBeenCalled())
+
+  const rerender = (row: ExpenseRow) => {
+    mockFeed.mockReturnValue({ data: { pages: [{ rows: [row] }] }, isLoading: false, isError: false, hasNextPage: false })
+    // Any card action re-renders the feed; pulling a fresh read is enough here.
+    act(() => bump())
+  }
+  rerender(txn({ has_photo: true, photo_url: 'https://blob.test/e1-new.jpg?s=1' }))
+  expect(screen.UNSAFE_queryAllByType(Image).map((i) => i.props.source.uri)).toEqual(['https://blob.test/e1-new.jpg?s=1'])
+
+  rerender(txn({}))
+  expect(screen.getByLabelText('Add a photo to Plant')).toBeTruthy()
 })

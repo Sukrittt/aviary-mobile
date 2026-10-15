@@ -116,11 +116,13 @@ function FeedCard({ txn, category, onOpenActions, onView }: {
   const { formatCurrency } = useCurrency()
   const save = useSaveExpensePhoto()
   const tint = categoryTint(txn.category, tokens)
-  // The just-picked file shows at once and stays put; the signed URL arrives on the refetch.
-  const [picked, setPicked] = useState<string | null>(null)
+  // The just-picked file shows at once, until the row's photo changes on the
+  // server (the upload's own refetch, or a later edit or removal).
+  const [picked, setPicked] = useState<{ uri: string; over?: string } | null>(null)
+  if (picked && picked.over !== txn.photo_url) setPicked(null)
   const [justAdded, setJustAdded] = useState(false)
   const signed = useMemo(() => (txn.photo_url ? stablePhotoUrl(txn.photo_url) : null), [txn.photo_url])
-  const uri = picked ?? signed
+  const uri = picked?.uri ?? signed
 
   useEffect(() => {
     if (!justAdded) return
@@ -131,7 +133,7 @@ function FeedCard({ txn, category, onOpenActions, onView }: {
   async function addFrom(source: 'camera' | 'library') {
     const photo = await pickPhoto(source)
     if (!photo || !txn.id) return
-    setPicked(photo.uri)
+    setPicked({ uri: photo.uri, over: txn.photo_url })
     try {
       await save.mutateAsync({ id: txn.id, photo: { base64: photo.base64, mimeType: photo.mimeType } })
       track('expense_photo_added', { from: 'feed' })
