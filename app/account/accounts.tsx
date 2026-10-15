@@ -16,7 +16,7 @@ import { CheckIcon } from "@/src/components/shared/CheckIcon";
 import { usePressSpring } from "@/src/components/ui/Button";
 import { Alert } from "@/src/components/ui/AlertHost";
 import { BottomSheet } from "@/src/components/shared/Modal";
-import { accountEmoji, accountLabel } from "@/src/components/shared/AccountChips";
+import { AccountIcon, accountLabel } from "@/src/components/shared/AccountChips";
 import { liveAccounts, useAccounts, useAddAccount, useUpdateAccount } from "@/src/hooks/useAccounts";
 import { useBalanceStatus } from "@/src/hooks/useBalanceCheck";
 import { useRefresh } from "@/src/hooks/useRefresh";
@@ -132,7 +132,9 @@ export default function AccountsScreen() {
                 <Text style={[styles.sectionLabel, { color: tokens.text3, fontFamily: fontFamily.bodyBold }]}>ARCHIVED</Text>
                 {archived.map((a) => (
                   <View key={a.id} style={[styles.rowCard, styles.rowInner, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
-                    <Text style={[styles.emoji, { opacity: 0.5 }]}>{accountEmoji(a)}</Text>
+                    <View style={[styles.iconTile, { backgroundColor: tokens.pillBg, opacity: 0.5 }]}>
+                      <AccountIcon account={a} size={20} color={tokens.text2} />
+                    </View>
                     <Text style={[styles.rowTitle, { flex: 1, color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]} numberOfLines={1}>{accountLabel(a)}</Text>
                     <Pressable onPress={() => restore(a)} disabled={update.isPending} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Restore ${a.name}`}>
                       <Text style={[styles.restore, { color: tokens.mint, fontFamily: fontFamily.bodyBold }]}>Restore</Text>
@@ -173,7 +175,9 @@ function AccountItem({ account, index, onEdit, onTransactions, onDelete }: { acc
   ];
   return (
     <PopIn play delay={delay} style={[styles.rowCard, styles.rowInner, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
-      <Text style={styles.emoji}>{accountEmoji(account)}</Text>
+      <View style={[styles.iconTile, { backgroundColor: tokens.pillBg }]}>
+        <AccountIcon account={account} size={20} color={tokens.text2} />
+      </View>
       <View style={{ flex: 1 }}>
         <Text style={[styles.rowTitle, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]} numberOfLines={1}>{accountLabel(account)}</Text>
         <Text style={[styles.rowMeta, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>{ACCOUNT_TYPE_LABEL[account.type] ?? "Account"}</Text>
@@ -261,8 +265,9 @@ function StarterPicks({ names }: { names: string[] }) {
             }}
             style={[styles.chip, { backgroundColor: c.picked ? tokens.accent : tokens.pillBg, borderColor: c.picked ? tokens.accent : tokens.border }]}
           >
+            <AccountIcon account={c} size={14} color={c.picked ? tokens.onAccent : tokens.text2} />
             <Text style={[styles.chipText, { color: c.picked ? tokens.onAccent : tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
-              {accountEmoji(c)} {accountLabel(c)}
+              {accountLabel(c)}
             </Text>
           </Pressable>
         ))}
@@ -349,13 +354,13 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   dot: { width: 10, height: 10, borderRadius: 5 },
-  emoji: { fontSize: 20 },
+  iconTile: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   headerButtons: { flexDirection: "row", gap: 8 },
   starter: { borderWidth: 1, borderRadius: 16, padding: 16, gap: 10, width: "100%" },
   starterTitle: { fontSize: 16 },
   starterBody: { fontSize: 13, lineHeight: 18 },
   chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  chip: { borderWidth: 1, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8 },
+  chip: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8 },
   chipText: { fontSize: 13 },
   primary: { borderRadius: 14, paddingVertical: 14, alignItems: "center", justifyContent: "center", marginTop: 4 },
   primaryText: { fontSize: 15 },

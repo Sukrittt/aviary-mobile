@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
+import { AccountIcon } from '@/src/components/shared/AccountChips'
 import { Animated, Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { useRouter } from 'expo-router'
 import { usePreventRemove } from 'expo-router/react-navigation'
@@ -275,7 +276,7 @@ function EnterBalance({ status: fetched, closing, onClose, onMeasured }: {
         <Text style={text.label}>WHERE YOU PAY FROM</Text>
         <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border, borderRadius: radius.lg, padding: space.md, gap: space.md }]}>
           <View style={[styles.cardIcon, { backgroundColor: tokens.accentSoft, borderRadius: radius.md }]}>
-            <Text style={{ fontSize: type.title }}>🏦</Text>
+            <AccountIcon account={{ name: '', type: 'bank' }} size={22} color={tokens.accentInk} />
           </View>
           <View style={{ flex: 1, gap: 2 }}>
             <Text style={{ color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: type.body }}>
