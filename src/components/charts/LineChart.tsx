@@ -16,6 +16,8 @@ const PAD_BOTTOM = 8
 const PAD_RIGHT = 8
 const DRAW_DURATION = 900
 const MORPH_DURATION = 450
+// How long a press must hold before the chart starts scrubbing.
+const HOLD_MS = 400
 const DAY_MS = 86_400_000
 // The line is drawn through this many evenly spaced samples, so every range
 // has the same shape to morph between.
@@ -78,10 +80,10 @@ function mix(from: number[], to: number[], t: number): number[] {
 }
 
 /** Softened step line with a gradient fill, drawn on at mount and morphed
- *  when the data changes, edge to edge. A horizontal drag (or a press and
- *  hold) scrubs by day: a date pill rides the crosshair, the line past it
- *  greys out, each new day ticks, and `onScrub` hands the parent the day and
- *  value (null on release). Vertical drags fall through to the page scroll. */
+ *  when the data changes, edge to edge. Press and hold, then slide, to scrub
+ *  by day: a date pill rides the crosshair, the line past it greys out, each
+ *  new day ticks, and `onScrub` hands the parent the day and value (null on
+ *  release). Taps and quick drags fall through to the page scroll. */
 export function LineChart({
   data,
   height = 180,
@@ -180,24 +182,20 @@ export function LineChart({
     onScrub?.(null)
   }
 
-  // A sideways drag scrubs at once; a vertical one fails it so the page
-  // scrolls. Press and hold scrubs too, for picking a day without sliding.
-  const slide = Gesture.Pan().activeOffsetX([-6, 6]).failOffsetY([-10, 10])
-  const hold = Gesture.Pan().activateAfterLongPress(220)
-  for (const g of [slide, hold]) {
-    g.runOnJS(true)
-      .onStart((e) => scrub(e.x))
-      .onUpdate((e) => scrub(e.x))
-      // onEnd, not onFinalize: the gesture that loses the race finalizes too,
-      // and mustn't clear the one still scrubbing.
-      .onEnd(release)
-  }
+  // Like Fold: press and hold to wake the chart, then slide. A tap or a drag
+  // that moves before the hold lands fails it, so the page still scrolls.
+  const hold = Gesture.Pan()
+    .activateAfterLongPress(HOLD_MS)
+    .runOnJS(true)
+    .onStart((e) => scrub(e.x))
+    .onUpdate((e) => scrub(e.x))
+    .onFinalize(release)
 
   const ax = active ? ((active.x - minX) / (maxX - minX || 1)) * plotW : null
   const activeY = active && ax != null ? target[Math.round((ax / (plotW || 1)) * (SAMPLES - 1))] : 0
 
   return (
-    <GestureDetector gesture={Gesture.Race(slide, hold)}>
+    <GestureDetector gesture={hold}>
       <View testID="line-plot" style={{ height }} onLayout={(e) => setWidth(Math.round(e.nativeEvent.layout.width))}>
         {width > 0 && data.length > 1 && (
           <Svg width={width} height={height}>
