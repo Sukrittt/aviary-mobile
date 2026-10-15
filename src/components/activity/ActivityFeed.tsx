@@ -176,19 +176,23 @@ function FeedCard({ txn, category, onOpenActions, onView }: {
         </Text>
       </Pressable>
 
-      <Pressable
-        onPress={() => (uri ? onView(uri) : onOpenActions(txn))}
-        onLongPress={() => onOpenActions(txn)}
-        accessibilityRole="button"
-        accessibilityLabel={uri ? `View photo of ${txn.item}` : `${txn.item}. Edit or delete`}
-      >
-        {uri ? (
-          <Image source={{ uri }} style={[styles.photo, { backgroundColor: tokens.inputBg }]} />
-        ) : (
-          <View style={[styles.placeholder, { backgroundColor: tint.bg }]}>
-            <CategoryIcon name={txn.category} icon={category?.icon} group={category?.group} size={56} color={tint.ink} />
-          </View>
-        )}
+      {/* The add button and overlays sit beside the media's Pressable, not
+          inside it: an accessible button hides its children from VoiceOver. */}
+      <View>
+        <Pressable
+          onPress={() => (uri ? onView(uri) : onOpenActions(txn))}
+          onLongPress={() => onOpenActions(txn)}
+          accessibilityRole="button"
+          accessibilityLabel={uri ? `View photo of ${txn.item}` : `${txn.item}. Edit or delete`}
+        >
+          {uri ? (
+            <Image source={{ uri }} style={[styles.photo, { backgroundColor: tokens.inputBg }]} />
+          ) : (
+            <View style={[styles.placeholder, { backgroundColor: tint.bg }]}>
+              <CategoryIcon name={txn.category} icon={category?.icon} group={category?.group} size={56} color={tint.ink} />
+            </View>
+          )}
+        </Pressable>
         {/* A row with a photo the server didn't sign (older server, or signing failed) shows its category, without offering a second photo. */}
         {!uri && !txn.has_photo && (
           <Pressable
@@ -203,16 +207,16 @@ function FeedCard({ txn, category, onOpenActions, onView }: {
           </Pressable>
         )}
         {save.isPending && (
-          <View style={[StyleSheet.absoluteFill, styles.center, { backgroundColor: 'rgba(0, 0, 0, 0.25)' }]}>
+          <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.center, { backgroundColor: 'rgba(0, 0, 0, 0.25)' }]}>
             <ActivityIndicator color="#ffffff" />
           </View>
         )}
         {justAdded && (
-          <View style={[styles.added, { backgroundColor: tokens.mint, right: space.md, bottom: space.md }]}>
+          <View pointerEvents="none" style={[styles.added, { backgroundColor: tokens.mint, right: space.md, bottom: space.md }]}>
             <CheckIcon color="#ffffff" />
           </View>
         )}
-      </Pressable>
+      </View>
 
       {notes ? (
         <Text numberOfLines={3} style={{ color: tokens.text2, fontFamily: fontFamily.bodyMedium, fontSize: 14, padding: space.md }}>
