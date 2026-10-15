@@ -96,6 +96,15 @@ it("holds the brief's shape with skeletons while it loads, not a rotating captio
   expect(utils.getAllByTestId('tab-skeleton')).toHaveLength(2)
 })
 
+it('keeps the brief skeleton out of a chat already under way', async () => {
+  mockBrief = { ...mockBrief, isLoading: true }
+  holdStreams()
+  const utils = renderWithProviders(<MoneyBrainModal />)
+  await sendQuestion(utils, 'Where did it go?')
+  // Only the summary card's lines; the insight rows and chips stay out of the chat.
+  expect(utils.getAllByTestId('tab-skeleton')).toHaveLength(1)
+})
+
 it('still lets a user over the AI allowance log spends in capture mode', async () => {
   mockBrief = { ...mockBrief, isError: true, error: new AiAllowanceError("You've used this month's AI allowance.") }
   mockParams = { capture: '1' }

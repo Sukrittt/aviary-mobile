@@ -578,7 +578,7 @@ export default function MoneyBrainModal() {
         )}
 
         {/* Holds the brief's shape while it loads, like web, rather than a rotating caption. */}
-        {!captureMode && briefQ.isLoading && <BriefSkeleton />}
+        {!captureMode && messages.length === 0 && briefQ.isLoading && <BriefSkeleton />}
 
         {messages.length > 0 && (
           <View style={{ gap: 10 }}>
