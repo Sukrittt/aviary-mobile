@@ -491,38 +491,81 @@ export default function MoreScreen() {
 
       <BottomSheet visible={scanPickerOpen} onClose={closeScanPicker}>
         <Text style={[styles.sheetTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Scan a bill</Text>
-        <View style={{ gap: 8 }}>
-          <Pressable
+        <View style={styles.sourceTiles}>
+          <SourceTile
+            icon={Camera}
+            label="Take a photo"
+            hint="Point at a receipt"
+            primary
+            disabled={scanOff}
             onPress={() => pickBillFrom('camera')}
+          />
+          <SourceTile
+            icon={Images}
+            label="Choose a screenshot"
+            hint="From your gallery"
             disabled={scanOff}
-            style={[styles.sourceRow, { backgroundColor: tokens.inputBg, opacity: scanOff ? 0.6 : 1 }]}
-          >
-            <Camera size={20} color={tokens.text} />
-            <Text style={[styles.sourceLabel, { color: tokens.text, fontFamily: fontFamily.bodySemiBold, flex: 1 }]}>Take a photo</Text>
-            {scanOff && <MaintenanceChip />}
-          </Pressable>
-          <Pressable
             onPress={() => pickBillFrom('library')}
-            disabled={scanOff}
-            style={[styles.sourceRow, { backgroundColor: tokens.inputBg, opacity: scanOff ? 0.6 : 1 }]}
-          >
-            <Images size={20} color={tokens.text} />
-            <Text style={[styles.sourceLabel, { color: tokens.text, fontFamily: fontFamily.bodySemiBold, flex: 1 }]}>Choose a screenshot</Text>
-            {scanOff && <MaintenanceChip />}
-          </Pressable>
-          <Pressable
-            onPress={() => {
-              closeScanPicker()
-              router.push('/account/bill-scans')
-            }}
-            style={[styles.sourceRow, { backgroundColor: tokens.inputBg }]}
-          >
-            <ClockCounterClockwise size={20} color={tokens.text} />
-            <Text style={[styles.sourceLabel, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>Previous scans</Text>
-          </Pressable>
+          />
         </View>
+        <Pressable
+          accessibilityRole="link"
+          onPress={() => {
+            closeScanPicker()
+            router.push('/account/bill-scans')
+          }}
+          style={styles.historyRow}
+        >
+          <ClockCounterClockwise size={18} color={tokens.text2} />
+          <Text style={[styles.sourceLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold, flex: 1 }]}>Previous scans</Text>
+          <CaretRight size={16} color={tokens.text2} />
+        </Pressable>
       </BottomSheet>
     </>
+  )
+}
+
+/** One of the scan sheet's two capture tiles. `primary` is the filled accent one, for the source most bills come from. */
+function SourceTile({
+  icon: Icon,
+  label,
+  hint,
+  primary = false,
+  disabled,
+  onPress,
+}: {
+  icon: PhosphorIcon
+  label: string
+  hint: string
+  primary?: boolean
+  disabled: boolean
+  onPress: () => void
+}) {
+  const { tokens } = useTheme()
+  const ink = primary ? tokens.onAccent : tokens.text
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      disabled={disabled}
+      style={({ pressed }) => [
+        styles.sourceTile,
+        {
+          backgroundColor: primary ? tokens.accent : tokens.inputBg,
+          opacity: disabled ? 0.6 : pressed ? 0.85 : 1,
+        },
+      ]}
+    >
+      <View style={[styles.sourceIcon, { backgroundColor: primary ? 'rgba(255,255,255,0.2)' : tokens.accentSoft }]}>
+        <Icon size={22} color={primary ? tokens.onAccent : tokens.accentInk} />
+      </View>
+      <Text style={[styles.sourceLabel, { color: ink, fontFamily: fontFamily.bodyBold }]}>{label}</Text>
+      {disabled ? (
+        <MaintenanceChip />
+      ) : (
+        <Text style={[styles.sourceHint, { color: ink, fontFamily: fontFamily.bodySemiBold }]}>{hint}</Text>
+      )}
+    </Pressable>
   )
 }
 
@@ -683,7 +726,11 @@ const styles = StyleSheet.create({
   versionBlock: { alignItems: 'center', gap: 7 },
   updateLink: { fontSize: 12, textAlign: 'center' },
   sheetTitle: { fontSize: 17, marginBottom: 12 },
-  sourceRow: { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 14, padding: 14 },
+  sourceTiles: { flexDirection: 'row', gap: 10 },
+  sourceTile: { flex: 1, borderRadius: 20, padding: 16, gap: 6, minHeight: 140 },
+  sourceIcon: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginBottom: 'auto' },
+  sourceHint: { fontSize: 13, opacity: 0.75 },
+  historyRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 14, paddingHorizontal: 4, marginTop: 6 },
   sourceLabel: { fontSize: 15 },
-  chip: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
+  chip: { alignSelf: 'flex-start', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
 })
