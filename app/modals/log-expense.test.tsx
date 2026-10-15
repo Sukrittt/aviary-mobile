@@ -862,3 +862,14 @@ it('submits the focused prefilled screen, not the blank launch screen under it',
 
   await waitFor(() => expect((globalThis as any).__canSubmit).toBe(true))
 })
+
+it('ticks when the category picker or More opens', () => {
+  const Haptics = jest.requireActual<typeof import('expo-haptics')>('expo-haptics')
+  const impact = jest.spyOn(Haptics, 'impactAsync').mockResolvedValue()
+  const utils = setup({})
+  fireEvent.press(utils.getByLabelText('Category'))
+  expect(impact).toHaveBeenCalledTimes(1)
+  fireEvent.press(utils.getByText('More'))
+  expect(impact).toHaveBeenCalledTimes(2)
+  impact.mockRestore()
+})
