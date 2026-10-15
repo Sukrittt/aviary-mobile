@@ -45,3 +45,19 @@ export function parseLocalDate(str: string): Date {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(str)
   return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : new Date(str)
 }
+
+/** "Today", "Yesterday", else "Saturday, 12 October" (plus the year when it isn't this one). */
+export function formatDayLabel(iso: string, today: Date = new Date()): string {
+  const d = parseLocalDate(iso)
+  if (Number.isNaN(d.getTime())) return iso
+  const yesterday = new Date(today)
+  yesterday.setDate(yesterday.getDate() - 1)
+  if (iso === toLocalDateString(today)) return 'Today'
+  if (iso === toLocalDateString(yesterday)) return 'Yesterday'
+  return d.toLocaleDateString('en-IN', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+    year: d.getFullYear() !== today.getFullYear() ? 'numeric' : undefined,
+  })
+}

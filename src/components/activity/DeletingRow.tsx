@@ -29,10 +29,24 @@ export function DeletingRow({
   // `scheduleOnRN`) rejects a closure created inside the worklet with
   // "Locally defined function passed to scheduleOnRN", and that throw comes
   // out of an animation callback on the UI thread, which crashes the app.
-  const finish = useCallback(() => onDoneRef.current(), [])
+  // True from the moment a delete is confirmed until `onDone` runs. `onDone`
+  // is what actually sends the delete, so a row unmounted mid-collapse (a page
+  // or filter change, switching Activity to the feed) still has to call it.
+  const pendingRef = useRef(false)
+  const finish = useCallback(() => {
+    if (!pendingRef.current) return
+    pendingRef.current = false
+    onDoneRef.current()
+  }, [])
+  useEffect(() => finish, [finish])
 
   useEffect(() => {
-    if (!active || measuredHeight === null) return
+    if (!active) {
+      pendingRef.current = false
+      return
+    }
+    pendingRef.current = true
+    if (measuredHeight === null) return
     // Reset first: a row whose previous delete failed is left collapsed, and
     // withTiming to a value it already holds finishes with no animation.
     pillProgress.value = 0

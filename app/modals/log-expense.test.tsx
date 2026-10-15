@@ -751,10 +751,28 @@ describe('photo', () => {
     })
   }
 
-  it('lives only inside the More sheet', async () => {
+  it('keeps the full photo field inside the More sheet', async () => {
     const utils = setup()
     expect(utils.queryByText('Photo (optional)')).toBeNull()
     expect(await openMore(utils)).toBeTruthy()
+  })
+
+  it('takes a photo from the camera button under the amount, then opens More to see it', async () => {
+    mockLaunchCamera.mockResolvedValue({ canceled: false, assets: [asset] })
+    const utils = setup()
+    await act(async () => {
+      fireEvent.press(utils.getByLabelText('Take a photo'))
+    })
+    expect(mockLaunchCamera).toHaveBeenCalled()
+    fireEvent.press(utils.getByLabelText('Photo added. View or change it'))
+    expect(await utils.findByLabelText('View photo')).toBeTruthy()
+  })
+
+  it('hides the camera button offline', () => {
+    setOnline(false)
+    setOnline(false)
+    const utils = setup()
+    expect(utils.queryByLabelText('Take a photo')).toBeNull()
   })
 
   it('is disabled offline, with a note', async () => {
