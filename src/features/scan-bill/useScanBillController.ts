@@ -15,7 +15,7 @@ import { useBulkSelection } from './useBulkSelection';
 import { isAiAllowanceError } from "@/src/lib/aiAllowance";
 
 
-type Phase = "scanning" | "review" | "confirm" | "error";
+type Phase = "scanning" | "reveal" | "review" | "confirm" | "error";
 export function useScanBillController() {
   const { tokens, space, radius, type } = useTheme();
   const insets = useSafeAreaInsets();
@@ -95,7 +95,7 @@ export function useScanBillController() {
           actions.load(res);
           setQuery("");
           resetSelection();
-          setPhase("review");
+          setPhase("reveal");
         },
         onError: (err) => {
           // Retrying a clearer photo can't help when the month's AI is spent.
@@ -171,6 +171,12 @@ export function useScanBillController() {
   }
 
   const categoryLabel = category ? splitEmoji(category).text : "";
+  const scanImageUri = useMemo(() => {
+    const asset = pendingAsset.current;
+    return asset ? `data:${asset.mimeType};base64,${asset.base64}` : null;
+  }, []);
+  // Tap-to-skip and the reveal's own timer can both fire; only the first counts.
+  const finishReveal = () => setPhase((p) => (p === "reveal" ? "review" : p));
 
-  return { tokens, space, radius, type, insets, router, categories, phase, setPhase, errorMsg, allowanceHit, merchant, setMerchant, category, setCategory, date, items, peopleCount, productItems, feeItems, feeAggregate, hasFee, feeShare, billTotal, myShare, sharePct, buckets, updateItem, removeItem, addBlankItem, setAllMine, setPeopleCount, query, setQuery, selecting, selected, setSelected, categoryPickerOpen, setCategoryPickerOpen, selectedCategory, visibleItems, canProceed, toggleSelecting, toggleSelected, applyBulkDivisor, handleConfirm, categoryLabel, addExpense };
+  return { tokens, space, radius, type, insets, router, categories, phase, setPhase, errorMsg, allowanceHit, merchant, setMerchant, category, setCategory, date, items, peopleCount, productItems, feeItems, feeAggregate, hasFee, feeShare, billTotal, myShare, sharePct, buckets, updateItem, removeItem, addBlankItem, setAllMine, setPeopleCount, query, setQuery, selecting, selected, setSelected, categoryPickerOpen, setCategoryPickerOpen, selectedCategory, visibleItems, canProceed, toggleSelecting, toggleSelected, applyBulkDivisor, handleConfirm, categoryLabel, addExpense, scanImageUri, finishReveal };
 }
