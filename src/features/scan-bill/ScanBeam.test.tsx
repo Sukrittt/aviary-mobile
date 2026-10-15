@@ -32,16 +32,17 @@ it('reads the bill while the scan runs, without finishing on its own', () => {
   expect(onDone).not.toHaveBeenCalled()
 })
 
-it('pops out the first five items, then hands off to review', () => {
+it('stamps the bill, pops out the first four items, then hands off to review', () => {
   const onDone = jest.fn()
   const { getByText, queryByText } = renderWithProviders(
     <Harness imageUri={null} items={null} total={0} onDone={onDone} />,
   )
   update({ items, total: 742 })
-  expect(getByText('Found 7 items')).toBeTruthy()
-  expect(getByText('Bagel')).toBeTruthy()
-  expect(queryByText('Muffin')).toBeNull()
-  expect(getByText('+2 more')).toBeTruthy()
+  expect(getByText('Bill scanned')).toBeTruthy()
+  expect(getByText('7 items')).toBeTruthy()
+  expect(getByText('Avocado toast')).toBeTruthy()
+  expect(queryByText('Bagel')).toBeNull()
+  expect(getByText('+3 more')).toBeTruthy()
   expect(getByText('Bill total')).toBeTruthy()
 
   act(() => { jest.advanceTimersByTime(revealMs(items.length) - 1) })
