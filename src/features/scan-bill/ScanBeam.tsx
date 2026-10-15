@@ -5,7 +5,7 @@ import { useTheme } from "@/src/theme/ThemeProvider";
 import { fontFamily } from "@/src/theme/fonts";
 import { LinearGradient } from "expo-linear-gradient";
 import { useEffect } from "react";
-import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import Animated, {
   Easing,
   Extrapolation,
@@ -113,139 +113,142 @@ export function ScanBeam({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [revealing]);
 
+  // Scrolls only when the reveal outgrows a compact screen; centered otherwise.
   return (
-    <Pressable
-      style={s.fill}
-      onPress={revealing ? onDone : undefined}
-      accessibilityRole={revealing ? "button" : undefined}
-      accessibilityLabel={revealing ? "Scan done. Tap to review" : "Reading your bill"}
-    >
-      <Animated.View
-        layout={LinearTransition.springify().damping(18)}
-        style={[
-          s.photo,
-          {
-            width: revealing ? DONE_W : PHOTO_W,
-            height: revealing ? DONE_H : PHOTO_H,
-            borderRadius: radius.lg,
-            backgroundColor: tokens.cardSolid,
-            borderColor: revealing ? tokens.mint : tokens.border,
-            shadowColor: revealing ? tokens.mint : tokens.accent,
-          },
-        ]}
+    <ScrollView style={s.scroll} contentContainerStyle={s.scrollBody} scrollEnabled={revealing}>
+      <Pressable
+        style={s.fill}
+        onPress={revealing ? onDone : undefined}
+        accessibilityRole={revealing ? "button" : undefined}
+        accessibilityLabel={revealing ? "Scan done. Tap to review" : "Reading your bill"}
       >
-        {imageUri && (
-          <Image
-            source={{ uri: imageUri }}
-            style={StyleSheet.absoluteFill}
-            resizeMode="cover"
-          />
-        )}
-        {!revealing && !reduceMotion && (
-          <>
-            <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(0,0,0,0.18)" }]} />
-            {HIGHLIGHTS.map((h) => (
-              <Highlight
-                key={h.at}
-                at={h.at}
-                width={h.w}
-                sweep={sweep}
-                fill={tokens.mintSoft}
-                edge={tokens.mint}
-              />
-            ))}
-            <Animated.View pointerEvents="none" style={[s.beam, beamStyle]}>
-              <LinearGradient
-                colors={["transparent", tokens.accentSoft]}
-                style={{ height: BEAM_GLOW }}
-              />
-              <View style={[s.beamLine, { backgroundColor: tokens.accent, shadowColor: tokens.accent }]} />
-            </Animated.View>
-          </>
-        )}
-        {revealing && !reduceMotion && (
-          <>
-            <Animated.View
-              entering={FadeIn.duration(250)}
-              pointerEvents="none"
-              style={[StyleSheet.absoluteFill, { backgroundColor: tokens.mintSoft }]}
+        <Animated.View
+          layout={LinearTransition.springify().damping(18)}
+          style={[
+            s.photo,
+            {
+              width: revealing ? DONE_W : PHOTO_W,
+              height: revealing ? DONE_H : PHOTO_H,
+              borderRadius: radius.lg,
+              backgroundColor: tokens.cardSolid,
+              borderColor: revealing ? tokens.mint : tokens.border,
+              shadowColor: revealing ? tokens.mint : tokens.accent,
+            },
+          ]}
+        >
+          {imageUri && (
+            <Image
+              source={{ uri: imageUri }}
+              style={StyleSheet.absoluteFill}
+              resizeMode="cover"
             />
-            <View style={s.stampWrap} pointerEvents="none">
-              <Animated.View style={[s.stamp, { backgroundColor: tokens.mint, shadowColor: tokens.mint }, stampStyle]}>
-                <CheckIcon color={tokens.onAccent} size={34} />
-              </Animated.View>
-            </View>
-          </>
-        )}
-      </Animated.View>
-
-      {!revealing ? (
-        <View style={{ marginTop: space.xl, width: "100%" }}>
-          <LoadingCaption
-            phrases={[
-              "Reading the bill…",
-              "Finding the total…",
-              "Spotting line items…",
-              "Almost done…",
-            ]}
-          />
-        </View>
-      ) : (
-        <View style={[s.list, { marginTop: space.xl, paddingHorizontal: space.lg }]}>
-          <Animated.Text
-            entering={FadeInDown.delay(STAMP_DELAY + 120)}
-            style={[s.done, { color: tokens.mint, fontSize: type.bodyLg }]}
-          >
-            Bill scanned
-          </Animated.Text>
-          <Animated.Text
-            entering={FadeIn.delay(CHIPS_START - 100)}
-            style={[s.heading, { color: tokens.text2, fontSize: type.caption, marginTop: space.lg }]}
-          >
-            {items.length === 0
-              ? "No line items, just the total"
-              : `${items.length} ${items.length === 1 ? "item" : "items"}`}
-          </Animated.Text>
-          {items.slice(0, chipCount).map((it, i) => (
-            <Animated.View
-              key={it.key}
-              entering={FadeInDown.delay(CHIPS_START + i * CHIP_STAGGER).springify().damping(16)}
-              style={[
-                s.chip,
-                {
-                  borderRadius: radius.md,
-                  backgroundColor: tokens.cardSolid,
-                  borderColor: tokens.border,
-                  marginTop: space.sm,
-                },
-              ]}
-            >
-              <Text numberOfLines={1} style={[s.chipName, { color: tokens.text, fontSize: type.body }]}>
-                {it.name || "Item"}
-              </Text>
-              <Text style={[s.chipAmount, { color: tokens.mint, fontSize: type.body }]}>
-                {formatMoney(it.price)}
-              </Text>
-            </Animated.View>
-          ))}
-          {extra > 0 && (
-            <Animated.Text
-              entering={FadeIn.delay(CHIPS_START + chipCount * CHIP_STAGGER)}
-              style={[s.more, { color: tokens.text2, fontSize: type.caption, marginTop: space.sm }]}
-            >
-              {`+${extra} more`}
-            </Animated.Text>
           )}
-          <Animated.View
-            entering={FadeIn.delay(CHIPS_START + chipCount * CHIP_STAGGER)}
-            style={[s.total, { marginTop: space.lg, borderTopColor: tokens.border }]}
-          >
-            <Text style={[s.heading, { color: tokens.text2, fontSize: type.caption }]}>Bill total</Text>
-            <RevealAmount value={total} size={type.title} color={tokens.text} />
-          </Animated.View>
-        </View>
-      )}
-    </Pressable>
+          {!revealing && !reduceMotion && (
+            <>
+              <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(0,0,0,0.18)" }]} />
+              {HIGHLIGHTS.map((h) => (
+                <Highlight
+                  key={h.at}
+                  at={h.at}
+                  width={h.w}
+                  sweep={sweep}
+                  fill={tokens.mintSoft}
+                  edge={tokens.mint}
+                />
+              ))}
+              <Animated.View pointerEvents="none" style={[s.beam, beamStyle]}>
+                <LinearGradient
+                  colors={["transparent", tokens.accentSoft]}
+                  style={{ height: BEAM_GLOW }}
+                />
+                <View style={[s.beamLine, { backgroundColor: tokens.accent, shadowColor: tokens.accent }]} />
+              </Animated.View>
+            </>
+          )}
+          {revealing && !reduceMotion && (
+            <>
+              <Animated.View
+                entering={FadeIn.duration(250)}
+                pointerEvents="none"
+                style={[StyleSheet.absoluteFill, { backgroundColor: tokens.mintSoft }]}
+              />
+              <View style={s.stampWrap} pointerEvents="none">
+                <Animated.View style={[s.stamp, { backgroundColor: tokens.mint, shadowColor: tokens.mint }, stampStyle]}>
+                  <CheckIcon color={tokens.onAccent} size={34} />
+                </Animated.View>
+              </View>
+            </>
+          )}
+        </Animated.View>
+
+        {!revealing ? (
+          <View style={{ marginTop: space.xl, width: "100%" }}>
+            <LoadingCaption
+              phrases={[
+                "Reading the bill…",
+                "Finding the total…",
+                "Spotting line items…",
+                "Almost done…",
+              ]}
+            />
+          </View>
+        ) : (
+          <View style={[s.list, { marginTop: space.xl, paddingHorizontal: space.lg }]}>
+            <Animated.Text
+              entering={FadeInDown.delay(STAMP_DELAY + 120)}
+              style={[s.done, { color: tokens.mint, fontSize: type.bodyLg }]}
+            >
+              Bill scanned
+            </Animated.Text>
+            <Animated.Text
+              entering={FadeIn.delay(CHIPS_START - 100)}
+              style={[s.heading, { color: tokens.text2, fontSize: type.caption, marginTop: space.lg }]}
+            >
+              {items.length === 0
+                ? "No line items, just the total"
+                : `${items.length} ${items.length === 1 ? "item" : "items"}`}
+            </Animated.Text>
+            {items.slice(0, chipCount).map((it, i) => (
+              <Animated.View
+                key={it.key}
+                entering={FadeInDown.delay(CHIPS_START + i * CHIP_STAGGER).springify().damping(16)}
+                style={[
+                  s.chip,
+                  {
+                    borderRadius: radius.md,
+                    backgroundColor: tokens.cardSolid,
+                    borderColor: tokens.border,
+                    marginTop: space.sm,
+                  },
+                ]}
+              >
+                <Text numberOfLines={1} style={[s.chipName, { color: tokens.text, fontSize: type.body }]}>
+                  {it.name || "Item"}
+                </Text>
+                <Text style={[s.chipAmount, { color: tokens.mint, fontSize: type.body }]}>
+                  {formatMoney(it.price)}
+                </Text>
+              </Animated.View>
+            ))}
+            {extra > 0 && (
+              <Animated.Text
+                entering={FadeIn.delay(CHIPS_START + chipCount * CHIP_STAGGER)}
+                style={[s.more, { color: tokens.text2, fontSize: type.caption, marginTop: space.sm }]}
+              >
+                {`+${extra} more`}
+              </Animated.Text>
+            )}
+            <Animated.View
+              entering={FadeIn.delay(CHIPS_START + chipCount * CHIP_STAGGER)}
+              style={[s.total, { marginTop: space.lg, borderTopColor: tokens.border }]}
+            >
+              <Text style={[s.heading, { color: tokens.text2, fontSize: type.caption }]}>Bill total</Text>
+              <RevealAmount value={total} size={type.title} color={tokens.text} />
+            </Animated.View>
+          </View>
+        )}
+      </Pressable>
+    </ScrollView>
   );
 }
 
@@ -279,7 +282,9 @@ const BEAM_GLOW = 44;
 const s = StyleSheet.create({
   // Centered in the space under the header; the bottom pad offsets it so the
   // photo sits at the screen's optical middle, not the body's.
-  fill: { flex: 1, alignItems: "center", justifyContent: "center", paddingBottom: 60 },
+  scroll: { flex: 1 },
+  scrollBody: { flexGrow: 1 },
+  fill: { flexGrow: 1, alignItems: "center", justifyContent: "center", paddingBottom: 60 },
   photo: {
     overflow: "hidden",
     borderWidth: 1,
