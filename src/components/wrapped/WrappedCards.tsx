@@ -5,6 +5,7 @@ import { fontFamily } from '@/src/theme/fonts'
 import { splitEmoji } from '@/src/lib/emoji'
 import { monthAbbrev, monthLabel } from '@/src/lib/envelope'
 import { Fire, FireSimple, Lightning, Scales, Target, Wind, type PhosphorIcon } from '@/src/components/shared/icons'
+import { CategoryLabel, WrappedCategoryIcon } from './CategoryLabel'
 import { WrappedCard, WrappedBigNumber, WrappedCaption, WrappedGlow, WFade, WRise, WPop } from './WrappedCard'
 
 // The deck's fixed slides: cover, total and persona. The stories between them are
@@ -122,21 +123,22 @@ export function categoryQuip(category: string): string {
   return TOP_CATEGORY_QUIPS[splitEmoji(category).text.trim().toLowerCase()] ?? DEFAULT_CATEGORY_QUIP
 }
 
-const ARCHETYPES: Record<string, { emoji: string; title: string; blurb: string; closer: string }> = {
-  bills: { emoji: '🧾', title: 'The Bill Whisperer', blurb: 'You pay everything before it’s due', closer: 'Responsible to a fault' },
-  rent: { emoji: '🏠', title: 'The Homebody', blurb: 'Rent first, everything else negotiable', closer: 'A steady hand' },
-  food: { emoji: '🍜', title: 'The Flavor Chaser', blurb: 'Every meal is a small event', closer: 'No regrets, mostly' },
-  groceries: { emoji: '🛒', title: 'The Provisioner', blurb: 'Always stocked, always planning three meals ahead', closer: 'Never caught out' },
-  shopping: { emoji: '🛍️', title: 'The Collector', blurb: 'One more thing never hurt anyone', closer: 'Probably' },
-  investments: { emoji: '📈', title: 'The Quiet Investor', blurb: 'Moves money into the future like it’s nothing', closer: 'Future you says thanks' },
-  travel: { emoji: '✈️', title: 'The Wanderer', blurb: 'Home is wherever the itinerary says next', closer: 'Always somewhere new' },
-  entertainment: { emoji: '🎬', title: 'The Main Character', blurb: 'Every week deserves a little spectacle', closer: 'No notes' },
-  transport: { emoji: '🚕', title: 'The Commuter', blurb: 'Always in motion, always somewhere to be', closer: 'Never idle' },
+const ARCHETYPES: Record<string, { title: string; blurb: string; closer: string }> = {
+  bills: { title: 'The Bill Whisperer', blurb: 'You pay everything before it’s due', closer: 'Responsible to a fault' },
+  rent: { title: 'The Homebody', blurb: 'Rent first, everything else negotiable', closer: 'A steady hand' },
+  food: { title: 'The Flavor Chaser', blurb: 'Every meal is a small event', closer: 'No regrets, mostly' },
+  groceries: { title: 'The Provisioner', blurb: 'Always stocked, always planning three meals ahead', closer: 'Never caught out' },
+  shopping: { title: 'The Collector', blurb: 'One more thing never hurt anyone', closer: 'Probably' },
+  investments: { title: 'The Quiet Investor', blurb: 'Moves money into the future like it’s nothing', closer: 'Future you says thanks' },
+  travel: { title: 'The Wanderer', blurb: 'Home is wherever the itinerary says next', closer: 'Always somewhere new' },
+  entertainment: { title: 'The Main Character', blurb: 'Every week deserves a little spectacle', closer: 'No notes' },
+  transport: { title: 'The Commuter', blurb: 'Always in motion, always somewhere to be', closer: 'Never idle' },
 }
 
-const DEFAULT_ARCHETYPE = { emoji: '💳', title: 'The Steady Spender', blurb: 'Consistent, deliberate, and hard to predict', closer: 'Steady as ever' }
+const DEFAULT_ARCHETYPE = { title: 'The Steady Spender', blurb: 'Consistent, deliberate, and hard to predict', closer: 'Steady as ever' }
 
-type Persona = { title: string; blurb: string; icon?: PhosphorIcon; emoji?: string }
+/** No `icon` means the fallback persona, drawn with the top category's icon. */
+type Persona = { title: string; blurb: string; icon?: PhosphorIcon }
 
 /** Jev's read of how the month went, written to match the web app's persona cards. */
 const JEV_PERSONAS: Record<WrappedPersona, (data: WrappedData) => Persona> = {
@@ -162,7 +164,7 @@ export function getArchetype(data: WrappedData, judgement?: WrappedJudgement | n
   const top = data.topCategories[0]
   const key = top ? splitEmoji(top.category).text.trim().toLowerCase() : ''
   const a = ARCHETYPES[key] ?? DEFAULT_ARCHETYPE
-  return { emoji: a.emoji, title: a.title, blurb: `${a.blurb}. ${a.closer}.` }
+  return { title: a.title, blurb: `${a.blurb}. ${a.closer}.` }
 }
 
 export function ArchetypeCard({ data, color, onColor, judgement }: CardProps & { judgement?: WrappedJudgement | null }) {
@@ -174,7 +176,7 @@ export function ArchetypeCard({ data, color, onColor, judgement }: CardProps & {
   return (
     <WrappedCard color={color} onColor={onColor} eyebrow="Your spending personality" style={styles.centered}>
       <WrappedGlow color={`${onColor}26`} />
-      <WPop delay={80}>{Icon ? <Icon size={48} color={onColor} weight="fill" /> : <Text style={styles.archetypeEmoji}>{persona.emoji}</Text>}</WPop>
+      <WPop delay={80}>{Icon ? <Icon size={48} color={onColor} weight="fill" /> : <WrappedCategoryIcon category={top?.category ?? ''} size={48} color={onColor} />}</WPop>
       <WPop delay={160}>
         <Text style={[styles.coverTitle, { color: onColor, fontFamily: fontFamily.displayBold, fontSize: 40, lineHeight: 44 }]}>
           {persona.title}
@@ -186,9 +188,13 @@ export function ArchetypeCard({ data, color, onColor, judgement }: CardProps & {
       <WRise delay={440} style={styles.chipRow}>
         {top && (
           <View style={[styles.chip, { backgroundColor: `${onColor}22`, borderColor: `${onColor}44` }]}>
-            <Text style={[styles.chipText, { color: onColor, fontFamily: fontFamily.bodyExtraBold }]}>
-              {top.category} · {top.pct.toFixed(0)}%
-            </Text>
+            <CategoryLabel
+              category={top.category}
+              color={onColor}
+              size={14}
+              suffix={` · ${top.pct.toFixed(0)}%`}
+              style={[styles.chipText, { fontFamily: fontFamily.bodyExtraBold }]}
+            />
           </View>
         )}
         {streak && streak.days > 1 && (
@@ -223,7 +229,6 @@ const styles = StyleSheet.create({
   coverButtonGhost: { paddingVertical: 15, paddingHorizontal: 18, borderRadius: 100, borderWidth: 1 },
   coverButtonGhostText: { fontSize: 13 },
   coverHint: { fontSize: 12, letterSpacing: 0.2, opacity: 0.65, marginTop: 16 },
-  archetypeEmoji: { fontSize: 44 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
   chip: { alignSelf: 'flex-start', borderRadius: 100, borderWidth: 1, paddingVertical: 8, paddingHorizontal: 14, marginTop: 4 },
   chipText: { fontSize: 12 },

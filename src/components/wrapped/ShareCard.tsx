@@ -10,6 +10,7 @@ import { track } from '@/src/lib/analytics'
 import { fontFamily } from '@/src/theme/fonts'
 import { WrappedCard, WRise } from './WrappedCard'
 import { getArchetype } from './WrappedCards'
+import { categoryName } from './CategoryLabel'
 
 // Matches WrappedScreen's END_GRADIENT — kept local to avoid a circular import
 // (WrappedScreen already imports ShareCard).
@@ -62,7 +63,7 @@ export function ShareCard({
     ['Total spent', formatCurrency(data.totalSpent)],
     ['Transactions', `${data.totalTransactions}`],
   ]
-  if (top) rows.push(['Top category', `${top.category} · ${top.pct.toFixed(0)}%`])
+  if (top) rows.push(['Top category', `${categoryName(top.category)} · ${top.pct.toFixed(0)}%`])
   if (data.longestStreak) rows.push(['Longest streak', `${data.longestStreak.days} days`])
 
   return (

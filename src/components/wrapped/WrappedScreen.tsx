@@ -7,15 +7,17 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import { runOnJS } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
-import { ArrowLeft } from '@/src/components/shared/icons'
+import { ArrowLeft, SpeakerHigh, SpeakerSlash } from '@/src/components/shared/icons'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { useWrapped, useWrappedJudgement } from '@/src/hooks/useWrapped'
+import { useCategoryIcons } from '@/src/hooks/useCategories'
 import { useWrappedMusic } from '@/src/hooks/useWrappedMusic'
 import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
 import { Icon } from '@/src/components/shared/Icon'
 import { CoverCard, TotalSpentCard, ArchetypeCard } from './WrappedCards'
 import { StoryCard, isKnownStory } from './StoryCards'
+import { CategoryIconsContext } from './CategoryLabel'
 import { ShareCard } from './ShareCard'
 import type { WrappedData, WrappedJudgement } from '@/src/api/wrapped'
 import { track } from '@/src/lib/analytics'
@@ -94,6 +96,7 @@ export function WrappedScreen() {
   const insets = useSafeAreaInsets()
   const { data, isLoading, error } = useWrapped()
   const { data: judgement } = useWrappedJudgement()
+  const categoryIcons = useCategoryIcons()
   /** The deck as it stood when playback began. A refetch (or Jev answering late) mustn't
    *  reshuffle the slides under the viewer, or shrink the deck past the current index. */
   const [frozen, setFrozen] = useState<{ data: WrappedData; judgement: WrappedJudgement | null } | null>(null)
@@ -298,92 +301,94 @@ export function WrappedScreen() {
   const slide = slides[index]
 
   return (
-    <GestureDetector gesture={swipeDownGesture}>
-      <Animated.View
-        style={[styles.container, { backgroundColor: slide.bg, paddingTop: insets.top, transform: [{ translateY }] }]}
-      >
-        {/* Full-bleed, unpadded — cardWrap below is inset by the top/bottom overlay padding,
-            so a gradient set only on the card would leave slide.bg's flat color visible in
-            that margin. This layer covers the whole screen regardless of that padding. */}
-        {slide.gradient && (
-          <LinearGradient
-            pointerEvents="none"
-            colors={slide.gradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 0.7, y: 1 }}
-            style={StyleSheet.absoluteFill}
-          />
-        )}
-
-        {/* Tap zones sit under the card so real interactive children (ShareCard's button,
-            CoverCard's start buttons) still win the touch. */}
-        {started && (
-          <View style={styles.tapZoneRow}>
-            <Pressable style={styles.tapZoneSide} onPress={() => tapSide(-1)} />
-            <Pressable style={styles.tapZoneCenter} onPress={tapCenter} />
-            <Pressable style={styles.tapZoneSide} onPress={() => tapSide(1)} />
-          </View>
-        )}
-
-        {/* box-none: this wrapper never claims taps itself, so the tap zones behind it still
-            work everywhere except where a real interactive child (e.g. ShareCard's button) is. */}
+    <CategoryIconsContext.Provider value={categoryIcons}>
+      <GestureDetector gesture={swipeDownGesture}>
         <Animated.View
-          pointerEvents="box-none"
-          style={[styles.cardWrap, { opacity, paddingTop: started ? OVERLAY_HEIGHT : 0, paddingBottom: insets.bottom + 24 }]}
+          style={[styles.container, { backgroundColor: slide.bg, paddingTop: insets.top, transform: [{ translateY }] }]}
         >
-          {slide.render()}
-        </Animated.View>
+          {/* Full-bleed, unpadded — cardWrap below is inset by the top/bottom overlay padding,
+              so a gradient set only on the card would leave slide.bg's flat color visible in
+              that margin. This layer covers the whole screen regardless of that padding. */}
+          {slide.gradient && (
+            <LinearGradient
+              pointerEvents="none"
+              colors={slide.gradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0.7, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
+          )}
 
-        {started && paused && <BlurView pointerEvents="none" intensity={35} tint="dark" style={StyleSheet.absoluteFill} />}
-
-        {started && (
-          <View pointerEvents="box-none" style={[styles.overlayControls, { top: insets.top }]}>
-            <View style={styles.progressRow}>
-              {contentSlides.map((_, i) => (
-                <View key={i} style={styles.progressTrack}>
-                  {i < index - 1 && <View style={styles.progressFill} />}
-                  {i === index - 1 && (
-                    <Animated.View
-                      style={[styles.progressFill, styles.progressFillOrigin, { transform: [{ scaleX: progress }] }]}
-                    />
-                  )}
-                </View>
-              ))}
+          {/* Tap zones sit under the card so real interactive children (ShareCard's button,
+              CoverCard's start buttons) still win the touch. */}
+          {started && (
+            <View style={styles.tapZoneRow}>
+              <Pressable style={styles.tapZoneSide} onPress={() => tapSide(-1)} />
+              <Pressable style={styles.tapZoneCenter} onPress={tapCenter} />
+              <Pressable style={styles.tapZoneSide} onPress={() => tapSide(1)} />
             </View>
+          )}
 
-            <View style={styles.topBar}>
-              <Text style={[styles.topBarLabel, { color: `${slide.text}dd` }]}>EXPENSE WRAPPED</Text>
-              <View style={styles.topBarButtons}>
-                <Pressable onPress={() => setMuted((m) => !m)} hitSlop={8} style={styles.iconButton}>
-                  <Text style={styles.iconButtonText}>{muted ? '🔇' : '♫'}</Text>
-                </Pressable>
-                <Pressable onPress={close} hitSlop={8} style={styles.iconButton}>
-                  <Text style={styles.iconButtonText}>✕</Text>
-                </Pressable>
+          {/* box-none: this wrapper never claims taps itself, so the tap zones behind it still
+              work everywhere except where a real interactive child (e.g. ShareCard's button) is. */}
+          <Animated.View
+            pointerEvents="box-none"
+            style={[styles.cardWrap, { opacity, paddingTop: started ? OVERLAY_HEIGHT : 0, paddingBottom: insets.bottom + 24 }]}
+          >
+            {slide.render()}
+          </Animated.View>
+
+          {started && paused && <BlurView pointerEvents="none" intensity={35} tint="dark" style={StyleSheet.absoluteFill} />}
+
+          {started && (
+            <View pointerEvents="box-none" style={[styles.overlayControls, { top: insets.top }]}>
+              <View style={styles.progressRow}>
+                {contentSlides.map((_, i) => (
+                  <View key={i} style={styles.progressTrack}>
+                    {i < index - 1 && <View style={styles.progressFill} />}
+                    {i === index - 1 && (
+                      <Animated.View
+                        style={[styles.progressFill, styles.progressFillOrigin, { transform: [{ scaleX: progress }] }]}
+                      />
+                    )}
+                  </View>
+                ))}
+              </View>
+
+              <View style={styles.topBar}>
+                <Text style={[styles.topBarLabel, { color: `${slide.text}dd` }]}>EXPENSE WRAPPED</Text>
+                <View style={styles.topBarButtons}>
+                  <Pressable onPress={() => setMuted((m) => !m)} hitSlop={8} style={styles.iconButton}>
+                    {muted ? <SpeakerSlash size={14} color="#fff" weight="bold" /> : <SpeakerHigh size={14} color="#fff" weight="bold" />}
+                  </Pressable>
+                  <Pressable onPress={close} hitSlop={8} style={styles.iconButton}>
+                    <Text style={styles.iconButtonText}>✕</Text>
+                  </Pressable>
+                </View>
               </View>
             </View>
-          </View>
-        )}
+          )}
 
-        {started && paused && (
-          <View pointerEvents="none" style={styles.centerIndicator}>
-            <BlurView intensity={60} tint="light" style={styles.pausedBubble}>
-              <PlayIcon color="#ffffff" />
-            </BlurView>
-            <Text style={styles.pausedLabel}>PAUSED</Text>
-          </View>
-        )}
-
-        {started && hint === 'play' && (
-          <Animated.View pointerEvents="none" style={[styles.centerIndicator, { opacity: hintOpacity }]}>
-            <View style={[styles.indicatorBubble, { borderColor: `${slide.text}55` }]}>
-              <PlayIcon color={slide.text} />
+          {started && paused && (
+            <View pointerEvents="none" style={styles.centerIndicator}>
+              <BlurView intensity={60} tint="light" style={styles.pausedBubble}>
+                <PlayIcon color="#ffffff" />
+              </BlurView>
+              <Text style={styles.pausedLabel}>PAUSED</Text>
             </View>
-          </Animated.View>
-        )}
+          )}
 
-      </Animated.View>
-    </GestureDetector>
+          {started && hint === 'play' && (
+            <Animated.View pointerEvents="none" style={[styles.centerIndicator, { opacity: hintOpacity }]}>
+              <View style={[styles.indicatorBubble, { borderColor: `${slide.text}55` }]}>
+                <PlayIcon color={slide.text} />
+              </View>
+            </Animated.View>
+          )}
+
+        </Animated.View>
+      </GestureDetector>
+    </CategoryIconsContext.Provider>
   )
 }
 

@@ -1,7 +1,8 @@
 import { render, screen } from '@testing-library/react-native'
 import { CurrencyScope } from '@/src/context/CurrencyContext'
 import type { WrappedData } from '@/src/api/wrapped'
-import { TotalSpentCard, getArchetype } from './WrappedCards'
+import { CATEGORY_ICON_COMPONENTS } from '@/src/components/shared/CategoryIcon'
+import { ArchetypeCard, TotalSpentCard, getArchetype } from './WrappedCards'
 
 jest.mock('./WrappedCard', () => {
   const { Text, View } = jest.requireActual('react-native')
@@ -49,5 +50,14 @@ describe('getArchetype', () => {
   it('falls back to the top category without Jev', () => {
     expect(getArchetype(data, { persona: null, treatCategory: null })).toMatchObject({ title: 'The Homebody', blurb: 'Rent first, everything else negotiable. A steady hand.' })
     expect(getArchetype(data).title).toBe('The Homebody')
+  })
+})
+
+describe('ArchetypeCard', () => {
+  it("draws the fallback persona and its category chip with the category's icon, not its emoji", () => {
+    renderInr(<ArchetypeCard data={data} color="#000" onColor="#fff" />)
+    expect(screen.getByText('Rent · 81%')).toBeTruthy()
+    expect(screen.UNSAFE_getAllByType(CATEGORY_ICON_COMPONENTS.House)).toHaveLength(2)
+    expect(JSON.stringify(screen.toJSON())).not.toMatch(/\p{Extended_Pictographic}/u)
   })
 })

@@ -77,6 +77,8 @@ export { ShieldCheckIcon as ShieldCheck } from 'phosphor-react-native/src/icons/
 export { SignOutIcon as SignOut } from 'phosphor-react-native/src/icons/SignOut'
 export { SlidersHorizontalIcon as SlidersHorizontal } from 'phosphor-react-native/src/icons/SlidersHorizontal'
 export { SparkleIcon as Sparkle } from 'phosphor-react-native/src/icons/Sparkle'
+export { SpeakerHighIcon as SpeakerHigh } from 'phosphor-react-native/src/icons/SpeakerHigh'
+export { SpeakerSlashIcon as SpeakerSlash } from 'phosphor-react-native/src/icons/SpeakerSlash'
 export { SquaresFourIcon as SquaresFour } from 'phosphor-react-native/src/icons/SquaresFour'
 export { StarIcon as Star } from 'phosphor-react-native/src/icons/Star'
 export { TagIcon as Tag } from 'phosphor-react-native/src/icons/Tag'

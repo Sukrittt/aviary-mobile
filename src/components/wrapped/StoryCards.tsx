@@ -4,11 +4,11 @@ import { useCurrency } from '@/src/context/CurrencyContext'
 import type { StoryType, WrappedData, WrappedStory } from '@/src/api/wrapped'
 import { formatDateShort } from '@/src/lib/format'
 import { fontFamily } from '@/src/theme/fonts'
-import { splitEmoji } from '@/src/lib/emoji'
 import { monthLabel } from '@/src/lib/envelope'
 import { Fire } from '@/src/components/shared/icons'
 import { WrappedCard, WrappedBigNumber, WrappedCaption, WFade, WRise, WPop, WGrowX, WNudge, type BlobSpec } from './WrappedCard'
 import { categoryQuip } from './WrappedCards'
+import { CategoryLabel, WrappedCategoryIcon, categoryName } from './CategoryLabel'
 
 // One card per story type the server can pick (aviary's src/services/wrappedStories.ts).
 // The server decides which stories run; these decide how each one reads. `variant`
@@ -71,6 +71,16 @@ function StatStory({
       </WRise>
       {children}
     </WrappedCard>
+  )
+}
+
+/** A category as a story's headline: its icon over its name. */
+function CategoryBig({ category, onColor }: { category: string; onColor: string }) {
+  return (
+    <View style={styles.categoryBig}>
+      <WrappedCategoryIcon category={category} size={44} color={onColor} />
+      <WrappedBigNumber value={categoryName(category)} onColor={onColor} />
+    </View>
   )
 }
 
@@ -143,8 +153,9 @@ function BiggestHit({ story, color, onColor }: Props<'biggest_hit'>) {
   const { formatCurrency } = useCurrency()
   const { item, amount, category, date, timesMedian } = story.facts
   const x = Math.round(timesMedian)
-  const sameName = item.trim().toLowerCase() === splitEmoji(category).text.trim().toLowerCase()
-  const detail = [sameName ? category : `${item} · ${category}`, formatDateShort(date)].join(' · ')
+  const name = categoryName(category)
+  const sameName = item.trim().toLowerCase() === name.trim().toLowerCase()
+  const detail = [sameName ? name : `${item} · ${name}`, formatDateShort(date)].join(' · ')
   const caption = pick(story.variant, [
     `That's ${x}× what you usually spend in one go. Future you is either thrilled or filing a complaint.`,
     `About ${x} of your usual purchases, in a single tap.`,
@@ -152,9 +163,12 @@ function BiggestHit({ story, color, onColor }: Props<'biggest_hit'>) {
   const big = (
     <View style={[styles.panel, { backgroundColor: `${onColor}22`, borderColor: `${onColor}44` }]}>
       <Text style={[styles.panelBig, { color: onColor, fontFamily: fontFamily.displayBold }]}>{formatCurrency(amount)}</Text>
-      <Text style={[styles.panelSub, { color: onColor, fontFamily: fontFamily.bodyExtraBold }]} numberOfLines={2}>
-        {detail}
-      </Text>
+      <View style={styles.panelSubRow}>
+        <WrappedCategoryIcon category={category} size={16} color={onColor} />
+        <Text style={[styles.panelSub, { color: onColor, fontFamily: fontFamily.bodyExtraBold }]} numberOfLines={2}>
+          {detail}
+        </Text>
+      </View>
     </View>
   )
   return <StatStory story={story} color={color} onColor={onColor} eyebrow="Biggest single hit" big={big} caption={caption} />
@@ -298,7 +312,7 @@ function TopCategory({ story, color, onColor }: Props<'top_category'>) {
   ])
   const bars = [{ category, total }, ...runnersUp]
   return (
-    <StatStory story={story} color={color} onColor={onColor} eyebrow="Your #1 category" big={category} caption={caption}>
+    <StatStory story={story} color={color} onColor={onColor} eyebrow="Your #1 category" big={<CategoryBig category={category} onColor={onColor} />} caption={caption}>
       {bars.length > 1 && (
         <View style={styles.topCatList}>
           {bars.map((c, i) => (
@@ -308,9 +322,9 @@ function TopCategory({ story, color, onColor }: Props<'top_category'>) {
                 duration={800}
                 style={[styles.topCatFill, { width: `${(c.total / total) * 68}%`, backgroundColor: onColor, opacity: BAR_OPACITY[i] }]}
               />
-              <Text style={[styles.topCatLabel, { color: onColor, fontFamily: fontFamily.bodyExtraBold, opacity: BAR_OPACITY[i] }]} numberOfLines={1}>
-                {c.category}
-              </Text>
+              <View style={[styles.topCatLabel, { opacity: BAR_OPACITY[i] }]}>
+                <CategoryLabel category={c.category} color={onColor} size={14} style={[styles.topCatText, { fontFamily: fontFamily.bodyExtraBold }]} />
+              </View>
             </View>
           ))}
         </View>
@@ -321,6 +335,8 @@ function TopCategory({ story, color, onColor }: Props<'top_category'>) {
 
 // Shades of the text color, so segments never clash with whichever slide color this lands on.
 const SEGMENT_OPACITY = [1, 0.72, 0.5, 0.34, 0.22]
+/** An opacity as the two hex digits appended to a #rrggbb color. */
+const alpha = (o: number) => Math.round(o * 255).toString(16).padStart(2, '0')
 const COUNT_WORDS = ['', 'One', 'Two', 'Three', 'Four', 'Five']
 
 function fractionPhrase(share: number): string {
@@ -361,10 +377,15 @@ function WhereItWent({ story, color, onColor }: Props<'where_it_went'>) {
         <View style={styles.legend}>
           {cats.map((c, i) => (
             <WRise key={c.category} delay={300 + i * 60} style={styles.legendRow}>
-              <View style={[styles.dot, { backgroundColor: onColor, opacity: SEGMENT_OPACITY[i] }]} />
-              <Text style={[styles.legendLabel, { color: onColor, fontFamily: fontFamily.bodyBold }]} numberOfLines={1}>
-                {c.category}
-              </Text>
+              <View style={styles.legendLabel}>
+                <CategoryLabel
+                  category={c.category}
+                  color={onColor}
+                  iconColor={`${onColor}${alpha(SEGMENT_OPACITY[i])}`}
+                  size={18}
+                  style={[styles.legendText, { fontFamily: fontFamily.bodyBold }]}
+                />
+              </View>
               <Text style={[styles.legendPct, { color: onColor, fontFamily: fontFamily.bodyExtraBold }]}>{Math.round(c.pct)}%</Text>
             </WRise>
           ))}
@@ -396,7 +417,7 @@ function BurstEnvelope({ story, color, onColor }: Props<'burst_envelope'>) {
     `${formatCurrency(spent)} against a ${formatCurrency(budget)} budget. That's ${pct(spent / budget)}% of it. It happens.`,
     `You budgeted ${formatCurrency(budget)} and spent ${formatCurrency(spent)}. The envelope tried its best.`,
   ])
-  return <StatStory story={story} color={color} onColor={onColor} eyebrow="The envelope that burst" big={category} caption={caption} />
+  return <StatStory story={story} color={color} onColor={onColor} eyebrow="The envelope that burst" big={<CategoryBig category={category} onColor={onColor} />} caption={caption} />
 }
 
 function UpOrDown({ story, color, onColor }: Props<'up_or_down'>) {
@@ -427,7 +448,7 @@ function CategoryMover({ story, color, onColor }: Props<'category_mover'>) {
   const caption = up
     ? pick(story.variant, [`${both} ${current >= 2 * previous ? `That's ${times(current / previous)} as much.` : `Up ${change}%.`}`, `Up ${change}% on last month. Something changed.`])
     : pick(story.variant, [`${both} Down ${change}%. Nicely done.`, `Down ${change}% on last month. Quietly impressive.`])
-  return <StatStory story={story} color={color} onColor={onColor} eyebrow="The mover" big={category} caption={caption} />
+  return <StatStory story={story} color={color} onColor={onColor} eyebrow="The mover" big={<CategoryBig category={category} onColor={onColor} />} caption={caption} />
 }
 
 function NewCategory({ story, color, onColor }: Props<'new_category'>) {
@@ -437,7 +458,7 @@ function NewCategory({ story, color, onColor }: Props<'new_category'>) {
     `${formatCurrency(total)} somewhere you'd never spent before. Welcome to the rotation.`,
     `It wasn't on last month's list at all. This month, ${formatCurrency(total)}.`,
   ])
-  return <StatStory story={story} color={color} onColor={onColor} eyebrow="New this month" big={category} caption={caption} />
+  return <StatStory story={story} color={color} onColor={onColor} eyebrow="New this month" big={<CategoryBig category={category} onColor={onColor} />} caption={caption} />
 }
 
 function HabitChange({ story, color, onColor }: Props<'habit_change'>) {
@@ -497,7 +518,9 @@ const styles = StyleSheet.create({
   streakDays: { fontSize: 22 },
   panel: { borderRadius: 22, borderWidth: 1, padding: 20, gap: 8, marginTop: 8 },
   panelBig: { fontSize: 40, lineHeight: 44, letterSpacing: -1, fontVariant: ['tabular-nums'] },
-  panelSub: { fontSize: 13, opacity: 0.9 },
+  panelSubRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  panelSub: { flexShrink: 1, fontSize: 13, opacity: 0.9 },
+  categoryBig: { gap: 10 },
   weekdayRow: { flexDirection: 'row', alignItems: 'flex-end', gap: 5, height: 56, marginTop: 20 },
   weekdayBar: { borderRadius: 6 },
   weekdayLabels: { flexDirection: 'row', gap: 5, marginTop: 6 },
@@ -511,12 +534,13 @@ const styles = StyleSheet.create({
   topCatList: { gap: 9, marginTop: 12 },
   topCatRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   topCatFill: { height: 12, borderRadius: 100 },
-  topCatLabel: { flex: 1, fontSize: 12 },
+  topCatLabel: { flex: 1 },
+  topCatText: { fontSize: 12 },
   breakdown: { gap: 16, marginTop: 8 },
   barClip: { borderRadius: 6, overflow: 'hidden' },
   legend: { gap: 8 },
   legendRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  dot: { width: 10, height: 10, borderRadius: 5 },
-  legendLabel: { flex: 1, fontSize: 16 },
+  legendLabel: { flex: 1 },
+  legendText: { fontSize: 16 },
   legendPct: { fontSize: 16 },
 })

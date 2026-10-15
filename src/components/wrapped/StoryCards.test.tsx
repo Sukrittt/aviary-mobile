@@ -1,7 +1,9 @@
 import { render, screen } from '@testing-library/react-native'
 import { CurrencyScope } from '@/src/context/CurrencyContext'
 import type { StoryFacts, StoryType, WrappedData, WrappedStory } from '@/src/api/wrapped'
+import { CATEGORY_ICON_COMPONENTS } from '@/src/components/shared/CategoryIcon'
 import { StoryCard, isKnownStory } from './StoryCards'
+import { CategoryIconsContext } from './CategoryLabel'
 
 jest.mock('./WrappedCard', () => {
   const { Text, View } = jest.requireActual('react-native')
@@ -42,13 +44,13 @@ const FACTS: StoryFacts = {
   heavy_week: { startDate: '2026-09-22', endDate: '2026-09-30', total: 7403, share: 0.6 },
   weekend_split: { heavier: 'weekend', ratio: 2.04 },
   your_usual: { item: 'Chai', count: 14, total: 840 },
-  top_category: { category: '🏠 Rent', total: 10000, pct: 81, runnersUp: [{ category: 'Utilities', total: 1000 }] },
-  where_it_went: { categories: [{ category: 'Rent', total: 10000, pct: 81 }, { category: 'Utilities', total: 1000, pct: 8 }, { category: 'Food', total: 700, pct: 6 }] },
+  top_category: { category: '🏠 Rent', total: 10000, pct: 81, runnersUp: [{ category: '💡 Utilities', total: 1000 }] },
+  where_it_went: { categories: [{ category: '🏠 Rent', total: 10000, pct: 81 }, { category: '💡 Utilities', total: 1000, pct: 8 }, { category: '🍜 Food', total: 700, pct: 6 }] },
   stayed_put: { left: 44917, assigned: 92600 },
-  burst_envelope: { category: 'Eating out', spent: 1400, budget: 1000 },
+  burst_envelope: { category: '🍜 Eating out', spent: 1400, budget: 1000 },
   up_or_down: { previousMonth: '2026-08', previousTotal: 15603, total: 12403 },
-  category_mover: { category: 'Travel', previous: 1000, current: 3000 },
-  new_category: { category: 'Pets', total: 1200 },
+  category_mover: { category: '✈️ Travel', previous: 1000, current: 3000 },
+  new_category: { category: '🐶 Pets', total: 1200 },
   habit_change: { metric: 'streak', from: 3, to: 9 },
 }
 
@@ -89,6 +91,30 @@ describe('StoryCard', () => {
     renderStory(story('up_or_down'))
     expect(screen.getByText('₹3,200 less')).toBeTruthy()
     expect(screen.getByText('Vs August')).toBeTruthy()
+  })
+
+  it('draws categories with their icon, never the emoji in their name', () => {
+    for (const type of Object.keys(FACTS) as StoryType[]) {
+      const { unmount } = renderStory(story(type))
+      expect(JSON.stringify(screen.toJSON())).not.toMatch(/\p{Extended_Pictographic}/u)
+      unmount()
+    }
+    renderStory(story('biggest_hit'))
+    expect(screen.getByText('Rent · 3 Sep')).toBeTruthy()
+    expect(screen.UNSAFE_getAllByType(CATEGORY_ICON_COMPONENTS.House)).toHaveLength(1)
+  })
+
+  it('uses the icon a category was given over the one its name suggests', () => {
+    render(
+      <CategoryIconsContext.Provider value={new Map([['🐶 Pets', 'Airplane']])}>
+        <CurrencyScope code="INR">
+          <StoryCard story={story('new_category')} data={data} color="#000" onColor="#ffffff" />
+        </CurrencyScope>
+      </CategoryIconsContext.Provider>,
+    )
+    expect(screen.getByText('Pets')).toBeTruthy()
+    expect(screen.UNSAFE_getAllByType(CATEGORY_ICON_COMPONENTS.Airplane)).toHaveLength(1)
+    expect(screen.UNSAFE_queryAllByType(CATEGORY_ICON_COMPONENTS.Dog)).toHaveLength(0)
   })
 
   it('wraps a large variant onto the copy list', () => {
