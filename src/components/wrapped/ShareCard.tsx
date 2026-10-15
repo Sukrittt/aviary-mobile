@@ -4,7 +4,7 @@ import { View, Text, Pressable, StyleSheet } from 'react-native'
 import { useRouter } from 'expo-router'
 import { captureRef } from 'react-native-view-shot'
 import * as Sharing from 'expo-sharing'
-import type { WrappedData } from '@/src/api/wrapped'
+import type { WrappedData, WrappedJudgement } from '@/src/api/wrapped'
 import { track } from '@/src/lib/analytics'
 
 import { fontFamily } from '@/src/theme/fonts'
@@ -17,10 +17,12 @@ const SHARE_GRADIENT: [string, string, string] = ['#5055d3', '#9d2398', '#c55123
 
 export function ShareCard({
   data,
+  judgement,
   onColor,
   onRestart,
 }: {
   data: WrappedData
+  judgement?: WrappedJudgement | null
   onColor: string
   onRestart?: () => void
 }) {
@@ -32,7 +34,7 @@ export function ShareCard({
   const [capturing, setCapturing] = useState(false)
 
   const top = data.topCategories[0]
-  const archetype = getArchetype(data)
+  const archetype = getArchetype(data, judgement)
   const archetypeName = archetype.title.replace(/^The\s+/, '')
 
   async function handleShare() {
@@ -61,7 +63,7 @@ export function ShareCard({
     ['Transactions', `${data.totalTransactions}`],
   ]
   if (top) rows.push(['Top category', `${top.category} · ${top.pct.toFixed(0)}%`])
-  if (data.longestStreak) rows.push(['Longest streak', `${data.longestStreak.days} days 🔥`])
+  if (data.longestStreak) rows.push(['Longest streak', `${data.longestStreak.days} days`])
 
   return (
     <View style={{ flex: 1, justifyContent: 'center' }}>
@@ -74,7 +76,7 @@ export function ShareCard({
           color="transparent"
           onColor={onColor}
           gradientColors={capturing ? SHARE_GRADIENT : undefined}
-          eyebrow="🎁 That's a wrap"
+          eyebrow="That's a wrap"
           style={styles.shareCard}
         >
           <WRise delay={60}>
