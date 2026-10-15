@@ -676,8 +676,7 @@ export default function ExpenseAddedScreen() {
               if (!pending && !undoing && undoError === "") recordLogAndMaybeAsk();
               router.replace("/(tabs)");
             }}
-            variant="secondary"
-            style={[styles.doneButton, { backgroundColor: tokens.accent }]}
+            style={styles.doneButton}
           />
         </View>
         {stamp !== "" && (
