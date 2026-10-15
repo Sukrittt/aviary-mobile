@@ -7,7 +7,6 @@ import { useEffect } from "react";
 import { Image, Pressable, StyleSheet, View } from "react-native";
 import Animated, {
   Easing,
-  Extrapolation,
   FadeIn,
   FadeInDown,
   LinearTransition,
@@ -18,7 +17,6 @@ import Animated, {
   withDelay,
   withRepeat,
   withTiming,
-  type SharedValue,
 } from "react-native-reanimated";
 
 const PHOTO_W = 232;
@@ -31,16 +29,6 @@ const COUNT_DELAY = 450;
 /** When the reveal hands off to review on its own, if not tapped first: the
  * stamp settles and the count lands, then about a second to take it in. */
 export const REVEAL_MS = COUNT_DELAY + 1100;
-
-// ponytail: the scan API returns no coordinates, so these mark where amounts
-// usually sit on a receipt (right column), not where this bill's amounts are.
-const HIGHLIGHTS = [
-  { at: 0.24, w: 54 },
-  { at: 0.34, w: 46 },
-  { at: 0.44, w: 58 },
-  { at: 0.54, w: 42 },
-  { at: 0.8, w: 66 },
-];
 
 /** The scanning screen: the user's own bill under a sweeping beam while the
  * scan runs, then (once `itemCount` arrives) a success check stamps onto the
@@ -130,16 +118,6 @@ export function ScanBeam({
         {!revealing && !reduceMotion && (
           <>
             <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(0,0,0,0.18)" }]} />
-            {HIGHLIGHTS.map((h) => (
-              <Highlight
-                key={h.at}
-                at={h.at}
-                width={h.w}
-                sweep={sweep}
-                fill={tokens.mintSoft}
-                edge={tokens.mint}
-              />
-            ))}
             <Animated.View pointerEvents="none" style={[s.beam, beamStyle]}>
               <LinearGradient
                 colors={["transparent", tokens.accentSoft]}
@@ -198,31 +176,6 @@ export function ScanBeam({
   );
 }
 
-function Highlight({
-  at,
-  width,
-  sweep,
-  fill,
-  edge,
-}: {
-  at: number;
-  width: number;
-  sweep: SharedValue<number>;
-  fill: string;
-  edge: string;
-}) {
-  // Lights up the moment the beam crosses it, then fades as the beam moves on.
-  const style = useAnimatedStyle(() => ({
-    opacity: interpolate(sweep.value, [at - 0.02, at, at + 0.28], [0, 1, 0], Extrapolation.CLAMP),
-  }));
-  return (
-    <Animated.View
-      pointerEvents="none"
-      style={[s.highlight, { top: at * PHOTO_H - 9, width, backgroundColor: fill, borderColor: edge }, style]}
-    />
-  );
-}
-
 const BEAM_GLOW = 44;
 
 const s = StyleSheet.create({
@@ -239,7 +192,6 @@ const s = StyleSheet.create({
   },
   beam: { position: "absolute", left: 0, right: 0, top: 0 },
   beamLine: { height: 2, shadowOpacity: 1, shadowRadius: 8, shadowOffset: { width: 0, height: 0 } },
-  highlight: { position: "absolute", right: 16, height: 18, borderRadius: 6, borderWidth: 1 },
   stampWrap: { position: "absolute", top: 0, right: 0, bottom: 0, left: 0, alignItems: "center", justifyContent: "center" },
   stamp: {
     width: 68,
