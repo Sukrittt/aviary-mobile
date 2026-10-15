@@ -33,11 +33,10 @@ it('never shows raw error text', async () => {
   expect(alert).toHaveBeenCalledWith("Couldn't send that", 'Check your connection and try again.')
 })
 
-it('attaches an optional screenshot from the library and warns about amounts', async () => {
+it('attaches an optional screenshot from the library', async () => {
   mockSubmit.mockResolvedValue(undefined)
   mockPickPhoto.mockResolvedValue({ uri: 'file:///shot.png', base64: 'c2hvdA==', mimeType: 'image/png' })
   const { getByText, getByPlaceholderText, getByLabelText } = renderWithProviders(<FeedbackScreen />)
-  expect(getByText(/Turn on Hide amounts in More/)).toBeTruthy()
   await act(async () => fireEvent.press(getByText('Add a screenshot')))
   expect(mockPickPhoto).toHaveBeenCalledWith('library')
   expect(getByLabelText('Your screenshot')).toBeTruthy()
@@ -58,4 +57,12 @@ it('drops a removed screenshot', async () => {
   fireEvent.changeText(getByPlaceholderText('What happened, and what did you expect instead?'), 'y')
   await act(async () => fireEvent.press(getByText('Send report')))
   expect(mockSubmit).toHaveBeenCalledWith('bug', 'x', 'y', undefined)
+})
+
+it('hides amounts right from the screenshot field', () => {
+  const { getByLabelText } = renderWithProviders(<FeedbackScreen />)
+  const toggle = getByLabelText('Hide amounts')
+  expect(toggle.props.accessibilityState.checked).toBe(false)
+  fireEvent.press(toggle)
+  expect(getByLabelText('Hide amounts').props.accessibilityState.checked).toBe(true)
 })

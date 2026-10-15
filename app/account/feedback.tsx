@@ -8,6 +8,9 @@ import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { Icon } from '@/src/components/shared/Icon'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
+import { Toggle } from '@/src/components/ui/Toggle'
+import { usePrivacy } from '@/src/context/PrivacyContext'
+import { useInstantSetting } from '@/src/hooks/useInstantSetting'
 import { submitFeedback } from '@/src/api/feedback'
 import { track } from '@/src/lib/analytics'
 import { pickPhoto, type PickedPhoto } from '@/src/features/log-expense/ExpensePhotoField'
@@ -19,6 +22,8 @@ export default function FeedbackScreen() {
   const { tokens } = useTheme()
   const insets = useSafeAreaInsets()
   const router = useRouter()
+  const privacy = usePrivacy()
+  const [hideAmounts, setHideAmounts] = useInstantSetting(privacy.hideAmounts, privacy.setHideAmounts)
 
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
@@ -126,9 +131,16 @@ export default function FeedbackScreen() {
               <Text style={[styles.attachText, { color: tokens.accentInk, fontFamily: fontFamily.bodySemiBold }]}>Add a screenshot</Text>
             </Pressable>
           )}
-          <Text style={[styles.hint, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>
-            Screenshots can show your balances and expenses. Want them hidden? Turn on Hide amounts in More before you take one.
-          </Text>
+          {/* Same switch as More's, so a screenshot taken after flipping it here is already blurred. */}
+          <View style={styles.toggleRow}>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.toggleLabel, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>Hide amounts</Text>
+              <Text style={[styles.hint, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>
+                Blurs your balances so they stay out of screenshots.
+              </Text>
+            </View>
+            <Toggle value={hideAmounts} onValueChange={setHideAmounts} accessibilityLabel="Hide amounts" />
+          </View>
         </View>
 
         <Pressable
@@ -162,6 +174,8 @@ const styles = StyleSheet.create({
   hint: { fontSize: 12, lineHeight: 16, marginTop: 2 },
   attachButton: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 6, borderWidth: 1, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 10 },
   attachText: { fontSize: 14 },
+  toggleRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4 },
+  toggleLabel: { fontSize: 14 },
   thumbWrap: { alignSelf: 'flex-start' },
   thumb: { width: 72, height: 128, borderRadius: 10, borderWidth: 1 },
   thumbRemove: { position: 'absolute', top: -6, right: -6, width: 22, height: 22, borderRadius: 11, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
