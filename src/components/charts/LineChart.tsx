@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { View, Text, StyleSheet } from 'react-native'
 import Svg, { Circle, Defs, Line, LinearGradient, Path, Rect, Stop } from 'react-native-svg'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
@@ -190,45 +190,54 @@ export function LineChart({
     transform: [{ translateX: Math.min(width - PILL_WIDTH, Math.max(0, scrubX.value - PILL_WIDTH / 2)) }],
   }))
 
-  // JS side of a scrub, only on a new day: tick, readout, header.
-  function onDay(x: number) {
+  // JS side of a scrub, only on a new day: tick, readout, header. The
+  // gesture is built once, so it reaches the latest data through a ref, and
+  // hands runOnJS stable functions defined on the JS runtime.
+  const latest = useRef({ data, onScrub })
+  latest.current = { data, onScrub }
+  const emitDay = useCallback((x: number) => {
     tap()
-    const point = { x, y: heldAt(data, x) }
+    const point = { x, y: heldAt(latest.current.data, x) }
     setActive(point)
-    onScrub?.(point)
-  }
-
-  function onRelease() {
+    latest.current.onScrub?.(point)
+  }, [])
+  const emitRelease = useCallback(() => {
     setActive(null)
-    onScrub?.(null)
-  }
+    latest.current.onScrub?.(null)
+  }, [])
+
+  // Geometry the UI-thread gesture reads; a closure would freeze the first
+  // render's values (width 0 before layout).
+  const geo = useSharedValue({ plotW: 0, minX: 0, maxX: 0 })
+  useEffect(() => {
+    geo.value = { plotW, minX, maxX }
+  }, [geo, plotW, minX, maxX])
 
   // Like Fold: press and hold to wake the chart, then slide. A tap or a drag
   // that moves before the hold lands fails it, so the page still scrolls.
   // Runs on the UI thread; only day changes hop to JS.
-  const hold = Gesture.Pan()
-    .activateAfterLongPress(HOLD_MS)
-    .onStart((e) => {
-      scrubX.value = Math.min(plotW, Math.max(0, e.x))
-      if (plotW === 0 || maxX === minX) return
-      const day = scrubDay(minX, maxX, scrubX.value / plotW)
-      lastDay.value = day
-      runOnJS(onDay)(day)
-    })
-    .onUpdate((e) => {
-      scrubX.value = Math.min(plotW, Math.max(0, e.x))
-      if (plotW === 0 || maxX === minX) return
-      const day = scrubDay(minX, maxX, scrubX.value / plotW)
+  const hold = useMemo(() => {
+    const follow = (fingerX: number) => {
+      'worklet'
+      const { plotW: w, minX: lo, maxX: hi } = geo.value
+      if (w === 0 || hi === lo) return
+      scrubX.value = Math.min(w, Math.max(0, fingerX))
+      const day = scrubDay(lo, hi, scrubX.value / w)
       if (day === lastDay.value) return
       lastDay.value = day
-      runOnJS(onDay)(day)
-    })
-    .onFinalize(() => {
-      if (scrubX.value < 0) return
-      scrubX.value = -1
-      lastDay.value = -1
-      runOnJS(onRelease)()
-    })
+      runOnJS(emitDay)(day)
+    }
+    return Gesture.Pan()
+      .activateAfterLongPress(HOLD_MS)
+      .onStart((e) => follow(e.x))
+      .onUpdate((e) => follow(e.x))
+      .onFinalize(() => {
+        if (scrubX.value < 0) return
+        scrubX.value = -1
+        lastDay.value = -1
+        runOnJS(emitRelease)()
+      })
+  }, [geo, scrubX, lastDay, emitDay, emitRelease])
 
   return (
     <GestureDetector gesture={hold}>
