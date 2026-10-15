@@ -17,8 +17,6 @@ import Animated, {
   useSharedValue,
   withDelay,
   withRepeat,
-  withSequence,
-  withSpring,
   withTiming,
   type SharedValue,
 } from "react-native-reanimated";
@@ -82,7 +80,7 @@ export function ScanBeam({
     if (!revealing || reduceMotion) return;
     stamp.value = withDelay(
       STAMP_DELAY,
-      withSequence(withTiming(1.15, { duration: 220 }), withSpring(1, { damping: 12, stiffness: 220 })),
+      withTiming(1, { duration: 260, easing: Easing.out(Easing.cubic) }),
     );
   }, [revealing, reduceMotion, stamp]);
   const stampStyle = useAnimatedStyle(() => ({
@@ -109,7 +107,7 @@ export function ScanBeam({
       accessibilityLabel={revealing ? "Scan done. Tap to review" : "Reading your bill"}
     >
       <Animated.View
-        layout={LinearTransition.springify().damping(18)}
+        layout={LinearTransition.duration(300).easing(Easing.out(Easing.cubic))}
         style={[
           s.photo,
           {
