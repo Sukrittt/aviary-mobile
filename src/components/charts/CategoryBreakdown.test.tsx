@@ -2,6 +2,8 @@ import { act, fireEvent } from '@testing-library/react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { CategoryBreakdown } from './CategoryBreakdown'
 import type { BreakdownRow } from '@/src/lib/monthly'
+import { categoryTint } from '@/src/lib/emoji'
+import { lightTokens } from '@/src/theme/tokens'
 
 const mockPush = jest.fn()
 jest.mock('expo-router', () => ({
@@ -288,5 +290,15 @@ describe('CategoryBreakdown group delta under a partial filter', () => {
 
     // Travel (+ Snacks at zero): ₹3,000 now vs ₹2,000 before.
     expect(screen.getByText('50%')).toBeTruthy()
+  })
+})
+
+describe('CategoryBreakdown colours', () => {
+  it("colours each wedge with the category's Home icon tint, not its rank", () => {
+    const { UNSAFE_root } = renderBreakdown()
+    const strokes = UNSAFE_root.findAll((n) => typeof n.props.stroke === 'string').map((n) => n.props.stroke)
+    for (const label of ['Investments', 'Cook']) {
+      expect(strokes).toContain(categoryTint(label, lightTokens).ink)
+    }
   })
 })

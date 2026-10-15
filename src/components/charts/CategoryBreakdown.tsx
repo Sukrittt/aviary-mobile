@@ -17,7 +17,7 @@ import { useTheme } from "@/src/theme/ThemeProvider";
 import { usePrivacy } from "@/src/context/PrivacyContext";
 import { fontFamily } from "@/src/theme/fonts";
 
-import { CHART_COLOR_CYCLE } from "@/src/theme/chartColors";
+import { categoryTint } from "@/src/lib/emoji";
 import { PopIn } from "@/src/components/shared/PopIn";
 import { BottomSheet } from "@/src/components/shared/Modal";
 import { Button } from "@/src/components/ui/Button";
@@ -273,11 +273,11 @@ export function CategoryBreakdown({
   );
   const play = revealReady;
 
-  const colorByKey = useMemo(() => {
-    const map = new Map<string, string>();
-    rows.forEach((row, i) =>
-      map.set(row.key, tokens[CHART_COLOR_CYCLE[i % CHART_COLOR_CYCLE.length]]),
-    );
+  // Same name-hashed tint as the category's icon tile on Home, so a category
+  // is one colour everywhere instead of whatever its rank here happens to be.
+  const tintByKey = useMemo(() => {
+    const map = new Map<string, { bg: string; ink: string }>();
+    rows.forEach((row) => map.set(row.key, categoryTint(row.label, tokens)));
     return map;
   }, [rows, tokens]);
 
@@ -288,7 +288,7 @@ export function CategoryBreakdown({
       key: row.key,
       label: row.label,
       value: row.spent,
-      color: colorByKey.get(row.key) ?? tokens.text3,
+      color: tintByKey.get(row.key)?.ink ?? tokens.text3,
     }));
     if (small.length > 0) {
       result.push({
@@ -299,7 +299,7 @@ export function CategoryBreakdown({
       });
     }
     return result;
-  }, [displayRows, colorByKey, tokens]);
+  }, [displayRows, tintByKey, tokens]);
 
   const selectedRow = displayRows.find((r) => r.key === selectedKey) ?? null;
   // A selected row bucketed into the donut's "Other" wedge (below the tail
@@ -797,7 +797,8 @@ export function CategoryBreakdown({
 
           <View style={{ marginTop: space.md, gap: space.sm }}>
             {visibleRows.map((row, i) => {
-              const color = colorByKey.get(row.key) ?? tokens.text3;
+              const tint = tintByKey.get(row.key);
+              const color = tint?.ink ?? tokens.text3;
               const isSelected = selectedKey === row.key;
               const hasBudget = !row.assignedIsCarried && row.assigned > 0;
               const rowDelay =
@@ -824,12 +825,7 @@ export function CategoryBreakdown({
                       ]}
                     >
                       <View style={styles.legendTop}>
-                        {/* Dot stays even when there's an icon: it's the only thing
-                      tying this row to its wedge in the donut above. */}
-                        <View
-                          style={[styles.legendDot, { backgroundColor: color }]}
-                        />
-                        <RowIcon icon={row.icon} size={13} color={tokens.text2} />
+                        <RowMark icon={row.icon} tint={tint} fallback={tokens.text3} />
                         <Text
                           style={[
                             styles.legendLabel,
@@ -1112,15 +1108,7 @@ export function CategoryBreakdown({
                     },
                   ]}
                 >
-                  <View
-                    style={[
-                      styles.legendDot,
-                      {
-                        backgroundColor: colorByKey.get(row.key) ?? tokens.text3,
-                      },
-                    ]}
-                  />
-                  <RowIcon icon={row.icon} size={16} color={tokens.text2} />
+                  <RowMark icon={row.icon} tint={tintByKey.get(row.key)} fallback={tokens.text3} />
                   <Text
                     style={{
                       flex: 1,
@@ -1232,6 +1220,7 @@ const styles = StyleSheet.create({
   legendTop: { flexDirection: "row", alignItems: "center", gap: 6 },
   legendLabel: { flex: 1 },
   legendDot: { width: 8, height: 8, borderRadius: 4 },
+  iconTile: { width: 22, height: 22, borderRadius: 8, alignItems: "center", justifyContent: "center" },
   barTrack: { height: 6, borderRadius: 100, overflow: "hidden" },
   barFill: { height: "100%", borderRadius: 100 },
   leftoverRow: {
@@ -1282,6 +1271,28 @@ const styles = StyleSheet.create({
   sheetActions: { flexDirection: "row", gap: 10, marginTop: 16 },
   sheetButton: { flex: 1 },
 });
+
+/** Ties a row to its donut wedge: the category's tinted icon tile (as on
+ *  Home), or a plain dot in the wedge colour when there's no icon. */
+function RowMark({
+  icon,
+  tint,
+  fallback,
+}: {
+  icon: CategoryIconKey | null;
+  tint: { bg: string; ink: string } | undefined;
+  fallback: string;
+}) {
+  if (!icon || !tint) {
+    return <View style={[styles.legendDot, { backgroundColor: tint?.ink ?? fallback }]} />;
+  }
+  const Icon = CATEGORY_ICON_COMPONENTS[icon];
+  return (
+    <View style={[styles.iconTile, { backgroundColor: tint.bg }]}>
+      <Icon size={13} color={tint.ink} />
+    </View>
+  );
+}
 
 function RowIcon({ icon, size, color }: { icon: CategoryIconKey | null; size: number; color: string }) {
   if (!icon) return null;
