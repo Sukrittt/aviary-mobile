@@ -4,7 +4,7 @@ import { liveAccounts, useAccounts } from "@/src/hooks/useAccounts";
 import { AccountChips } from "@/src/components/shared/AccountChips";
 import { defaultAccountFor } from "@/src/lib/defaultAccount";
 import { ExpenseConflictReview } from '@/src/features/log-expense/ExpenseConflictReview'
-import { ExpensePhotoField, type PickedPhoto } from '@/src/features/log-expense/ExpensePhotoField'
+import { ExpensePhotoField, pickPhoto, type PickedPhoto } from '@/src/features/log-expense/ExpensePhotoField'
 import { AutoCategoryPill, MIN_SPIN_MS, PILL_MAX_WIDTH } from '@/src/features/log-expense/AutoCategoryPill'
 import { createThinkingGate, type ThinkingGate } from '@/src/lib/thinkingGate'
 import { ExpenseWriteError, expenseChanges, expenseDraft, paymentMethodOf, rebaseExpenseDraft, type ExpenseDraft, type PaymentMethod } from '@/src/lib/expenseConflict'
@@ -47,7 +47,7 @@ import { useTheme } from "@/src/theme/ThemeProvider";
 import { fontFamily } from "@/src/theme/fonts";
 import { NAV_HEIGHT } from "@/src/theme/scale";
 import { useIsFocused,useLocalSearchParams,useRouter } from "expo-router";
-import { CaretDown, ChatText, Plus, Warning } from "@/src/components/shared/icons";
+import { Camera, CaretDown, ChatText, Plus, Warning } from "@/src/components/shared/icons";
 import { useCaptureTip } from "@/src/hooks/useCaptureTip";
 import { noteManualLog, type CaptureTipReason } from "@/src/lib/captureTip";
 import { CaptureTipBubble } from "@/src/features/log-expense/CaptureTipBubble";
@@ -60,6 +60,7 @@ import { useCallback,useEffect,useMemo,useRef,useState } from "react";
 import {
 Alert,
 Animated,
+Image,
 Keyboard,
 Pressable,
 ScrollView,
@@ -191,7 +192,8 @@ export default function LogExpenseScreen() {
   const [logSuccess, setLogSuccess] = useState(false);
   const [showMore, setShowMore] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
-  // One optional photo, More sheet only. `photo` is newly picked and not yet
+  // One optional photo: the camera button under the amount, or the More
+  // sheet (library, view, remove). `photo` is newly picked and not yet
   // uploaded; it goes up after the expense saves (see syncPhoto). Edit mode
   // needs the row's server id to address the photo at all.
   const photoAllowed = !isEdit || !!origId;
@@ -359,6 +361,7 @@ export default function LogExpenseScreen() {
     try {
       if (!id || queued) throw new Error("no server id");
       await savePhotoAsync({ id, photo: photo && { base64: photo.base64, mimeType: photo.mimeType } });
+      if (photo) track("expense_photo_added", { from: "log" });
     } catch {
       if (photo) Alert.alert("Photo didn't upload", "Your expense is saved, but the photo didn't upload. Try adding it again from Activity.");
       else Alert.alert("Photo's still there", "Your changes are saved, but the photo didn't come off. Try removing it again.");
@@ -631,6 +634,39 @@ export default function LogExpenseScreen() {
             </Text>
           )}
 
+          <View style={[styles.quickRow, { gap: space.xl }]}>
+          {/* The moment you log is the moment to snap it, so the camera sits
+              out here; the library and removing a photo stay in More. */}
+          {photoAllowed && online && (
+            <Pressable
+              onPress={async () => {
+                tap();
+                if (photoUri) {
+                  setShowMore(true);
+                  return;
+                }
+                const picked = await pickPhoto("camera");
+                if (picked) {
+                  setPhoto(picked);
+                  setPhotoRemoved(false);
+                }
+              }}
+              disabled={saving || logSuccess}
+              accessibilityRole="button"
+              accessibilityLabel={photoUri ? "Photo added. View or change it" : "Take a photo"}
+              style={[styles.moreToggle, { gap: space.xs }]}
+              hitSlop={8}
+            >
+              {photoUri ? (
+                <Image source={{ uri: photoUri }} style={styles.quickThumb} />
+              ) : (
+                <Camera size={16} color={onAccentDim} />
+              )}
+              <Text style={{ color: onAccentDim, fontFamily: fontFamily.bodySemiBold, fontSize: type.caption }}>
+                {photoUri ? "Photo added" : "Photo"}
+              </Text>
+            </Pressable>
+          )}
           <Pressable
             onPress={() => {
               tap();
@@ -653,6 +689,7 @@ export default function LogExpenseScreen() {
             </Text>
             <CaretDown size={16} color={onAccentDim} />
           </Pressable>
+          </View>
 
 
         </View>
@@ -905,6 +942,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   moreLabel: {},
+  quickRow: { flexDirection: "row", alignItems: "center", justifyContent: "center" },
+  quickThumb: { width: 18, height: 18, borderRadius: 4 },
   sheetTitle: { marginBottom: 12 },
   sheetList: { maxHeight: 320 },
   sheetChips: { flexDirection: "row", flexWrap: "wrap" },
