@@ -17,7 +17,7 @@ function Bone({ w = '100%', h, r = 8, style }: { w?: DimensionValue; h: number; 
 }
 
 /** One pulse for the whole body, so every bone breathes in step. */
-function Pulse({ children }: { children: ReactNode }) {
+function Pulse({ children, label = 'Loading' }: { children: ReactNode; label?: string }) {
   const reduceMotion = useReducedMotion()
   const opacity = useSharedValue(1)
   useEffect(() => {
@@ -26,7 +26,7 @@ function Pulse({ children }: { children: ReactNode }) {
   }, [reduceMotion, opacity])
   const style = useAnimatedStyle(() => ({ opacity: opacity.value }))
   return (
-    <Animated.View testID="tab-skeleton" accessible accessibilityLabel="Loading" style={style}>
+    <Animated.View testID="tab-skeleton" accessible accessibilityLabel={label} style={style}>
       {children}
     </Animated.View>
   )
@@ -98,6 +98,45 @@ function CategoryGroup({ count }: { count: number }) {
         ))}
       </View>
     </View>
+  )
+}
+
+/** The money brief's narrative while it loads: three lines, like web's. */
+export function BriefLinesSkeleton() {
+  return (
+    <Pulse label="Loading your money brief">
+      <View style={styles.briefLines}>
+        <Bone h={12} />
+        <Bone h={12} />
+        <Bone w="60%" h={12} />
+      </View>
+    </Pulse>
+  )
+}
+
+/** Below the brief while it loads: three insight rows and three question chips, like web's. */
+export function BriefSkeleton() {
+  const { space } = useTheme()
+  return (
+    <Pulse>
+      <View style={{ gap: space.lg }}>
+        <CardShape style={{ gap: 0, paddingVertical: space.sm }}>
+          {[0, 1, 2].map((i) => (
+            <View key={i} style={styles.row}>
+              <Bone w={36} h={36} r={12} />
+              <View style={styles.rowText}>
+                <Bone w="55%" h={13} />
+                <Bone w="35%" h={11} />
+              </View>
+              <Bone w={56} h={14} />
+            </View>
+          ))}
+        </CardShape>
+        <View style={styles.briefChips}>
+          {[0, 1, 2].map((i) => <Bone key={i} w={i === 1 ? 96 : 128} h={38} r={20} />)}
+        </View>
+      </View>
+    </Pulse>
   )
 }
 
@@ -186,5 +225,7 @@ const styles = StyleSheet.create({
   pillCol: { width: 84, alignItems: 'flex-end' },
   searchRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
+  briefLines: { gap: 8, marginTop: 12 },
+  briefChips: { flexDirection: 'row', gap: 8 },
   rowText: { flex: 1, gap: 6 },
 })

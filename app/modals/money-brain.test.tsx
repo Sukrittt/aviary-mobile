@@ -88,6 +88,14 @@ it('opens as a focused composer in capture mode, without the brief', async () =>
   expect(mockStreamChat).not.toHaveBeenCalled()
 })
 
+it("holds the brief's shape with skeletons while it loads, not a rotating caption", async () => {
+  mockBrief = { ...mockBrief, isLoading: true }
+  const utils = renderWithProviders(<MoneyBrainModal />)
+  expect(await utils.findByText('THIS MONTH SO FAR')).toBeTruthy()
+  expect(utils.getByLabelText('Loading your money brief')).toBeTruthy()
+  expect(utils.getAllByTestId('tab-skeleton')).toHaveLength(2)
+})
+
 it('still lets a user over the AI allowance log spends in capture mode', async () => {
   mockBrief = { ...mockBrief, isError: true, error: new AiAllowanceError("You've used this month's AI allowance.") }
   mockParams = { capture: '1' }
