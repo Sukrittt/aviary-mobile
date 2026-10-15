@@ -131,6 +131,7 @@ export default function ActivityScreen() {
   const [page, setPage] = useState(1);
 
   const changePage = useCallback((next: number, scrollToTop = false) => {
+    tap();
     setPage(next);
     if (scrollToTop) {
       scrollRef.current?.scrollTo({ y: 0, animated: true });
