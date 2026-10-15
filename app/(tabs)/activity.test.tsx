@@ -1,6 +1,6 @@
 import { ExpenseWriteError } from '@/src/lib/expenseConflict'
 import { useState, type ReactNode } from 'react'
-import { act, fireEvent } from '@testing-library/react-native'
+import { act, fireEvent, waitFor } from '@testing-library/react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import type { ExpensesPage, ExpensesPageParams } from '@/src/api/expenses'
 import ActivityScreen from './activity'
@@ -169,6 +169,22 @@ it('clears search and date filters from the empty-state action', () => {
   expect(query.to).toBeUndefined()
   fireEvent.press(screen.getByRole('button', { name: 'Log an expense' }))
   expect(mockPush).toHaveBeenCalledWith('/modals/log-expense')
+})
+
+it('asks for 30 rows a page but mounts them a screenful at a time', async () => {
+  const rows = Array.from({ length: 30 }, (_, i) => row(i + 1, '2026-06-01'))
+  mockUseExpensesPage.mockImplementation((params: ExpensesPageParams) => ({
+    data: params.limit === 1 ? pageResult({}) : pageResult({ rows, total: 30 }),
+    isLoading: false,
+    error: null,
+  }))
+
+  const { getByText, queryByText } = renderWithProviders(<ActivityScreen />)
+
+  expect(mockUseExpensesPage.mock.calls.some(([p]) => p.limit === 30)).toBe(true)
+  expect(getByText('Item 10')).toBeTruthy()
+  expect(queryByText('Item 11')).toBeNull()
+  await waitFor(() => expect(getByText('Item 30')).toBeTruthy())
 })
 
 it('pages through the Activity list via server-side pagination', () => {

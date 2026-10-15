@@ -2,6 +2,9 @@ import { useRef } from 'react'
 import { Pressable, StyleSheet } from 'react-native'
 import Swipeable, { type SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable'
 import Animated, { Extrapolation, interpolate, interpolateColor, useAnimatedStyle, type SharedValue } from 'react-native-reanimated'
+import { Icon } from '@/src/components/shared/Icon'
+import { PencilSimple, Trash, type PhosphorIcon } from '@/src/components/shared/icons'
+import { tap } from '@/src/lib/haptics'
 import { useTheme } from '@/src/theme/ThemeProvider'
 
 const ACTION_WIDTH = 84
@@ -14,7 +17,7 @@ function Action({
   progress,
   onPress,
 }: {
-  icon: string
+  icon: PhosphorIcon
   color: string
   progress: SharedValue<number>
   onPress: () => void
@@ -32,7 +35,9 @@ function Action({
   return (
     <Animated.View style={[styles.action, boxStyle]}>
       <Pressable style={styles.actionPress} onPress={onPress}>
-        <Animated.Text style={[styles.actionIcon, iconStyle]}>{icon}</Animated.Text>
+        <Animated.View style={iconStyle}>
+          <Icon icon={icon} size={22} color="#fff" weight="bold" />
+        </Animated.View>
       </Pressable>
     </Animated.View>
   )
@@ -66,16 +71,17 @@ export function SwipeableRow({
       rightThreshold={ACTION_WIDTH / 2}
       dragOffsetFromLeft={24}
       dragOffsetFromRight={-24}
-      onSwipeableWillOpen={() =>
+      onSwipeableWillOpen={() => {
+        tap()
         onOpen?.(
           rowKey ?? '',
           () => ref.current?.close(),
           () => ref.current?.reset(),
         )
-      }
+      }}
       renderLeftActions={(progress, _translation, swipeable: SwipeableMethods) => (
         <Action
-          icon="✏️"
+          icon={PencilSimple}
           color={tokens.accentInk}
           progress={progress}
           onPress={() => {
@@ -86,7 +92,7 @@ export function SwipeableRow({
       )}
       renderRightActions={(progress, _translation, swipeable: SwipeableMethods) => (
         <Action
-          icon="🗑️"
+          icon={Trash}
           color={tokens.coral}
           progress={progress}
           onPress={() => {
@@ -104,5 +110,4 @@ export function SwipeableRow({
 const styles = StyleSheet.create({
   action: { width: ACTION_WIDTH, margin: 4, overflow: 'hidden' },
   actionPress: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  actionIcon: { fontSize: 15 },
 })

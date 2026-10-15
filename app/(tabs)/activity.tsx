@@ -18,6 +18,8 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter, useLocalSearchParams, useFocusEffect, type Href } from "expo-router";
 import * as Haptics from "expo-haptics";
+import { tap } from "@/src/lib/haptics";
+import { AnimatedPressable, usePressSpring } from "@/src/components/ui/Button";
 import { CaretLeft, CaretRight, Images, MoneyWavy, Rows, SlidersHorizontal, Trash, X } from "@/src/components/shared/icons";
 import { ActivityFeed } from "@/src/components/activity/ActivityFeed";
 import { useActivityView } from "@/src/hooks/useActivityView";
@@ -60,7 +62,11 @@ import { FORCE_EMPTY_STATE_PREVIEW, emptyForPreview } from "@/src/lib/emptyState
 type PeriodKey = "all" | "week" | "month" | "custom";
 
 const CHIP_TRANSITION = LinearTransition.springify().damping(64).stiffness(700);
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 30;
+// Each row carries a swipe gesture and ~10 Reanimated values, so mounting a
+// whole page in one commit stalls the screen. Mount this many on the first
+// frame (about a screenful) and the rest of the page this many per frame.
+const ROWS_PER_FRAME = 10;
 const ROW_GAP = 12;
 // Breathing room inside the select tint, which has no row padding to sit in.
 const SELECT_INSET = 12;
@@ -93,6 +99,7 @@ export default function ActivityScreen() {
   const { formatCurrency } = useCurrency()
 
   const { tokens, scheme } = useTheme();
+  const categoryRowPress = usePressSpring();
   const { refreshing, onRefresh } = useRefresh();
   const { hideAmounts } = usePrivacy();
   const router = useRouter();
@@ -112,6 +119,7 @@ export default function ActivityScreen() {
   const [view, setView] = useActivityView();
 
   const changePage = useCallback((next: number, scrollToTop = false) => {
+    tap();
     setPage(next);
     if (scrollToTop) {
       scrollRef.current?.scrollTo({ y: 0, animated: true });
@@ -329,6 +337,19 @@ export default function ActivityScreen() {
   // mustn't reselect its failures into a view that no longer shows them.
   const viewKey = [page, selectedDate, period, customRange.from, customRange.to, selectedCategory, selectedAccount, search].join("|");
   const viewKeyRef = useRef(viewKey);
+  const [mountedRows, setMountedRows] = useState(ROWS_PER_FRAME);
+  const [mountedView, setMountedView] = useState(viewKey);
+  // Reset during render, not in an effect: an effect would commit the new
+  // page's full row count once before shrinking it back.
+  if (mountedView !== viewKey) {
+    setMountedView(viewKey);
+    setMountedRows(ROWS_PER_FRAME);
+  }
+  useEffect(() => {
+    if (mountedRows >= listItems.length) return;
+    const id = requestAnimationFrame(() => setMountedRows((n) => n + ROWS_PER_FRAME));
+    return () => cancelAnimationFrame(id);
+  }, [mountedRows, listItems.length]);
   useEffect(() => {
     viewKeyRef.current = viewKey;
   });
@@ -666,7 +687,7 @@ export default function ActivityScreen() {
           emptyState
         ) : (
           <View>
-            {listItems.map((entry) => {
+            {listItems.slice(0, mountedRows).map((entry) => {
               if (entry.kind === "income") {
                 const income = entry.income;
                 const account = accountName(accountsQ.data, income.account_id);
@@ -1011,13 +1032,17 @@ export default function ActivityScreen() {
               />
             </View>
           )}
-          <Pressable
+          <AnimatedPressable
+            accessibilityRole="button"
             style={[
-              styles.categoryOption,
               styles.categoryFilterRow,
-              { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: tokens.border },
+              { backgroundColor: tokens.pillBg, borderColor: tokens.border },
+              categoryRowPress.style,
             ]}
+            onPressIn={categoryRowPress.onPressIn}
+            onPressOut={categoryRowPress.onPressOut}
             onPress={() => {
+              tap();
               setCategorySheetOpen(false);
               setCategoryPickerOpen(true);
             }}
@@ -1025,7 +1050,7 @@ export default function ActivityScreen() {
             <Text
               style={[
                 styles.categoryOptionText,
-                { color: tokens.text, fontFamily: fontFamily.bodySemiBold },
+                { flex: 1, color: tokens.text, fontFamily: fontFamily.bodySemiBold },
               ]}
             >
               Category
@@ -1036,9 +1061,10 @@ export default function ActivityScreen() {
                 { color: tokens.text3, fontFamily: fontFamily.bodyMedium },
               ]}
             >
-              {categoryFilterLabel ?? "View All"}
+              {categoryFilterLabel ?? "View all"}
             </Text>
-          </Pressable>
+            <Icon icon={CaretRight} size={14} color={tokens.text3} />
+          </AnimatedPressable>
           {accountOptions.length > 0 && (
             <View style={[styles.accountFilter, { borderTopColor: tokens.border }]}>
               <AccountChips
@@ -1190,17 +1216,16 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 10,
   },
-  categoryOption: {
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    borderRadius: 12,
-  },
   categoryOptionText: { fontSize: 14 },
   categoryFilterRow: {
-    marginTop: 4,
+    marginTop: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    borderWidth: 1,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    gap: 6,
   },
   customRangeWrap: { marginBottom: 10 },
   search: {

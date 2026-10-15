@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { StyleSheet, Text, type LayoutChangeEvent } from 'react-native'
+import { StyleSheet, type LayoutChangeEvent } from 'react-native'
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated'
+import { Icon } from '@/src/components/shared/Icon'
+import { Trash } from '@/src/components/shared/icons'
 import { useTheme } from '@/src/theme/ThemeProvider'
 
 export function DeletingRow({
@@ -77,7 +79,7 @@ export function DeletingRow({
       {children}
       {active && (
         <Animated.View pointerEvents="none" style={[styles.overlay, overlayStyle, { backgroundColor: tokens.coral }]}>
-          <Text style={styles.icon}>🗑️</Text>
+          <Icon icon={Trash} size={22} color="#fff" weight="bold" />
         </Animated.View>
       )}
     </Animated.View>
@@ -97,5 +99,4 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     transformOrigin: 'right',
   },
-  icon: { fontSize: 18 },
 })

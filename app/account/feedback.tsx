@@ -146,10 +146,10 @@ export default function FeedbackScreen() {
         <Pressable
           onPress={handleSubmit}
           disabled={!canSubmit || sending || sent}
-          style={[styles.confirmButton, { backgroundColor: sent ? tokens.mint : tokens.accent, opacity: !canSubmit || sending ? 0.5 : 1 }]}
+          style={[styles.confirmButton, { backgroundColor: sent ? tokens.successBg : tokens.accent, opacity: !canSubmit || sending ? 0.5 : 1 }]}
         >
           {sent ? (
-            <CheckIcon color={tokens.onAccent} />
+            <CheckIcon color={tokens.onSuccess} />
           ) : (
             <Text style={[styles.confirmText, { color: tokens.onAccent, fontFamily: fontFamily.bodyBold }]}>
               {sending ? 'Sending…' : 'Send report'}

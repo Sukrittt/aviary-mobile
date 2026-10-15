@@ -54,7 +54,7 @@ category names, notification text or raw error messages in any property.
 | `holding_added` | |
 | `subscription_added` | `billing_cycle` |
 | `wrapped_opened` | `muted` |
-| `wrapped_card_viewed` | `index` (once per card per visit) |
+| `wrapped_card_viewed` | `index`, `story_type` (the story shown, or `total` / `persona` / `share`; once per card per visit) |
 | `wrapped_shared` | share sheet opened |
 
 ### Paying (mobile only)

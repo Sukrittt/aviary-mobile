@@ -12,6 +12,7 @@ import Reanimated, {
 } from 'react-native-reanimated'
 import { X } from '@/src/components/shared/icons'
 import Svg, { Path } from 'react-native-svg'
+import { tap } from '@/src/lib/haptics'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { DROP_SPRING } from '@/src/components/ui/Toast'
@@ -80,27 +81,40 @@ export function CaptureTipBubble({
           { top: anchor.top + anchor.size + 4 + CARET_H, left: anchor.left - nudge, transformOrigin: `${nudge + anchor.size / 2}px -${CARET_H}px` },
         ]}
       >
-        <View style={[styles.card, { backgroundColor: tokens.onAccent, borderRadius: radius.lg, borderTopLeftRadius: radius.sm, padding: space.md }]}>
+        {/* The whole card opens the tip; only the X dismisses it. */}
+        <Pressable
+          onPress={() => {
+            tap()
+            onTry()
+          }}
+          accessibilityRole="button"
+          accessibilityLabel="Try logging several at once"
+          style={[styles.card, { backgroundColor: tokens.onAccent, borderRadius: radius.lg, borderTopLeftRadius: radius.sm, padding: space.md }]}
+        >
           {/* Inside the card, so it shares the card's layer and shadow: no seam where they meet. */}
           <Svg width={CARET_W} height={CARET_H} viewBox={`0 0 ${CARET_W} ${CARET_H}`} style={[styles.caret, { left: caretLeft }]}>
             <Path d={CARET_PATH} fill={tokens.onAccent} />
           </Svg>
           <View style={[styles.head, { gap: space.sm }]}>
-            <Text style={{ flex: 1, color: tokens.accent, fontFamily: fontFamily.displaySemiBold, fontSize: type.body }}>{title}</Text>
-            <Pressable onPress={onDismiss} hitSlop={12} accessibilityLabel="Dismiss tip">
-              <X size={16} color={tokens.accent} />
+            {/* Ink title over muted body: orange is saved for the one thing to tap. */}
+            <Text style={{ flex: 1, color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: type.body }}>{title}</Text>
+            <Pressable
+              onPress={() => {
+                tap()
+                onDismiss()
+              }}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel="Dismiss tip"
+            >
+              <X size={16} color={tokens.text3} />
             </Pressable>
           </View>
-          <Text style={{ color: tokens.accent, opacity: 0.8, fontFamily: fontFamily.bodyMedium, fontSize: type.caption, marginTop: 2 }}>{body}</Text>
-          <Pressable
-            onPress={onTry}
-            accessibilityRole="button"
-            accessibilityLabel="Try logging several at once"
-            style={[styles.try, { backgroundColor: tokens.accent, borderRadius: radius.full, marginTop: space.sm, paddingHorizontal: space.md }]}
-          >
+          <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodyMedium, fontSize: type.caption, lineHeight: type.caption * 1.4, marginTop: 4 }}>{body}</Text>
+          <View style={[styles.try, { backgroundColor: tokens.accent, borderRadius: radius.full, marginTop: space.sm, paddingHorizontal: space.md }]}>
             <Text style={{ color: tokens.onAccent, fontFamily: fontFamily.bodyBold, fontSize: type.caption }}>Try it</Text>
-          </Pressable>
-        </View>
+          </View>
+        </Pressable>
       </Reanimated.View>
     </>
   )
