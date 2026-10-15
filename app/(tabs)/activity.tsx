@@ -59,7 +59,11 @@ import { FORCE_EMPTY_STATE_PREVIEW, emptyForPreview } from "@/src/lib/emptyState
 type PeriodKey = "all" | "week" | "month" | "custom";
 
 const CHIP_TRANSITION = LinearTransition.springify().damping(64).stiffness(700);
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 30;
+// Each row carries a swipe gesture and ~10 Reanimated values, so mounting a
+// whole page in one commit stalls the screen. Mount this many on the first
+// frame (about a screenful) and the rest of the page this many per frame.
+const ROWS_PER_FRAME = 10;
 const ROW_GAP = 12;
 // Breathing room inside the select tint, which has no row padding to sit in.
 const SELECT_INSET = 12;
@@ -347,6 +351,19 @@ export default function ActivityScreen() {
   // mustn't reselect its failures into a view that no longer shows them.
   const viewKey = [page, selectedDate, period, customRange.from, customRange.to, selectedCategory, selectedAccount, search].join("|");
   const viewKeyRef = useRef(viewKey);
+  const [mountedRows, setMountedRows] = useState(ROWS_PER_FRAME);
+  const [mountedView, setMountedView] = useState(viewKey);
+  // Reset during render, not in an effect: an effect would commit the new
+  // page's full row count once before shrinking it back.
+  if (mountedView !== viewKey) {
+    setMountedView(viewKey);
+    setMountedRows(ROWS_PER_FRAME);
+  }
+  useEffect(() => {
+    if (mountedRows >= listItems.length) return;
+    const id = requestAnimationFrame(() => setMountedRows((n) => n + ROWS_PER_FRAME));
+    return () => cancelAnimationFrame(id);
+  }, [mountedRows, listItems.length]);
   useEffect(() => {
     viewKeyRef.current = viewKey;
   });
@@ -646,7 +663,7 @@ export default function ActivityScreen() {
           />
         ) : (
           <View>
-            {listItems.map((entry) => {
+            {listItems.slice(0, mountedRows).map((entry) => {
               if (entry.kind === "income") {
                 const income = entry.income;
                 const account = accountName(accountsQ.data, income.account_id);
