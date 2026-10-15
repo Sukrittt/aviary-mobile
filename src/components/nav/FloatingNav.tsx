@@ -110,8 +110,10 @@ const NAV_BOTTOM_GAP = 10
 // Fade above the backdrop so scrolled content dissolves into it instead of
 // being cut off at a hard edge.
 const BACKDROP_FADE = 24
+/** How long the highlight takes to slide between tabs. The overlay navigates once it has landed. */
+export const NAV_SLIDE_MS = 110
 /** The highlight's slide: quick and flat, no bounce, so the landing tap follows the press tap closely. */
-const SLIDE = { duration: 110, easing: Easing.out(Easing.cubic) }
+const SLIDE = { duration: NAV_SLIDE_MS, easing: Easing.out(Easing.cubic) }
 
 /**
  * Floating navigation: one pill holding the four tabs, and the add action as

@@ -106,9 +106,9 @@
         "react-native-android-widget",
         {
           "fonts": [
-            "./assets/fonts/Fredoka_700Bold.ttf",
-            "./assets/fonts/Nunito_600SemiBold.ttf",
-            "./assets/fonts/Nunito_500Medium.ttf"
+            "./assets/fonts/Geist_700Bold.ttf",
+            "./assets/fonts/Geist_500Medium.ttf",
+            "./assets/fonts/Geist_400Regular.ttf"
           ],
           "widgets": [
             {

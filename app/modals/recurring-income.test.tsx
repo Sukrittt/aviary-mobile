@@ -63,7 +63,7 @@ it('edits an existing schedule and its account', async () => {
   ])
   const { findByDisplayValue, findByLabelText, getByText, getByLabelText } = renderWithProviders(<RecurringIncomeModal />)
   await findByDisplayValue('Salary')
-  fireEvent.press(await findByLabelText('🏦 HDFC'))
+  fireEvent.press(await findByLabelText('HDFC'))
   fireEvent.changeText(getByLabelText('Amount'), '55000')
   await act(async () => {
     fireEvent.press(getByText('Save changes'))

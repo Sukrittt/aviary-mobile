@@ -1,15 +1,14 @@
-import { LoadingCaption } from "@/src/components/shared/LoadingCaption";
 import { fontFamily } from "@/src/theme/fonts";
 import { ArrowLeft } from "@/src/components/shared/icons";
 import {
 KeyboardAvoidingView,
 Platform,
 Pressable,
-Text,
-View
+Text
 } from "react-native";
 
 
+import { ScanBeam } from "@/src/features/scan-bill/ScanBeam";
 import { ScanConfirm } from "@/src/features/scan-bill/ScanConfirm";
 import { ScanError } from "@/src/features/scan-bill/ScanError";
 import { ScanReview } from "@/src/features/scan-bill/ScanReview";
@@ -64,17 +63,12 @@ export default function ScanBillScreen() {
         <ScreenHeader title="Scan a bill" />
       )}
 
-      {phase === "scanning" && (
-        <View style={[styles.centerFill, { marginTop: -50 }]}>
-          <LoadingCaption
-            phrases={[
-              "Reading the bill…",
-              "Finding the total…",
-              "Spotting line items…",
-              "Almost done…",
-            ]}
-          />
-        </View>
+      {(phase === "scanning" || phase === "reveal") && (
+        <ScanBeam
+          imageUri={state.scanImageUri}
+          itemCount={phase === "reveal" ? productItems.length : null}
+          onDone={state.finishReveal}
+        />
       )}
 
       {phase === "error" && <ScanError {...state} />}

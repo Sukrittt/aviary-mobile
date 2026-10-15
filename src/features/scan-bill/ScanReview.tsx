@@ -15,10 +15,12 @@ import { Check, Plus, MagnifyingGlass, Trash } from "@/src/components/shared/ico
 import {
   Pressable,
   ScrollView,
+  StyleSheet,
   Text,
   TextInput,
   View
 } from "react-native";
+import { tap } from "@/src/lib/haptics";
 
 
 import { RevealBar } from "./ScanAnimations";
@@ -127,7 +129,10 @@ export function ScanReview({ tokens, space, radius, type, insets, setPhase, merc
           )}
         </View>
         <Pressable
-          onPress={setAllMine}
+          onPress={() => {
+            tap();
+            setAllMine();
+          }}
           style={[
             styles.allMineButton,
             {
@@ -192,6 +197,13 @@ export function ScanReview({ tokens, space, radius, type, insets, setPhase, merc
               },
             ]}
           >
+            {/* Hairline between items, centred in the list's gap so row spacing doesn't change. */}
+            {i > 0 && (
+              <View
+                pointerEvents="none"
+                style={{ position: "absolute", left: 0, right: 0, top: -space.md / 2, height: StyleSheet.hairlineWidth, backgroundColor: tokens.border }}
+              />
+            )}
             {selecting ? (
               <Pressable
                 onPress={() => toggleSelected(it.key)}
@@ -321,7 +333,10 @@ export function ScanReview({ tokens, space, radius, type, insets, setPhase, merc
                     />
                   ))}
                   <Pressable
-                    onPress={() => removeItem(it.key)}
+                    onPress={() => {
+                      tap();
+                      removeItem(it.key);
+                    }}
                     hitSlop={8}
                     style={styles.deleteButton}
                     accessibilityLabel={`Remove ${it.name || "item"}`}

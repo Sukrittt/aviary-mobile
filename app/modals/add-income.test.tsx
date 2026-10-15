@@ -61,7 +61,7 @@ it('names an unnamed one-off and puts it on the picked account', async () => {
   ;(getAccounts as jest.Mock).mockResolvedValue([{ id: 'a1', name: 'HDFC', type: 'bank', archived: false, created_at: '' }])
   const { getByLabelText, getByText, findByLabelText } = renderWithProviders(<AddIncomeModal />)
   fireEvent.press(getByText('More'))
-  fireEvent.press(await findByLabelText('🏦 HDFC'))
+  fireEvent.press(await findByLabelText('HDFC'))
   typeAmount(getByLabelText, '500')
   await act(async () => {
     fireEvent.press(getByText('Add'))

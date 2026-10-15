@@ -1,8 +1,33 @@
+import { fireEvent } from '@testing-library/react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { lightTokens } from '@/src/theme/tokens'
 import { Chip } from './Chip'
 
 describe('Chip', () => {
+  // The app's crisp press tick, not selectionAsync: on Android that's a soft
+  // 50ms buzz that split chips and the rest felt mushy with.
+  it('ticks like every other press', () => {
+    const Haptics = jest.requireActual<typeof import('expo-haptics')>('expo-haptics')
+    const impact = jest.spyOn(Haptics, 'impactAsync').mockResolvedValue()
+    const onPress = jest.fn()
+    const { getByText } = renderWithProviders(<Chip label="÷2" onPress={onPress} />)
+    fireEvent.press(getByText('÷2'))
+    expect(impact).toHaveBeenCalledWith(Haptics.ImpactFeedbackStyle.Rigid)
+    expect(onPress).toHaveBeenCalled()
+    impact.mockRestore()
+  })
+
+  it('stays quiet when its onPress plays its own feedback', () => {
+    const Haptics = jest.requireActual<typeof import('expo-haptics')>('expo-haptics')
+    const impact = jest.spyOn(Haptics, 'impactAsync').mockResolvedValue()
+    const onPress = jest.fn()
+    const { getByText } = renderWithProviders(<Chip label="Collapse all" haptic={false} onPress={onPress} />)
+    fireEvent.press(getByText('Collapse all'))
+    expect(impact).not.toHaveBeenCalled()
+    expect(onPress).toHaveBeenCalled()
+    impact.mockRestore()
+  })
+
   it('renders a plain label with no icon prop', () => {
     const { getByText } = renderWithProviders(<Chip label="Reorder" onPress={() => {}} />)
     expect(getByText('Reorder')).toBeTruthy()

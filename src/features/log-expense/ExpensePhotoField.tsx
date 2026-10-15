@@ -12,6 +12,37 @@ export type PickedPhoto = { uri: string; base64: string; mimeType: PhotoMimeType
 const MIME_TYPES: PhotoMimeType[] = ['image/jpeg', 'image/png', 'image/webp']
 
 /**
+ * Opens the camera or library and returns one photo ready to upload, or null
+ * if the user backed out. Alerts on its own for permission and format
+ * problems. Shared with the bug report screenshot (app/account/feedback.tsx).
+ */
+export async function pickPhoto(source: 'camera' | 'library'): Promise<PickedPhoto | null> {
+  const perm = source === 'camera'
+    ? await ImagePicker.requestCameraPermissionsAsync()
+    : await ImagePicker.requestMediaLibraryPermissionsAsync()
+  if (!perm.granted) {
+    Alert.alert('Permission needed', 'Camera or photo access is off. You can turn it on in Settings.')
+    return null
+  }
+  const options: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], quality: 0.5, base64: true }
+  const result = source === 'camera' ? await ImagePicker.launchCameraAsync(options) : await ImagePicker.launchImageLibraryAsync(options)
+  const asset = result.canceled ? undefined : result.assets?.[0]
+  if (!asset) return null
+  if (!asset.base64) {
+    Alert.alert("Couldn't read that photo", 'Try another one.')
+    return null
+  }
+  // An unknown type (e.g. HEIC) can't be relabeled: the bytes stay HEIC.
+  // A missing type is the picker's JPEG re-encode.
+  const mimeType = asset.mimeType ? MIME_TYPES.find((m) => m === asset.mimeType) : 'image/jpeg'
+  if (!mimeType) {
+    Alert.alert("That photo type isn't supported", 'Try a JPEG or PNG.')
+    return null
+  }
+  return { uri: asset.uri, base64: asset.base64, mimeType }
+}
+
+/**
  * The "Photo (optional)" field in log-expense's More sheet. Picking mirrors
  * the bill scan in More (same options), and only hands the photo up: the
  * screen decides when it uploads.
@@ -31,29 +62,8 @@ export function ExpensePhotoField({ uri, loading, offline, busy, onPicked, onRem
 
   async function pick(source: 'camera' | 'library') {
     Haptics.selectionAsync().catch(() => {})
-    const perm = source === 'camera'
-      ? await ImagePicker.requestCameraPermissionsAsync()
-      : await ImagePicker.requestMediaLibraryPermissionsAsync()
-    if (!perm.granted) {
-      Alert.alert('Permission needed', 'Camera or photo access is off. You can turn it on in Settings.')
-      return
-    }
-    const options: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], quality: 0.5, base64: true }
-    const result = source === 'camera' ? await ImagePicker.launchCameraAsync(options) : await ImagePicker.launchImageLibraryAsync(options)
-    const asset = result.canceled ? undefined : result.assets?.[0]
-    if (!asset) return
-    if (!asset.base64) {
-      Alert.alert("Couldn't read that photo", 'Try another one.')
-      return
-    }
-    // An unknown type (e.g. HEIC) can't be relabeled: the bytes stay HEIC.
-    // A missing type is the picker's JPEG re-encode.
-    const mimeType = asset.mimeType ? MIME_TYPES.find((m) => m === asset.mimeType) : 'image/jpeg'
-    if (!mimeType) {
-      Alert.alert("That photo type isn't supported", 'Try a JPEG or PNG.')
-      return
-    }
-    onPicked({ uri: asset.uri, base64: asset.base64, mimeType })
+    const photo = await pickPhoto(source)
+    if (photo) onPicked(photo)
   }
 
   const label = { color: tokens.text3, fontFamily: fontFamily.bodySemiBold, fontSize: 12 }

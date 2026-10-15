@@ -861,6 +861,7 @@ export default function EnvelopesScreen() {
             <Chip
               label={allGroupsCollapsed ? 'Expand all' : 'Collapse all'}
               onPress={toggleCollapseAll}
+              haptic={false}
             />
           </View>
         </View>

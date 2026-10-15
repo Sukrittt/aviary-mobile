@@ -29,7 +29,7 @@ import { useChatSessions, useChatSessionsCount } from '@/src/hooks/useChatSessio
 import { computeEnvelopeState, currentMonthKey } from '@/src/lib/envelope'
 
 import { ProgressBar } from '@/src/components/envelope/ProgressBar'
-import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
+import { BriefLinesSkeleton, BriefSkeleton } from '@/src/components/shared/TabSkeleton'
 import { Icon } from '@/src/components/shared/Icon'
 import { InsightCard } from '@/src/components/brain/InsightCard'
 import { ChatHistoryList } from '@/src/components/brain/ChatHistoryList'
@@ -501,7 +501,7 @@ export default function MoneyBrainModal() {
           </View>
         )}
 
-        {!captureMode && !(messages.length === 0 && briefQ.isLoading) && (
+        {!captureMode && (
         <PopIn play={playReveal} delay={MOUNT_START_DELAY_MS} style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
           <Text style={[styles.cardLabel, { color: tokens.text2 }]}>THIS MONTH SO FAR</Text>
           <Text style={[styles.cardValue, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
@@ -512,9 +512,7 @@ export default function MoneyBrainModal() {
             <ProgressBar pct={spentPct} />
           </View>
           {briefQ.isLoading ? (
-            <View style={{ marginTop: 12 }}>
-              <LoadingCaption />
-            </View>
+            <BriefLinesSkeleton />
           ) : briefQ.isError ? (
             <View style={styles.errorRow}>
               <Text style={{ color: tokens.coral, fontSize: 12, fontFamily: fontFamily.bodySemiBold, flex: 1 }}>
@@ -579,11 +577,8 @@ export default function MoneyBrainModal() {
           </View>
         )}
 
-        {!captureMode && messages.length === 0 && briefQ.isLoading && (
-          <View style={{ flexGrow: 1, alignItems: 'center', justifyContent: 'center' }}>
-            <LoadingCaption />
-          </View>
-        )}
+        {/* Holds the brief's shape while it loads, like web, rather than a rotating caption. */}
+        {!captureMode && messages.length === 0 && briefQ.isLoading && <BriefSkeleton />}
 
         {messages.length > 0 && (
           <View style={{ gap: 10 }}>

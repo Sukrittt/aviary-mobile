@@ -25,7 +25,8 @@ function usePressSpring(scaleTo = 0.96) {
 }
 
 type Variant = 'primary' | 'secondary' | 'ghost'
-type ButtonSize = 'default' | 'small'
+/** `compact` sits inline with chips and tabs, like web's toolbar actions. */
+type ButtonSize = 'default' | 'small' | 'compact'
 
 export function Button({
   label,
@@ -46,7 +47,8 @@ export function Button({
 }) {
   const { tokens, radius, space, type } = useTheme()
   const press = usePressSpring()
-  const small = size === 'small'
+  const compact = size === 'compact'
+  const small = size === 'small' || compact
 
   const bg =
     variant === 'primary' ? tokens.accent : variant === 'secondary' ? tokens.pillBg : 'transparent'
@@ -70,9 +72,9 @@ export function Button({
           backgroundColor: bg,
           borderColor: border,
           borderRadius: radius.full,
-          minHeight: small ? 44 : undefined,
-          paddingVertical: small ? space.sm : space.md + 2,
-          paddingHorizontal: small ? space.lg : space.xl,
+          minHeight: compact ? 34 : small ? 44 : undefined,
+          paddingVertical: compact ? 6 : small ? space.sm : space.md + 2,
+          paddingHorizontal: compact ? 14 : small ? space.lg : space.xl,
           gap: small ? space.xs : space.sm,
           opacity: disabled ? 0.45 : 1,
         },
@@ -80,8 +82,8 @@ export function Button({
         style,
       ]}
     >
-      {icon ? <Icon icon={icon} size={small ? 15 : 18} color={fg} /> : null}
-      <Text style={{ color: fg, fontFamily: fontFamily.bodyBold, fontSize: small ? type.body : type.bodyLg }}>{label}</Text>
+      {icon ? <Icon icon={icon} size={compact ? 13 : small ? 15 : 18} color={fg} /> : null}
+      <Text style={{ color: fg, fontFamily: fontFamily.bodyBold, fontSize: compact ? type.caption : small ? type.body : type.bodyLg }}>{label}</Text>
     </AnimatedPressable>
   )
 }

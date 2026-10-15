@@ -12,12 +12,13 @@ import { useTheme } from '@/src/theme/ThemeProvider'
 import { usePrivacy } from '@/src/context/PrivacyContext'
 import { fontFamily } from '@/src/theme/fonts'
 import { Icon } from '@/src/components/shared/Icon'
-import { formatDateShort, formatDateTime, formatOrdinalDate } from '@/src/lib/format'
+import { formatDate, formatDateShort, formatDateTime, formatOrdinalDate } from '@/src/lib/format'
 import { useHoldings, useDeleteHolding } from '@/src/hooks/useHoldings'
 import { useHoldingEvents } from '@/src/hooks/useHoldingEvents'
 import { AllocationBar, type AllocationSegment } from '@/src/components/charts/AllocationBar'
-import { LineChart } from '@/src/components/charts/LineChart'
-import { netWorthHistory } from '@/src/lib/netWorthHistory'
+import { LineChart, type LinePoint } from '@/src/components/charts/LineChart'
+import { Chip } from '@/src/components/ui/Chip'
+import { netWorthHistory, historySince, percentChange, monthsBefore } from '@/src/lib/netWorthHistory'
 import { CHART_COLOR_CYCLE } from '@/src/theme/chartColors'
 import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
 import { EmptyState } from '@/src/components/shared/EmptyState'
@@ -90,6 +91,15 @@ const HOLDINGS_MOUNT_DELAY_MS = 100
 const HOLDINGS_ITEM_STAGGER_MS = 45
 const HOLDINGS_ITEM_STAGGER_CAP_INDEX = 6
 
+const RANGES = [
+  { key: '1M', months: 1 },
+  { key: '3M', months: 3 },
+  { key: '6M', months: 6 },
+  { key: '1Y', months: 12 },
+  { key: 'All', months: null },
+] as const
+type RangeKey = (typeof RANGES)[number]['key']
+
 export default function InvestmentsScreen() {
   const { formatCurrency } = useCurrency()
 
@@ -118,11 +128,20 @@ export default function InvestmentsScreen() {
     [holdings],
   )
 
-  const history = useMemo(
-    () => netWorthHistory(holdings, events).map((p) => ({ x: p.t, y: p.value })),
-    [holdings, events],
-  )
-  const historyDelta = history.length > 1 ? history[history.length - 1].y - history[0].y : null
+  const [range, setRange] = useState<RangeKey>('3M')
+  const [scrubbed, setScrubbed] = useState<LinePoint | null>(null)
+  const history = useMemo(() => {
+    const months = RANGES.find((r) => r.key === range)!.months
+    const all = netWorthHistory(holdings, events)
+    if (months == null) return all.map((p) => ({ x: p.t, y: p.value }))
+    return historySince(all, monthsBefore(new Date(), months).getTime()).map((p) => ({ x: p.t, y: p.value }))
+  }, [holdings, events, range])
+  // Scrubbing swaps the header to the touched day: its value, and the change
+  // from the range's start up to it.
+  const shownWorth = scrubbed?.y ?? netWorth
+  const historyStart = history[0]?.y
+  const historyDelta = history.length > 1 ? shownWorth - historyStart : null
+  const historyPct = historyDelta != null ? percentChange(historyStart, shownWorth) : null
 
   const segments: AllocationSegment[] = useMemo(() => {
     const byType = new Map<string, number>()
@@ -217,20 +236,31 @@ export default function InvestmentsScreen() {
             <Text style={[styles.nwLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
               Net Worth
             </Text>
-            <AmountText value={netWorth} size={styles.nwAmount.fontSize} weight="displayBold" animate />
+            <AmountText value={shownWorth} size={styles.nwAmount.fontSize} weight="displayBold" animate={!scrubbed} />
           </View>
 
           {historyDelta != null && (
             <View style={styles.trendBlock}>
               <Text style={[styles.trend, { color: historyDelta < 0 ? tokens.coral : tokens.mint, fontFamily: fontFamily.bodyBold }]}>
                 {historyDelta < 0 ? '-' : '+'}
-                {formatCurrency(Math.abs(historyDelta), hideAmounts)} since {formatDateShort(new Date(history[0].x).toISOString())}
+                {formatCurrency(Math.abs(historyDelta), hideAmounts)}
+                {historyPct != null && !hideAmounts && ` (${Math.abs(historyPct).toFixed(1)}%)`}
+                {scrubbed
+                  ? ` · ${formatDateShort(new Date(history[0].x).toISOString())} to ${formatDateShort(new Date(scrubbed.x).toISOString())}`
+                  : ` since ${formatDateShort(new Date(history[0].x).toISOString())}`}
               </Text>
-              <LineChart
-                data={history}
-                formatX={(x) => formatDateShort(new Date(x).toISOString())}
-                formatY={(y) => formatCurrency(y, hideAmounts)}
-              />
+              <View style={styles.chartBleed}>
+                <LineChart
+                  data={history}
+                  formatX={(x) => formatDate(new Date(x).toISOString())}
+                  onScrub={setScrubbed}
+                />
+              </View>
+              <View style={styles.rangeRow}>
+                {RANGES.map((r) => (
+                  <Chip key={r.key} label={r.key} soft selected={range === r.key} onPress={() => setRange(r.key)} />
+                ))}
+              </View>
             </View>
           )}
 
@@ -411,6 +441,9 @@ const styles = StyleSheet.create({
   nwAmount: { fontSize: 34 },
   trendBlock: { gap: 10, marginTop: -8 },
   trend: { fontSize: 13 },
+  // Undo scrollContent's padding so the line runs edge to edge.
+  chartBleed: { marginHorizontal: -16 },
+  rangeRow: { flexDirection: 'row', justifyContent: 'space-between' },
   card: { borderWidth: 1, borderRadius: 16, padding: 16 },
   sectionTitle: { fontSize: 16, marginTop: 4 },
   holdingRow: {

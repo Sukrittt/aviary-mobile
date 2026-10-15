@@ -26,3 +26,40 @@ export function netWorthHistory(holdings: HoldingRow[], events: HoldingEventRow[
   }
   return points.reverse()
 }
+
+/** Net worth at `t`. Values only move at events, so it's the last point at or
+ *  before `t` (the first point's value before history starts). */
+export function valueAt(points: NetWorthPoint[], t: number): number {
+  let v = points[0]?.value ?? 0
+  for (const p of points) {
+    if (p.t > t) break
+    v = p.value
+  }
+  return v
+}
+
+/** The history from `from` on, opened with the value held at `from` so the
+ *  line starts at the range's left edge. */
+export function historySince(points: NetWorthPoint[], from: number): NetWorthPoint[] {
+  if (points.length === 0 || from <= points[0].t) return points
+  return [{ t: from, value: valueAt(points, from) }, ...points.filter((p) => p.t > from)]
+}
+
+/** Percent change from `start`, or null when the base is too small for a
+ *  percentage to mean anything (₹10 to ₹200 isn't a useful "1900%"). */
+export function percentChange(start: number, end: number): number | null {
+  if (start <= 0) return null
+  const pct = ((end - start) / start) * 100
+  return Math.abs(pct) >= 1000 ? null : pct
+}
+
+/** `date` minus `months`, landing on the last day of a shorter month instead
+ *  of overflowing past it (31 Mar minus 1 is 28 Feb, not 3 Mar). */
+export function monthsBefore(date: Date, months: number): Date {
+  const d = new Date(date)
+  d.setDate(1)
+  d.setMonth(d.getMonth() - months)
+  const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()
+  d.setDate(Math.min(date.getDate(), lastDay))
+  return d
+}

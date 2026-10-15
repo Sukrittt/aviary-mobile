@@ -3,6 +3,7 @@
 // package's index, which requires all 18 weights (every italic included) and
 // ships every one of them in the APK. The subpath entry points require exactly
 // one .ttf each, so only the 4 weights below get bundled.
+import * as Application from 'expo-application'
 import { useFonts } from 'expo-font'
 import { Geist_400Regular } from '@expo-google-fonts/geist/400Regular'
 import { Geist_500Medium } from '@expo-google-fonts/geist/500Medium'
@@ -24,12 +25,12 @@ export const fontFamily = {
 
 // Home-screen widgets can't load JS fonts: react-native-android-widget embeds
 // these .ttf files at build time (app.json, assets/fonts). Swapping them is a
-// native change, so widgets stay on Fredoka/Nunito until the next store build.
-export const widgetFontFamily = {
-  displayBold: 'Fredoka_700Bold',
-  bodySemiBold: 'Nunito_600SemiBold',
-  bodyMedium: 'Nunito_500Medium',
-} as const
+// native change: it needs a store build, not an OTA update. Same remap as above.
+// 2.11.0 binaries still embed Fredoka/Nunito, and an OTA can reach them, so they
+// keep the old names. ponytail: drop the 2.11.0 branch once minVersion moves past it.
+export const widgetFontFamily = Application.nativeApplicationVersion === '2.11.0'
+  ? { displayBold: 'Fredoka_700Bold', bodySemiBold: 'Nunito_600SemiBold', bodyMedium: 'Nunito_500Medium' }
+  : { displayBold: 'Geist_700Bold', bodySemiBold: 'Geist_500Medium', bodyMedium: 'Geist_400Regular' }
 
 export function useAppFonts() {
   return useFonts({
