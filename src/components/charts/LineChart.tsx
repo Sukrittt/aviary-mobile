@@ -1,14 +1,24 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { View, Text, StyleSheet } from 'react-native'
 import Svg, { Circle, ClipPath, Defs, Line, LinearGradient, Path, Rect, Stop } from 'react-native-svg'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
-import Reanimated, { Easing, useAnimatedProps, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated'
+import Reanimated, {
+  Easing,
+  runOnJS,
+  useAnimatedProps,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { tap } from '@/src/lib/haptics'
 
 const AnimatedPath = Reanimated.createAnimatedComponent(Path)
 const AnimatedCircle = Reanimated.createAnimatedComponent(Circle)
+const AnimatedLine = Reanimated.createAnimatedComponent(Line)
+const AnimatedRect = Reanimated.createAnimatedComponent(Rect)
 
 const PAD_TOP = 36
 const PAD_BOTTOM = 8
@@ -18,6 +28,7 @@ const DRAW_DURATION = 900
 const MORPH_DURATION = 450
 // How long a press must hold before the chart starts scrubbing.
 const HOLD_MS = 400
+const PILL_WIDTH = 104
 const DAY_MS = 86_400_000
 // The line is drawn through this many evenly spaced samples, so every range
 // has the same shape to morph between.
@@ -57,6 +68,7 @@ export function sampleSteps(data: LinePoint[], n = SAMPLES, soften = SOFTEN): nu
 
 /** The day under `frac` (0..1) of the plot, snapped to local midnight and kept inside the data. */
 export function scrubDay(minX: number, maxX: number, frac: number): number {
+  'worklet'
   const snapped = new Date(minX + Math.min(1, Math.max(0, frac)) * (maxX - minX) + DAY_MS / 2)
   snapped.setHours(0, 0, 0, 0)
   return Math.min(maxX, Math.max(minX, snapped.getTime()))
@@ -102,7 +114,10 @@ export function LineChart({
   const reducedMotion = useReducedMotion()
   const [width, setWidth] = useState(0)
   const [active, setActive] = useState<LinePoint | null>(null)
-  const lastDay = useRef<string | null>(null)
+  // Finger x on the plot, -1 when not scrubbing. Lives on the UI thread so
+  // the crosshair tracks the finger without a JS round trip.
+  const scrubX = useSharedValue(-1)
+  const lastDay = useSharedValue(-1)
   const draw = useSharedValue(reducedMotion ? 1 : 0)
   const fromYs = useSharedValue<number[]>([])
   const toYs = useSharedValue<number[]>([])
@@ -156,43 +171,68 @@ export function LineChart({
   })
   const greyProps = useAnimatedProps(() => {
     const ys = mix(fromYs.value, toYs.value, morph.value)
-    return { d: ys.length ? curvePath(ys, plotW) : '' }
-  })
-  const endProps = useAnimatedProps(() => {
-    const ys = mix(fromYs.value, toYs.value, morph.value)
-    return { cy: ys.length ? ys[ys.length - 1] : 0 }
+    return { d: ys.length ? curvePath(ys, plotW) : '', opacity: scrubX.value < 0 ? 0 : 1 }
   })
 
-  function scrub(locationX: number) {
-    if (plotW === 0 || maxX === minX) return
-    const x = scrubDay(minX, maxX, locationX / plotW)
-    const day = new Date(x).toDateString()
-    if (day === lastDay.current) return
+  const mixed = () => {
+    'worklet'
+    return mix(fromYs.value, toYs.value, morph.value)
+  }
+  const endProps = useAnimatedProps(() => {
+    const ys = mixed()
+    return { cy: ys.length ? ys[ys.length - 1] : 0, opacity: scrubX.value < 0 ? 1 : 0 }
+  })
+  const clipProps = useAnimatedProps(() => ({ width: scrubX.value < 0 ? width : scrubX.value }))
+  const crossProps = useAnimatedProps(() => ({ x1: scrubX.value, x2: scrubX.value, opacity: scrubX.value < 0 ? 0 : 1 }))
+  const dotProps = useAnimatedProps(() => {
+    const ys = mixed()
+    const i = Math.round((Math.max(0, scrubX.value) / (plotW || 1)) * (ys.length - 1))
+    return { cx: scrubX.value, cy: ys[i] ?? 0, opacity: scrubX.value < 0 ? 0 : 1 }
+  })
+  const pillStyle = useAnimatedStyle(() => ({
+    opacity: scrubX.value < 0 ? 0 : 1,
+    transform: [{ translateX: Math.min(width - PILL_WIDTH, Math.max(0, scrubX.value - PILL_WIDTH / 2)) }],
+  }))
+
+  // JS side of a scrub, only on a new day: tick, readout, header.
+  function onDay(x: number) {
     tap()
-    lastDay.current = day
     const point = { x, y: heldAt(data, x) }
     setActive(point)
     onScrub?.(point)
   }
 
-  function release() {
-    if (lastDay.current == null) return
-    lastDay.current = null
+  function onRelease() {
     setActive(null)
     onScrub?.(null)
   }
 
   // Like Fold: press and hold to wake the chart, then slide. A tap or a drag
   // that moves before the hold lands fails it, so the page still scrolls.
+  // Runs on the UI thread; only day changes hop to JS.
   const hold = Gesture.Pan()
     .activateAfterLongPress(HOLD_MS)
-    .runOnJS(true)
-    .onStart((e) => scrub(e.x))
-    .onUpdate((e) => scrub(e.x))
-    .onFinalize(release)
-
-  const ax = active ? ((active.x - minX) / (maxX - minX || 1)) * plotW : null
-  const activeY = active && ax != null ? target[Math.round((ax / (plotW || 1)) * (SAMPLES - 1))] : 0
+    .onStart((e) => {
+      scrubX.value = Math.min(plotW, Math.max(0, e.x))
+      if (plotW === 0 || maxX === minX) return
+      const day = scrubDay(minX, maxX, scrubX.value / plotW)
+      lastDay.value = day
+      runOnJS(onDay)(day)
+    })
+    .onUpdate((e) => {
+      scrubX.value = Math.min(plotW, Math.max(0, e.x))
+      if (plotW === 0 || maxX === minX) return
+      const day = scrubDay(minX, maxX, scrubX.value / plotW)
+      if (day === lastDay.value) return
+      lastDay.value = day
+      runOnJS(onDay)(day)
+    })
+    .onFinalize(() => {
+      if (scrubX.value < 0) return
+      scrubX.value = -1
+      lastDay.value = -1
+      runOnJS(onRelease)()
+    })
 
   return (
     <GestureDetector gesture={hold}>
@@ -205,12 +245,10 @@ export function LineChart({
                 <Stop offset="1" stopColor={stroke} stopOpacity={0} />
               </LinearGradient>
               <ClipPath id="scrubbed">
-                <Rect x={0} y={0} width={ax ?? width} height={height} />
+                <AnimatedRect animatedProps={clipProps} x={0} y={0} height={height} />
               </ClipPath>
             </Defs>
-            {ax != null && (
-              <AnimatedPath animatedProps={greyProps} fill="none" stroke={tokens.text3} strokeOpacity={0.5} strokeWidth={2.5} strokeLinejoin="round" />
-            )}
+            <AnimatedPath animatedProps={greyProps} fill="none" stroke={tokens.text3} strokeOpacity={0.5} strokeWidth={2.5} strokeLinejoin="round" />
             <AnimatedPath animatedProps={areaProps} fill="url(#lineFill)" clipPath="url(#scrubbed)" />
             <AnimatedPath
               animatedProps={lineProps}
@@ -221,35 +259,22 @@ export function LineChart({
               strokeLinejoin="round"
               clipPath="url(#scrubbed)"
             />
-            {ax != null ? (
-              <>
-                <Line x1={ax} x2={ax} y1={PAD_TOP - 6} y2={height} stroke={tokens.text3} strokeWidth={1} />
-                <Circle cx={ax} cy={activeY} r={5} fill={stroke} stroke={tokens.bg} strokeWidth={3} />
-              </>
-            ) : (
-              <AnimatedCircle animatedProps={endProps} cx={plotW} r={4.5} fill={stroke} stroke={tokens.bg} strokeWidth={2.5} />
-            )}
+            <AnimatedLine animatedProps={crossProps} y1={PAD_TOP - 6} y2={height} stroke={tokens.text3} strokeWidth={1} />
+            <AnimatedCircle animatedProps={dotProps} r={5} fill={stroke} stroke={tokens.bg} strokeWidth={3} />
+            <AnimatedCircle animatedProps={endProps} cx={plotW} r={4.5} fill={stroke} stroke={tokens.bg} strokeWidth={2.5} />
           </Svg>
         )}
-        {active && ax != null && (
-          <View
-            pointerEvents="none"
-            style={[
-              styles.pill,
-              { backgroundColor: tokens.pillBg, left: Math.min(width - PILL_WIDTH, Math.max(0, ax - PILL_WIDTH / 2)) },
-            ]}
-          >
-            <Text style={[styles.pillText, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>{formatX(active.x)}</Text>
-          </View>
-        )}
+        <Reanimated.View pointerEvents="none" style={[styles.pill, { backgroundColor: tokens.pillBg }, pillStyle]}>
+          <Text style={[styles.pillText, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
+            {active ? formatX(active.x) : ''}
+          </Text>
+        </Reanimated.View>
       </View>
     </GestureDetector>
   )
 }
 
-const PILL_WIDTH = 104
-
 const styles = StyleSheet.create({
-  pill: { position: 'absolute', top: 0, width: PILL_WIDTH, alignItems: 'center', paddingVertical: 5, borderRadius: 999 },
+  pill: { position: 'absolute', top: 0, left: 0, width: PILL_WIDTH, alignItems: 'center', paddingVertical: 5, borderRadius: 999 },
   pillText: { fontSize: 12 },
 })
