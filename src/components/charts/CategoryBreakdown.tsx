@@ -13,6 +13,7 @@ import Reanimated, {
   withTiming,
 } from "react-native-reanimated";
 import { useRouter } from "expo-router";
+import { tap } from "@/src/lib/haptics";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { usePrivacy } from "@/src/context/PrivacyContext";
 import { fontFamily } from "@/src/theme/fonts";
@@ -485,7 +486,10 @@ export function CategoryBreakdown({
                 ? `Filter chart, ${filterActiveCount} ${activeFilterNoun} active`
                 : "Filter chart"
             }
-            onPress={openFilter}
+            onPress={() => {
+              tap();
+              openFilter();
+            }}
             style={[
               styles.headerFilterButton,
               {
@@ -525,7 +529,10 @@ export function CategoryBreakdown({
         >
           <Pressable
             accessibilityLabel="By category"
-            onPress={() => onModeChange("category")}
+            onPress={() => {
+              tap();
+              onModeChange("category");
+            }}
             style={[
               styles.toggleBtn,
               { borderRadius: radius.full },
@@ -544,7 +551,10 @@ export function CategoryBreakdown({
           </Pressable>
           <Pressable
             accessibilityLabel="By group"
-            onPress={() => onModeChange("group")}
+            onPress={() => {
+              tap();
+              onModeChange("group");
+            }}
             style={[
               styles.toggleBtn,
               { borderRadius: radius.full },
@@ -572,7 +582,10 @@ export function CategoryBreakdown({
           >
             <Pressable
               accessibilityLabel="Measure by amount spent"
-              onPress={() => setSortBy("spend")}
+              onPress={() => {
+                tap();
+                setSortBy("spend");
+              }}
               style={[
                 styles.measureCell,
                 { borderRadius: radius.full },
@@ -592,7 +605,10 @@ export function CategoryBreakdown({
             </Pressable>
             <Pressable
               accessibilityLabel="Measure by percent of budget used"
-              onPress={() => setSortBy("budget")}
+              onPress={() => {
+                tap();
+                setSortBy("budget");
+              }}
               style={[
                 styles.measureCell,
                 { borderRadius: radius.full },
@@ -818,7 +834,10 @@ export function CategoryBreakdown({
                     delay={rowDelay}
                   >
                     <Pressable
-                      onPress={() => onSelectKey(isSelected ? null : row.key)}
+                      onPress={() => {
+                        tap();
+                        onSelectKey(isSelected ? null : row.key);
+                      }}
                       style={[
                         isSelected && { opacity: 1 },
                         !isSelected && selectedKey != null && { opacity: 0.5 },
@@ -1025,7 +1044,10 @@ export function CategoryBreakdown({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={`${allDraftItemsSelected ? "Deselect" : "Select"} all ${filterTab === "category" ? "categories" : "groups"}`}
-            onPress={toggleAllDraftKeys}
+            onPress={() => {
+              tap();
+              toggleAllDraftKeys();
+            }}
             hitSlop={8}
           >
             <Text
@@ -1059,7 +1081,10 @@ export function CategoryBreakdown({
                 key={tab}
                 accessibilityRole="tab"
                 accessibilityState={{ selected: active }}
-                onPress={() => setFilterTab(tab)}
+                onPress={() => {
+                  tap();
+                  setFilterTab(tab);
+                }}
                 style={[
                   styles.filterTab,
                   { borderRadius: radius.full },
@@ -1099,7 +1124,10 @@ export function CategoryBreakdown({
                   accessibilityRole="checkbox"
                   accessibilityLabel={row.label}
                   accessibilityState={{ checked }}
-                  onPress={() => toggleDraftKey(row.key)}
+                  onPress={() => {
+                    tap();
+                    toggleDraftKey(row.key);
+                  }}
                   style={[
                     styles.filterOption,
                     index > 0 && {
