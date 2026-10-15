@@ -107,6 +107,7 @@ export function ScanBeam({
     <Pressable
       style={s.fill}
       onPress={revealing ? onDone : undefined}
+      accessibilityRole={revealing ? "button" : undefined}
       accessibilityLabel={revealing ? "Scan done. Tap to review" : "Reading your bill"}
     >
       <Animated.View
