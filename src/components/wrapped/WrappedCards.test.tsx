@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react-native'
 import { CurrencyScope } from '@/src/context/CurrencyContext'
 import type { WrappedData } from '@/src/api/wrapped'
-import { IntroCard } from './WrappedCards'
+import { TotalSpentCard, getArchetype } from './WrappedCards'
 
 jest.mock('./WrappedCard', () => {
   const { Text, View } = jest.requireActual('react-native')
@@ -15,17 +15,39 @@ jest.mock('./WrappedCard', () => {
 
 const data = {
   month: '2026-09',
-  range: { startDate: '2026-09-01', endDate: '2026-09-30', daysTracked: 27 },
+  range: { startDate: '2026-09-03', endDate: '2026-09-30', daysTracked: 7 },
+  totalSpent: 12000,
+  totalTransactions: 19,
+  topCategories: [{ category: '🏠 Rent', total: 9700, pct: 81 }],
+  biggestPurchase: { item: 'Rent', amountInr: 5000, category: '🏠 Rent', date: '2026-09-03' },
+  topWeekday: null,
+  longestStreak: { days: 3, startDate: '2026-09-22', endDate: '2026-09-24' },
+  longestGap: null,
+  weeklyTotals: [],
 } as WrappedData
 
-describe('IntroCard', () => {
-  it('keeps chai and EMI for rupee users', () => {
-    render(<CurrencyScope code="INR"><IntroCard data={data} color="#000" onColor="#fff" /></CurrencyScope>)
-    expect(screen.getByText(/every chai, every EMI/)).toBeTruthy()
+const renderInr = (ui: React.ReactElement) => render(<CurrencyScope code="INR">{ui}</CurrencyScope>)
+
+describe('TotalSpentCard', () => {
+  it('averages over the whole month, not just the days with a log', () => {
+    renderInr(<TotalSpentCard data={data} color="#000" onColor="#fff" />)
+    expect(screen.getByText("That's about ₹400 a day across September.")).toBeTruthy()
+    expect(screen.queryByText(/every single day/)).toBeNull()
   })
-  it('uses universal examples for other currencies', () => {
-    render(<CurrencyScope code="USD"><IntroCard data={data} color="#000" onColor="#fff" /></CurrencyScope>)
-    expect(screen.queryByText(/chai|EMI/)).toBeNull()
-    expect(screen.getByText(/every coffee, every bill/)).toBeTruthy()
+
+  it('compares against last month when there is one', () => {
+    renderInr(<TotalSpentCard data={{ ...data, previous: { month: '2026-08', totalSpent: 15000, daysLogged: 9, longestStreak: 2, topCategories: [] } }} color="#000" onColor="#fff" />)
+    expect(screen.getByText('20% less than Aug')).toBeTruthy()
+  })
+})
+
+describe('getArchetype', () => {
+  it("uses Jev's persona when it had one", () => {
+    expect(getArchetype(data, { persona: 'big_swing', treatCategory: null })).toMatchObject({ title: 'The Big Swing', blurb: 'One call shaped the whole month: Rent.' })
+  })
+
+  it('falls back to the top category without Jev', () => {
+    expect(getArchetype(data, { persona: null, treatCategory: null })).toMatchObject({ title: 'The Homebody', blurb: 'Rent first, everything else negotiable. A steady hand.' })
+    expect(getArchetype(data).title).toBe('The Homebody')
   })
 })
