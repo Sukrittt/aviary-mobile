@@ -86,8 +86,8 @@ function persistSettle(sessionId: string, settle: PendingSettle, attempt = 0) {
   })
 }
 
-/** An example on the empty capture screen. A tap drops it into the composer, so it ticks and dips toward it. */
-function ExampleChip({ label, onPress }: { label: string; onPress: () => void }) {
+/** An example on the empty capture screen, or a suggested question. A tap ticks and dips it toward the composer. */
+function ExampleChip({ label, onPress, disabled }: { label: string; onPress: () => void; disabled?: boolean }) {
   const { tokens } = useTheme()
   const bounce = useBounce(6)
   return (
@@ -100,8 +100,9 @@ function ExampleChip({ label, onPress }: { label: string; onPress: () => void })
           bounce.kick()
           onPress()
         }}
+        disabled={disabled}
         accessibilityLabel={`Try "${label}"`}
-        style={[styles.chip, { backgroundColor: tokens.pillBg, borderColor: tokens.border }]}
+        style={[styles.chip, { backgroundColor: tokens.pillBg, borderColor: tokens.border, opacity: disabled ? 0.5 : 1 }]}
       >
         <Text style={[styles.chipText, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>{label}</Text>
       </Pressable>
@@ -562,15 +563,7 @@ export default function MoneyBrainModal() {
                   play={playReveal}
                   delay={MOUNT_START_DELAY_MS + 2 * BLOCK_STAGGER_MS + Math.min(i, ITEM_STAGGER_CAP_INDEX) * ITEM_STAGGER_MS}
                 >
-                  <Pressable
-                    onPress={() => send(q, 'chip')}
-                    disabled={sending}
-                    style={[styles.chip, { backgroundColor: tokens.pillBg, borderColor: tokens.border, opacity: sending ? 0.5 : 1 }]}
-                  >
-                    <Text style={[styles.chipText, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
-                      {q}
-                    </Text>
-                  </Pressable>
+                  <ExampleChip label={q} onPress={() => send(q, 'chip')} disabled={sending} />
                 </PopIn>
               ))}
             </ScrollView>
