@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { View, Text, TextInput, Pressable, ScrollView, StyleSheet } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowFatDown, ArrowFatUp, ArrowLeft, CalendarDots, Hourglass, Lightbulb, Plus, SealCheck, XCircle, type PhosphorIcon } from '@/src/components/shared/icons'
+import { ArrowFatDown, ArrowFatUp, ArrowLeft, CalendarDots, Hourglass, Lightbulb, SealCheck, XCircle, type PhosphorIcon } from '@/src/components/shared/icons'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Alert } from '@/src/components/ui/AlertHost'
 import { useTheme } from '@/src/theme/ThemeProvider'
@@ -13,6 +13,7 @@ import { BottomSheet } from '@/src/components/shared/Modal'
 import { LoadingPhrase } from '@/src/components/shared/LoadingPhrase'
 import { Chip } from '@/src/components/ui/Chip'
 import { Button } from '@/src/components/ui/Button'
+import { EmptyState } from '@/src/components/shared/EmptyState'
 import { listIdeas, postIdea, voteIdea, type Idea, type IdeaSort, type IdeaStatus } from '@/src/api/ideas'
 import { applyVote, toggleVote, type VoteValue } from '@/src/lib/ideaVotes'
 import { track } from '@/src/lib/analytics'
@@ -88,13 +89,7 @@ export default function IdeasScreen() {
     vote.mutate({ id: idea.id, value: next })
   }
 
-  const note = isError
-    ? "Couldn't load the board. Check your connection and try again."
-    : ideas?.length === 0
-      ? status
-        ? 'No ideas with this status yet.'
-        : 'No ideas yet. Be the first.'
-      : null
+  const note = isError ? "Couldn't load the board. Check your connection and try again." : null
 
   return (
     <View style={[styles.container, { backgroundColor: tokens.bg, paddingTop: insets.top }]}>
@@ -130,7 +125,7 @@ export default function IdeasScreen() {
               </Pressable>
             ))}
           </View>
-          <Button label="Pitch an idea" icon={Plus} size="small" onPress={() => setAdding(true)} />
+          <Button label="Pitch an idea" size="compact" onPress={() => setAdding(true)} />
         </View>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips}>
           <Chip label="All" soft selected={status === null} onPress={() => setStatus(null)} />
@@ -141,6 +136,16 @@ export default function IdeasScreen() {
 
         {isLoading && <LoadingPhrase phrases={LOADING_PHRASES} color={tokens.text2} style={{ fontFamily: fontFamily.bodyMedium, textAlign: 'center' }} />}
         {note && <Text style={[styles.note, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>{note}</Text>}
+        {!isError && ideas?.length === 0 && (
+          // Web's empty board, word for word.
+          <View style={[styles.empty, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
+            {status ? (
+              <EmptyState compact subject="chat" mood="searching" title="Nothing here yet" description={`No ideas are ${STATUS_LABEL[status].toLowerCase()} right now. Try another status.`} />
+            ) : (
+              <EmptyState compact subject="chat" title="The board's quiet" description="Nobody's pitched an idea yet. Yours could be the first one the flock votes on." action={{ label: 'Pitch an idea', onPress: () => setAdding(true) }} />
+            )}
+          </View>
+        )}
 
         {ideas?.map((idea) => {
           const author = idea.mine ? 'You' : (idea.authorFirstName ?? 'Someone')
@@ -289,6 +294,7 @@ const styles = StyleSheet.create({
   tab: { paddingVertical: 6, borderBottomWidth: 2 },
   tabText: { fontSize: 16 },
   note: { fontSize: 13, textAlign: 'center', marginTop: 12 },
+  empty: { borderWidth: 1, borderRadius: 16, marginTop: 4 },
   card: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderRadius: 20, paddingVertical: 14, paddingHorizontal: 16 },
   meta: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
   metaText: { fontSize: 12 },

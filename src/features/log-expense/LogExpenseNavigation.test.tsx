@@ -3,13 +3,19 @@ import { createTestQueryClient, renderWithProviders } from '@/src/test-utils/ren
 import { userKey } from '@/src/hooks/useUser'
 import { LogExpenseNavigation } from './LogExpenseNavigation'
 import { QUICK_INCOME_PATH } from './IncomeFloodButton'
+import { NAV_SLIDE_MS } from '@/src/components/nav/FloatingNav'
 
 const mockPush = jest.fn()
 const mockNavigate = jest.fn()
+let mockPathname = '/'
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: mockPush, navigate: mockNavigate, replace: jest.fn() }),
-  usePathname: () => '/',
+  usePathname: () => mockPathname,
 }))
+
+beforeEach(() => {
+  mockPathname = '/'
+})
 
 // An older account with every extra on, already cached the way Home leaves it.
 function renderNav() {
@@ -44,8 +50,35 @@ it('lights the tapped tab before navigating to it', () => {
   fireEvent.press(getByRole('tab', { name: 'Activity' }))
   expect(getByRole('tab', { name: 'Activity' }).props.accessibilityState.selected).toBe(true)
   expect(getByRole('tab', { name: 'Home' }).props.accessibilityState.selected).toBe(false)
+  // Not until the slide has landed, so the new tab's mount can't stall it.
+  act(() => jest.advanceTimersByTime(NAV_SLIDE_MS - 1))
   expect(mockNavigate).not.toHaveBeenCalledWith('/activity')
-  act(() => jest.runOnlyPendingTimers())
+  act(() => jest.advanceTimersByTime(1))
   expect(mockNavigate).toHaveBeenCalledWith('/activity')
+  jest.useRealTimers()
+})
+
+it('goes only to the last tab when two are tapped mid-slide', () => {
+  mockNavigate.mockClear()
+  jest.useFakeTimers()
+  const { getByRole } = renderNav()
+  fireEvent.press(getByRole('tab', { name: 'Activity' }))
+  fireEvent.press(getByRole('tab', { name: 'More' }))
+  act(() => jest.runOnlyPendingTimers())
+  expect(mockNavigate).not.toHaveBeenCalledWith('/activity')
+  expect(mockNavigate).toHaveBeenCalledWith('/more')
+  jest.useRealTimers()
+})
+
+it('drops a pending tab switch when something else moves the route first', () => {
+  mockNavigate.mockClear()
+  jest.useFakeTimers()
+  const utils = renderNav()
+  fireEvent.press(utils.getByRole('tab', { name: 'Activity' }))
+  mockPathname = '/modals/some-screen'
+  // Any re-render picks up the new pathname; opening the quick-add menu is one.
+  fireEvent(utils.getByRole('button', { name: 'Log expense' }), 'longPress')
+  act(() => jest.runOnlyPendingTimers())
+  expect(mockNavigate).not.toHaveBeenCalledWith('/activity')
   jest.useRealTimers()
 })

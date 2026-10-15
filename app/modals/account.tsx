@@ -10,8 +10,7 @@ import { useAccounts, useAddAccount, useUpdateAccount } from '@/src/hooks/useAcc
 import { ACCOUNT_TYPES, accountErrorMessage } from '@/src/lib/accounts'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { BottomSheet } from '@/src/components/shared/Modal'
-import { ACCOUNT_TYPE_EMOJI, accountEmoji } from '@/src/components/shared/AccountChips'
-import { splitEmoji } from '@/src/lib/emoji'
+import { AccountIcon } from '@/src/components/shared/AccountChips'
 import type { AccountType } from '@/src/types'
 
 const tick = () => Haptics.selectionAsync().catch(() => {})
@@ -103,7 +102,7 @@ export default function AccountModal() {
           <Text style={[styles.fieldLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>Name</Text>
           <View style={styles.nameRow}>
           <View style={[styles.swatch, { backgroundColor: tokens.inputBg, borderColor: tokens.border }]}>
-            <Text style={styles.swatchEmoji}>{accountEmoji({ name, type })}</Text>
+            <AccountIcon account={{ name, type }} size={22} color={tokens.text2} />
           </View>
           <TextInput
             value={name}
@@ -116,9 +115,6 @@ export default function AccountModal() {
             autoFocus={!id}
           />
           </View>
-          {name.trim() !== '' && !splitEmoji(name).icon && (
-            <Text style={[styles.hint, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>💡 Tip: start the name with an emoji, like 🐷 Savings, to give it its own icon.</Text>
-          )}
         </View>
 
         <View style={styles.field}>
@@ -137,8 +133,9 @@ export default function AccountModal() {
                   accessibilityState={{ checked: selected }}
                   style={[styles.chip, { backgroundColor: selected ? tokens.accent : tokens.pillBg, borderColor: selected ? tokens.accent : tokens.border }]}
                 >
+                  <AccountIcon account={{ name: '', type: t.value }} size={14} color={selected ? tokens.onAccent : tokens.text2} />
                   <Text style={[styles.chipText, { color: selected ? tokens.onAccent : tokens.text2, fontFamily: fontFamily.bodySemiBold, textTransform: 'none' }]}>
-                    {ACCOUNT_TYPE_EMOJI[t.value]} {t.label}
+                    {t.label}
                   </Text>
                 </Pressable>
               )
@@ -195,7 +192,6 @@ export default function AccountModal() {
 const styles = StyleSheet.create({
   nameRow: { flexDirection: 'row', gap: 10, alignItems: 'stretch' },
   swatch: { width: 48, borderWidth: 1, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  swatchEmoji: { fontSize: 22 },
   container: { flex: 1 },
   header: {
     flexDirection: 'row',
@@ -217,7 +213,7 @@ const styles = StyleSheet.create({
   currency: { fontSize: 18 },
   amountInput: { flex: 1, fontSize: 18, paddingVertical: 14 },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  chip: { borderWidth: 1, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8 },
+  chip: { flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8 },
   chipText: { fontSize: 13, textTransform: 'capitalize' },
   hint: { fontSize: 12, lineHeight: 16, marginTop: 2 },
   errorHint: { fontSize: 12, lineHeight: 16, marginTop: 2 },

@@ -122,3 +122,12 @@ it('opens the private bug report', async () => {
   fireEvent.press(getByText('Report it privately'))
   expect(mockPush).toHaveBeenCalledWith('/account/feedback')
 })
+
+it("shows web's empty board, with a way to pitch the first idea", async () => {
+  server = []
+  const { findByText, getAllByText, getByPlaceholderText } = renderWithProviders(<IdeasScreen />)
+  expect(await findByText("The board's quiet")).toBeTruthy()
+  expect(getAllByText('Pitch an idea')).toHaveLength(2)
+  fireEvent.press(getAllByText('Pitch an idea')[1])
+  expect(getByPlaceholderText('What would make Aviary better?')).toBeTruthy()
+})

@@ -36,9 +36,11 @@ export function useGroups() {
 // ponytail: no offline cache, so offline a picked group icon falls back to its
 // emoji/name icon; add a groupIconCache beside groupCache if that matters.
 export function useGroupIcons(): Map<string, string> {
-  const { data } = useQuery({ queryKey: [...key, 'icons'], queryFn: getGroupIcons, staleTime: 30_000 })
+  const { data } = useQuery({ queryKey: [...key, 'icons'], queryFn: getGroupIcons, select: toIconMap, staleTime: 30_000 })
   return data ?? EMPTY_ICONS
 }
+// Module-level so select only reruns when the data changes.
+const toIconMap = (pairs: [string, string][]) => new Map(pairs)
 const EMPTY_ICONS = new Map<string, string>()
 
 export function useAddGroup() {

@@ -632,7 +632,10 @@ export default function LogExpenseScreen() {
           )}
 
           <Pressable
-            onPress={() => setShowMore(true)}
+            onPress={() => {
+              tap();
+              setShowMore(true);
+            }}
             style={[styles.moreToggle, { gap: space.xs }]}
             hitSlop={8}
           >
@@ -715,7 +718,10 @@ export default function LogExpenseScreen() {
             auto={autoPicked}
             highlighted={flag("category")}
             rollIcons={rollIcons}
-            onPress={() => setPickerOpen(true)}
+            onPress={() => {
+              tap();
+              setPickerOpen(true);
+            }}
           />
           </Nudge>
         </View>

@@ -6,12 +6,16 @@ export async function getGroups(): Promise<string[]> {
   return resp.json()
 }
 
-/** Each group's picked icon, by name. Groups without one are left out. */
-export async function getGroupIcons(): Promise<Map<string, string>> {
+/**
+ * Each group's picked icon as [name, icon] pairs. Groups without one are left
+ * out. Pairs, not a Map: the query cache is saved to disk as JSON, where a Map
+ * comes back as a plain object. useGroupIcons builds the Map.
+ */
+export async function getGroupIcons(): Promise<[string, string][]> {
   const resp = await apiFetch('/api/groups?icons=1')
   if (!resp.ok) throw new Error(`Failed to load groups: ${resp.status}`)
   const rows: { name: string; icon?: string }[] = await resp.json()
-  return new Map(rows.flatMap((r) => (r.icon ? [[r.name, r.icon] as const] : [])))
+  return rows.flatMap((r): [string, string][] => (r.icon ? [[r.name, r.icon]] : []))
 }
 
 export async function addGroup(name: string): Promise<void> {
