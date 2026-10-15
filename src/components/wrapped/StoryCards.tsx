@@ -477,9 +477,10 @@ const STORY_CARDS: { [T in StoryType]: (props: Props<T>) => React.ReactElement }
   habit_change: HabitChange,
 }
 
-/** False for a story type added on the server after this build shipped; those are skipped. */
+/** False for a story type added on the server after this build shipped; those are skipped.
+ *  Own keys only: `in` would let a type named "constructor" through to Object.prototype. */
 export function isKnownStory(story: { type: string }): story is WrappedStory {
-  return story.type in STORY_CARDS
+  return Object.hasOwn(STORY_CARDS, story.type)
 }
 
 export function StoryCard({ story, ...rest }: { story: WrappedStory; data: WrappedData; color: string; onColor: string }) {

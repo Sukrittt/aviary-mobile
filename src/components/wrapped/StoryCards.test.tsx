@@ -101,5 +101,7 @@ describe('isKnownStory', () => {
   it('skips a story type this build has never heard of', () => {
     expect(isKnownStory({ type: 'streak' })).toBe(true)
     expect(isKnownStory({ type: 'time_travel' })).toBe(false)
+    expect(isKnownStory({ type: 'constructor' })).toBe(false)
+    expect(isKnownStory({ type: 'toString' })).toBe(false)
   })
 })
