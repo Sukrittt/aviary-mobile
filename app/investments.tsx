@@ -90,6 +90,9 @@ type ActionType = 'market_update' | 'contribution' | 'withdrawal'
 const HOLDINGS_MOUNT_DELAY_MS = 100
 const HOLDINGS_ITEM_STAGGER_MS = 45
 const HOLDINGS_ITEM_STAGGER_CAP_INDEX = 6
+// Activity can run to hundreds of rows. Rendering them all on mount stalls
+// the screen's first frame, so it starts with a page and grows on demand.
+const ACTIVITY_PAGE = 20
 
 const RANGES = [
   { key: '1M', months: 1 },
@@ -128,6 +131,7 @@ export default function InvestmentsScreen() {
     [holdings],
   )
 
+  const [activityShown, setActivityShown] = useState(ACTIVITY_PAGE)
   const [range, setRange] = useState<RangeKey>('3M')
   const [scrubbed, setScrubbed] = useState<LinePoint | null>(null)
   const history = useMemo(() => {
@@ -337,10 +341,17 @@ export default function InvestmentsScreen() {
                 Activity ({events.length})
               </Text>
               <View style={{ gap: 8 }}>
-                {recentEvents.map((e, i) => (
+                {recentEvents.slice(0, activityShown).map((e, i) => (
                   <EventRow key={i} event={e} tokens={tokens} hideAmounts={hideAmounts} />
                 ))}
               </View>
+              {recentEvents.length > activityShown && (
+                <Pressable onPress={() => setActivityShown((n) => n + ACTIVITY_PAGE * 2)} hitSlop={8} style={styles.showMore}>
+                  <Text style={[styles.headerAction, { color: tokens.accent, fontFamily: fontFamily.bodySemiBold }]}>
+                    Show more
+                  </Text>
+                </Pressable>
+              )}
             </>
           )}
         </ScrollView>
@@ -433,6 +444,7 @@ const styles = StyleSheet.create({
   headerActionRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   headerAction: { fontSize: 14 },
   headerTitle: { fontSize: 17 },
+  showMore: { alignSelf: 'center', paddingVertical: 4 },
   centerFill: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   scrollContent: { padding: 16, gap: 16 },
   errorText: { fontSize: 13 },
