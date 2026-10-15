@@ -210,8 +210,8 @@ export default function HomeScreen() {
       .filter((g) => g.envelopes.length > 0)
   }, [envelopeState])
 
-  const creditCardEnvelope = envelopeState.envelopes.find((e) => e.isCreditCardPayment)
-  const envelopesEmpty = groupedEnvelopes.length === 0 && !creditCardEnvelope
+  // The credit card payoff envelope stays off Home; it lives under Categories.
+  const envelopesEmpty = groupedEnvelopes.length === 0
 
   const allGroupNames = groupedEnvelopes.map((g) => g.group)
   const allGroupsCollapsed = allGroupNames.length > 0 && allGroupNames.every((g) => collapsedGroups.has(g))
@@ -569,32 +569,12 @@ export default function HomeScreen() {
                   onSheetOpenChange={handleSheetOpenChange}
                 />
               ))}
-              {creditCardEnvelope && (
-                <Reanimated.View
-                  layout={LinearTransition.springify().damping(64).stiffness(600)}
-                  style={[styles.ccWrap, { borderTopColor: tokens.border, paddingTop: space.sm, marginTop: space.sm }]}
-                >
-                  <View style={styles.ccBadgeRow}>
-                    <Text style={{ fontSize: 12, fontFamily: fontFamily.bodyBold, color: tokens.accent }}>PAYOFF</Text>
-                  </View>
-                  <EnvelopeRow
-                    envelope={creditCardEnvelope}
-                    icon="CreditCard"
-                    displayName="Credit Card Payment"
-                    hideAmounts={hideAmounts}
-                    onMoveMoney={handleMoveMoney}
-                    onEditAmount={handleEditAmount}
-                    onViewTransactions={handleViewTransactions}
-                    onSheetOpenChange={handleSheetOpenChange}
-                  />
-                </Reanimated.View>
-              )}
             </View>
           </Card>
         </View>
 
         {!isHidden(user, 'insights') && <View>
-          <Pressable onPress={() => router.push('/insights')} style={[styles.insightsLink, { borderRadius: radius.lg }]}>
+          <Pressable onPress={() => { tap(); router.push('/insights') }} style={[styles.insightsLink, { borderRadius: radius.lg }]}>
             <Text style={{ color: tokens.text2, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>
               Trends, daily spend and subscriptions
             </Text>
@@ -650,6 +630,4 @@ const styles = StyleSheet.create({
   emptyEnvelopesCard: { minHeight: 360 },
   emptyEnvelopesBody: { flex: 1, justifyContent: 'center' },
   insightsLink: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: 14 },
-  ccWrap: { borderTopWidth: 1 },
-  ccBadgeRow: { flexDirection: 'row' },
 })

@@ -127,9 +127,11 @@ export function CategoryPickerSheet({
         )}
         {showRecents && (
           <View style={styles.recentsSection}>
-            <Text style={[styles.groupLabel, { color: tokens.text3, fontFamily: fontFamily.bodyBold }]}>
-              Recently used
-            </Text>
+            <View style={styles.groupLabelRow}>
+              <Text style={[styles.groupLabel, { color: tokens.text3, fontFamily: fontFamily.bodyBold }]}>
+                Recently used
+              </Text>
+            </View>
             <View style={[styles.recentsRow, { gap: 8 }]}>
               {recentCategories.map((name) => (
                 <Chip
