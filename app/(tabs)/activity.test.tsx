@@ -11,6 +11,7 @@ const mockDeleteAsync = jest.fn()
 const mockPush = jest.fn()
 let mockDuplicates: unknown[] = []
 const mockUseExpensesFeed = jest.fn()
+let mockUser: { activityFeed?: boolean } = {}
 
 jest.mock('@/src/hooks/useExpenses', () => ({
   useExpensesPage: (params: ExpensesPageParams) => mockUseExpensesPage(params),
@@ -27,6 +28,7 @@ jest.mock('@/src/hooks/useExpenses', () => ({
 }))
 
 let mockIncomes: Record<string, unknown>[] = []
+jest.mock('@/src/hooks/useUser', () => ({ useUser: () => ({ data: mockUser }) }))
 jest.mock('@/src/hooks/useIncomes', () => ({ useIncomes: () => ({ data: mockIncomes }) }))
 jest.mock('@/src/hooks/useAccounts', () => ({ useAccounts: () => ({ data: [] }), liveAccounts: () => [] }))
 
@@ -427,20 +429,31 @@ describe('feed view', () => {
   beforeEach(() => {
     mockUseExpensesPage.mockReturnValue({ data: pageResult({}), isLoading: false, error: null })
     mockDelete.mockReset()
+    mockUser = { activityFeed: true }
+  })
+  afterEach(() => {
+    mockUser = {}
   })
 
-  it('switches to the feed and back', () => {
+  it('stays on the list with no switch until the feed is turned on in Features', () => {
+    mockUser = {}
     const screen = renderWithProviders(<ActivityScreen />)
-    fireEvent.press(screen.getByLabelText('Show as feed'))
+    expect(screen.getByText('1 transaction')).toBeTruthy()
+    expect(screen.queryByLabelText('Show as feed')).toBeNull()
+  })
+
+  it('opens on the feed once turned on, and switches to the list and back', () => {
+    const screen = renderWithProviders(<ActivityScreen />)
     expect(screen.getByLabelText('Add a photo to Item 1')).toBeTruthy()
     expect(screen.queryByText('1 transaction')).toBeNull()
     fireEvent.press(screen.getByLabelText('Show as list'))
     expect(screen.getByText('1 transaction')).toBeTruthy()
+    fireEvent.press(screen.getByLabelText('Show as feed'))
+    expect(screen.getByLabelText('Add a photo to Item 1')).toBeTruthy()
   })
 
   it('deletes from the feed as soon as the delete is confirmed', () => {
     const screen = renderWithProviders(<ActivityScreen />)
-    fireEvent.press(screen.getByLabelText('Show as feed'))
     fireEvent.press(screen.getByLabelText('Item 1, Food. Edit or delete'))
     fireEvent.press(screen.getByText('Delete'))
     fireEvent.press(screen.getAllByText('Delete').at(-1)!)

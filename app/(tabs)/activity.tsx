@@ -23,6 +23,7 @@ import { AnimatedPressable, usePressSpring } from "@/src/components/ui/Button";
 import { CaretLeft, CaretRight, Images, MoneyWavy, Rows, SlidersHorizontal, Trash, X } from "@/src/components/shared/icons";
 import { ActivityFeed } from "@/src/components/activity/ActivityFeed";
 import { useActivityView } from "@/src/hooks/useActivityView";
+import { useUser } from "@/src/hooks/useUser";
 import { track } from "@/src/lib/analytics";
 import Reanimated, { FadeIn, FadeOut, LinearTransition } from "react-native-reanimated";
 import { Screen } from "@/src/components/ui/Screen";
@@ -117,6 +118,7 @@ export default function ActivityScreen() {
   const scrollRef = useRef<ScrollView>(null);
   const [page, setPage] = useState(1);
   const [view, setView] = useActivityView();
+  const feedOn = useUser().data?.activityFeed === true;
 
   const changePage = useCallback((next: number, scrollToTop = false) => {
     tap();
@@ -176,7 +178,9 @@ export default function ActivityScreen() {
   const [selectedKeys, setSelectedKeys] = useState<ReadonlySet<string>>(() => new Set());
   const selecting = selectedKeys.size > 0;
   // Selection is the list's; the feed has no checkboxes to show it with.
-  const feedView = view === "feed" && !selecting;
+  // Turning the feed on in Features opens Activity on it; the header button
+  // still flips to the list, and that choice sticks on this device.
+  const feedView = feedOn && (view ?? "feed") === "feed" && !selecting;
   const [confirmBulk, setConfirmBulk] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
   // Rows hidden the moment a bulk delete starts; failed ones come back.
@@ -649,18 +653,20 @@ export default function ActivityScreen() {
                   onPress={() => router.push("/modals/duplicates" as Href)}
                 />
               )}
-              <IconButton
-                icon={feedView ? Rows : Images}
-                accessibilityLabel={feedView ? "Show as list" : "Show as feed"}
-                onPress={() => {
-                  const next = feedView ? "list" : "feed";
-                  Haptics.selectionAsync().catch(() => {});
-                  openRowRef.current?.reset();
-                  openRowRef.current = null;
-                  setView(next);
-                  track("activity_view_changed", { view: next });
-                }}
-              />
+              {feedOn && (
+                <IconButton
+                  icon={feedView ? Rows : Images}
+                  accessibilityLabel={feedView ? "Show as list" : "Show as feed"}
+                  onPress={() => {
+                    const next = feedView ? "list" : "feed";
+                    Haptics.selectionAsync().catch(() => {});
+                    openRowRef.current?.reset();
+                    openRowRef.current = null;
+                    setView(next);
+                    track("activity_view_changed", { view: next });
+                  }}
+                />
+              )}
             </>
           )
         }
