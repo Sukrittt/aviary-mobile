@@ -1,12 +1,12 @@
 import type { ReactNode } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, renderHook, waitFor } from '@testing-library/react-native'
-import { getGroups, moveGroup } from '@/src/api/groups'
+import { getGroupIcons, getGroups, moveGroup } from '@/src/api/groups'
 import { moveItem } from '@/src/lib/dragReorder'
 import { readGroupCache } from '@/src/lib/groupCache'
-import { useGroups, useMoveGroup } from './useGroups'
+import { useGroupIcons, useGroups, useMoveGroup } from './useGroups'
 
-jest.mock('@/src/api/groups', () => ({ getGroups: jest.fn(), moveGroup: jest.fn() }))
+jest.mock('@/src/api/groups', () => ({ getGroups: jest.fn(), getGroupIcons: jest.fn(), moveGroup: jest.fn() }))
 jest.mock('@/src/lib/groupCache', () => ({ readGroupCache: jest.fn(), writeGroupCache: jest.fn() }))
 
 function deferred() {
@@ -86,4 +86,16 @@ it('serves the cached group list when the fetch never reaches the server', async
 
   await waitFor(() => expect(result.current.isSuccess).toBe(true))
   expect(result.current.data).toEqual(original)
+})
+
+it('keeps group icons a Map after the cache is saved to disk and restored', async () => {
+  ;(getGroupIcons as jest.Mock).mockResolvedValue([['House', 'House']])
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } })
+  // What the persister does on a cold start: JSON out, JSON back in. A cached
+  // Map came back as {}, and the picker's groupIcons.get threw on every launch.
+  const fetched = await getGroupIcons()
+  qc.setQueryData(['groups', 'icons'], JSON.parse(JSON.stringify(fetched)))
+  const wrapper = ({ children }: { children: ReactNode }) => <QueryClientProvider client={qc}>{children}</QueryClientProvider>
+  const { result } = renderHook(() => useGroupIcons(), { wrapper })
+  expect(result.current.get('House')).toBe('House')
 })
