@@ -14,6 +14,9 @@ jest.mock('@/src/api/changelog', () => ({ getLatestChangelog: jest.fn(), claimCh
 jest.mock('@/src/api/weekRecap', () => ({ getWeekRecap: jest.fn(), markWeekRecapSeen: jest.fn() }))
 jest.mock('@/src/api/accessMode', () => ({ currentUserId: jest.fn() }))
 jest.mock('@/app.json', () => ({ expo: { version: '2.6.0' } }))
+// The running bundle's publish time; tests move it to simulate an OTA landing.
+const mockUpdates: { createdAt: Date | null } = { createdAt: null }
+jest.mock('expo-updates', () => ({ get createdAt() { return mockUpdates.createdAt } }))
 
 const release: ChangelogRelease = {
   id: 'r3', platform: 'mobile', title: 'Log faster', version: 'v2.6.0', highlights: ['Quick capture'], body: '', publishedAt: '2026-10-08T00:00:00.000Z',
@@ -42,6 +45,7 @@ beforeEach(() => {
   ;(getWeekRecap as jest.Mock).mockResolvedValue({ due: false })
   ;(getLatestChangelog as jest.Mock).mockResolvedValue(release)
   ;(claimChangelog as jest.Mock).mockResolvedValue(release)
+  mockUpdates.createdAt = null
 })
 
 it('claims the newest release and opens What\'s new once', async () => {
@@ -81,6 +85,20 @@ it('waits for an app update when the release is for a newer version', async () =
   const { client } = renderGate()
   await settled(client)
   expect(claimChangelog).not.toHaveBeenCalled()
+})
+
+it('waits for the OTA that ships the release, then opens once it\'s running', async () => {
+  ;(getLatestChangelog as jest.Mock).mockResolvedValue({ ...release, otaAfter: '2026-10-15T09:30:00.000Z' })
+  // Still on the previous bundle: the new one only downloaded and applies next cold start.
+  mockUpdates.createdAt = new Date('2026-10-10T00:00:00.000Z')
+  const first = renderGate()
+  await settled(first.client)
+  expect(claimChangelog).not.toHaveBeenCalled()
+  first.unmount()
+
+  mockUpdates.createdAt = new Date('2026-10-15T09:31:00.000Z')
+  renderGate()
+  await waitFor(() => expect(mockPush).toHaveBeenCalledWith('/whats-new'))
 })
 
 it('opens nothing when there is no unseen release', async () => {

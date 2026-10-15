@@ -47,6 +47,10 @@ Two ways to ship:
    eas update:edit            # raise the percentage once it looks healthy
    ```
 5. **Watch it:** `eas update:insights` (launches, crashes) and PostHog errors.
+6. **Announcing it?** In Web admin **Changelog**, set **Ships in an OTA published after** (UTC) to a
+   time between the previous OTA and this one. Leave the version label as the current version or empty.
+   What's new then waits until the user's running bundle is this update (their next cold start),
+   instead of announcing a feature the first open hasn't applied yet.
 
 ### Something broke
 

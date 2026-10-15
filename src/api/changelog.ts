@@ -8,6 +8,8 @@ export interface ChangelogRelease {
   version: string
   highlights: string[]
   body: string
+  /** Set on notes that ship over the air: the app waits until its running bundle was published at or after this. */
+  otaAfter?: string | null
   publishedAt: string | null
 }
 

@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { router } from 'expo-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import * as Updates from 'expo-updates'
 import appJson from '@/app.json'
 import { claimChangelog, getLatestChangelog, type ChangelogRelease } from '@/src/api/changelog'
 import { currentUserId } from '@/src/api/accessMode'
@@ -24,7 +25,9 @@ const attempted = new Set<string>()
  * only: three releases since the last open still means one screen. The server
  * skips accounts created after the release. Waits for the first-week recap so
  * the two never stack, and for an app update when the release's version label
- * is newer than this install.
+ * is newer than this install. An OTA can't change that label, so OTA notes carry
+ * `otaAfter` instead: expo-updates applies a download on the next cold start, and
+ * until then the running bundle is older than the notes.
  */
 export function useChangelogGate(): void {
   const qc = useQueryClient()
@@ -36,6 +39,8 @@ export function useChangelogGate(): void {
   useEffect(() => {
     if (!release || recapBusy) return
     if (release.version && isVersionNewer(release.version, appJson.expo.version)) return
+    // No createdAt in dev: there's no published bundle to wait for.
+    if (release.otaAfter && Updates.createdAt && Updates.createdAt < new Date(release.otaAfter)) return
     const key = `${currentUserId()}:${release.id}`
     if (attempted.has(key)) return
     attempted.add(key)
