@@ -13,10 +13,10 @@ const set = SecureStore.setItemAsync as jest.Mock
 
 beforeEach(() => jest.clearAllMocks())
 
-it('starts on the list when nothing is stored', async () => {
+it('has no choice when nothing is stored', async () => {
   const { result } = renderHook(() => useActivityView())
   await waitFor(() => expect(get).toHaveBeenCalled())
-  expect(result.current[0]).toBe('list')
+  expect(result.current[0]).toBeNull()
 })
 
 it('restores a stored feed choice', async () => {
@@ -30,4 +30,10 @@ it('remembers a switch', async () => {
   act(() => result.current[1]('feed'))
   expect(result.current[0]).toBe('feed')
   expect(set).toHaveBeenCalledWith('mc-activity-view', 'feed')
+})
+
+it('restores a stored list choice', async () => {
+  get.mockResolvedValueOnce('list')
+  const { result } = renderHook(() => useActivityView())
+  await waitFor(() => expect(result.current[0]).toBe('list'))
 })

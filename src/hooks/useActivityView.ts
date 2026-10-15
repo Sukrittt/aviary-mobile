@@ -6,19 +6,22 @@ export type ActivityView = 'list' | 'feed'
 
 const PREF_KEY = 'mc-activity-view'
 
-/** Activity's List / Feed choice, remembered on this device like Hide amounts. */
+/**
+ * Activity's List / Feed choice, remembered on this device like Hide amounts.
+ * Null until one is made, so Activity can open on the feed once it's turned on.
+ */
 export function useActivityView() {
-  const [view, setViewState] = useState<ActivityView>('list')
+  const [view, setViewState] = useState<ActivityView | null>(null)
 
   useEffect(() => {
     SecureStore.getItemAsync(PREF_KEY)
       .then((stored) => {
-        if (stored === 'feed') setViewState('feed')
+        if (stored === 'feed' || stored === 'list') setViewState(stored)
       })
       .catch(() => {})
-    // The next account signed into on this device starts on the list.
+    // The next account signed into on this device starts fresh.
     return accessMode.subscribeLogout(() => {
-      setViewState('list')
+      setViewState(null)
       SecureStore.deleteItemAsync(PREF_KEY).catch(() => {})
     })
   }, [])

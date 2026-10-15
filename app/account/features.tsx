@@ -76,6 +76,28 @@ export default function FeaturesScreen() {
             Turn off what you don&apos;t use. Hiding a feature keeps its data, so you can turn it back on anytime.
           </Text>
         </View>
+
+        <View style={styles.section}>
+          <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
+            <View style={styles.row}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.rowLabel, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>Feed view in Activity</Text>
+                <Text style={[styles.rowHint, { color: tokens.text2 }]}>Scroll your expenses like a photo feed</Text>
+              </View>
+              <Toggle
+                accessibilityLabel="Feed view in Activity"
+                value={user?.activityFeed === true}
+                disabled={!user}
+                onValueChange={(v) =>
+                  updateUser.mutate(
+                    { activityFeed: v },
+                    { onError: () => Alert.alert("Couldn't save", 'Check your connection and try again.') },
+                  )
+                }
+              />
+            </View>
+          </View>
+        </View>
       </ScrollView>
     </View>
   )
