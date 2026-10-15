@@ -64,7 +64,7 @@ export function LineChart({
   const [width, setWidth] = useState(0)
   const [active, setActive] = useState<LinePoint | null>(null)
   const draw = useSharedValue(reducedMotion ? 1 : 0)
-  const lastDay = useRef<number | null>(null)
+  const lastDay = useRef<string | null>(null)
 
   useEffect(() => {
     if (!reducedMotion) draw.value = withTiming(1, { duration: DRAW_DURATION, easing: Easing.out(Easing.cubic) })
@@ -91,9 +91,12 @@ export function LineChart({
   function scrub(e: GestureResponderEvent) {
     if (width === 0 || maxX === minX) return
     const frac = Math.min(1, Math.max(0, e.nativeEvent.locationX / width))
-    // Snap to whole days so the readout (and the tick) moves day by day.
-    const x = Math.min(maxX, Math.max(minX, Math.round((minX + frac * (maxX - minX)) / DAY_MS) * DAY_MS))
-    const day = Math.floor(x / DAY_MS)
+    // Snap to the nearest local midnight so the readout (and the tick) moves
+    // day by day on the same calendar day the date pill shows.
+    const snapped = new Date(minX + frac * (maxX - minX) + DAY_MS / 2)
+    snapped.setHours(0, 0, 0, 0)
+    const x = Math.min(maxX, Math.max(minX, snapped.getTime()))
+    const day = new Date(x).toDateString()
     if (day === lastDay.current) return
     tap()
     lastDay.current = day
@@ -117,7 +120,6 @@ export function LineChart({
       style={{ height }}
       onLayout={(e) => setWidth(Math.round(e.nativeEvent.layout.width))}
       onStartShouldSetResponder={() => true}
-      onResponderTerminationRequest={() => false}
       onResponderGrant={scrub}
       onResponderMove={scrub}
       onResponderRelease={release}

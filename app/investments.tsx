@@ -18,7 +18,7 @@ import { useHoldingEvents } from '@/src/hooks/useHoldingEvents'
 import { AllocationBar, type AllocationSegment } from '@/src/components/charts/AllocationBar'
 import { LineChart, type LinePoint } from '@/src/components/charts/LineChart'
 import { Chip } from '@/src/components/ui/Chip'
-import { netWorthHistory, historySince, percentChange } from '@/src/lib/netWorthHistory'
+import { netWorthHistory, historySince, percentChange, monthsBefore } from '@/src/lib/netWorthHistory'
 import { CHART_COLOR_CYCLE } from '@/src/theme/chartColors'
 import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
 import { EmptyState } from '@/src/components/shared/EmptyState'
@@ -134,9 +134,7 @@ export default function InvestmentsScreen() {
     const months = RANGES.find((r) => r.key === range)!.months
     const all = netWorthHistory(holdings, events)
     if (months == null) return all.map((p) => ({ x: p.t, y: p.value }))
-    const from = new Date()
-    from.setMonth(from.getMonth() - months)
-    return historySince(all, from.getTime()).map((p) => ({ x: p.t, y: p.value }))
+    return historySince(all, monthsBefore(new Date(), months).getTime()).map((p) => ({ x: p.t, y: p.value }))
   }, [holdings, events, range])
   // Scrubbing swaps the header to the touched day: its value, and the change
   // from the range's start up to it.
@@ -246,7 +244,7 @@ export default function InvestmentsScreen() {
               <Text style={[styles.trend, { color: historyDelta < 0 ? tokens.coral : tokens.mint, fontFamily: fontFamily.bodyBold }]}>
                 {historyDelta < 0 ? '-' : '+'}
                 {formatCurrency(Math.abs(historyDelta), hideAmounts)}
-                {historyPct != null && ` (${Math.abs(historyPct).toFixed(1)}%)`}
+                {historyPct != null && !hideAmounts && ` (${Math.abs(historyPct).toFixed(1)}%)`}
                 {scrubbed
                   ? ` · ${formatDateShort(new Date(history[0].x).toISOString())} to ${formatDateShort(new Date(scrubbed.x).toISOString())}`
                   : ` since ${formatDateShort(new Date(history[0].x).toISOString())}`}

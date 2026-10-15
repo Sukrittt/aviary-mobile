@@ -1,4 +1,4 @@
-import { netWorthHistory, valueAt, historySince, percentChange } from './netWorthHistory'
+import { netWorthHistory, valueAt, historySince, percentChange, monthsBefore } from './netWorthHistory'
 import type { HoldingEventRow, HoldingRow } from '@/src/types'
 
 const holding = (name: string, value: number) => ({ name, value: String(value) }) as HoldingRow
@@ -99,5 +99,15 @@ describe('percentChange', () => {
     expect(percentChange(0, 100)).toBeNull()
     expect(percentChange(-50, 100)).toBeNull()
     expect(percentChange(10, 200)).toBeNull()
+  })
+})
+
+describe('monthsBefore', () => {
+  it('steps back whole months', () => {
+    expect(monthsBefore(new Date(2026, 9, 15, 10), 3)).toEqual(new Date(2026, 6, 15, 10))
+  })
+  // setMonth alone turns 31 Mar minus a month into 3 Mar.
+  it('clamps to the end of a shorter month', () => {
+    expect(monthsBefore(new Date(2026, 2, 31), 1)).toEqual(new Date(2026, 1, 28))
   })
 })

@@ -52,3 +52,14 @@ export function percentChange(start: number, end: number): number | null {
   const pct = ((end - start) / start) * 100
   return Math.abs(pct) >= 1000 ? null : pct
 }
+
+/** `date` minus `months`, landing on the last day of a shorter month instead
+ *  of overflowing past it (31 Mar minus 1 is 28 Feb, not 3 Mar). */
+export function monthsBefore(date: Date, months: number): Date {
+  const d = new Date(date)
+  d.setDate(1)
+  d.setMonth(d.getMonth() - months)
+  const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()
+  d.setDate(Math.min(date.getDate(), lastDay))
+  return d
+}
