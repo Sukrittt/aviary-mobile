@@ -20,7 +20,6 @@ import {
   TextInput,
   View
 } from "react-native";
-import { Fragment } from "react";
 import { tap } from "@/src/lib/haptics";
 
 
@@ -181,10 +180,8 @@ export function ScanReview({ tokens, space, radius, type, insets, setPhase, merc
       {visibleItems.map((it, i) => {
         const isSelected = selected.includes(it.key);
         return (
-          <Fragment key={it.key}>
-          {/* Hairline between items: each one runs three lines tall, and without it they blur together. */}
-          {i > 0 && <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: tokens.border }} />}
           <PopIn
+            key={it.key}
             play
             delay={
               MOUNT_START_DELAY_MS +
@@ -200,6 +197,13 @@ export function ScanReview({ tokens, space, radius, type, insets, setPhase, merc
               },
             ]}
           >
+            {/* Hairline between items, centred in the list's gap so row spacing doesn't change. */}
+            {i > 0 && (
+              <View
+                pointerEvents="none"
+                style={{ position: "absolute", left: 0, right: 0, top: -space.md / 2, height: StyleSheet.hairlineWidth, backgroundColor: tokens.border }}
+              />
+            )}
             {selecting ? (
               <Pressable
                 onPress={() => toggleSelected(it.key)}
@@ -343,7 +347,6 @@ export function ScanReview({ tokens, space, radius, type, insets, setPhase, merc
               </>
             )}
           </PopIn>
-          </Fragment>
         );
       })}
 

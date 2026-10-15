@@ -32,6 +32,7 @@ export function Chip({
   onPress,
   onAccent,
   soft,
+  haptic = true,
   style,
 }: {
   /** An emoji, or a render function handed the chip's current text colour. */
@@ -41,6 +42,8 @@ export function Chip({
   onPress: () => void;
   onAccent?: boolean;
   soft?: boolean;
+  /** Off when onPress plays its own feedback (a ripple), so the two don't stack. */
+  haptic?: boolean;
   style?: StyleProp<ViewStyle>;
 }) {
   const { tokens, radius, space, type } = useTheme();
@@ -77,7 +80,7 @@ export function Chip({
       accessibilityRole="button"
       accessibilityState={{ selected: !!selected }}
       onPress={() => {
-        tap();
+        if (haptic) tap();
         onPress();
       }}
       onPressIn={press.onPressIn}

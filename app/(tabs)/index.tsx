@@ -539,6 +539,7 @@ export default function HomeScreen() {
                 <Chip
                   label={allGroupsCollapsed ? 'Expand all' : 'Collapse all'}
                   onPress={toggleCollapseAll}
+                  haptic={false}
                   style={{ paddingVertical: space.xs, paddingHorizontal: space.md }}
                 />
               )}

@@ -4,7 +4,6 @@ import { View, Text, Pressable, ScrollView, RefreshControl, StyleSheet } from 'r
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { ArrowLeft, CheckCircle, ArrowsClockwise } from '@/src/components/shared/icons'
-import * as Haptics from 'expo-haptics'
 import Reanimated from 'react-native-reanimated'
 import { OfflineScreen } from '@/src/components/shared/OfflineScreen'
 import { useOnline } from '@/src/lib/netStatus'
@@ -80,7 +79,6 @@ export default function RecurringSuggestionsScreen() {
 
   function selectMonths(next: ScanMonths) {
     if (next === months) return
-    Haptics.selectionAsync().catch(() => {})
     setMonths(next)
     scan.reset()
     dismiss.reset()
