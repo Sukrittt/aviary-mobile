@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { View, Text, StyleSheet } from 'react-native'
-import Svg, { Circle, ClipPath, Defs, Line, LinearGradient, Path, Rect, Stop } from 'react-native-svg'
+import Svg, { Circle, Defs, Line, LinearGradient, Path, Rect, Stop } from 'react-native-svg'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Reanimated, {
   Easing,
@@ -93,7 +93,7 @@ function mix(from: number[], to: number[], t: number): number[] {
 
 /** Softened step line with a gradient fill, drawn on at mount and morphed
  *  when the data changes, edge to edge. Press and hold, then slide, to scrub
- *  by day: a date pill rides the crosshair, the line past it greys out, each
+ *  by day: a date pill rides the crosshair, the line past it fades, each
  *  new day ticks, and `onScrub` hands the parent the day and value (null on
  *  release). Taps and quick drags fall through to the page scroll. */
 export function LineChart({
@@ -169,23 +169,19 @@ export function LineChart({
     const ys = mix(fromYs.value, toYs.value, morph.value)
     return { d: ys.length ? `${curvePath(ys, plotW)} L${plotW},${height} L0,${height} Z` : '', opacity: draw.value }
   })
-  const greyProps = useAnimatedProps(() => {
-    const ys = mix(fromYs.value, toYs.value, morph.value)
-    return { d: ys.length ? curvePath(ys, plotW) : '', opacity: scrubX.value < 0 ? 0 : 1 }
-  })
 
-  const mixed = () => {
-    'worklet'
-    return mix(fromYs.value, toYs.value, morph.value)
-  }
   const endProps = useAnimatedProps(() => {
-    const ys = mixed()
+    const ys = mix(fromYs.value, toYs.value, morph.value)
     return { cy: ys.length ? ys[ys.length - 1] : 0, opacity: scrubX.value < 0 ? 1 : 0 }
   })
-  const clipProps = useAnimatedProps(() => ({ width: scrubX.value < 0 ? width : scrubX.value }))
+  const veilProps = useAnimatedProps(() => ({
+    x: Math.max(0, scrubX.value),
+    width: scrubX.value < 0 ? 0 : width - scrubX.value,
+    opacity: scrubX.value < 0 ? 0 : 0.65,
+  }))
   const crossProps = useAnimatedProps(() => ({ x1: scrubX.value, x2: scrubX.value, opacity: scrubX.value < 0 ? 0 : 1 }))
   const dotProps = useAnimatedProps(() => {
-    const ys = mixed()
+    const ys = mix(fromYs.value, toYs.value, morph.value)
     const i = Math.round((Math.max(0, scrubX.value) / (plotW || 1)) * (ys.length - 1))
     return { cx: scrubX.value, cy: ys[i] ?? 0, opacity: scrubX.value < 0 ? 0 : 1 }
   })
@@ -244,12 +240,8 @@ export function LineChart({
                 <Stop offset="0" stopColor={stroke} stopOpacity={0.25} />
                 <Stop offset="1" stopColor={stroke} stopOpacity={0} />
               </LinearGradient>
-              <ClipPath id="scrubbed">
-                <AnimatedRect animatedProps={clipProps} x={0} y={0} height={height} />
-              </ClipPath>
             </Defs>
-            <AnimatedPath animatedProps={greyProps} fill="none" stroke={tokens.text3} strokeOpacity={0.5} strokeWidth={2.5} strokeLinejoin="round" />
-            <AnimatedPath animatedProps={areaProps} fill="url(#lineFill)" clipPath="url(#scrubbed)" />
+            <AnimatedPath animatedProps={areaProps} fill="url(#lineFill)" />
             <AnimatedPath
               animatedProps={lineProps}
               fill="none"
@@ -257,8 +249,10 @@ export function LineChart({
               strokeWidth={2.5}
               strokeLinecap="round"
               strokeLinejoin="round"
-              clipPath="url(#scrubbed)"
             />
+            {/* Fades the line past the finger. A veil, not an animated ClipPath:
+                react-native-svg doesn't redraw a clip when its rect changes. */}
+            <AnimatedRect animatedProps={veilProps} y={0} height={height} fill={tokens.bg} />
             <AnimatedLine animatedProps={crossProps} y1={PAD_TOP - 6} y2={height} stroke={tokens.text3} strokeWidth={1} />
             <AnimatedCircle animatedProps={dotProps} r={5} fill={stroke} stroke={tokens.bg} strokeWidth={3} />
             <AnimatedCircle animatedProps={endProps} cx={plotW} r={4.5} fill={stroke} stroke={tokens.bg} strokeWidth={2.5} />
