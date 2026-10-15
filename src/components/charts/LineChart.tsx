@@ -1,56 +1,70 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { View, Text, StyleSheet, type GestureResponderEvent } from 'react-native'
-import Svg, { Circle, Defs, Line, LinearGradient, Path, Stop } from 'react-native-svg'
+import Svg, { Circle, ClipPath, Defs, Line, LinearGradient, Path, Rect, Stop } from 'react-native-svg'
 import Reanimated, { Easing, useAnimatedProps, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
+import { tap } from '@/src/lib/haptics'
 
 const AnimatedPath = Reanimated.createAnimatedComponent(Path)
 
-const PAD_Y = 8
+const PAD_TOP = 36
+const PAD_BOTTOM = 8
 const DRAW_DURATION = 900
+const DAY_MS = 86_400_000
 
 export interface LinePoint {
-  /** Any monotonic x (e.g. epoch ms); scaled to the width. */
+  /** Epoch ms; scaled to the width. */
   x: number
   y: number
 }
 
-/** Smooth path through the points: quadratic curves via each point to the
- *  midpoint of the next, which never overshoots the data's min/max. */
-export function smoothPath(pts: { x: number; y: number }[]): string {
+/** Step path: holds each value flat until the next point, then moves. Values
+ *  that only change at events (manual holdings) never drift in between. */
+export function stepPath(pts: { x: number; y: number }[]): string {
   if (pts.length === 0) return ''
   let d = `M${pts[0].x},${pts[0].y}`
-  for (let i = 1; i < pts.length - 1; i++) {
-    const mx = (pts[i].x + pts[i + 1].x) / 2
-    const my = (pts[i].y + pts[i + 1].y) / 2
-    d += ` Q${pts[i].x},${pts[i].y} ${mx},${my}`
+  for (let i = 1; i < pts.length; i++) {
+    d += ` H${pts[i].x}`
+    if (pts[i].y !== pts[i - 1].y) d += ` V${pts[i].y}`
   }
-  const last = pts[pts.length - 1]
-  return `${d} L${last.x},${last.y}`
+  return d
 }
 
-/** Smooth line with a soft gradient fill, drawn on at mount. Touch-dragging
- *  snaps a dot + tooltip to the nearest point. Mirrors Web's LineChart. */
+/** The y held at `x`: the last point at or before it. */
+function heldAt(data: LinePoint[], x: number): number {
+  let y = data[0].y
+  for (const p of data) {
+    if (p.x > x) break
+    y = p.y
+  }
+  return y
+}
+
+/** Step line with a soft gradient fill, drawn on at mount, edge to edge.
+ *  Touch-dragging scrubs by day: a date pill rides the crosshair, the line
+ *  past it greys out, each new day ticks, and `onScrub` hands the parent the
+ *  day and value so the header can show it (null on release). */
 export function LineChart({
   data,
-  height = 150,
+  height = 180,
   color,
   formatX,
-  formatY,
+  onScrub,
 }: {
   data: LinePoint[]
   height?: number
   color?: string
   formatX: (x: number) => string
-  formatY: (y: number) => string
+  onScrub?: (point: LinePoint | null) => void
 }) {
   const { tokens } = useTheme()
   const stroke = color ?? tokens.accent
   const reducedMotion = useReducedMotion()
   const [width, setWidth] = useState(0)
-  const [active, setActive] = useState<number | null>(null)
+  const [active, setActive] = useState<LinePoint | null>(null)
   const draw = useSharedValue(reducedMotion ? 1 : 0)
+  const lastDay = useRef<number | null>(null)
 
   useEffect(() => {
     if (!reducedMotion) draw.value = withTiming(1, { duration: DRAW_DURATION, easing: Easing.out(Easing.cubic) })
@@ -62,101 +76,105 @@ export function LineChart({
   const ys = data.map((p) => p.y)
   const [minX, maxX] = [Math.min(...xs), Math.max(...xs)]
   const [minY, maxY] = [Math.min(...ys), Math.max(...ys)]
-  const pts = data.map((p) => ({
-    x: maxX === minX ? 0 : ((p.x - minX) / (maxX - minX)) * width,
-    // Flat series sits mid-height instead of dividing by zero.
-    y: maxY === minY ? height / 2 : PAD_Y + (1 - (p.y - minY) / (maxY - minY)) * (height - PAD_Y * 2),
-  }))
-  const line = smoothPath(pts)
+  const toX = (x: number) => (maxX === minX ? 0 : ((x - minX) / (maxX - minX)) * width)
+  // Flat series sits mid-plot instead of dividing by zero.
+  const toY = (y: number) =>
+    maxY === minY ? (PAD_TOP + height - PAD_BOTTOM) / 2 : PAD_TOP + (1 - (y - minY) / (maxY - minY)) * (height - PAD_TOP - PAD_BOTTOM)
+  const pts = data.map((p) => ({ x: toX(p.x), y: toY(p.y) }))
+  const line = stepPath(pts)
   const area = `${line} L${width},${height} L0,${height} Z`
-  // Upper bound on the curve's length: the polyline through the control points.
-  const length = pts.reduce((s, p, i) => (i ? s + Math.hypot(p.x - pts[i - 1].x, p.y - pts[i - 1].y) : 0), 0) + 1
+  const length = pts.reduce((s, p, i) => (i ? s + Math.abs(p.x - pts[i - 1].x) + Math.abs(p.y - pts[i - 1].y) : 0), 0) + 1
 
   const lineProps = useAnimatedProps(() => ({ strokeDashoffset: length * (1 - draw.value) }))
   const areaProps = useAnimatedProps(() => ({ opacity: draw.value }))
 
   function scrub(e: GestureResponderEvent) {
-    const fx = e.nativeEvent.locationX
-    let best = 0
-    for (let i = 1; i < pts.length; i++) if (Math.abs(pts[i].x - fx) < Math.abs(pts[best].x - fx)) best = i
-    setActive(best)
+    if (width === 0 || maxX === minX) return
+    const frac = Math.min(1, Math.max(0, e.nativeEvent.locationX / width))
+    // Snap to whole days so the readout (and the tick) moves day by day.
+    const x = Math.min(maxX, Math.max(minX, Math.round((minX + frac * (maxX - minX)) / DAY_MS) * DAY_MS))
+    const day = Math.floor(x / DAY_MS)
+    if (day === lastDay.current) return
+    tap()
+    lastDay.current = day
+    const point = { x, y: heldAt(data, x) }
+    setActive(point)
+    onScrub?.(point)
   }
 
-  const p = active != null ? pts[active] : null
-  const axisText = [styles.axis, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]
+  function release() {
+    lastDay.current = null
+    setActive(null)
+    onScrub?.(null)
+  }
+
+  const ax = active ? toX(active.x) : null
+  const last = pts[pts.length - 1]
 
   return (
-    <View>
-      <View
-        testID="line-plot"
-        style={{ height }}
-        onLayout={(e) => setWidth(Math.round(e.nativeEvent.layout.width))}
-        onStartShouldSetResponder={() => true}
-        onResponderGrant={scrub}
-        onResponderMove={scrub}
-        onResponderRelease={() => setActive(null)}
-        onResponderTerminate={() => setActive(null)}
-      >
-        {width > 0 && data.length > 1 && (
-          <Svg width={width} height={height}>
-            <Defs>
-              <LinearGradient id="lineFill" x1="0" y1="0" x2="0" y2="1">
-                <Stop offset="0" stopColor={stroke} stopOpacity={0.25} />
-                <Stop offset="1" stopColor={stroke} stopOpacity={0} />
-              </LinearGradient>
-            </Defs>
-            <AnimatedPath animatedProps={areaProps} d={area} fill="url(#lineFill)" />
-            <AnimatedPath
-              animatedProps={lineProps}
-              d={line}
-              fill="none"
-              stroke={stroke}
-              strokeWidth={2.5}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeDasharray={`${length},${length}`}
-            />
-            {p && (
-              <>
-                <Line x1={p.x} x2={p.x} y1={0} y2={height} stroke={tokens.border} strokeWidth={1} />
-                <Circle cx={p.x} cy={p.y} r={5} fill={stroke} stroke={tokens.card} strokeWidth={3} />
-              </>
-            )}
-          </Svg>
-        )}
-        {p && active != null && (
-          <View
-            pointerEvents="none"
-            style={[
-              styles.tip,
-              {
-                backgroundColor: tokens.card,
-                borderColor: tokens.border,
-                left: Math.min(width - TIP_WIDTH, Math.max(0, p.x - TIP_WIDTH / 2)),
-                top: Math.max(0, p.y - 56),
-              },
-            ]}
-          >
-            <Text style={[styles.tipValue, { color: tokens.text, fontFamily: fontFamily.bodyBold }]}>
-              {formatY(data[active].y)}
-            </Text>
-            <Text style={axisText}>{formatX(data[active].x)}</Text>
-          </View>
-        )}
-      </View>
-      <View style={styles.axisRow}>
-        <Text style={axisText}>{formatX(minX)}</Text>
-        <Text style={axisText}>{formatX(maxX)}</Text>
-      </View>
+    <View
+      testID="line-plot"
+      style={{ height }}
+      onLayout={(e) => setWidth(Math.round(e.nativeEvent.layout.width))}
+      onStartShouldSetResponder={() => true}
+      onResponderTerminationRequest={() => false}
+      onResponderGrant={scrub}
+      onResponderMove={scrub}
+      onResponderRelease={release}
+      onResponderTerminate={release}
+    >
+      {width > 0 && data.length > 1 && (
+        <Svg width={width} height={height}>
+          <Defs>
+            <LinearGradient id="lineFill" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor={stroke} stopOpacity={0.25} />
+              <Stop offset="1" stopColor={stroke} stopOpacity={0} />
+            </LinearGradient>
+            <ClipPath id="scrubbed">
+              <Rect x={0} y={0} width={ax ?? width} height={height} />
+            </ClipPath>
+          </Defs>
+          {ax != null && <Path d={line} fill="none" stroke={tokens.text3} strokeOpacity={0.5} strokeWidth={2.5} strokeLinejoin="round" />}
+          <AnimatedPath animatedProps={areaProps} d={area} fill="url(#lineFill)" clipPath="url(#scrubbed)" />
+          <AnimatedPath
+            animatedProps={lineProps}
+            d={line}
+            fill="none"
+            stroke={stroke}
+            strokeWidth={2.5}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeDasharray={`${length},${length}`}
+            clipPath="url(#scrubbed)"
+          />
+          {active && ax != null ? (
+            <>
+              <Line x1={ax} x2={ax} y1={PAD_TOP - 6} y2={height} stroke={tokens.text3} strokeWidth={1} />
+              <Circle cx={ax} cy={toY(active.y)} r={5} fill={stroke} stroke={tokens.bg} strokeWidth={3} />
+            </>
+          ) : (
+            <Circle cx={last.x} cy={last.y} r={4.5} fill={stroke} stroke={tokens.bg} strokeWidth={2.5} />
+          )}
+        </Svg>
+      )}
+      {active && ax != null && (
+        <View
+          pointerEvents="none"
+          style={[
+            styles.pill,
+            { backgroundColor: tokens.pillBg, left: Math.min(width - PILL_WIDTH, Math.max(0, ax - PILL_WIDTH / 2)) },
+          ]}
+        >
+          <Text style={[styles.pillText, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>{formatX(active.x)}</Text>
+        </View>
+      )}
     </View>
   )
 }
 
-const TIP_WIDTH = 110
+const PILL_WIDTH = 104
 
 const styles = StyleSheet.create({
-  axisRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
-  axis: { fontSize: 12 },
-  tip: { position: 'absolute', width: TIP_WIDTH, alignItems: 'center', paddingVertical: 5, borderWidth: 1, borderRadius: 10 },
-  tipValue: { fontSize: 12 },
+  pill: { position: 'absolute', top: 0, width: PILL_WIDTH, alignItems: 'center', paddingVertical: 5, borderRadius: 999 },
+  pillText: { fontSize: 12 },
 })
