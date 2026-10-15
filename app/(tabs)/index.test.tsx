@@ -610,4 +610,26 @@ describe('HomeScreen · one banner at a time', () => {
     expect(queryByLabelText('Insights')).toBeNull()
     expect(queryByText('Trends, daily spend and subscriptions')).toBeNull()
   })
+
+  it('leaves the credit card payoff off Home', async () => {
+    mockBudgets = [
+      { month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' },
+      { month: MONTH, category: '__credit_card__', assigned: '0', rolled_over: '0' },
+    ]
+    const { queryByText } = renderHome()
+    await act(async () => {})
+    expect(queryByText('PAYOFF')).toBeNull()
+    expect(queryByText('Credit Card Payment')).toBeNull()
+  })
+
+  it('ticks when the Insights link is tapped', async () => {
+    mockUser = { ...mockUser, hiddenFeatures: [] }
+    const Haptics = jest.requireActual<typeof import('expo-haptics')>('expo-haptics')
+    const impact = jest.spyOn(Haptics, 'impactAsync').mockResolvedValue()
+    const { findByText } = renderHome()
+    fireEvent.press(await findByText('Trends, daily spend and subscriptions'))
+    expect(impact).toHaveBeenCalledWith(Haptics.ImpactFeedbackStyle.Rigid)
+    expect(mockPush).toHaveBeenCalledWith('/insights')
+    impact.mockRestore()
+  })
 })
