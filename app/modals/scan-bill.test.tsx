@@ -268,6 +268,22 @@ describe('ScanBillScreen', () => {
     expect(queryByText('Pizza')).toBeTruthy()
   })
 
+  it('ticks on All mine and on removing an item', async () => {
+    ;(scanBill as jest.Mock).mockResolvedValue(SCAN_RESULT)
+    const Haptics = jest.requireActual<typeof import('expo-haptics')>('expo-haptics')
+    const { getByText, getByLabelText, queryByText } = renderWithProviders(<ScanBillScreen />)
+    await flushCategories()
+    await waitFor(() => expect(getByLabelText('₹880')).toBeTruthy())
+    const impact = jest.spyOn(Haptics, 'impactAsync').mockResolvedValue()
+
+    fireEvent.press(getByText('All mine'))
+    expect(impact).toHaveBeenCalledTimes(1)
+    fireEvent.press(getByLabelText('Remove Milk'))
+    expect(impact).toHaveBeenCalledTimes(2)
+    expect(queryByText('Milk')).toBeNull()
+    impact.mockRestore()
+  })
+
   it('shows the manual escape hatch when the scan fails', async () => {
     ;(scanBill as jest.Mock).mockRejectedValue(new Error('bill scan failed: 502'))
 

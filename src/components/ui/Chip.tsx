@@ -8,7 +8,7 @@ import {
   type StyleProp,
 } from "react-native";
 import Animated from "react-native-reanimated";
-import * as Haptics from "expo-haptics";
+import { tap } from "@/src/lib/haptics";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { fontFamily } from "@/src/theme/fonts";
 import { usePressSpring } from "./Button";
@@ -77,7 +77,7 @@ export function Chip({
       accessibilityRole="button"
       accessibilityState={{ selected: !!selected }}
       onPress={() => {
-        Haptics.selectionAsync().catch(() => {});
+        tap();
         onPress();
       }}
       onPressIn={press.onPressIn}
