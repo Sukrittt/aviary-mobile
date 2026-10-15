@@ -91,6 +91,7 @@ const BOX = frame(30, 40, 480, 400)
 
 /** Artboard point as a transform origin in the layer's own pixels. */
 function pivot(f: Frame, x: number, y: number): [number, number, number] {
+  'worklet'
   return [(x - f.x + PAD) * f.k, (y - f.y + PAD) * f.k, 0]
 }
 
