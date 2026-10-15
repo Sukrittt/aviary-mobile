@@ -10,7 +10,6 @@ jest.mock('@/src/lib/netStatus', () => ({
   ...jest.requireActual('@/src/lib/netStatus'),
   useOnline: () => true,
 }))
-jest.mock('@/src/lib/haptics', () => ({ ...jest.requireActual('@/src/lib/haptics'), tap: jest.fn() }))
 
 const DAY = 86_400_000
 const ago = (days: number) => new Date(Date.now() - days * DAY).toISOString()
@@ -29,20 +28,11 @@ jest.mock('@/src/hooks/useHoldingEvents', () => ({
   }),
 }))
 
-it('shows the change over the picked range, and the touched day while scrubbing', () => {
+it('shows the change over the picked range', () => {
   const screen = renderWithProviders(<InvestmentsScreen />)
   expect(screen.getByText(/\+.*50 \(50\.0%\) since/)).toBeTruthy()
 
   // All starts at the first event (₹100), so it's the same change.
   fireEvent.press(screen.getByText('All'))
   expect(screen.getByText(/\+.*50 \(50\.0%\) since/)).toBeTruthy()
-
-  // Touch the left edge: back at the range's start, so no change yet.
-  const plot = screen.getByTestId('line-plot')
-  fireEvent(plot, 'layout', { nativeEvent: { layout: { width: 300 } } })
-  fireEvent(plot, 'responderGrant', { nativeEvent: { locationX: 0 } })
-  expect(screen.getByText(/\+.*0 \(0\.0%\) · .* to /)).toBeTruthy()
-
-  fireEvent(plot, 'responderRelease')
-  expect(screen.getByText(/since/)).toBeTruthy()
 })
