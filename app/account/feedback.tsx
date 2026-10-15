@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
-import { View, Text, TextInput, Pressable, ScrollView, KeyboardAvoidingView, Platform, StyleSheet } from 'react-native'
+import { View, Text, TextInput, Pressable, ScrollView, KeyboardAvoidingView, Platform, StyleSheet, Image } from 'react-native'
 import { useRouter } from 'expo-router'
-import { ArrowLeft } from '@/src/components/shared/icons'
+import { ArrowLeft, ImageSquare, X } from '@/src/components/shared/icons'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Alert } from '@/src/components/ui/AlertHost'
 import { useTheme } from '@/src/theme/ThemeProvider'
@@ -10,6 +10,7 @@ import { Icon } from '@/src/components/shared/Icon'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { submitFeedback } from '@/src/api/feedback'
 import { track } from '@/src/lib/analytics'
+import { pickPhoto, type PickedPhoto } from '@/src/features/log-expense/ExpensePhotoField'
 
 // A private bug report: posts to Web/app/api/feedback, which records it for
 // the admin inbox with diagnostics and AI triage. Ideas go on the public
@@ -23,6 +24,7 @@ export default function FeedbackScreen() {
   const [description, setDescription] = useState('')
   const [sending, setSending] = useState(false)
   const [sent, setSent] = useState(false)
+  const [screenshot, setScreenshot] = useState<PickedPhoto | null>(null)
 
   const canSubmit = title.trim() !== '' && description.trim() !== ''
 
@@ -37,8 +39,8 @@ export default function FeedbackScreen() {
     if (!canSubmit || sending) return
     setSending(true)
     try {
-      await submitFeedback('bug', title, description)
-      track('feedback_sent', { type: 'bug' })
+      await submitFeedback('bug', title, description, screenshot ? { image: screenshot.base64, mimeType: screenshot.mimeType } : undefined)
+      track('feedback_sent', { type: 'bug', screenshot: !!screenshot })
       setSent(true)
     } catch (err) {
       const message = err instanceof Error ? err.message : ''
@@ -98,6 +100,37 @@ export default function FeedbackScreen() {
           </Text>
         </View>
 
+        <View style={styles.field}>
+          <Text style={[styles.fieldLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>Screenshot (optional)</Text>
+          {screenshot ? (
+            <View style={styles.thumbWrap}>
+              <Image source={{ uri: screenshot.uri }} style={[styles.thumb, { borderColor: tokens.border }]} accessibilityLabel="Your screenshot" />
+              <Pressable
+                onPress={() => setScreenshot(null)}
+                disabled={sending || sent}
+                accessibilityRole="button"
+                accessibilityLabel="Remove screenshot"
+                hitSlop={8}
+                style={[styles.thumbRemove, { backgroundColor: tokens.cardSolid, borderColor: tokens.borderStrong }]}
+              >
+                <X size={12} color={tokens.text} />
+              </Pressable>
+            </View>
+          ) : (
+            <Pressable
+              onPress={async () => setScreenshot((await pickPhoto('library')) ?? null)}
+              accessibilityRole="button"
+              style={[styles.attachButton, { backgroundColor: tokens.inputBg, borderColor: tokens.border }]}
+            >
+              <ImageSquare size={16} color={tokens.accentInk} />
+              <Text style={[styles.attachText, { color: tokens.accentInk, fontFamily: fontFamily.bodySemiBold }]}>Add a screenshot</Text>
+            </Pressable>
+          )}
+          <Text style={[styles.hint, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>
+            Screenshots can show your balances and expenses. Want them hidden? Turn on Hide amounts in More before you take one.
+          </Text>
+        </View>
+
         <Pressable
           onPress={handleSubmit}
           disabled={!canSubmit || sending || sent}
@@ -127,6 +160,11 @@ const styles = StyleSheet.create({
   input: { borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 14, fontSize: 15 },
   textArea: { minHeight: 110, textAlignVertical: 'top' },
   hint: { fontSize: 12, lineHeight: 16, marginTop: 2 },
+  attachButton: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 6, borderWidth: 1, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 10 },
+  attachText: { fontSize: 14 },
+  thumbWrap: { alignSelf: 'flex-start' },
+  thumb: { width: 72, height: 128, borderRadius: 10, borderWidth: 1 },
+  thumbRemove: { position: 'absolute', top: -6, right: -6, width: 22, height: 22, borderRadius: 11, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   confirmButton: { borderRadius: 14, paddingVertical: 15, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
   confirmText: { fontSize: 16 },
 })

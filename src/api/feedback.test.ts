@@ -54,4 +54,12 @@ describe('submitFeedback', () => {
       expect((err as Error).message).not.toMatch(/: 4\d\d\b|: 5\d\d\b/)
     }
   })
+
+  it('sends an optional screenshot with a longer timeout', async () => {
+    mockedApiFetch.mockResolvedValue({ ok: true, status: 200 })
+    await submitFeedback('bug', 'title', 'description', { image: 'c2hvdA==', mimeType: 'image/png' })
+    const [, init] = mockedApiFetch.mock.calls[0]
+    expect(JSON.parse(init.body).screenshot).toEqual({ image: 'c2hvdA==', mimeType: 'image/png' })
+    expect(init.signal).toBeDefined()
+  })
 })
