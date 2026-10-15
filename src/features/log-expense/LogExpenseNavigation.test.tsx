@@ -7,10 +7,15 @@ import { NAV_SLIDE_MS } from '@/src/components/nav/FloatingNav'
 
 const mockPush = jest.fn()
 const mockNavigate = jest.fn()
+let mockPathname = '/'
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: mockPush, navigate: mockNavigate, replace: jest.fn() }),
-  usePathname: () => '/',
+  usePathname: () => mockPathname,
 }))
+
+beforeEach(() => {
+  mockPathname = '/'
+})
 
 // An older account with every extra on, already cached the way Home leaves it.
 function renderNav() {
@@ -62,5 +67,18 @@ it('goes only to the last tab when two are tapped mid-slide', () => {
   act(() => jest.runOnlyPendingTimers())
   expect(mockNavigate).not.toHaveBeenCalledWith('/activity')
   expect(mockNavigate).toHaveBeenCalledWith('/more')
+  jest.useRealTimers()
+})
+
+it('drops a pending tab switch when something else moves the route first', () => {
+  mockNavigate.mockClear()
+  jest.useFakeTimers()
+  const utils = renderNav()
+  fireEvent.press(utils.getByRole('tab', { name: 'Activity' }))
+  mockPathname = '/modals/some-screen'
+  // Any re-render picks up the new pathname; opening the quick-add menu is one.
+  fireEvent(utils.getByRole('button', { name: 'Log expense' }), 'longPress')
+  act(() => jest.runOnlyPendingTimers())
+  expect(mockNavigate).not.toHaveBeenCalledWith('/activity')
   jest.useRealTimers()
 })

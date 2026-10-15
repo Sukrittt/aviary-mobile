@@ -5,7 +5,7 @@ import { useTheme } from '@/src/theme/ThemeProvider'
 import { INCOME_FLOOD } from '@/src/theme/tokens'
 import { usePathname, useRouter } from 'expo-router'
 import { HandCoins, Plus, Scan } from '@/src/components/shared/icons'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useCachedUser } from '@/src/hooks/useUser'
 import { isHidden } from '@/src/lib/features'
 import { QUICK_INCOME_PATH } from './IncomeFloodButton'
@@ -43,6 +43,9 @@ export function LogExpenseNavigation() {
   const [pendingTab, setPendingTab] = useState<{ from: string; tab: NavRoute } | null>(null)
   if (pendingTab !== null && pendingTab.from !== pathname) setPendingTab(null)
   const navTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  // Anything else that moves the route during the slide (back gesture, +)
+  // wins: the pending tab switch is dropped rather than landing late.
+  useEffect(() => () => clearTimeout(navTimer.current), [pathname])
   const selectTab = (name: NavRoute) => {
     // Log-expense swaps itself out with replace and its nav morphs in place, so it keeps the old path.
     if (addActive) return router.replace(NAV_HREF[name])
