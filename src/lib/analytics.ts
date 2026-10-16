@@ -62,7 +62,7 @@ export type AppEvent =
   | 'expense_logged'
   | 'expense_edited'
   | 'expense_deleted'
-  // `from` is 'log' (the log screen) or 'feed' (a card's Add a photo).
+  // `from` is 'log' (the log screen).
   | 'expense_photo_added'
   // Activity's List / Feed switch. `view` is the one switched to.
   | 'activity_view_changed'

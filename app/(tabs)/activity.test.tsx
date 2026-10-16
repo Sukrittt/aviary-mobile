@@ -19,7 +19,6 @@ jest.mock('@/src/hooks/useExpenses', () => ({
   prefetchExpensesPage: jest.fn(),
   useDuplicates: () => ({ data: mockDuplicates }),
   useExpensesFeed: () => mockUseExpensesFeed(),
-  useSaveExpensePhoto: () => ({ mutateAsync: jest.fn(), isPending: false }),
   // CategoryPickerSheet (rendered inside a BottomSheet) reads the base,
   // unpaginated hook for its autosuggest word map — unrelated to this
   // screen's own paginated fetch, so a static empty result is enough.
@@ -444,12 +443,12 @@ describe('feed view', () => {
 
   it('opens on the feed once turned on, and switches to the list and back', () => {
     const screen = renderWithProviders(<ActivityScreen />)
-    expect(screen.getByLabelText('Add a photo to Item 1')).toBeTruthy()
+    expect(screen.getByLabelText('Item 1, Food. View details')).toBeTruthy()
     expect(screen.queryByText('1 transaction')).toBeNull()
     fireEvent.press(screen.getByLabelText('Show as list'))
     expect(screen.getByText('1 transaction')).toBeTruthy()
     fireEvent.press(screen.getByLabelText('Show as feed'))
-    expect(screen.getByLabelText('Add a photo to Item 1')).toBeTruthy()
+    expect(screen.getByLabelText('Item 1, Food. View details')).toBeTruthy()
   })
 
   it('deletes from the feed as soon as the delete is confirmed', () => {
