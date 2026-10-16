@@ -40,7 +40,8 @@ export function HeardFrom({ onDone }: { onDone: () => void }) {
   }
 
   return (
-    <View style={{ flex: 1 }}>
+    // One short question, so the whole block sits mid-screen like web, not top-and-bottom.
+    <View style={{ flex: 1, justifyContent: 'center' }}>
       <Animated.Text entering={FadeIn.duration(350)} style={[styles.title, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
         Where did you hear about us?
       </Animated.Text>
@@ -81,9 +82,9 @@ export function HeardFrom({ onDone }: { onDone: () => void }) {
 const styles = StyleSheet.create({
   title: { fontSize: 32, lineHeight: 37, letterSpacing: -0.3 },
   blurb: { fontSize: 15, lineHeight: 23, marginTop: 7, maxWidth: 320 },
-  chips: { flex: 1, flexDirection: 'row', flexWrap: 'wrap', alignContent: 'flex-start', gap: 8, paddingTop: 24 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingTop: 24 },
   chip: { paddingVertical: 9, paddingHorizontal: 14, borderRadius: 100, borderWidth: 1 },
   chipLabel: { fontSize: 12, fontFamily: fontFamily.bodyBold },
-  cta: { marginTop: 16, minHeight: 54, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
+  cta: { marginTop: 28, minHeight: 54, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
   ctaText: { fontSize: 15 },
 })
