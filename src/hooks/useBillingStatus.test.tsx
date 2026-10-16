@@ -21,15 +21,29 @@ function Status() {
 
 afterEach(() => focusManager.setFocused(undefined))
 
+// Async: the client resumes paused mutations before it refetches on focus.
+async function returnToApp() {
+  await act(async () => {
+    focusManager.setFocused(false)
+    focusManager.setFocused(true)
+  })
+}
+
 it('refetches once per return to the app, however many screens read it', async () => {
   const screen = renderWithProviders(<><Status /><Status /><Status /></>)
   await waitFor(() => expect(screen.getAllByText('active')).toHaveLength(3))
   expect(getBillingStatus).toHaveBeenCalledTimes(1)
 
-  act(() => {
-    focusManager.setFocused(false)
-    focusManager.setFocused(true)
-  })
+  // A return seconds after the fetch reuses it instead of asking again.
+  await returnToApp()
+  expect(getBillingStatus).toHaveBeenCalledTimes(1)
 
-  await waitFor(() => expect(getBillingStatus).toHaveBeenCalledTimes(2))
+  const now = Date.now()
+  const clock = jest.spyOn(Date, 'now').mockReturnValue(now + 31_000)
+  try {
+    await returnToApp()
+    await waitFor(() => expect(getBillingStatus).toHaveBeenCalledTimes(2))
+  } finally {
+    clock.mockRestore()
+  }
 })

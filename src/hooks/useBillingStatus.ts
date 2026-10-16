@@ -24,9 +24,12 @@ export function useBillingStatus(enabled = true) {
   const qc = useQueryClient()
   // Guests (the shared demo account) have no billing, and the server answers
   // them with a 401 — which the root layout would read as a dead session.
-  // 'always' on focus: a subscription can lapse, renew, or be restored while
-  // the app sits in the background, and nothing else would notice.
-  const query = useQuery({ queryKey: billingKey, queryFn: getBillingStatus, staleTime: 30_000, refetchOnWindowFocus: 'always', enabled: enabled && currentUserId() !== null })
+  // Refetched on focus: a subscription can lapse, renew, or be restored while
+  // the app sits in the background, and nothing else would notice. Only once
+  // stale, though: 'always' doubled the request when a screen mounting this
+  // had fetched it a second earlier (half of all calls landed within 2s of
+  // the previous one).
+  const query = useQuery({ queryKey: billingKey, queryFn: getBillingStatus, staleTime: 30_000, refetchOnWindowFocus: true, enabled: enabled && currentUserId() !== null })
 
   // Every event carries the plan it happened on, so a chart can split trial
   // users from paying ones without a join.
