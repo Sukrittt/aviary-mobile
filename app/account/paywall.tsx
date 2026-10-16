@@ -1,9 +1,10 @@
 import { useEffect, useRef } from 'react'
-import { View, Text, Pressable, ActivityIndicator, StyleSheet } from 'react-native'
+import { View, Text, Pressable, StyleSheet } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { X } from '@/src/components/shared/icons'
 import { PlanPicker } from '@/src/components/billing/PlanPicker'
+import { PlanPickerSkeleton } from '@/src/components/shared/TabSkeleton'
 import { Icon } from '@/src/components/shared/Icon'
 import { track } from '@/src/lib/analytics'
 import { usePaywall } from '@/src/hooks/usePaywall'
@@ -67,7 +68,7 @@ export default function PaywallScreen() {
           onBuy={(pkg) => void buy(pkg)}
         />
       ) : packagesQuery.isLoading || !status ? (
-        <ActivityIndicator color={tokens.accent} style={{ marginTop: 40 }} />
+        <PlanPickerSkeleton timeline={status?.mode === 'trial' && !locked} />
       ) : (
         <Text style={[styles.empty, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
           Plans aren&apos;t available right now. Try again in a little while.

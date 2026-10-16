@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { ArrowLeft, CaretRight, ArrowSquareOut, Question, Lock, SignOut, ArrowCounterClockwise, ShieldCheck, User, type PhosphorIcon } from '@/src/components/shared/icons'
 import { PlanPicker } from '@/src/components/billing/PlanPicker'
+import { PlanPickerSkeleton } from '@/src/components/shared/TabSkeleton'
 import { CurrentPlan } from '@/src/components/billing/CurrentPlan'
 import { track } from '@/src/lib/analytics'
 import { Icon } from '@/src/components/shared/Icon'
@@ -152,7 +153,7 @@ export default function PlanScreen() {
                   onBuy={(pkg) => void buy(pkg)}
                 />
               ) : packagesQuery.isLoading ? (
-                <ActivityIndicator color={tokens.accent} />
+                <PlanPickerSkeleton timeline={false} />
               ) : (
                 <Text style={[styles.cardMeta, { color: tokens.text2, fontFamily: fontFamily.bodyMedium, textAlign: 'center' }]}>
                   Plans aren&apos;t available right now. Try again in a little while.

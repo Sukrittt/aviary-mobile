@@ -241,6 +241,49 @@ export function EnvelopesSkeleton() {
   )
 }
 
+/**
+ * The paywall while plans load: header, then the trial timeline or the four
+ * feature cards, then the two plan cards. Same padding as PlanPicker's body.
+ */
+export function PlanPickerSkeleton({ timeline }: { timeline: boolean }) {
+  return (
+    <Pulse label="Loading plans">
+      <View style={{ paddingHorizontal: 20, paddingTop: 8, gap: 24 }}>
+        <View style={{ gap: 8 }}>
+          <Bone w={84} h={12} />
+          <Bone w="90%" h={28} />
+          <Bone w="60%" h={28} />
+          <Bone w="100%" h={14} />
+        </View>
+        {timeline ? (
+          <View style={{ gap: 18 }}>
+            {[0, 1, 2].map((i) => (
+              <View key={i} style={{ flexDirection: 'row', gap: 14 }}>
+                <Bone w={32} h={32} r={16} />
+                <View style={[styles.rowText, { paddingTop: 6 }]}>
+                  <Bone w={100} h={15} />
+                  <Bone w="95%" h={12} />
+                  <Bone w="70%" h={12} />
+                </View>
+              </View>
+            ))}
+          </View>
+        ) : (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+            {[0, 1, 2, 3].map((i) => (
+              <Bone key={i} w="48%" h={120} r={18} style={{ flexGrow: 1 }} />
+            ))}
+          </View>
+        )}
+        <View style={{ gap: 8 }}>
+          <Bone h={72} r={16} />
+          <Bone h={60} r={16} />
+        </View>
+      </View>
+    </Pulse>
+  )
+}
+
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   headerMonth: { alignItems: 'center', gap: 4 },
