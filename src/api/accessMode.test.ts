@@ -126,6 +126,46 @@ describe('offline session survival (§1)', () => {
   })
 })
 
+// A slow network on resume (PostHog, 2026-10-15): every screen's request
+// shared one refresh that timed out at 15s, then React Query's retry started a
+// second 15s refresh straight away. 28 failures, two full rounds of waiting.
+describe('after a failed refresh', () => {
+  it('fails fast instead of starting another refresh straight away', async () => {
+    ;(refreshTokens as jest.Mock).mockRejectedValue(Object.assign(new Error('timed out'), { name: 'TimeoutError' }))
+    await persistSession({ accessToken: expiredToken(), refreshToken: 'r1', expiresAt: 1 })
+
+    await expect(Promise.all([getValidToken(), getValidToken(), getValidToken()])).rejects.toThrow()
+    expect(refreshTokens).toHaveBeenCalledTimes(1)
+
+    await expect(getValidToken()).rejects.toThrow()
+    expect(refreshTokens).toHaveBeenCalledTimes(1)
+  })
+
+  it('tries again once the cooldown has passed', async () => {
+    jest.useFakeTimers()
+    try {
+      ;(refreshTokens as jest.Mock)
+        .mockRejectedValueOnce(new TypeError('Network request failed'))
+        .mockResolvedValueOnce({ accessToken: fakeToken(), refreshToken: 'r2', expiresAt: Date.now() + 3_600_000 })
+      await persistSession({ accessToken: expiredToken(), refreshToken: 'r1', expiresAt: 1 })
+      await expect(getValidToken()).rejects.toThrow()
+
+      jest.advanceTimersByTime(10_000)
+      await expect(getValidToken()).resolves.toBe(fakeToken())
+      expect(refreshTokens).toHaveBeenCalledTimes(2)
+    } finally {
+      await clearAccess()
+      jest.useRealTimers()
+    }
+  })
+
+  it('reports why the refresh failed', async () => {
+    ;(refreshTokens as jest.Mock).mockRejectedValue(Object.assign(new Error('timed out'), { name: 'TimeoutError' }))
+    await persistSession({ accessToken: expiredToken(), refreshToken: 'r1', expiresAt: 1 })
+    await expect(getValidToken()).rejects.toMatchObject({ name: 'AuthRefreshError', reason: 'TimeoutError' })
+  })
+})
+
 describe('refresh ownership', () => {
   it('does not restore a session after logout while refresh is pending', async () => {
     let finish!: (v: unknown) => void
