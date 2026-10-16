@@ -22,6 +22,8 @@ export interface UserProfile {
   getStartedAt?: string | null
   manualTransactionCompletedAt?: string | null
   guidedTourCompletedAt?: string | null
+  /** When the first-week recap was opened on any device. It never shows again after. */
+  weekRecapSeenAt?: string | null
   notifyCadence?: 'off' | 'weekly' | 'daily'
   notifyThresholds?: boolean
   notifyBills?: boolean

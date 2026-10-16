@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { AppState, Pressable, StyleSheet, Text } from 'react-native'
+import { Pressable, StyleSheet, Text } from 'react-native'
 import Reanimated, { useAnimatedStyle, useReducedMotion, useSharedValue, withSpring, withTiming } from 'react-native-reanimated'
 import { Warning, X } from '@/src/components/shared/icons'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -11,7 +11,7 @@ import { DROP_SPRING, dropInStyle } from '@/src/components/ui/Toast'
 
 /**
  * The maintenance notice set from the web admin's System page. Polled every
- * 5 minutes and on every return to the foreground. A floating pill under the
+ * 5 minutes and on returns to the foreground. A floating pill under the
  * status bar, matching the web banner, that drops in and out with the
  * log-expense Toast's animation. Tapping it hides the current message until a
  * different one is set. Any failure renders nothing.
@@ -20,15 +20,10 @@ export function MaintenanceBanner() {
   const { tokens } = useTheme()
   const insets = useSafeAreaInsets()
   const [dismissed, setDismissed] = useState<string | null>(null)
-  const { data, refetch } = useQuery({ queryKey: ['system-status'], queryFn: getSystemStatus, refetchInterval: 5 * 60_000, retry: false })
-
-  // React Query's refetch-on-focus is web-only; the app's equivalent is coming back to the foreground.
-  useEffect(() => {
-    const sub = AppState.addEventListener('change', (state) => {
-      if (state === 'active') void refetch()
-    })
-    return () => sub.remove()
-  }, [refetch])
+  // Focus here is the app's foreground (app/_layout.tsx wires focusManager to
+  // AppState). Only an answer over a minute old is refetched: refetching on
+  // every return doubled up with the fetch Home and More make on mount.
+  const { data } = useQuery({ queryKey: ['system-status'], queryFn: getSystemStatus, staleTime: 60_000, refetchInterval: 5 * 60_000, refetchOnWindowFocus: true, retry: false })
 
   const message = data?.maintenance?.on ? data.maintenance.message : ''
   const visible = !!message && message !== dismissed
