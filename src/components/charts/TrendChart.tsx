@@ -15,6 +15,7 @@ import { fontFamily } from '@/src/theme/fonts'
 
 import { monthAbbrev } from '@/src/lib/envelope'
 import { EmptyState } from '@/src/components/shared/EmptyState'
+import { TrendSkeleton } from '@/src/components/shared/TabSkeleton'
 
 const AnimatedRect = Reanimated.createAnimatedComponent(Rect)
 const AnimatedLine = Reanimated.createAnimatedComponent(Line)
@@ -180,7 +181,7 @@ export function TrendChart({
   const signature = data.map((d) => `${d.date}:${d.value}`).join('|')
 
   if (data.length === 0) {
-    if (loading) return <View style={{ height }} />
+    if (loading) return <TrendSkeleton height={height} />
     return (
       <EmptyState
         testID="trend-empty"

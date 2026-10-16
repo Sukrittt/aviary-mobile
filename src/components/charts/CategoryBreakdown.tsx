@@ -27,6 +27,7 @@ import { DonutChart } from "./DonutChart";
 import { CATEGORY_ICON_COMPONENTS } from "@/src/components/shared/CategoryIcon";
 import type { CategoryIconKey } from "@/src/lib/categoryIcons";
 import { EmptyState } from "@/src/components/shared/EmptyState";
+import { DonutSkeleton } from "@/src/components/shared/TabSkeleton";
 import { useReveal } from "./useReveal";
 import { clampPct } from "@/src/lib/monthly";
 import type { BreakdownRow, MonthComparison } from "@/src/lib/monthly";
@@ -633,7 +634,7 @@ export function CategoryBreakdown({
       </View>
 
       {empty && loading ? (
-        <View style={[styles.emptyState, styles.emptyContent]} />
+        <DonutSkeleton />
       ) : empty ? (
         <EmptyState
           testID="breakdown-empty"
@@ -1240,7 +1241,6 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
   },
   donutWrap: { alignItems: "center", marginTop: 16 },
-  emptyState: { alignItems: "center", paddingVertical: 44 },
   emptyContainer: { minHeight: 480 },
   emptyContent: { flex: 1 },
   revealContent: { opacity: 1 },

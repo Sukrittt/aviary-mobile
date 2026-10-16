@@ -9,4 +9,5 @@ it('shows the empty illustration once there is genuinely no data', () => {
 it('hides the empty illustration while data is still loading', () => {
   const screen = renderWithProviders(<TrendChart data={[]} loading />)
   expect(screen.queryByTestId('trend-empty')).toBeNull()
+  expect(screen.getByTestId('tab-skeleton')).toBeTruthy()
 })
