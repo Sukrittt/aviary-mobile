@@ -21,6 +21,7 @@ import { usePrivacy } from '@/src/context/PrivacyContext'
 import { useInstantSetting } from '@/src/hooks/useInstantSetting'
 import { monthAbbrev, monthLabel, shiftMonthKey } from '@/src/lib/envelope'
 import { setPendingScanImage } from '@/src/lib/pendingScanImage'
+import { BILL_ENCODING, downscaleImage } from '@/src/lib/downscaleImage'
 import { WEB_URL } from '@/src/api/client'
 import { getSystemStatus } from '@/src/api/systemStatus'
 import { useUser } from '@/src/hooks/useUser'
@@ -165,7 +166,7 @@ export default function MoreScreen() {
       return
     }
 
-    setPendingScanImage({ base64: asset.base64, mimeType: asset.mimeType ?? 'image/jpeg' })
+    setPendingScanImage((await downscaleImage(asset, BILL_ENCODING)) ?? { base64: asset.base64, mimeType: asset.mimeType ?? 'image/jpeg' })
     closeScanPicker()
     router.push('/modals/scan-bill')
   }
