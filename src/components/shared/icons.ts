@@ -13,6 +13,7 @@ export { ArrowSquareOutIcon as ArrowSquareOut } from 'phosphor-react-native/src/
 export { ArrowUpIcon as ArrowUp } from 'phosphor-react-native/src/icons/ArrowUp'
 export { ArrowUpRightIcon as ArrowUpRight } from 'phosphor-react-native/src/icons/ArrowUpRight'
 export { ArrowsClockwiseIcon as ArrowsClockwise } from 'phosphor-react-native/src/icons/ArrowsClockwise'
+export { BellIcon as Bell } from 'phosphor-react-native/src/icons/Bell'
 export { BankIcon as Bank } from 'phosphor-react-native/src/icons/Bank'
 export { BookOpenIcon as BookOpen } from 'phosphor-react-native/src/icons/BookOpen'
 export { BrainIcon as Brain } from 'phosphor-react-native/src/icons/Brain'

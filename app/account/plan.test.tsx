@@ -10,6 +10,17 @@ jest.mock('expo-router', () => ({
   useRouter: () => ({ push: mockPush, back: jest.fn(), replace: mockReplace, canGoBack: () => mockCanGoBack }),
 }))
 
+let mockPurchasable = false
+jest.mock('@/src/lib/purchases', () => ({
+  purchasesAvailable: () => mockPurchasable,
+  getPackages: () =>
+    Promise.resolve([
+      { identifier: '$rc_monthly', packageType: 'MONTHLY', product: { price: 39, priceString: '₹39', pricePerMonthString: '₹39' } },
+      { identifier: '$rc_annual', packageType: 'ANNUAL', product: { price: 399, priceString: '₹399', pricePerMonthString: '₹33.25' } },
+    ]),
+  managementUrl: () => Promise.resolve(null),
+}))
+
 let mockStatus: BillingStatus | undefined
 jest.mock('@/src/hooks/useBillingStatus', () => ({
   useBillingStatus: () => ({ data: mockStatus, isLoading: false }),
@@ -35,6 +46,7 @@ const base: BillingStatus = {
 beforeEach(() => {
   jest.clearAllMocks()
   mockCanGoBack = true
+  mockPurchasable = false
 })
 
 it('shows the trial countdown without the lock-screen exits', () => {
@@ -106,4 +118,46 @@ it('has no back button while locked', () => {
   mockStatus = { ...base, mode: 'expired', allowed: false, trialDaysRemaining: 0 }
   const { queryByLabelText } = renderWithProviders(<PlanScreen />)
   expect(queryByLabelText('Back')).toBeNull()
+})
+
+it('mid-trial, shows one row into the paywall instead of the plans', async () => {
+  mockPurchasable = true
+  mockStatus = base
+  const { findByText, getByText, queryByText } = renderWithProviders(<PlanScreen />)
+
+  expect(await findByText("From ₹33.25/month. Nothing's charged unless you subscribe.")).toBeTruthy()
+  expect(queryByText('Yearly')).toBeNull()
+  expect(queryByText(/Keep Aviary|Available from/)).toBeNull()
+  fireEvent.press(getByText(/^What happens on /))
+  expect(mockPush).toHaveBeenCalledWith('/account/paywall')
+})
+
+it('calls the row See plans in the last week of the trial', () => {
+  mockPurchasable = true
+  mockStatus = { ...base, trialDaysRemaining: 5 }
+  const { getByText } = renderWithProviders(<PlanScreen />)
+
+  fireEvent.press(getByText('See plans'))
+  expect(mockPush).toHaveBeenCalledWith('/account/paywall')
+})
+
+it('puts the plans under the lock card when access has ended, exits included', async () => {
+  mockPurchasable = true
+  mockCanGoBack = false
+  mockStatus = { ...base, mode: 'expired', allowed: false, trialDaysRemaining: 0 }
+  const { findByText, getByText } = renderWithProviders(<PlanScreen />)
+
+  expect(await findByText('Keep Aviary · ₹399/year')).toBeTruthy()
+  expect(getByText('Snap a bill')).toBeTruthy()
+  expect(getByText('Sign out')).toBeTruthy()
+})
+
+it('sells to a trial that ran out while the cached status still says trial', async () => {
+  mockPurchasable = true
+  mockStatus = { ...base, trialEndsAt: '2020-01-01T00:00:00Z', trialDaysRemaining: 0 }
+  const { findByRole, queryByText } = renderWithProviders(<PlanScreen />)
+
+  expect(await findByRole('button', { name: 'Keep Aviary · ₹399/year' })).not.toBeDisabled()
+  expect(queryByText(/You can subscribe from/)).toBeNull()
+  expect(queryByText('Sign out')).toBeTruthy()
 })
