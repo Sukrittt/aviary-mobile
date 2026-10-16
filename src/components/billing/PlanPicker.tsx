@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import * as Haptics from 'expo-haptics'
+import { LinearGradient } from 'expo-linear-gradient'
 import Animated, {
   Easing,
   FadeInLeft,
@@ -15,7 +16,7 @@ import Animated, {
   withTiming,
   ZoomIn,
 } from 'react-native-reanimated'
-import { Bell, Camera, ChatCircle, Check, CheckCircle, Sparkle, SquaresFour, type PhosphorIcon } from '@/src/components/shared/icons'
+import { Bell, Camera, ChatCircle, Check, Sparkle, SquaresFour, type PhosphorIcon } from '@/src/components/shared/icons'
 import { PACKAGE_TYPE, type PurchasesPackage } from 'react-native-purchases'
 import { Button, usePressSpring } from '@/src/components/ui/Button'
 import { Icon } from '@/src/components/shared/Icon'
@@ -24,8 +25,8 @@ import { fontFamily } from '@/src/theme/fonts'
 import { REMINDER_DAYS, formatDate, yearlySavingsPercent } from '@/src/lib/billingStatus'
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable)
-// Same spring as AutoCategoryPill's landing pop.
-const POP_SPRING = { mass: 0.7, damping: 12, stiffness: 160 }
+// Near-critically damped: settles with a hint of give instead of a wobble.
+const SETTLE_SPRING = { damping: 26, stiffness: 260 }
 
 /** A subtle overshoot-and-settle whenever `key` changes to a value where `when` holds (not on mount). */
 function usePop(key: unknown, peak: number, when = true) {
@@ -35,7 +36,7 @@ function usePop(key: unknown, peak: number, when = true) {
   useEffect(() => {
     if (first.current) { first.current = false; return }
     if (reduceMotion || !when) return
-    scale.value = withSequence(withTiming(peak, { duration: 120 }), withSpring(1, POP_SPRING))
+    scale.value = withSequence(withTiming(peak, { duration: 120 }), withSpring(1, SETTLE_SPRING))
   }, [key, peak, when, reduceMotion, scale])
   return useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }))
 }
@@ -105,7 +106,7 @@ export function PlanPicker({
   const yearly = packages.find((p) => p.packageType === PACKAGE_TYPE.ANNUAL)
   const [selectedId, setSelectedId] = useState<string | undefined>((yearly ?? monthly)?.identifier)
   const selected = packages.find((p) => p.identifier === selectedId) ?? yearly ?? monthly
-  const subscribePop = usePop(selectedId, 1.04)
+  const subscribePop = usePop(selectedId, 1.02)
   const choose = (id: string) => {
     if (id === selectedId) return
     Haptics.selectionAsync().catch(() => {})
@@ -135,10 +136,10 @@ export function PlanPicker({
           </Text>
         </View>
         <View>
-          <Step index={0} now icon={Sparkle} label="Today" body="Everything's still unlocked. Log, scan, ask, Wrapped. The lot." />
-          {reminders.length ? <Step index={1} icon={Bell} label={reminders.join(' · ')} body="We'll nudge you again before anything changes." /> : null}
+          <Step index={0} tone="now" label="Today" body="Everything's still unlocked. Log, scan, ask, Wrapped. The lot." />
+          {reminders.length ? <Step index={1} tone="later" label={reminders.join(' · ')} body="We'll nudge you again before anything changes." /> : null}
           {Number.isNaN(endMs) ? null : (
-            <Step index={reminders.length ? 2 : 1} icon={CheckCircle} label={shortDate(endMs)} body={`Trial ends. Keep going from ${fromPrice}, or export your data free and leave. No hard feelings.`} last />
+            <Step index={reminders.length ? 2 : 1} tone="end" label={shortDate(endMs)} body={`Trial ends. Keep going from ${fromPrice}, or export your data free and leave. No hard feelings.`} last />
           )}
         </View>
       </>
@@ -238,10 +239,17 @@ const STEP_DELAY = 350
 /**
  * One dated step on the timeline, joined to the next by a rail. Steps pop in
  * one after another and each rail draws down to the next date; `now` (today)
- * keeps a soft breathing ring so "you are here" reads at a glance.
+ * keeps a soft breathing ring so "you are here" reads at a glance. Dots match
+ * Web's STEP_TONE: an accent dot today, a muted bell, a mint check at the end.
  */
-function Step({ index, icon, label, body, last, now }: { index: number; icon: PhosphorIcon; label: string; body: string; last?: boolean; now?: boolean }) {
+function Step({ index, tone, label, body, last }: { index: number; tone: 'now' | 'later' | 'end'; label: string; body: string; last?: boolean }) {
   const { tokens } = useTheme()
+  const now = tone === 'now'
+  const dot = {
+    now: { backgroundColor: tokens.accentSoft, borderColor: tokens.accent },
+    later: { backgroundColor: tokens.cardSolid, borderColor: tokens.borderStrong },
+    end: { backgroundColor: tokens.mintSoft, borderColor: tokens.mint },
+  }[tone]
   const reduceMotion = useReducedMotion()
   const delay = index * STEP_DELAY
   const rail = useSharedValue(reduceMotion ? 1 : 0)
@@ -256,13 +264,19 @@ function Step({ index, icon, label, body, last, now }: { index: number; icon: Ph
   return (
     <View style={styles.step}>
       <View style={{ alignItems: 'center' }}>
-        <Animated.View entering={reduceMotion ? undefined : ZoomIn.delay(delay).springify().damping(12)}>
+        <Animated.View entering={reduceMotion ? undefined : ZoomIn.delay(delay).springify().damping(SETTLE_SPRING.damping).stiffness(SETTLE_SPRING.stiffness)}>
           {now && !reduceMotion ? <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.stepRing, { backgroundColor: tokens.accentSoft }, ringStyle]} /> : null}
-          <View style={[styles.stepDot, { backgroundColor: tokens.accentSoft }]}>
-            <Icon icon={icon} size={16} color={tokens.accentInk} weight="bold" />
+          <View style={[styles.stepDot, dot]}>
+            {tone === 'now' ? <View style={[styles.stepNow, { backgroundColor: tokens.accent }]} /> : null}
+            {tone === 'later' ? <Icon icon={Bell} size={12} color={tokens.text3} weight="bold" /> : null}
+            {tone === 'end' ? <Icon icon={Check} size={12} color={tokens.mint} weight="bold" /> : null}
           </View>
         </Animated.View>
-        {last ? null : <Animated.View style={[styles.rail, { backgroundColor: tokens.accentSoft, transformOrigin: 'top' }, railStyle]} />}
+        {last ? null : (
+          <Animated.View style={[styles.rail, { backgroundColor: tokens.borderStrong, transformOrigin: 'top' }, railStyle]}>
+            {now ? <LinearGradient colors={[tokens.accent, tokens.borderStrong]} style={StyleSheet.absoluteFill} /> : null}
+          </Animated.View>
+        )}
       </View>
       <Animated.View
         entering={reduceMotion ? undefined : FadeInLeft.delay(delay + 50).duration(300)}
@@ -292,7 +306,7 @@ function Option({
 }) {
   const { tokens } = useTheme()
   const press = usePressSpring(0.97)
-  const selectPop = usePop(selected, 1.03, selected)
+  const selectPop = usePop(selected, 1.015, selected)
   return (
     <Animated.View style={selectPop}>
     <AnimatedPressable
@@ -308,7 +322,7 @@ function Option({
       ]}
     >
       <View style={[styles.radio, { borderColor: selected ? tokens.accent : tokens.borderStrong }]}>
-        {selected ? <Animated.View entering={ZoomIn.springify().damping(10)} style={[styles.radioDot, { backgroundColor: tokens.accent }]} /> : null}
+        {selected ? <Animated.View entering={ZoomIn.springify().damping(SETTLE_SPRING.damping).stiffness(SETTLE_SPRING.stiffness)} style={[styles.radioDot, { backgroundColor: tokens.accent }]} /> : null}
       </View>
       <View style={{ flex: 1, gap: 2 }}>
         <View style={styles.optionHead}>
@@ -334,11 +348,12 @@ const styles = StyleSheet.create({
   eyebrow: { fontSize: 12, letterSpacing: 1.2 },
   title: { fontSize: 28, lineHeight: 34 },
   sub: { fontSize: 14, lineHeight: 20 },
-  step: { flexDirection: 'row', gap: 14 },
-  stepRing: { borderRadius: 16 },
-  stepDot: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
-  rail: { width: 2, flex: 1, marginVertical: 4, borderRadius: 1 },
-  stepLabel: { fontSize: 15, marginTop: 6 },
+  step: { flexDirection: 'row', gap: 12 },
+  stepRing: { borderRadius: 12 },
+  stepDot: { width: 24, height: 24, borderRadius: 12, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  stepNow: { width: 8, height: 8, borderRadius: 4 },
+  rail: { width: 2, flex: 1, marginVertical: 4, borderRadius: 1, overflow: 'hidden' },
+  stepLabel: { fontSize: 15, lineHeight: 24 },
   stepBody: { fontSize: 13, lineHeight: 19 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   feature: { flexBasis: '45%', flexGrow: 1, borderWidth: 1, borderRadius: 18, padding: 14, gap: 6 },
