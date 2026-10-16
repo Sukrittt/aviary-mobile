@@ -86,3 +86,12 @@ it('only confirms offline when a follow-up probe also cannot reach the server', 
   fetch.mockRestore()
   jest.useRealTimers()
 })
+it('sends a public request without a token, so it never waits on a refresh', async () => {
+  const fetch = jest.spyOn(global, 'fetch').mockResolvedValueOnce(new Response('{}', { status: 200 }))
+  await apiFetch('/api/system/status', { anonymous: true })
+  expect(getValidToken).not.toHaveBeenCalled()
+  const [, init] = fetch.mock.calls[0] as [string, RequestInit & { anonymous?: boolean }]
+  expect(init.headers).toEqual({})
+  expect(init.anonymous).toBeUndefined()
+  fetch.mockRestore()
+})
