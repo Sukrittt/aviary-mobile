@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useState, type ReactElement } from 'react'
-import { ActivityIndicator, Alert, FlatList, Image, Modal, Pressable, StyleSheet, Text, View, type RefreshControlProps } from 'react-native'
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from 'react'
+import { ActivityIndicator, Alert, FlatList, Image, Pressable, StyleSheet, Text, View, type RefreshControlProps } from 'react-native'
 import * as Haptics from 'expo-haptics'
 import { Camera, ImageSquare } from '@/src/components/shared/icons'
 import { BottomSheet } from '@/src/components/shared/Modal'
 import { CategoryIcon } from '@/src/components/shared/CategoryIcon'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
+import { DeletingRow } from '@/src/components/activity/DeletingRow'
+import { TransactionDetail, type CardRect } from '@/src/components/activity/TransactionDetail'
 import { useNavPadding } from '@/src/components/ui/Screen'
 import { pickPhoto } from '@/src/features/log-expense/ExpensePhotoField'
 import { useExpensesFeed, useSaveExpensePhoto } from '@/src/hooks/useExpenses'
@@ -21,22 +23,33 @@ import type { CategoryRow, ExpenseRow } from '@/src/types'
 
 const FEED_PAGE_SIZE = 12
 
+const cardKey = (t: ExpenseRow) => t.id || `${t.timestamp}-${t.item}`
+
 type FeedParams = { category?: string; account?: string; from?: string; to?: string; q?: string }
 
 /**
  * Activity's feed view: every expense as a post, photo first, newest at the
  * top, loading more as you scroll. Expenses without a photo show their
  * category on its tint, with a one-tap way to add one. Income stays in the
- * list view; this is the story of your spending.
+ * list view; this is the story of your spending. Tapping a card opens it
+ * up into the expense's detail page.
  */
-export function ActivityFeed({ params, header, empty, categoryByName, onOpenActions, refreshControl }: {
+export function ActivityFeed({ params, header, empty, categoryByName, accountNameOf, onOpenActions, onEdit, onDelete, isDeleting, onDeleteDone, refreshControl }: {
   params: FeedParams
   /** Search and filters, scrolled away with the feed like the list's. */
   header: ReactElement
   /** Shown when the filters match nothing. */
   empty: ReactElement
   categoryByName: Map<string, CategoryRow>
+  accountNameOf: (id: string | undefined) => string
+  /** Long-press: the quick Edit / Delete sheet. */
   onOpenActions: (txn: ExpenseRow) => void
+  onEdit: (txn: ExpenseRow) => void
+  /** Asks to delete; the detail page is already closed by then. */
+  onDelete: (txn: ExpenseRow) => void
+  /** The confirmed delete whose card should collapse, then `onDeleteDone` sends it. */
+  isDeleting: (txn: ExpenseRow) => boolean
+  onDeleteDone: () => void
   refreshControl: ReactElement<RefreshControlProps>
 }) {
   const { tokens, space } = useTheme()
@@ -44,7 +57,8 @@ export function ActivityFeed({ params, header, empty, categoryByName, onOpenActi
   const feed = useExpensesFeed({ limit: FEED_PAGE_SIZE, ...params })
   const rows = useMemo(() => feed.data?.pages.flatMap((p) => p.rows) ?? EMPTY, [feed.data])
   const items = useMemo(() => groupByDay(rows), [rows])
-  const [viewing, setViewing] = useState<string | null>(null)
+  const [detail, setDetail] = useState<{ txn: ExpenseRow; rect: CardRect; uri: string | null } | null>(null)
+  const openDetail = useCallback((txn: ExpenseRow, rect: CardRect, uri: string | null) => setDetail({ txn, rect, uri }), [])
 
   const caption = { color: tokens.text3, fontFamily: fontFamily.bodySemiBold, fontSize: 12, textAlign: 'center' as const }
 
@@ -52,19 +66,23 @@ export function ActivityFeed({ params, header, empty, categoryByName, onOpenActi
     <>
       <FlatList
         data={items}
-        keyExtractor={(i: FeedItem) => (i.kind === 'day' ? `day-${i.date}` : `card-${i.txn.id || `${i.txn.timestamp}-${i.txn.item}`}`)}
+        keyExtractor={(i: FeedItem) => (i.kind === 'day' ? `day-${i.date}` : `card-${cardKey(i.txn)}`)}
         renderItem={({ item }) =>
           item.kind === 'day' ? (
             <Text accessibilityRole="header" style={[styles.day, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold, marginTop: space.md }]}>
               {formatDayLabel(item.date)}
             </Text>
           ) : (
-            <FeedCard
-              txn={item.txn}
-              category={categoryByName.get(item.txn.category)}
-              onOpenActions={onOpenActions}
-              onView={setViewing}
-            />
+            <DeletingRow active={isDeleting(item.txn)} onDone={onDeleteDone}>
+              <FeedCard
+                txn={item.txn}
+                category={categoryByName.get(item.txn.category)}
+                // Hidden while it's open, so the page reads as the card itself lifting off.
+                hidden={detail !== null && cardKey(detail.txn) === cardKey(item.txn)}
+                onOpenActions={onOpenActions}
+                onOpen={openDetail}
+              />
+            </DeletingRow>
           )
         }
         ListHeaderComponent={header}
@@ -92,25 +110,32 @@ export function ActivityFeed({ params, header, empty, categoryByName, onOpenActi
         contentContainerStyle={{ flexGrow: 1, paddingBottom: navPad }}
         showsVerticalScrollIndicator={false}
       />
-      <Modal visible={viewing !== null} transparent animationType="fade" onRequestClose={() => setViewing(null)}>
-        <Pressable
-          onPress={() => setViewing(null)}
-          accessibilityRole="button"
-          accessibilityLabel="Close photo"
-          style={{ flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.92)', padding: space.lg }}
-        >
-          {viewing && <Image source={{ uri: viewing }} style={{ flex: 1 }} resizeMode="contain" />}
-        </Pressable>
-      </Modal>
+      {detail && (
+        <TransactionDetail
+          txn={detail.txn}
+          from={detail.rect}
+          photoUri={detail.uri}
+          category={categoryByName.get(detail.txn.category)}
+          account={accountNameOf(detail.txn.account_id)}
+          onClosed={() => setDetail(null)}
+          onEdit={(t) => {
+            setDetail(null)
+            onEdit(t)
+          }}
+          onDelete={onDelete}
+        />
+      )}
     </>
   )
 }
 
-function FeedCard({ txn, category, onOpenActions, onView }: {
+// Memoised so opening one card's page doesn't re-render every card in the feed.
+const FeedCard = memo(function FeedCard({ txn, category, hidden, onOpenActions, onOpen }: {
   txn: ExpenseRow
   category?: CategoryRow
+  hidden: boolean
   onOpenActions: (txn: ExpenseRow) => void
-  onView: (uri: string) => void
+  onOpen: (txn: ExpenseRow, rect: CardRect, uri: string | null) => void
 }) {
   const { tokens, space, radius, type } = useTheme()
   const { hideAmounts } = usePrivacy()
@@ -125,6 +150,10 @@ function FeedCard({ txn, category, onOpenActions, onView }: {
   const [choosing, setChoosing] = useState(false)
   const signed = useMemo(() => (txn.photo_url ? stablePhotoUrl(txn.photo_url) : null), [txn.photo_url])
   const uri = picked?.uri ?? signed
+  const cardRef = useRef<View>(null)
+  function open() {
+    cardRef.current?.measureInWindow((x, y, width, height) => onOpen(txn, { x, y, width, height }, uri))
+  }
 
   useEffect(() => {
     if (!justAdded) return
@@ -158,11 +187,12 @@ function FeedCard({ txn, category, onOpenActions, onView }: {
   const notes = txn.notes?.trim()
 
   return (
-    <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border, borderRadius: radius.lg, marginTop: space.sm }]}>
+    <View ref={cardRef} style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border, borderRadius: radius.lg, marginTop: space.sm, opacity: hidden ? 0 : 1 }]}>
       <Pressable
-        onPress={() => onOpenActions(txn)}
+        onPress={open}
+        onLongPress={() => onOpenActions(txn)}
         accessibilityRole="button"
-        accessibilityLabel={`${txn.item}, ${name}. Edit or delete`}
+        accessibilityLabel={`${txn.item}, ${name}. View details`}
         style={[styles.head, { padding: space.md, gap: space.md }]}
       >
         <View style={[styles.avatar, { backgroundColor: tint.bg }]}>
@@ -180,12 +210,8 @@ function FeedCard({ txn, category, onOpenActions, onView }: {
       {/* The add button and overlays sit beside the media's Pressable, not
           inside it: an accessible button hides its children from VoiceOver. */}
       <View>
-        <Pressable
-          onPress={() => (uri ? onView(uri) : onOpenActions(txn))}
-          onLongPress={() => onOpenActions(txn)}
-          accessibilityRole="button"
-          accessibilityLabel={uri ? `View photo of ${txn.item}` : `${txn.item}. Edit or delete`}
-        >
+        {/* Same as the header for touch; VoiceOver gets the one button above. */}
+        <Pressable onPress={open} onLongPress={() => onOpenActions(txn)} accessible={false}>
           {uri ? (
             <Image source={{ uri }} style={[styles.photo, { backgroundColor: tokens.inputBg }]} />
           ) : (
@@ -255,7 +281,7 @@ function FeedCard({ txn, category, onOpenActions, onView }: {
       ) : null}
     </View>
   )
-}
+})
 
 const styles = StyleSheet.create({
   day: { fontSize: 13 },

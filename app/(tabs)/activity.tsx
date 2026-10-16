@@ -683,7 +683,14 @@ export default function ActivityScreen() {
             header={controls}
             empty={emptyState}
             categoryByName={categoryByName}
+            accountNameOf={(id) => accountName(accountsQ.data, id)}
             onOpenActions={setSheetTxn}
+            onEdit={openEdit}
+            onDelete={confirmDelete}
+            isDeleting={(t) => pendingDelete !== null && keyOf(pendingDelete) === keyOf(t)}
+            onDeleteDone={() => {
+              if (pendingDelete) runDelete(pendingDelete);
+            }}
             refreshControl={refreshControl}
           />
         ) : (
@@ -948,9 +955,7 @@ export default function ActivityScreen() {
             color={tokens.coral}
             onPress={() => {
               if (!deleteTxn) return;
-              // The feed has no collapsing row to wait on.
-              if (feedView) runDelete(deleteTxn);
-              else setPendingDelete(deleteTxn);
+              setPendingDelete(deleteTxn);
               setDeleteTxn(null);
             }}
           />
