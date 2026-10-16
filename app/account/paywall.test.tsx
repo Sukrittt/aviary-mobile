@@ -62,3 +62,18 @@ it('pitches the benefits with no way to close while locked out', async () => {
   expect(queryByLabelText('Close')).toBeNull()
   expect(track).toHaveBeenCalledWith('paywall_viewed', { trigger: 'access_expired', plan_status: 'expired' })
 })
+
+it('sells to a trial that ran out while the cached status still says trial', async () => {
+  mockStatus = { ...trial, trialEndsAt: '2020-01-01T00:00:00Z', trialDaysRemaining: 0 }
+  const { findByRole, queryByText } = renderWithProviders(<PaywallScreen />)
+
+  expect(await findByRole('button', { name: 'Keep Aviary · ₹399/year' })).not.toBeDisabled()
+  expect(queryByText('Try everything. Pay only if it sticks.')).toBeNull()
+  expect(queryByText(/You can subscribe from/)).toBeNull()
+})
+
+it('closes once a purchase or restore lands a plan', () => {
+  mockStatus = { ...trial, mode: 'paid', productId: 'monthly', paidExpiresAt: '2099-12-01T00:00:00Z', autoRenew: true, renewalState: 'active' }
+  renderWithProviders(<PaywallScreen />)
+  expect(mockBack).toHaveBeenCalled()
+})

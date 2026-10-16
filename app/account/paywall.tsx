@@ -24,6 +24,12 @@ export default function PaywallScreen() {
   const { status, locked, canBuy, packagesQuery, busy, buy, doRestore } = usePaywall()
 
   const close = () => (router.canGoBack() ? router.back() : router.replace('/account/plan'))
+  // A purchase or restore that lands a plan leaves nothing to sell here.
+  const nowPaid = status?.mode === 'paid'
+  useEffect(() => {
+    if (nowPaid) close()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- close is recreated each render
+  }, [nowPaid])
 
   // Once per open. `trigger` separates someone browsing plans mid-trial from someone locked out.
   const seen = useRef(false)
@@ -52,12 +58,12 @@ export default function PaywallScreen() {
         <PlanPicker
           pinned
           packages={packagesQuery.data}
-          variant={status.mode === 'trial' ? 'timeline' : 'benefits'}
+          variant={status.mode === 'trial' && !locked ? 'timeline' : 'benefits'}
           trialEndsAt={status.trialEndsAt}
           trialDaysRemaining={status.trialDaysRemaining}
           canBuy={canBuy}
           busy={busy !== null}
-          onBuy={(pkg) => void buy(pkg).then((ok) => ok && close())}
+          onBuy={(pkg) => void buy(pkg)}
         />
       ) : packagesQuery.isLoading || !status ? (
         <ActivityIndicator color={tokens.accent} style={{ marginTop: 40 }} />
