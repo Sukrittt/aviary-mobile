@@ -94,10 +94,13 @@ export async function apiFetch(path: string, init?: RequestInit, expectedGenerat
  * of a run still goes out even though track() skips while offline.
  */
 function reportRequestFailure(phase: 'token_refresh' | 'fetch', path: string, err: unknown, startedAt: number): void {
+  // AuthRefreshError's `reason`: what failed under the refresh (a timeout, no network, a WorkOS 5xx).
+  const reason = (err as { reason?: unknown } | null)?.reason
   track('request_failed', {
     phase,
     path: metricPath(path),
     error: err instanceof Error ? err.name : 'unknown',
+    ...(typeof reason === 'string' && { reason }),
     elapsed_ms: Date.now() - startedAt,
   })
 }

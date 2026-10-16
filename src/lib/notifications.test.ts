@@ -215,3 +215,43 @@ it('unregisters the device token against BASE_URL', async () => {
     global.fetch = originalFetch
   }
 })
+
+// Two users sent 39 'permission denied' events in a day: every launch re-ran
+// registration and reported the same denial again.
+it('handles a denial once, then waits for the permission to change', async () => {
+  const Notifications = jest.requireMock('expo-notifications')
+  const original = Notifications.getPermissionsAsync
+  const originalToken = Notifications.getExpoPushTokenAsync
+  Notifications.getPermissionsAsync = jest.fn(() => Promise.resolve({ status: 'denied', canAskAgain: true }))
+  Notifications.requestPermissionsAsync = jest.fn(() => Promise.resolve({ status: 'denied' }))
+  Notifications.getExpoPushTokenAsync = () => Promise.resolve({ data: 'ExponentPushToken[back]' })
+  try {
+    jest.mocked(track).mockClear()
+    jest.mocked(registerPushToken).mockClear()
+    await registerForPushNotificationsAsync()
+    expect(Notifications.requestPermissionsAsync).toHaveBeenCalledTimes(1)
+    expect(track).toHaveBeenCalledWith('push_registration_failed', { stage: 'permission', error: 'permission denied' })
+
+    // Next launches: still denied, so no prompt and no event.
+    jest.mocked(track).mockClear()
+    await registerForPushNotificationsAsync()
+    await registerForPushNotificationsAsync()
+    expect(Notifications.requestPermissionsAsync).toHaveBeenCalledTimes(1)
+    expect(track).not.toHaveBeenCalled()
+
+    // Turned on in system settings: the next launch registers.
+    Notifications.getPermissionsAsync = jest.fn(() => Promise.resolve({ status: 'granted', canAskAgain: true }))
+    await registerForPushNotificationsAsync()
+    expect(registerPushToken).toHaveBeenCalledWith('ExponentPushToken[back]', expect.any(String))
+  } finally {
+    Notifications.getPermissionsAsync = original
+    Notifications.getExpoPushTokenAsync = originalToken
+  }
+})
+
+it('opens Recurring from a paused recurring expense push', () => {
+  mockPush.mockClear()
+  addNotificationResponseListener()
+  responseListener!({ notification: { request: { content: { data: { route: '/account/recurring' } } } } })
+  expect(mockPush).toHaveBeenCalledWith('/account/recurring')
+})
