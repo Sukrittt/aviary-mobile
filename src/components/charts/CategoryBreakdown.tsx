@@ -19,6 +19,7 @@ import { usePrivacy } from "@/src/context/PrivacyContext";
 import { fontFamily } from "@/src/theme/fonts";
 
 import { categoryTint, chartInk } from "@/src/lib/emoji";
+import { categoryChartColor } from "@/src/theme/chartColors";
 import { PopIn } from "@/src/components/shared/PopIn";
 import { BottomSheet } from "@/src/components/shared/Modal";
 import { Button } from "@/src/components/ui/Button";
@@ -37,6 +38,8 @@ interface Props {
   categoryRows: BreakdownRow[];
   groupRows: BreakdownRow[];
   categoryGroupMap: ReadonlyMap<string, string>;
+  /** The user's category (or group, in group mode) names in list order; picks each wedge's colour. */
+  colorOrder: readonly string[];
   mode: "category" | "group";
   onModeChange: (mode: "category" | "group") => void;
   /** Controlled selection, lifted to the screen so the heat map card can
@@ -141,6 +144,7 @@ export function CategoryBreakdown({
   categoryRows,
   groupRows,
   categoryGroupMap,
+  colorOrder,
   mode,
   onModeChange,
   selectedKey,
@@ -274,16 +278,17 @@ export function CategoryBreakdown({
   );
   const play = revealReady;
 
-  // Same name-hashed tint as the category's icon tile on Home, so a category
-  // is one colour everywhere instead of whatever its rank here happens to be.
+  // The icon tile keeps its name-hashed tint (as on Home). The wedge and bar
+  // take the chart palette, keyed to the category's place in the user's list
+  // rather than its rank here, so a colour holds as spend shifts.
   const tintByKey = useMemo(() => {
     const map = new Map<string, { bg: string; ink: string; chart: string }>();
     rows.forEach((row) => {
       const tint = categoryTint(row.label, tokens);
-      map.set(row.key, { ...tint, chart: chartInk(tint.ink, scheme) });
+      map.set(row.key, { ...tint, chart: categoryChartColor(row.key, colorOrder, tokens) });
     });
     return map;
-  }, [rows, tokens, scheme]);
+  }, [rows, tokens, colorOrder]);
 
   const segments = useMemo(() => {
     const big = displayRows.filter((r) => r.pct >= DONUT_TAIL_PCT);
