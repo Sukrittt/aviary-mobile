@@ -12,6 +12,7 @@ const mockPush = jest.fn()
 let mockDuplicates: unknown[] = []
 const mockUseExpensesFeed = jest.fn()
 let mockUser: { activityFeed?: boolean } = {}
+let mockRecent: { has_photo?: boolean }[] = []
 
 jest.mock('@/src/hooks/useExpenses', () => ({
   useExpensesPage: (params: ExpensesPageParams) => mockUseExpensesPage(params),
@@ -23,7 +24,7 @@ jest.mock('@/src/hooks/useExpenses', () => ({
   // unpaginated hook for its autosuggest word map — unrelated to this
   // screen's own paginated fetch, so a static empty result is enough.
   useExpenses: () => ({ data: [], isLoading: false, error: null }),
-  useRecentExpenses: () => ({ data: [], isLoading: false, error: null }),
+  useRecentExpenses: () => ({ data: mockRecent, isLoading: false, error: null }),
 }))
 
 let mockIncomes: Record<string, unknown>[] = []
@@ -449,6 +450,32 @@ describe('feed view', () => {
     expect(screen.getByText('1 transaction')).toBeTruthy()
     fireEvent.press(screen.getByLabelText('Show as feed'))
     expect(screen.getByLabelText('Item 1, Food. View details')).toBeTruthy()
+  })
+
+  describe('with a photo and no choice in Features', () => {
+    beforeEach(() => {
+      mockUser = {}
+      mockRecent = [{ has_photo: true }]
+    })
+    afterEach(() => {
+      mockRecent = []
+    })
+
+    it('offers the switch but stays on the list, with a tip that opens the feed', async () => {
+      const screen = renderWithProviders(<ActivityScreen />)
+      expect(screen.getByText('1 transaction')).toBeTruthy()
+      expect(screen.getByLabelText('Show as feed')).toBeTruthy()
+      fireEvent.press(await screen.findByLabelText('Try the feed'))
+      expect(screen.getByLabelText('Item 1, Food. View details')).toBeTruthy()
+      expect(screen.queryByLabelText('Try the feed')).toBeNull()
+    })
+
+    it('keeps the switch hidden once turned off in Features', () => {
+      mockUser = { activityFeed: false }
+      const screen = renderWithProviders(<ActivityScreen />)
+      expect(screen.queryByLabelText('Show as feed')).toBeNull()
+      expect(screen.queryByLabelText('Try the feed')).toBeNull()
+    })
   })
 
   it('deletes from the feed as soon as the delete is confirmed', () => {

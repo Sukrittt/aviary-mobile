@@ -9,6 +9,7 @@ import { Icon } from '@/src/components/shared/Icon'
 import { Toggle } from '@/src/components/ui/Toggle'
 import { Alert } from '@/src/components/ui/AlertHost'
 import { useUser, useUpdateUser } from '@/src/hooks/useUser'
+import { useFeedOn } from '@/src/hooks/useActivityView'
 import { HIDEABLE_FEATURES, hiddenFeatures, type HideableFeature } from '@/src/lib/features'
 
 export default function FeaturesScreen() {
@@ -16,6 +17,7 @@ export default function FeaturesScreen() {
   const insets = useSafeAreaInsets()
   const router = useRouter()
   const user = useUser().data
+  const feedOn = useFeedOn().on
   const updateUser = useUpdateUser()
 
   // Local copy so a flip shows instantly and rapid flips build on each other,
@@ -83,7 +85,8 @@ export default function FeaturesScreen() {
               </View>
               <Toggle
                 accessibilityLabel="Feed view in Activity"
-                value={user?.activityFeed === true}
+                // On by itself after a first photo, so it shows on and turning it off sticks.
+                value={feedOn}
                 disabled={!user}
                 onValueChange={(v) =>
                   updateUser.mutate(

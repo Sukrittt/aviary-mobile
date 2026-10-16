@@ -111,6 +111,8 @@ export type AppEvent =
   | 'capture_logged'
   | 'capture_tip'
   | 'capture_dismissed'
+  // The one-time pointer at Activity's feed switch: shown, tried, or dismissed.
+  | 'feed_tip'
   // The weekly balance check: what a check found (kind, and whether the
   // prefilled balance was kept as is), and how a gap was explained. No amounts.
   | 'balance_checked'
