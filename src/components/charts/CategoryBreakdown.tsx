@@ -633,7 +633,7 @@ export function CategoryBreakdown({
         </View>
       </View>
 
-      {empty && loading ? (
+      {loading ? (
         <DonutSkeleton />
       ) : empty ? (
         <EmptyState

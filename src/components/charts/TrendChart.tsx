@@ -180,8 +180,8 @@ export function TrendChart({
   const [width, setWidth] = useState(0)
   const signature = data.map((d) => `${d.date}:${d.value}`).join('|')
 
+  if (loading) return <TrendSkeleton height={height} />
   if (data.length === 0) {
-    if (loading) return <TrendSkeleton height={height} />
     return (
       <EmptyState
         testID="trend-empty"
