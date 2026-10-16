@@ -3,12 +3,17 @@ import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import * as Haptics from 'expo-haptics'
 import Animated, {
+  Easing,
+  FadeInLeft,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
+  withDelay,
+  withRepeat,
   withSequence,
   withSpring,
   withTiming,
+  ZoomIn,
 } from 'react-native-reanimated'
 import { Bell, Camera, ChatCircle, Check, CheckCircle, Sparkle, SquaresFour, type PhosphorIcon } from '@/src/components/shared/icons'
 import { PACKAGE_TYPE, type PurchasesPackage } from 'react-native-purchases'
@@ -130,10 +135,10 @@ export function PlanPicker({
           </Text>
         </View>
         <View>
-          <Step icon={Sparkle} label="Today" body="Everything's still unlocked. Log, scan, ask, Wrapped. The lot." />
-          {reminders.length ? <Step icon={Bell} label={reminders.join(' · ')} body="We'll nudge you again before anything changes." /> : null}
+          <Step index={0} now icon={Sparkle} label="Today" body="Everything's still unlocked. Log, scan, ask, Wrapped. The lot." />
+          {reminders.length ? <Step index={1} icon={Bell} label={reminders.join(' · ')} body="We'll nudge you again before anything changes." /> : null}
           {Number.isNaN(endMs) ? null : (
-            <Step icon={CheckCircle} label={shortDate(endMs)} body={`Trial ends. Keep going from ${fromPrice}, or export your data free and leave. No hard feelings.`} last />
+            <Step index={reminders.length ? 2 : 1} icon={CheckCircle} label={shortDate(endMs)} body={`Trial ends. Keep going from ${fromPrice}, or export your data free and leave. No hard feelings.`} last />
           )}
         </View>
       </>
@@ -227,21 +232,45 @@ export function PlanPicker({
   )
 }
 
-/** One dated step on the timeline, joined to the next by a rail. */
-function Step({ icon, label, body, last }: { icon: PhosphorIcon; label: string; body: string; last?: boolean }) {
+/** Milliseconds between timeline steps as they pop in. Matches Web's WebPlanPicker. */
+const STEP_DELAY = 350
+
+/**
+ * One dated step on the timeline, joined to the next by a rail. Steps pop in
+ * one after another and each rail draws down to the next date; `now` (today)
+ * keeps a soft breathing ring so "you are here" reads at a glance.
+ */
+function Step({ index, icon, label, body, last, now }: { index: number; icon: PhosphorIcon; label: string; body: string; last?: boolean; now?: boolean }) {
   const { tokens } = useTheme()
+  const reduceMotion = useReducedMotion()
+  const delay = index * STEP_DELAY
+  const rail = useSharedValue(reduceMotion ? 1 : 0)
+  const ring = useSharedValue(0)
+  useEffect(() => {
+    if (reduceMotion) return
+    rail.value = withDelay(delay + 120, withTiming(1, { duration: STEP_DELAY, easing: Easing.inOut(Easing.ease) }))
+    if (now) ring.value = withDelay(1000, withRepeat(withTiming(1, { duration: 1800, easing: Easing.out(Easing.ease) }), -1))
+  }, [reduceMotion, delay, now, rail, ring])
+  const railStyle = useAnimatedStyle(() => ({ transform: [{ scaleY: rail.value }] }))
+  const ringStyle = useAnimatedStyle(() => ({ opacity: 0.6 * (1 - ring.value), transform: [{ scale: 1 + ring.value * 0.5 }] }))
   return (
     <View style={styles.step}>
       <View style={{ alignItems: 'center' }}>
-        <View style={[styles.stepDot, { backgroundColor: tokens.accentSoft }]}>
-          <Icon icon={icon} size={16} color={tokens.accentInk} weight="bold" />
-        </View>
-        {last ? null : <View style={[styles.rail, { backgroundColor: tokens.accentSoft }]} />}
+        <Animated.View entering={reduceMotion ? undefined : ZoomIn.delay(delay).springify().damping(12)}>
+          {now && !reduceMotion ? <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.stepRing, { backgroundColor: tokens.accentSoft }, ringStyle]} /> : null}
+          <View style={[styles.stepDot, { backgroundColor: tokens.accentSoft }]}>
+            <Icon icon={icon} size={16} color={tokens.accentInk} weight="bold" />
+          </View>
+        </Animated.View>
+        {last ? null : <Animated.View style={[styles.rail, { backgroundColor: tokens.accentSoft, transformOrigin: 'top' }, railStyle]} />}
       </View>
-      <View style={{ flex: 1, gap: 2, paddingBottom: last ? 0 : 18 }}>
+      <Animated.View
+        entering={reduceMotion ? undefined : FadeInLeft.delay(delay + 50).duration(300)}
+        style={{ flex: 1, gap: 2, paddingBottom: last ? 0 : 18 }}
+      >
         <Text style={[styles.stepLabel, { color: tokens.text, fontFamily: fontFamily.bodyExtraBold }]}>{label}</Text>
         <Text style={[styles.stepBody, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>{body}</Text>
-      </View>
+      </Animated.View>
     </View>
   )
 }
@@ -279,14 +308,14 @@ function Option({
       ]}
     >
       <View style={[styles.radio, { borderColor: selected ? tokens.accent : tokens.borderStrong }]}>
-        {selected ? <View style={[styles.radioDot, { backgroundColor: tokens.accent }]} /> : null}
+        {selected ? <Animated.View entering={ZoomIn.springify().damping(10)} style={[styles.radioDot, { backgroundColor: tokens.accent }]} /> : null}
       </View>
       <View style={{ flex: 1, gap: 2 }}>
         <View style={styles.optionHead}>
           <Text style={[styles.optionLabel, { color: tokens.text, fontFamily: fontFamily.bodyExtraBold }]}>{label}</Text>
           {badge ? (
-            <View style={[styles.badge, { backgroundColor: tokens.mintSoft }]}>
-              <Text style={[styles.badgeText, { color: tokens.mint, fontFamily: fontFamily.bodyExtraBold }]}>{badge}</Text>
+            <View style={[styles.badge, { backgroundColor: tokens.mint }]}>
+              <Text style={[styles.badgeText, { color: tokens.bg, fontFamily: fontFamily.bodyExtraBold }]}>{badge}</Text>
             </View>
           ) : null}
         </View>
@@ -306,6 +335,7 @@ const styles = StyleSheet.create({
   title: { fontSize: 28, lineHeight: 34 },
   sub: { fontSize: 14, lineHeight: 20 },
   step: { flexDirection: 'row', gap: 14 },
+  stepRing: { borderRadius: 16 },
   stepDot: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   rail: { width: 2, flex: 1, marginVertical: 4, borderRadius: 1 },
   stepLabel: { fontSize: 15, marginTop: 6 },
@@ -322,7 +352,7 @@ const styles = StyleSheet.create({
   optionLabel: { fontSize: 15 },
   optionDetail: { fontSize: 12 },
   optionPrice: { fontSize: 15 },
-  badge: { borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 },
+  badge: { borderRadius: 999, paddingHorizontal: 9, paddingVertical: 3 },
   badgeText: { fontSize: 12, letterSpacing: 0.3 },
   trust: { flexDirection: 'row', justifyContent: 'center', gap: 16 },
   trustItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },

@@ -69,6 +69,7 @@ function layoutAnimation() {
 const FadeIn = layoutAnimation()
 const FadeInDown = layoutAnimation()
 const FadeInUp = layoutAnimation()
+const FadeInLeft = layoutAnimation()
 const FadeOut = layoutAnimation()
 const FadeOutLeft = layoutAnimation()
 const LinearTransition = layoutAnimation()
@@ -126,6 +127,7 @@ module.exports = {
   FadeIn,
   FadeInDown,
   FadeInUp,
+  FadeInLeft,
   FadeOut,
   FadeOutLeft,
   LinearTransition,
