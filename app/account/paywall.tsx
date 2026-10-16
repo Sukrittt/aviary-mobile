@@ -15,7 +15,8 @@ import { fontFamily } from '@/src/theme/fonts'
  * it's the timeline: what happens and when, with no button to press until
  * Play can actually sell. Once access has ended it's the benefits pitch.
  * A locked-out account sees that inline on Plan & billing instead, where
- * the exits live, so normally there's always somewhere to close back to.
+ * the exits live, so if access is lost while this is open (a restore that
+ * finds nothing, say) it hands straight back there.
  */
 export default function PaywallScreen() {
   const { tokens } = useTheme()
@@ -24,19 +25,19 @@ export default function PaywallScreen() {
   const { status, locked, canBuy, packagesQuery, busy, buy, doRestore } = usePaywall()
 
   const close = () => (router.canGoBack() ? router.back() : router.replace('/account/plan'))
-  // A purchase or restore that lands a plan leaves nothing to sell here.
-  const nowPaid = status?.mode === 'paid'
+  // Paid: nothing left to sell. Locked: Plan & billing has the pitch and the exits.
+  const done = status?.mode === 'paid' || locked
   useEffect(() => {
-    if (nowPaid) close()
+    if (done) close()
     // eslint-disable-next-line react-hooks/exhaustive-deps -- close is recreated each render
-  }, [nowPaid])
+  }, [done])
 
-  // Once per open. `trigger` separates someone browsing plans mid-trial from someone locked out.
+  // Once per open. A locked account is logged by Plan & billing, where it's handed back to.
   const seen = useRef(false)
   useEffect(() => {
-    if (!status || seen.current) return
+    if (!status || locked || seen.current) return
     seen.current = true
-    track('paywall_viewed', { trigger: locked ? 'access_expired' : 'plan_screen', plan_status: status.mode })
+    track('paywall_viewed', { trigger: 'plan_screen', plan_status: status.mode })
   }, [status, locked])
 
   return (

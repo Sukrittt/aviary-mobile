@@ -151,3 +151,13 @@ it('puts the plans under the lock card when access has ended, exits included', a
   expect(getByText('Snap a bill')).toBeTruthy()
   expect(getByText('Sign out')).toBeTruthy()
 })
+
+it('sells to a trial that ran out while the cached status still says trial', async () => {
+  mockPurchasable = true
+  mockStatus = { ...base, trialEndsAt: '2020-01-01T00:00:00Z', trialDaysRemaining: 0 }
+  const { findByRole, queryByText } = renderWithProviders(<PlanScreen />)
+
+  expect(await findByRole('button', { name: 'Keep Aviary · ₹399/year' })).not.toBeDisabled()
+  expect(queryByText(/You can subscribe from/)).toBeNull()
+  expect(queryByText('Sign out')).toBeTruthy()
+})
