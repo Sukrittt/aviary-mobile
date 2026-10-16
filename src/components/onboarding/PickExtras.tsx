@@ -24,7 +24,7 @@ export const EXTRAS: { key: HideableFeature; icon: PhosphorIcon; pitch: string }
 const labelOf = (key: HideableFeature) => HIDEABLE_FEATURES.find((f) => f.key === key)?.label ?? key
 
 /**
- * Setup's last screen: every extra a new account starts without, each one
+ * Setup's second-to-last screen: every extra a new account starts without, each one
  * line, so nobody has to stumble on them later. The budget is already saved,
  * so leaving here keeps the defaults.
  */
@@ -86,7 +86,7 @@ export function PickExtras({ onDone }: { onDone: () => void }) {
 
       <Pressable accessibilityRole="button" onPress={finish} disabled={saving} style={[styles.cta, { backgroundColor: tokens.accent, opacity: saving ? 0.6 : 1 }]}>
         <Text style={[styles.ctaText, { color: tokens.onAccent, fontFamily: fontFamily.displaySemiBold }]}>
-          {saving ? 'Saving…' : on.size ? 'Start budgeting' : 'Skip for now'}
+          {saving ? 'Saving…' : on.size ? 'Continue' : 'Skip for now'}
         </Text>
       </Pressable>
     </View>
