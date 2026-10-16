@@ -72,9 +72,6 @@ export default function FeaturesScreen() {
               </View>
             ))}
           </View>
-          <Text style={[styles.footnote, { color: tokens.text3 }]}>
-            Turn off what you don&apos;t use. Hiding a feature keeps its data, so you can turn it back on anytime.
-          </Text>
         </View>
 
         <View style={styles.section}>
@@ -97,6 +94,9 @@ export default function FeaturesScreen() {
               />
             </View>
           </View>
+          <Text style={[styles.footnote, { color: tokens.text3 }]}>
+            Turn off what you don&apos;t use. Hiding a feature keeps its data, so you can turn it back on anytime.
+          </Text>
         </View>
       </ScrollView>
     </View>
