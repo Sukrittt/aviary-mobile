@@ -35,3 +35,8 @@ it('ends Wrapped by pointing at the month ahead', () => {
   // Closes Wrapped rather than switching tabs under it, which left its music playing.
   expect(mockDismissTo).toHaveBeenCalledWith('/(tabs)')
 })
+
+it('counts active days, not the length of the month', () => {
+  render(<CurrencyScope code="INR"><ShareCard data={data} onColor="#fff" /></CurrencyScope>)
+  expect(screen.getByText(/^27 active days, one /)).toBeTruthy()
+})

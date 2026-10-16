@@ -82,7 +82,7 @@ export function ShareCard({
         >
           <WRise delay={60}>
             <Text style={[styles.headline, { color: onColor, fontFamily: fontFamily.displayBold }]}>
-              {data.range.daysTracked} days, one {archetypeName}.
+              {data.range.daysTracked} active {data.range.daysTracked === 1 ? 'day' : 'days'}, one {archetypeName}.
             </Text>
           </WRise>
           <WRise delay={180}>

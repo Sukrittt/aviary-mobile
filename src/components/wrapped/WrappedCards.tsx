@@ -4,7 +4,7 @@ import type { WrappedData, WrappedJudgement, WrappedPersona } from '@/src/api/wr
 import { fontFamily } from '@/src/theme/fonts'
 import { splitEmoji } from '@/src/lib/emoji'
 import { monthAbbrev, monthLabel } from '@/src/lib/envelope'
-import { Fire, FireSimple, Lightning, Scales, Target, Wind, type PhosphorIcon } from '@/src/components/shared/icons'
+import { Fire, FireSimple, Lightning, Scales, SpeakerHigh, Target, Wind, type PhosphorIcon } from '@/src/components/shared/icons'
 import { CategoryLabel, WrappedCategoryIcon } from './CategoryLabel'
 import { WrappedCard, WrappedBigNumber, WrappedCaption, WrappedGlow, WFade, WRise, WPop } from './WrappedCard'
 
@@ -51,7 +51,8 @@ export function CoverCard({
       </WRise>
       <WRise delay={300} style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
         <Pressable onPress={onStart} style={[styles.coverButton, { backgroundColor: onColor }]}>
-          <Text style={[styles.coverButtonText, { color, fontFamily: fontFamily.displaySemiBold }]}>Play with sound ♫</Text>
+          <Text style={[styles.coverButtonText, { color, fontFamily: fontFamily.displaySemiBold }]}>Play with sound</Text>
+          <SpeakerHigh size={16} color={color} weight="bold" />
         </Pressable>
         <Pressable onPress={onStartMuted} style={[styles.coverButtonGhost, { borderColor: `${onColor}66` }]}>
           <Text style={[styles.coverButtonGhostText, { color: onColor, fontFamily: fontFamily.bodyExtraBold }]}>Silent</Text>
@@ -224,7 +225,7 @@ const styles = StyleSheet.create({
     letterSpacing: -2,
     includeFontPadding: false,
   },
-  coverButton: { paddingVertical: 15, paddingHorizontal: 22, borderRadius: 100 },
+  coverButton: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 15, paddingHorizontal: 22, borderRadius: 100 },
   coverButtonText: { fontSize: 15 },
   coverButtonGhost: { paddingVertical: 15, paddingHorizontal: 18, borderRadius: 100, borderWidth: 1 },
   coverButtonGhostText: { fontSize: 13 },
