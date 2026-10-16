@@ -53,6 +53,7 @@ export type AppEvent =
   | 'onboarding_completed'
   // Which extras were switched on from setup's last screen. `extras` is the feature keys.
   | 'onboarding_extras_chosen'
+  | 'onboarding_heard_from'
   | 'tour_started'
   | 'tour_step_viewed'
   | 'tour_skipped'

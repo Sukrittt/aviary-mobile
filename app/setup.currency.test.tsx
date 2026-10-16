@@ -35,7 +35,7 @@ it('defaults to the device region currency', () => {
 it('selects currency before income, preserves it on back, and saves it with onboarding', async () => {
   const onFinished = jest.fn()
   const unsubscribe = onOnboarded(onFinished)
-  const { getByText, getByLabelText, getByRole, queryByText, unmount } = renderWithProviders(<SetupScreen />)
+  const { getByText, findByText, getByLabelText, getByRole, queryByText, unmount } = renderWithProviders(<SetupScreen />)
   expect(getByText('Choose your currency')).toBeTruthy()
   expect(queryByText('1 / 5')).toBeNull()
   fireEvent.changeText(getByLabelText('Search currencies'), 'USD')
@@ -81,6 +81,10 @@ it('selects currency before income, preserves it on back, and saves it with onbo
   expect(Haptics.impactAsync).toHaveBeenCalledTimes(6)
   // Then the extras, all off, before the app opens.
   expect(getByText('Want any extras?')).toBeTruthy()
+  expect(onFinished).not.toHaveBeenCalled()
+  fireEvent.press(getByText('Skip for now'))
+  // Then where you heard about us.
+  expect(await findByText('Where did you hear about us?')).toBeTruthy()
   expect(onFinished).not.toHaveBeenCalled()
   fireEvent.press(getByText('Skip for now'))
   await waitFor(() => expect(onFinished).toHaveBeenCalledTimes(1))

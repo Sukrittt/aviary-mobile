@@ -8,6 +8,9 @@ import { apiFetch } from './client'
 import { deviceTimezone } from '@/src/lib/date'
 import type { HideableFeature } from '@/src/lib/features'
 
+/** Setup's "Where did you hear about us?" answers. Twin of the server's HEARD_FROM_SOURCES in Web's lib/users.ts. */
+export type HeardFrom = 'friend' | 'search' | 'social' | 'reddit' | 'youtube' | 'appStore' | 'article' | 'other'
+
 export interface UserProfile {
   _id?: string
   currencyCode?: string
@@ -36,6 +39,8 @@ export interface UserProfile {
   hiddenFeatures?: HideableFeature[]
   /** Activity's photo feed, turned on in More → Features. Absent = off. */
   activityFeed?: boolean
+  /** Setup's "Where did you hear about us?" answer. Absent = skipped. */
+  heardFrom?: HeardFrom
   /** Set while the account is within its post-delete grace window — null once active or purged. */
   deletionScheduledFor?: string | null
 }

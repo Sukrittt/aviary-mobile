@@ -31,6 +31,7 @@ import { fontFamily } from "@/src/theme/fonts";
 import { Numpad } from "@/src/components/ui/Numpad";
 import { StepDot } from "@/src/components/onboarding/StepDot";
 import { PickExtras } from "@/src/components/onboarding/PickExtras";
+import { HeardFrom } from "@/src/components/onboarding/HeardFrom";
 import { PickRow } from "@/src/components/onboarding/PickRow";
 import { SetupDone } from "@/src/components/onboarding/SetupDone";
 import { AmountTicker } from "@/src/components/onboarding/AmountTicker";
@@ -824,7 +825,24 @@ function CurrencyWizard({
           },
         ]}
       >
-        <PickExtras onDone={signalOnboarded} />
+        <PickExtras onDone={() => setStep(7)} />
+      </View>
+    );
+  }
+
+  if (step === 7) {
+    return (
+      <View
+        style={[
+          styles.container,
+          {
+            backgroundColor: tokens.bg,
+            paddingTop: insets.top + 60,
+            paddingBottom: insets.bottom + 20,
+          },
+        ]}
+      >
+        <HeardFrom onDone={signalOnboarded} />
       </View>
     );
   }
