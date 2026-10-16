@@ -53,6 +53,7 @@ export type AppEvent =
   | 'onboarding_completed'
   // Which extras were switched on from setup's last screen. `extras` is the feature keys.
   | 'onboarding_extras_chosen'
+  | 'onboarding_heard_from'
   | 'tour_started'
   | 'tour_step_viewed'
   | 'tour_skipped'
@@ -61,6 +62,10 @@ export type AppEvent =
   | 'expense_logged'
   | 'expense_edited'
   | 'expense_deleted'
+  // `from` is 'log' (the log screen).
+  | 'expense_photo_added'
+  // Activity's List / Feed switch. `view` is the one switched to.
+  | 'activity_view_changed'
   | 'ai_category_suggested'
   | 'money_moved'
   | 'envelope_created'
@@ -106,6 +111,8 @@ export type AppEvent =
   | 'capture_logged'
   | 'capture_tip'
   | 'capture_dismissed'
+  // The one-time pointer at Activity's feed switch: shown, tried, or dismissed.
+  | 'feed_tip'
   // The weekly balance check: what a check found (kind, and whether the
   // prefilled balance was kept as is), and how a gap was explained. No amounts.
   | 'balance_checked'

@@ -76,7 +76,7 @@ function Harness() {
   return null
 }
 
-function setup(params: Record<string, string> = {}, expenses: ExpenseRow[] = [], categories = [{ name: 'Groceries', group: 'Food' }], { coldAccounts = false } = {}) {
+function setup(params: Record<string, string> = {}, expenses: ExpenseRow[] = [], categories = [{ name: 'Groceries', group: 'Food' }], { coldAccounts = false, activityFeed = true } = {}) {
   mockParams = params
   ;(getRecentExpenses as jest.Mock).mockResolvedValue({ rows: expenses, lastSpent: {} })
   ;(getCategories as jest.Mock).mockResolvedValue(categories)
@@ -87,7 +87,7 @@ function setup(params: Record<string, string> = {}, expenses: ExpenseRow[] = [],
   const queryClient = createTestQueryClient()
   if (!coldAccounts) queryClient.setQueryData(accountsKey, mockAccounts)
   // An older account with every extra on, cached the way Home leaves it.
-  queryClient.setQueryData(userKey, { createdAt: '2025-01-01T00:00:00.000Z', manualTransactionCompletedAt: '2025-01-02T00:00:00.000Z' })
+  queryClient.setQueryData(userKey, { createdAt: '2025-01-01T00:00:00.000Z', manualTransactionCompletedAt: '2025-01-02T00:00:00.000Z', activityFeed })
   return renderWithProviders(
     <LogExpenseSubmitProvider>
       <LogExpenseScreen />
@@ -751,10 +751,33 @@ describe('photo', () => {
     })
   }
 
-  it('lives only inside the More sheet', async () => {
+  it('keeps the full photo field inside the More sheet', async () => {
     const utils = setup()
     expect(utils.queryByText('Photo (optional)')).toBeNull()
     expect(await openMore(utils)).toBeTruthy()
+  })
+
+  it('takes a photo from the camera button under the amount, then opens More to see it', async () => {
+    mockLaunchCamera.mockResolvedValue({ canceled: false, assets: [asset] })
+    const utils = setup()
+    await act(async () => {
+      fireEvent.press(utils.getByLabelText('Take a photo'))
+    })
+    expect(mockLaunchCamera).toHaveBeenCalled()
+    fireEvent.press(utils.getByLabelText('Photo added. View or change it'))
+    expect(await utils.findByLabelText('View photo')).toBeTruthy()
+  })
+
+  it('shows the camera button only with the photo feed on', () => {
+    const utils = setup({}, [], undefined, { activityFeed: false })
+    expect(utils.queryByLabelText('Take a photo')).toBeNull()
+  })
+
+  it('hides the camera button offline', () => {
+    setOnline(false)
+    setOnline(false)
+    const utils = setup()
+    expect(utils.queryByLabelText('Take a photo')).toBeNull()
   })
 
   it('is disabled offline, with a note', async () => {

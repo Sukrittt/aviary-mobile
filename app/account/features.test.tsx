@@ -59,4 +59,11 @@ describe('Features screen', () => {
     fireEvent.press(getByLabelText('Show Insights'))
     expect(mutate).toHaveBeenCalledWith({ hiddenFeatures: ['askAviary', 'billScan', 'wrapped', 'investments', 'subscriptions'] }, expect.anything())
   })
+
+  it('turns the Activity feed on, off by default', () => {
+    const { getByLabelText } = renderWithProviders(<FeaturesScreen />)
+    expect(getByLabelText('Feed view in Activity').props.accessibilityState.checked).toBe(false)
+    fireEvent.press(getByLabelText('Feed view in Activity'))
+    expect(mutate).toHaveBeenCalledWith({ activityFeed: true }, expect.anything())
+  })
 })

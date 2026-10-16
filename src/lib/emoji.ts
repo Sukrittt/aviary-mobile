@@ -36,3 +36,15 @@ export function categoryTint(name: string, tokens: TintTokens): { bg: string; in
   for (let i = 0; i < text.length; i++) hash = (hash * 31 + text.charCodeAt(i)) >>> 0
   return TINTS[hash % TINTS.length](tokens)
 }
+
+// Light mode's inks are dark enough to carry an icon glyph but read loud as a
+// big donut wedge on a white card, so chart fills sit 15% toward white. Dark
+// mode's inks are already the bright set and pass through.
+const CHART_SOFTEN = 0.15
+
+export function chartInk(ink: string, scheme: 'light' | 'dark'): string {
+  if (scheme === 'dark' || !/^#[0-9a-f]{6}$/i.test(ink)) return ink
+  const n = parseInt(ink.slice(1), 16)
+  const ch = (v: number) => Math.round(v + (255 - v) * CHART_SOFTEN).toString(16).padStart(2, '0')
+  return `#${ch(n >> 16)}${ch((n >> 8) & 255)}${ch(n & 255)}`
+}

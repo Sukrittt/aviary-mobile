@@ -18,7 +18,15 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter, useLocalSearchParams, useFocusEffect, type Href } from "expo-router";
 import * as Haptics from "expo-haptics";
-import { CaretLeft, CaretRight, MoneyWavy, SlidersHorizontal, Trash, X } from "@/src/components/shared/icons";
+import { tap } from "@/src/lib/haptics";
+import { AnimatedPressable, usePressSpring } from "@/src/components/ui/Button";
+import { CaretLeft, CaretRight, Images, MoneyWavy, Rows, SlidersHorizontal, Trash, X } from "@/src/components/shared/icons";
+import { ActivityFeed } from "@/src/components/activity/ActivityFeed";
+import { useActivityView, useFeedOn } from "@/src/hooks/useActivityView";
+import { useFeedTip } from "@/src/hooks/useFeedTip";
+import { CaptureTipBubble } from "@/src/features/log-expense/CaptureTipBubble";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { track } from "@/src/lib/analytics";
 import Reanimated, { FadeIn, FadeOut, LinearTransition } from "react-native-reanimated";
 import { Screen } from "@/src/components/ui/Screen";
 import { Chip } from "@/src/components/ui/Chip";
@@ -49,7 +57,7 @@ import { OfflineScreen } from "@/src/components/shared/OfflineScreen";
 import { ErrorScreen } from "@/src/components/shared/ErrorScreen";
 import { EmptyState } from "@/src/components/shared/EmptyState";
 import type { ExpenseRow, IncomeRow } from "@/src/types";
-import { parseLocalDate, toLocalDateString } from "@/src/lib/date";
+import { formatDayLabel, parseLocalDate, toLocalDateString } from "@/src/lib/date";
 import { useOnline } from "@/src/lib/netStatus";
 import { EMPTY } from "@/src/lib/constants";
 import { FORCE_EMPTY_STATE_PREVIEW, emptyForPreview } from "@/src/lib/emptyStatePreview";
@@ -57,31 +65,15 @@ import { FORCE_EMPTY_STATE_PREVIEW, emptyForPreview } from "@/src/lib/emptyState
 type PeriodKey = "all" | "week" | "month" | "custom";
 
 const CHIP_TRANSITION = LinearTransition.springify().damping(64).stiffness(700);
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 30;
+// Each row carries a swipe gesture and ~10 Reanimated values, so mounting a
+// whole page in one commit stalls the screen. Mount this many on the first
+// frame (about a screenful) and the rest of the page this many per frame.
+const ROWS_PER_FRAME = 10;
 const ROW_GAP = 12;
 // Breathing room inside the select tint, which has no row padding to sit in.
 const SELECT_INSET = 12;
 
-
-function toDateInput(d: Date): string {
-  return toLocalDateString(d);
-}
-
-function formatDateHeader(iso: string): string {
-  const d = parseLocalDate(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  const today = new Date();
-  const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
-  if (iso === toDateInput(today)) return "Today";
-  if (iso === toDateInput(yesterday)) return "Yesterday";
-  return d.toLocaleDateString("en-IN", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: d.getFullYear() !== today.getFullYear() ? "numeric" : undefined,
-  });
-}
 
 function formatShortDate(iso: string): string {
   const d = parseLocalDate(iso);
@@ -109,7 +101,9 @@ function keyOf(t: ExpenseRow): string {
 export default function ActivityScreen() {
   const { formatCurrency } = useCurrency()
 
-  const { tokens, scheme } = useTheme();
+  const { tokens, scheme, space } = useTheme();
+  const insets = useSafeAreaInsets();
+  const categoryRowPress = usePressSpring();
   const { refreshing, onRefresh } = useRefresh();
   const { hideAmounts } = usePrivacy();
   const router = useRouter();
@@ -126,8 +120,12 @@ export default function ActivityScreen() {
   const qc = useQueryClient();
   const scrollRef = useRef<ScrollView>(null);
   const [page, setPage] = useState(1);
+  const [view, setView] = useActivityView();
+  const feed = useFeedOn();
+  const feedOn = feed.on;
 
   const changePage = useCallback((next: number, scrollToTop = false) => {
+    tap();
     setPage(next);
     if (scrollToTop) {
       scrollRef.current?.scrollTo({ y: 0, animated: true });
@@ -183,6 +181,12 @@ export default function ActivityScreen() {
   // Multi-select: a long-press starts it, and clearing the last row ends it.
   const [selectedKeys, setSelectedKeys] = useState<ReadonlySet<string>>(() => new Set());
   const selecting = selectedKeys.size > 0;
+  // Selection is the list's; the feed has no checkboxes to show it with.
+  // Turning the feed on in Features opens Activity on it. When it came on by
+  // itself (first photo) the list stays put and a tip points at the switch.
+  // Either way the header button flips views, and that choice sticks on this device.
+  const feedView = feedOn && (view ?? (feed.auto ? "list" : "feed")) === "feed" && !selecting;
+  const feedTip = useFeedTip(feed.auto && view === null && !selecting);
   const [confirmBulk, setConfirmBulk] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
   // Rows hidden the moment a bulk delete starts; failed ones come back.
@@ -200,7 +204,7 @@ export default function ActivityScreen() {
   const incomesQ = useIncomes();
 
   const timeFilterLabel = useMemo(() => {
-    if (selectedDate) return formatDateHeader(selectedDate);
+    if (selectedDate) return formatDayLabel(selectedDate);
     if (period === "week") return "This Week";
     if (period === "month") return "This Month";
     if (period === "custom") return formatRangeFilter(customRange);
@@ -343,6 +347,19 @@ export default function ActivityScreen() {
   // mustn't reselect its failures into a view that no longer shows them.
   const viewKey = [page, selectedDate, period, customRange.from, customRange.to, selectedCategory, selectedAccount, search].join("|");
   const viewKeyRef = useRef(viewKey);
+  const [mountedRows, setMountedRows] = useState(ROWS_PER_FRAME);
+  const [mountedView, setMountedView] = useState(viewKey);
+  // Reset during render, not in an effect: an effect would commit the new
+  // page's full row count once before shrinking it back.
+  if (mountedView !== viewKey) {
+    setMountedView(viewKey);
+    setMountedRows(ROWS_PER_FRAME);
+  }
+  useEffect(() => {
+    if (mountedRows >= listItems.length) return;
+    const id = requestAnimationFrame(() => setMountedRows((n) => n + ROWS_PER_FRAME));
+    return () => cancelAnimationFrame(id);
+  }, [mountedRows, listItems.length]);
   useEffect(() => {
     viewKeyRef.current = viewKey;
   });
@@ -490,6 +507,117 @@ export default function ActivityScreen() {
     );
   }
 
+  const refreshControl = (
+    <RefreshControl
+      refreshing={refreshing}
+      onRefresh={onRefresh}
+      tintColor={tokens.accent}
+      colors={[tokens.accent]}
+    />
+  );
+  const feedParams = { category: pageParams.category, account: pageParams.account, from, to, q: pageParams.q };
+  const emptyState = (
+    <EmptyState
+      style={styles.emptyState}
+      mood={hasActiveFilters || search.trim() ? "searching" : "snoozing"}
+      title={hasActiveFilters || search.trim() ? "Nothing turned up" : "Your story starts here"}
+      description={hasActiveFilters || search.trim() ? "No transactions for this filter." : "Log your first expense. We'll keep the little details here."}
+      action={hasActiveFilters || search.trim()
+        ? { label: "Clear filters", onPress: () => { clearAllFilters(); setSearch(""); } }
+        : { label: "Log an expense", onPress: () => router.push("/modals/log-expense") }}
+    />
+  );
+  // Search and filters, shared by both views.
+  const controls = (
+    <>
+      <View style={styles.searchRow}>
+        <TextInput
+          value={search}
+          onChangeText={setSearch}
+          placeholder="Search transactions"
+          placeholderTextColor={tokens.text3}
+          style={[
+            styles.search,
+            {
+              backgroundColor:
+                scheme === "dark" ? tokens.cardSolid : tokens.inputBg,
+              color: tokens.text,
+              fontFamily: fontFamily.bodyMedium,
+            },
+          ]}
+        />
+        <IconButton
+          icon={SlidersHorizontal}
+          accessibilityLabel="Filter transactions"
+          onPress={() => setCategorySheetOpen(true)}
+        />
+      </View>
+
+      {hasActiveFilters ? (
+        <Reanimated.View
+          entering={FadeIn.duration(150)}
+          exiting={FadeOut.duration(120)}
+          style={styles.appliedFilters}
+        >
+          <View style={styles.appliedFiltersHeader}>
+            <Text
+              style={[
+                styles.appliedFiltersLabel,
+                { color: tokens.text3, fontFamily: fontFamily.bodyBold },
+              ]}
+            >
+              APPLIED FILTERS
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Clear all filters"
+              hitSlop={8}
+              onPress={clearAllFilters}
+            >
+              <Text
+                style={[
+                  styles.clearFiltersText,
+                  {
+                    color: tokens.accent,
+                    fontFamily: fontFamily.bodySemiBold,
+                  },
+                ]}
+              >
+                Clear all
+              </Text>
+            </Pressable>
+          </View>
+          <Reanimated.View
+            layout={CHIP_TRANSITION}
+            style={styles.appliedFilterRow}
+          >
+            {timeFilterLabel ? (
+              <AppliedFilterChip
+                label={timeFilterLabel}
+                accessibilityLabel="Remove date filter"
+                onRemove={clearTimeFilter}
+              />
+            ) : null}
+            {categoryFilterLabel ? (
+              <AppliedFilterChip
+                label={categoryFilterLabel}
+                accessibilityLabel="Remove category filter"
+                onRemove={() => setSelectedCategory("")}
+              />
+            ) : null}
+            {accountFilterLabel ? (
+              <AppliedFilterChip
+                label={accountFilterLabel}
+                accessibilityLabel="Remove account filter"
+                onRemove={() => setSelectedAccount("")}
+              />
+            ) : null}
+          </Reanimated.View>
+        </Reanimated.View>
+      ) : null}
+    </>
+  );
+
   return (
     <>
       {deleteNotice && <ExpenseNoticeScreen status={deleteNotice.status} action="delete" onBack={() => setDeleteNotice(null)} />}
@@ -522,127 +650,63 @@ export default function ActivityScreen() {
                 }}
               />
             </>
-          ) : duplicateCount > 0 ? (
-            <Chip
-              selected
-              label={`Review ${duplicateCount} duplicate${duplicateCount === 1 ? "" : "s"}`}
-              onPress={() => router.push("/modals/duplicates" as Href)}
-            />
-          ) : undefined
+          ) : (
+            <>
+              {duplicateCount > 0 && (
+                <Chip
+                  selected
+                  label={`Review ${duplicateCount} duplicate${duplicateCount === 1 ? "" : "s"}`}
+                  onPress={() => router.push("/modals/duplicates" as Href)}
+                />
+              )}
+              {feedOn && (
+                <IconButton
+                  icon={feedView ? Rows : Images}
+                  accessibilityLabel={feedView ? "Show as list" : "Show as feed"}
+                  onPress={() => {
+                    const next = feedView ? "list" : "feed";
+                    Haptics.selectionAsync().catch(() => {});
+                    openRowRef.current?.reset();
+                    openRowRef.current = null;
+                    setView(next);
+                    track("activity_view_changed", { view: next });
+                  }}
+                />
+              )}
+            </>
+          )
         }
+        scroll={!feedView}
         contentContainerStyle={[
           styles.scrollContent,
           totalCount === 0 && styles.scrollContentGrow,
         ]}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            tintColor={tokens.accent}
-            colors={[tokens.accent]}
-          />
-        }
+        refreshControl={refreshControl}
       >
-        {/* The nav keeps entry handy; the empty state offers it in context. */}
-        <View style={styles.searchRow}>
-          <TextInput
-            value={search}
-            onChangeText={setSearch}
-            placeholder="Search transactions"
-            placeholderTextColor={tokens.text3}
-            style={[
-              styles.search,
-              {
-                backgroundColor:
-                  scheme === "dark" ? tokens.cardSolid : tokens.inputBg,
-                color: tokens.text,
-                fontFamily: fontFamily.bodyMedium,
-              },
-            ]}
-          />
-          <IconButton
-            icon={SlidersHorizontal}
-            accessibilityLabel="Filter transactions"
-            onPress={() => setCategorySheetOpen(true)}
-          />
-        </View>
-
-        {hasActiveFilters ? (
-          <Reanimated.View
-            entering={FadeIn.duration(150)}
-            exiting={FadeOut.duration(120)}
-            style={styles.appliedFilters}
-          >
-            <View style={styles.appliedFiltersHeader}>
-              <Text
-                style={[
-                  styles.appliedFiltersLabel,
-                  { color: tokens.text3, fontFamily: fontFamily.bodyBold },
-                ]}
-              >
-                APPLIED FILTERS
-              </Text>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Clear all filters"
-                hitSlop={8}
-                onPress={clearAllFilters}
-              >
-                <Text
-                  style={[
-                    styles.clearFiltersText,
-                    {
-                      color: tokens.accent,
-                      fontFamily: fontFamily.bodySemiBold,
-                    },
-                  ]}
-                >
-                  Clear all
-                </Text>
-              </Pressable>
-            </View>
-            <Reanimated.View
-              layout={CHIP_TRANSITION}
-              style={styles.appliedFilterRow}
-            >
-              {timeFilterLabel ? (
-                <AppliedFilterChip
-                  label={timeFilterLabel}
-                  accessibilityLabel="Remove date filter"
-                  onRemove={clearTimeFilter}
-                />
-              ) : null}
-              {categoryFilterLabel ? (
-                <AppliedFilterChip
-                  label={categoryFilterLabel}
-                  accessibilityLabel="Remove category filter"
-                  onRemove={() => setSelectedCategory("")}
-                />
-              ) : null}
-              {accountFilterLabel ? (
-                <AppliedFilterChip
-                  label={accountFilterLabel}
-                  accessibilityLabel="Remove account filter"
-                  onRemove={() => setSelectedAccount("")}
-                />
-              ) : null}
-            </Reanimated.View>
-          </Reanimated.View>
-        ) : null}
-
-        {totalCount === 0 && visibleIncomes.length === 0 ? (
-          <EmptyState
-            style={styles.emptyState}
-            mood={hasActiveFilters || search.trim() ? "searching" : "snoozing"}
-            title={hasActiveFilters || search.trim() ? "Nothing turned up" : "Your story starts here"}
-            description={hasActiveFilters || search.trim() ? "No transactions for this filter." : "Log your first expense. We'll keep the little details here."}
-            action={hasActiveFilters || search.trim()
-              ? { label: "Clear filters", onPress: () => { clearAllFilters(); setSearch(""); } }
-              : { label: "Log an expense", onPress: () => router.push("/modals/log-expense") }}
+        {feedView ? (
+          <ActivityFeed
+            params={feedParams}
+            header={controls}
+            empty={emptyState}
+            categoryByName={categoryByName}
+            accountNameOf={(id) => accountName(accountsQ.data, id)}
+            onOpenActions={setSheetTxn}
+            onEdit={openEdit}
+            onDelete={confirmDelete}
+            isDeleting={(t) => pendingDelete !== null && keyOf(pendingDelete) === keyOf(t)}
+            onDeleteDone={() => {
+              if (pendingDelete) runDelete(pendingDelete);
+            }}
+            refreshControl={refreshControl}
           />
         ) : (
+        <>
+        {controls}
+        {totalCount === 0 && visibleIncomes.length === 0 ? (
+          emptyState
+        ) : (
           <View>
-            {listItems.map((entry) => {
+            {listItems.slice(0, mountedRows).map((entry) => {
               if (entry.kind === "income") {
                 const income = entry.income;
                 const account = accountName(accountsQ.data, income.account_id);
@@ -838,6 +902,8 @@ export default function ActivityScreen() {
             </Pressable>
           </View>
         ) : null}
+        </>
+        )}
 
         <BottomSheet
           visible={sheetTxn !== null}
@@ -983,13 +1049,17 @@ export default function ActivityScreen() {
               />
             </View>
           )}
-          <Pressable
+          <AnimatedPressable
+            accessibilityRole="button"
             style={[
-              styles.categoryOption,
               styles.categoryFilterRow,
-              { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: tokens.border },
+              { backgroundColor: tokens.pillBg, borderColor: tokens.border },
+              categoryRowPress.style,
             ]}
+            onPressIn={categoryRowPress.onPressIn}
+            onPressOut={categoryRowPress.onPressOut}
             onPress={() => {
+              tap();
               setCategorySheetOpen(false);
               setCategoryPickerOpen(true);
             }}
@@ -997,7 +1067,7 @@ export default function ActivityScreen() {
             <Text
               style={[
                 styles.categoryOptionText,
-                { color: tokens.text, fontFamily: fontFamily.bodySemiBold },
+                { flex: 1, color: tokens.text, fontFamily: fontFamily.bodySemiBold },
               ]}
             >
               Category
@@ -1008,9 +1078,10 @@ export default function ActivityScreen() {
                 { color: tokens.text3, fontFamily: fontFamily.bodyMedium },
               ]}
             >
-              {categoryFilterLabel ?? "View All"}
+              {categoryFilterLabel ?? "View all"}
             </Text>
-          </Pressable>
+            <Icon icon={CaretRight} size={14} color={tokens.text3} />
+          </AnimatedPressable>
           {accountOptions.length > 0 && (
             <View style={[styles.accountFilter, { borderTopColor: tokens.border }]}>
               <AccountChips
@@ -1032,6 +1103,22 @@ export default function ActivityScreen() {
           noneLabel="All categories"
         />
       </Screen>
+      {feedTip.show && (
+        // The feed switch is the header's last icon, so it sits at the right edge.
+        <CaptureTipBubble
+          anchor={{ top: insets.top + space.md, right: space.lg, size: 40 }}
+          title="Your photos, as a feed"
+          body="Tap here to scroll your expenses with their photos."
+          tryLabel="Try the feed"
+          ringColor={tokens.accent}
+          onTry={() => {
+            feedTip.close("try");
+            setView("feed");
+            track("activity_view_changed", { view: "feed" });
+          }}
+          onDismiss={() => feedTip.close("dismiss")}
+        />
+      )}
     </>
   );
 }
@@ -1162,17 +1249,16 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 10,
   },
-  categoryOption: {
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    borderRadius: 12,
-  },
   categoryOptionText: { fontSize: 14 },
   categoryFilterRow: {
-    marginTop: 4,
+    marginTop: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 16,
+    borderWidth: 1,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    gap: 6,
   },
   customRangeWrap: { marginBottom: 10 },
   search: {

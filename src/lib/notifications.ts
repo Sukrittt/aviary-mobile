@@ -1,5 +1,6 @@
 import { currentAccessToken, SessionChangedError } from '@/src/api/accessMode'
 import { Platform } from 'react-native'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as Device from 'expo-device'
 import Constants, { ExecutionEnvironment } from 'expo-constants'
 import { router } from 'expo-router'
@@ -36,6 +37,15 @@ export function configureNotificationHandler(): void {
 
 let devicePushToken: string | null = null
 
+/**
+ * The permission status this device last settled on. A denial is handled
+ * once: a launch that finds it still denied neither prompts again nor reports
+ * another failure (two users sent 39 'permission denied' events in a day, one
+ * per launch). Reading the status costs nothing, so turning notifications on
+ * in system settings still registers on the next launch.
+ */
+const PERMISSION_KEY = 'push-permission'
+
 async function registerToken(token: string): Promise<void> {
   devicePushToken = token
   await registerPushToken(token, Platform.OS === 'android' ? 'android' : 'ios')
@@ -55,6 +65,8 @@ export async function registerForPushNotificationsAsync(): Promise<void> {
     if (!Notifications || !Device.isDevice) return
 
     let { status, canAskAgain } = await Notifications.getPermissionsAsync()
+    const last = await AsyncStorage.getItem(PERMISSION_KEY)
+    if (status === 'denied' && last === 'denied') return
     // A permanent denial: asking again would re-prompt (Android 13) or no-op,
     // and log a fresh opt-in result on every launch either way.
     if (status !== 'granted' && canAskAgain) {
@@ -63,6 +75,7 @@ export async function registerForPushNotificationsAsync(): Promise<void> {
       // rather than one event per launch.
       track('push_permission_result', { granted: status === 'granted' })
     }
+    if (status !== last) await AsyncStorage.setItem(PERMISSION_KEY, status)
     if (status !== 'granted') {
       track('push_registration_failed', { stage, error: `permission ${status}` })
       return
@@ -131,7 +144,7 @@ function routeFromNotificationResponse(response: NotificationsType.NotificationR
     ...(typeof data?.step === 'number' && { step: data.step }),
   })
   if (typeof route === 'string' && route) {
-    if (route === '/wrapped' || route === '/recap' || route === '/activity' || route === '/investments') router.push(route)
+    if (route === '/wrapped' || route === '/recap' || route === '/activity' || route === '/investments' || route === '/account/recurring') router.push(route)
     // Evening check. log-expense is the launch screen, so it's usually already
     // at the bottom of the stack: go back to it rather than stack a second one.
     else if (route === '/modals/log-expense') router.dismissTo(route)

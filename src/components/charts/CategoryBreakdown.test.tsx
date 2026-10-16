@@ -2,10 +2,12 @@ import { act, fireEvent } from '@testing-library/react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { CategoryBreakdown } from './CategoryBreakdown'
 import type { BreakdownRow } from '@/src/lib/monthly'
-import { categoryTint } from '@/src/lib/emoji'
+import { categoryTint, chartInk } from '@/src/lib/emoji'
 import { lightTokens } from '@/src/theme/tokens'
 
 const mockPush = jest.fn()
+const mockTap = jest.fn()
+jest.mock('@/src/lib/haptics', () => ({ ...jest.requireActual('@/src/lib/haptics'), tap: () => mockTap() }))
 jest.mock('expo-router', () => ({
   useIsFocused: () => true,
   useRouter: () => ({ push: mockPush }),
@@ -298,7 +300,19 @@ describe('CategoryBreakdown colours', () => {
     const { UNSAFE_root } = renderBreakdown()
     const strokes = UNSAFE_root.findAll((n) => typeof n.props.stroke === 'string').map((n) => n.props.stroke)
     for (const label of ['Investments', 'Cook']) {
-      expect(strokes).toContain(categoryTint(label, lightTokens).ink)
+      expect(strokes).toContain(chartInk(categoryTint(label, lightTokens).ink, 'light'))
     }
+  })
+})
+
+describe('CategoryBreakdown haptics', () => {
+  it('ticks on the mode, measure and filter controls', () => {
+    const { getByLabelText, onModeChange } = renderBreakdown()
+    mockTap.mockClear()
+    fireEvent.press(getByLabelText('By group'))
+    fireEvent.press(getByLabelText('Measure by percent of budget used'))
+    fireEvent.press(getByLabelText('Filter chart'))
+    expect(onModeChange).toHaveBeenCalledWith('group')
+    expect(mockTap).toHaveBeenCalledTimes(3)
   })
 })

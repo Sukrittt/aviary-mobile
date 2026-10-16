@@ -176,6 +176,36 @@ export function HomeSkeleton() {
   )
 }
 
+/** Insights' monthly trend while it loads: a row of bars over month labels. */
+export function TrendSkeleton({ height }: { height: number }) {
+  const bars = [0.45, 0.7, 0.55, 0.85, 0.6, 0.4]
+  return (
+    <Pulse label="Loading spending trend">
+      <View style={[styles.trend, { height }]}>
+        {bars.map((f, i) => (
+          <View key={i} style={styles.trendCol}>
+            <Bone h={(height - 24) * f} r={6} />
+            <Bone w="60%" h={10} />
+          </View>
+        ))}
+      </View>
+    </Pulse>
+  )
+}
+
+/** Insights' breakdown while it loads: the donut ring, then a few legend rows. */
+export function DonutSkeleton({ size = 200 }: { size?: number }) {
+  const { tokens } = useTheme()
+  return (
+    <Pulse label="Loading spending breakdown">
+      <View style={styles.donut}>
+        <View style={{ width: size, height: size, borderRadius: size / 2, borderWidth: 26, borderColor: tokens.inputBg }} />
+      </View>
+      <Rows count={3} icon={28} />
+    </Pulse>
+  )
+}
+
 export function ActivitySkeleton() {
   const { space } = useTheme()
   return (
@@ -228,4 +258,7 @@ const styles = StyleSheet.create({
   briefLines: { gap: 8, marginTop: 12 },
   briefChips: { flexDirection: 'row', gap: 8 },
   rowText: { flex: 1, gap: 6 },
+  trend: { flexDirection: 'row', alignItems: 'flex-end', gap: 10 },
+  trendCol: { flex: 1, alignItems: 'center', gap: 8 },
+  donut: { alignItems: 'center', marginTop: 16, marginBottom: 8 },
 })

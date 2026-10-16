@@ -25,7 +25,9 @@ export class SessionChangedError extends Error {
   constructor() { super('Session changed; retry in the current account.') }
 }
 export class AuthRefreshError extends Error {
-  constructor() { super('Unable to refresh session. Check your connection and retry.') }
+  name = 'AuthRefreshError'
+  /** What actually failed (TimeoutError, TypeError for no network, a WorkOS 5xx), for request_failed. */
+  constructor(public reason = 'unknown') { super('Unable to refresh session. Check your connection and retry.') }
 }
 const subs = new Set<(m: AccessMode) => void>()
 const logoutSubs = new Set<(token: string | null) => void | Promise<void>>()
@@ -84,6 +86,7 @@ async function store(next: WorkOSTokens | null): Promise<void> {
 export function persistSession(tokens: WorkOSTokens): Promise<void> {
   generation++
   refreshing = null
+  cooldown = null
   return store(tokens)
 }
 
@@ -122,6 +125,17 @@ export async function initAccessMode(): Promise<AccessMode | null> {
 let refreshing: Promise<string | null> | null = null
 
 /**
+ * After a refresh fails without WorkOS rejecting the token (a timeout, no
+ * network, a 5xx), requests fail fast for this long instead of each starting
+ * another one. On a slow network every screen shared one refresh that ran its
+ * full 15s, then React Query's retry started a second straight away (PostHog,
+ * 2026-10-15: 28 failures in two rounds for one user). Screens with a disk
+ * cache keep showing it meanwhile: this is a transport failure to them.
+ */
+const REFRESH_COOLDOWN_MS = 10_000
+let cooldown: { until: number; reason: string } | null = null
+
+/**
  * A usable access token, refreshing first if it is expired or about to be.
  * Returns null only when there is no session; refresh failures throw. Only a real
  * 4xx from WorkOS (the token itself rejected) clears the session — a
@@ -133,12 +147,14 @@ export async function getValidToken(): Promise<string | null> {
   if (Date.now() < session.expiresAt - REFRESH_MARGIN_MS) return session.accessToken
 
   if (!refreshing) {
+    if (cooldown && Date.now() < cooldown.until) throw new AuthRefreshError(cooldown.reason)
     const started = generation
     const refreshToken = session.refreshToken
     const run = (async () => {
       try {
         const next = await refreshTokens(refreshToken)
         if (started !== generation) throw new SessionChangedError()
+        cooldown = null
         await store({ ...next, expiresAt: next.expiresAt || tokenExpiry(next.accessToken) })
         if (started !== generation) throw new SessionChangedError()
         return next.accessToken
@@ -148,7 +164,9 @@ export async function getValidToken(): Promise<string | null> {
           await clearAccess()
           throw new SessionChangedError()
         }
-        throw new AuthRefreshError()
+        const reason = err instanceof WorkOSHttpError ? `WorkOS ${err.status}` : err instanceof Error ? err.name : 'unknown'
+        cooldown = { until: Date.now() + REFRESH_COOLDOWN_MS, reason }
+        throw new AuthRefreshError(reason)
       }
     })()
     refreshing = run
@@ -197,6 +215,7 @@ export async function clearAccess(): Promise<void> {
   const token = currentAccessToken()
   generation++
   refreshing = null
+  cooldown = null
   const stored = store(null)
   // Begin cleanup before yielding to a subsequent sign-in.
   const cleanup = [...logoutSubs].map(fn => fn(token))

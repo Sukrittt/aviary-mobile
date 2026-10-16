@@ -31,6 +31,8 @@ export interface ExpenseRow {
   payment_method: string
   /** Absent from an older server. */
   has_photo?: boolean
+  /** Signed, ~1h. Only on Activity feed pages (`photos: true`). */
+  photo_url?: string
   /** One of the user's accounts, or '' / absent for an unlabelled row. */
   account_id?: string
 }

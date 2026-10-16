@@ -9,6 +9,7 @@ import { Icon } from '@/src/components/shared/Icon'
 import { Toggle } from '@/src/components/ui/Toggle'
 import { Alert } from '@/src/components/ui/AlertHost'
 import { useUser, useUpdateUser } from '@/src/hooks/useUser'
+import { useFeedOn } from '@/src/hooks/useActivityView'
 import { HIDEABLE_FEATURES, hiddenFeatures, type HideableFeature } from '@/src/lib/features'
 
 export default function FeaturesScreen() {
@@ -16,6 +17,7 @@ export default function FeaturesScreen() {
   const insets = useSafeAreaInsets()
   const router = useRouter()
   const user = useUser().data
+  const feedOn = useFeedOn().on
   const updateUser = useUpdateUser()
 
   // Local copy so a flip shows instantly and rapid flips build on each other,
@@ -71,6 +73,29 @@ export default function FeaturesScreen() {
                 </View>
               </View>
             ))}
+          </View>
+        </View>
+
+        <View style={styles.section}>
+          <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
+            <View style={styles.row}>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.rowLabel, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>Feed view in Activity</Text>
+                <Text style={[styles.rowHint, { color: tokens.text2 }]}>Scroll your expenses like a photo feed</Text>
+              </View>
+              <Toggle
+                accessibilityLabel="Feed view in Activity"
+                // On by itself after a first photo, so it shows on and turning it off sticks.
+                value={feedOn}
+                disabled={!user}
+                onValueChange={(v) =>
+                  updateUser.mutate(
+                    { activityFeed: v },
+                    { onError: () => Alert.alert("Couldn't save", 'Check your connection and try again.') },
+                  )
+                }
+              />
+            </View>
           </View>
           <Text style={[styles.footnote, { color: tokens.text3 }]}>
             Turn off what you don&apos;t use. Hiding a feature keeps its data, so you can turn it back on anytime.

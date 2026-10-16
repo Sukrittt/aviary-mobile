@@ -38,7 +38,7 @@ it('saves the extras switched on and leaves the rest hidden', async () => {
   const { getByLabelText, getByText } = renderWithProviders(<PickExtras onDone={onDone} />)
   fireEvent.press(getByLabelText('Turn on Insights'))
   fireEvent.press(getByLabelText('Turn on Scan a bill'))
-  fireEvent.press(getByText('Start budgeting'))
+  fireEvent.press(getByText('Continue'))
   expect(mockMutate).toHaveBeenCalledWith({ hiddenFeatures: ['askAviary', 'wrapped', 'investments', 'subscriptions'] })
   expect(track).toHaveBeenCalledWith('onboarding_extras_chosen', { extras: 'insights,billScan', count: 2 })
   await waitFor(() => expect(onDone).toHaveBeenCalled())
@@ -48,7 +48,7 @@ it('keeps a hidden core feature hidden', async () => {
   mockUser = { email: 'a@b.com', emailVerified: true, hiddenFeatures: ['income', 'wrapped'] }
   const { getByLabelText, getByText } = renderWithProviders(<PickExtras onDone={jest.fn()} />)
   fireEvent.press(getByLabelText('Turn on Expense Wrapped'))
-  fireEvent.press(getByText('Start budgeting'))
+  fireEvent.press(getByText('Continue'))
   expect(mockMutate).toHaveBeenCalledWith({ hiddenFeatures: ['income', 'askAviary', 'billScan', 'investments', 'subscriptions', 'insights'] })
 })
 

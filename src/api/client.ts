@@ -24,12 +24,16 @@ const REQUEST_TIMEOUT_MS = 15_000
  * awaited — the old synchronous password lookup had nothing to refresh.
  * Signed-out callers send no header and the API answers as the demo user.
  */
-export async function apiFetch(path: string, init?: RequestInit, expectedGeneration = sessionGeneration()): Promise<Response> {
+export async function apiFetch(path: string, init?: RequestInit & { anonymous?: boolean }, expectedGeneration = sessionGeneration()): Promise<Response> {
   if (expectedGeneration !== sessionGeneration()) throw new SessionChangedError()
   const startedAt = Date.now()
+  // `anonymous`: a public route. No token means no wait on a refresh, and the
+  // CDN only caches requests without an Authorization header.
+  const { anonymous, ...requestInit } = init ?? {}
+  init = requestInit
   let token: string | null
   try {
-    token = await getValidToken()
+    token = anonymous ? null : await getValidToken()
   } catch (err) {
     if (!(err instanceof SessionChangedError)) reportRequestFailure('token_refresh', path, err, startedAt)
     throw err
@@ -94,10 +98,13 @@ export async function apiFetch(path: string, init?: RequestInit, expectedGenerat
  * of a run still goes out even though track() skips while offline.
  */
 function reportRequestFailure(phase: 'token_refresh' | 'fetch', path: string, err: unknown, startedAt: number): void {
+  // AuthRefreshError's `reason`: what failed under the refresh (a timeout, no network, a WorkOS 5xx).
+  const reason = (err as { reason?: unknown } | null)?.reason
   track('request_failed', {
     phase,
     path: metricPath(path),
     error: err instanceof Error ? err.name : 'unknown',
+    ...(typeof reason === 'string' && { reason }),
     elapsed_ms: Date.now() - startedAt,
   })
 }

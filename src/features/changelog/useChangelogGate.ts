@@ -32,8 +32,10 @@ const attempted = new Set<string>()
 export function useChangelogGate(): void {
   const qc = useQueryClient()
   const recap = useWeekRecap()
-  // 'always': staleTime is Infinity, but every return to the app rechecks.
-  const { data: release, dataUpdatedAt } = useQuery({ queryKey: changelogKey, queryFn: getLatestChangelog, staleTime: Infinity, retry: false, refetchOnWindowFocus: 'always' })
+  // A return to the app rechecks once the answer is 10 minutes old. Asking on
+  // every return cost a request per foreground (often two, a second apart)
+  // to learn about a release that ships a few times a month.
+  const { data: release, dataUpdatedAt } = useQuery({ queryKey: changelogKey, queryFn: getLatestChangelog, staleTime: 10 * 60_000, retry: false, refetchOnWindowFocus: true })
 
   const recapBusy = recap.isPending || !!recap.data?.due
   useEffect(() => {

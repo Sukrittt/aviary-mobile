@@ -1,4 +1,5 @@
 import type { PhotoMimeType } from '@/src/api/expenses'
+import { downscaleImage, PHOTO_ENCODING } from '@/src/lib/downscaleImage'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import * as Haptics from 'expo-haptics'
@@ -39,7 +40,7 @@ export async function pickPhoto(source: 'camera' | 'library'): Promise<PickedPho
     Alert.alert("That photo type isn't supported", 'Try a JPEG or PNG.')
     return null
   }
-  return { uri: asset.uri, base64: asset.base64, mimeType }
+  return (await downscaleImage(asset, PHOTO_ENCODING)) ?? { uri: asset.uri, base64: asset.base64, mimeType }
 }
 
 /**

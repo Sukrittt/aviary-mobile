@@ -1,4 +1,4 @@
-import { keepPreviousData, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import {
   deleteExpense,
   deleteExpensePhoto,
@@ -79,6 +79,20 @@ export function useExpensesPage(params: ExpensesPageParams) {
     queryFn: () => getExpensesPage(params),
     staleTime: 30_000,
     placeholderData: keepPreviousData,
+  })
+}
+
+/**
+ * Activity's photo feed: the same paged read with `photo_url`s, loaded page
+ * after page as you scroll. Under `'expenses'` too, so writes refresh it.
+ */
+export function useExpensesFeed(params: Omit<ExpensesPageParams, 'page' | 'photos'>) {
+  return useInfiniteQuery({
+    queryKey: [...key, 'feed', params] as const,
+    queryFn: ({ pageParam }) => getExpensesPage({ ...params, page: pageParam, photos: true }),
+    initialPageParam: 1,
+    getNextPageParam: (last) => (last.page < last.pageCount ? last.page + 1 : undefined),
+    staleTime: 30_000,
   })
 }
 

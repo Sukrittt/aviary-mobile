@@ -1,6 +1,6 @@
 import { ExpenseWriteError } from '@/src/lib/expenseConflict'
 import { useState, type ReactNode } from 'react'
-import { act, fireEvent } from '@testing-library/react-native'
+import { act, fireEvent, waitFor } from '@testing-library/react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import type { ExpensesPage, ExpensesPageParams } from '@/src/api/expenses'
 import ActivityScreen from './activity'
@@ -10,20 +10,25 @@ const mockDelete = jest.fn()
 const mockDeleteAsync = jest.fn()
 const mockPush = jest.fn()
 let mockDuplicates: unknown[] = []
+const mockUseExpensesFeed = jest.fn()
+let mockUser: { activityFeed?: boolean } = {}
+let mockRecent: { has_photo?: boolean }[] = []
 
 jest.mock('@/src/hooks/useExpenses', () => ({
   useExpensesPage: (params: ExpensesPageParams) => mockUseExpensesPage(params),
   useDeleteExpense: () => ({ mutate: mockDelete, mutateAsync: mockDeleteAsync }),
   prefetchExpensesPage: jest.fn(),
   useDuplicates: () => ({ data: mockDuplicates }),
+  useExpensesFeed: () => mockUseExpensesFeed(),
   // CategoryPickerSheet (rendered inside a BottomSheet) reads the base,
   // unpaginated hook for its autosuggest word map — unrelated to this
   // screen's own paginated fetch, so a static empty result is enough.
   useExpenses: () => ({ data: [], isLoading: false, error: null }),
-  useRecentExpenses: () => ({ data: [], isLoading: false, error: null }),
+  useRecentExpenses: () => ({ data: mockRecent, isLoading: false, error: null }),
 }))
 
 let mockIncomes: Record<string, unknown>[] = []
+jest.mock('@/src/hooks/useUser', () => ({ useUser: () => ({ data: mockUser }) }))
 jest.mock('@/src/hooks/useIncomes', () => ({ useIncomes: () => ({ data: mockIncomes }) }))
 jest.mock('@/src/hooks/useAccounts', () => ({ useAccounts: () => ({ data: [] }), liveAccounts: () => [] }))
 
@@ -37,7 +42,7 @@ jest.mock('@/src/hooks/useGroups', () => ({
 }))
 
 let mockOnline = true
-jest.mock('@/src/lib/netStatus', () => ({ useOnline: () => mockOnline, readLastSynced: async () => null }))
+jest.mock('@/src/lib/netStatus', () => ({ useOnline: () => mockOnline, isOnline: () => mockOnline, readLastSynced: async () => null }))
 
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: mockPush, back: jest.fn(), replace: jest.fn() }),
@@ -96,6 +101,7 @@ function pageResult(overrides: Partial<ExpensesPage>): ExpensesPage {
 }
 
 beforeEach(() => {
+  mockUseExpensesFeed.mockReturnValue({ data: { pages: [pageResult({})] }, isLoading: false, isError: false, hasNextPage: false })
   mockIncomes = []
   mockUseExpensesPage.mockReset()
   mockPush.mockReset()
@@ -165,6 +171,22 @@ it('clears search and date filters from the empty-state action', () => {
   expect(query.to).toBeUndefined()
   fireEvent.press(screen.getByRole('button', { name: 'Log an expense' }))
   expect(mockPush).toHaveBeenCalledWith('/modals/log-expense')
+})
+
+it('asks for 30 rows a page but mounts them a screenful at a time', async () => {
+  const rows = Array.from({ length: 30 }, (_, i) => row(i + 1, '2026-06-01'))
+  mockUseExpensesPage.mockImplementation((params: ExpensesPageParams) => ({
+    data: params.limit === 1 ? pageResult({}) : pageResult({ rows, total: 30 }),
+    isLoading: false,
+    error: null,
+  }))
+
+  const { getByText, queryByText } = renderWithProviders(<ActivityScreen />)
+
+  expect(mockUseExpensesPage.mock.calls.some(([p]) => p.limit === 30)).toBe(true)
+  expect(getByText('Item 10')).toBeTruthy()
+  expect(queryByText('Item 11')).toBeNull()
+  await waitFor(() => expect(getByText('Item 30')).toBeTruthy())
 })
 
 it('pages through the Activity list via server-side pagination', () => {
@@ -401,4 +423,66 @@ it('shows the screen-shaped skeleton on a first load, not a loading phrase', () 
   expect(getByTestId('tab-skeleton')).toBeTruthy()
   expect(getByRole('header', { name: 'Activity' })).toBeTruthy()
   expect(queryByText(/…/)).toBeNull()
+})
+
+describe('feed view', () => {
+  beforeEach(() => {
+    mockUseExpensesPage.mockReturnValue({ data: pageResult({}), isLoading: false, error: null })
+    mockDelete.mockReset()
+    mockUser = { activityFeed: true }
+  })
+  afterEach(() => {
+    mockUser = {}
+  })
+
+  it('stays on the list with no switch until the feed is turned on in Features', () => {
+    mockUser = {}
+    const screen = renderWithProviders(<ActivityScreen />)
+    expect(screen.getByText('1 transaction')).toBeTruthy()
+    expect(screen.queryByLabelText('Show as feed')).toBeNull()
+  })
+
+  it('opens on the feed once turned on, and switches to the list and back', () => {
+    const screen = renderWithProviders(<ActivityScreen />)
+    expect(screen.getByLabelText('Item 1, Food. View details')).toBeTruthy()
+    expect(screen.queryByText('1 transaction')).toBeNull()
+    fireEvent.press(screen.getByLabelText('Show as list'))
+    expect(screen.getByText('1 transaction')).toBeTruthy()
+    fireEvent.press(screen.getByLabelText('Show as feed'))
+    expect(screen.getByLabelText('Item 1, Food. View details')).toBeTruthy()
+  })
+
+  describe('with a photo and no choice in Features', () => {
+    beforeEach(() => {
+      mockUser = {}
+      mockRecent = [{ has_photo: true }]
+    })
+    afterEach(() => {
+      mockRecent = []
+    })
+
+    it('offers the switch but stays on the list, with a tip that opens the feed', async () => {
+      const screen = renderWithProviders(<ActivityScreen />)
+      expect(screen.getByText('1 transaction')).toBeTruthy()
+      expect(screen.getByLabelText('Show as feed')).toBeTruthy()
+      fireEvent.press(await screen.findByLabelText('Try the feed'))
+      expect(screen.getByLabelText('Item 1, Food. View details')).toBeTruthy()
+      expect(screen.queryByLabelText('Try the feed')).toBeNull()
+    })
+
+    it('keeps the switch hidden once turned off in Features', () => {
+      mockUser = { activityFeed: false }
+      const screen = renderWithProviders(<ActivityScreen />)
+      expect(screen.queryByLabelText('Show as feed')).toBeNull()
+      expect(screen.queryByLabelText('Try the feed')).toBeNull()
+    })
+  })
+
+  it('deletes from the feed as soon as the delete is confirmed', () => {
+    const screen = renderWithProviders(<ActivityScreen />)
+    fireEvent(screen.getByLabelText('Item 1, Food. View details'), 'longPress')
+    fireEvent.press(screen.getByText('Delete'))
+    fireEvent.press(screen.getAllByText('Delete').at(-1)!)
+    expect(mockDelete).toHaveBeenCalledWith(expect.objectContaining({ id: 'row-1' }), expect.anything())
+  })
 })

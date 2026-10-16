@@ -8,6 +8,9 @@ import { apiFetch } from './client'
 import { deviceTimezone } from '@/src/lib/date'
 import type { HideableFeature } from '@/src/lib/features'
 
+/** Setup's "Where did you hear about us?" answers. Twin of the server's HEARD_FROM_SOURCES in Web's lib/users.ts. */
+export type HeardFrom = 'friend' | 'search' | 'social' | 'reddit' | 'youtube' | 'appStore' | 'article' | 'other'
+
 export interface UserProfile {
   _id?: string
   currencyCode?: string
@@ -22,6 +25,8 @@ export interface UserProfile {
   getStartedAt?: string | null
   manualTransactionCompletedAt?: string | null
   guidedTourCompletedAt?: string | null
+  /** When the first-week recap was opened on any device. It never shows again after. */
+  weekRecapSeenAt?: string | null
   notifyCadence?: 'off' | 'weekly' | 'daily'
   notifyThresholds?: boolean
   notifyBills?: boolean
@@ -32,6 +37,10 @@ export interface UserProfile {
   createdAt?: string
   /** Features hidden from the app, see src/lib/features.ts. Absent = the default for the account's age. */
   hiddenFeatures?: HideableFeature[]
+  /** Activity's photo feed, turned on in More → Features. Absent = off. */
+  activityFeed?: boolean
+  /** Setup's "Where did you hear about us?" answer. Absent = skipped. */
+  heardFrom?: HeardFrom
   /** Set while the account is within its post-delete grace window — null once active or purged. */
   deletionScheduledFor?: string | null
 }

@@ -1,4 +1,4 @@
-import { splitEmoji, categoryTint } from './emoji'
+import { splitEmoji, categoryTint, chartInk } from './emoji'
 
 describe('splitEmoji', () => {
   it('splits a leading emoji from text', () => {
@@ -37,5 +37,20 @@ describe('categoryTint', () => {
   it('pairs a soft background with its ink', () => {
     const { bg, ink } = categoryTint('Rent', tokens)
     expect(bg).toBe(`${ink}s`)
+  })
+})
+
+describe('chartInk', () => {
+  it('softens a light-mode ink 15% toward white', () => {
+    expect(chartInk('#af25a9', 'light')).toBe('#bb46b6')
+    expect(chartInk('#000000', 'light')).toBe('#262626')
+  })
+
+  it('leaves dark-mode inks alone', () => {
+    expect(chartInk('#e76edf', 'dark')).toBe('#e76edf')
+  })
+
+  it('passes through anything that is not a 6-digit hex', () => {
+    expect(chartInk('rgba(0, 0, 0, 0.5)', 'light')).toBe('rgba(0, 0, 0, 0.5)')
   })
 })

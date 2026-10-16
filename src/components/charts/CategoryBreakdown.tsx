@@ -13,11 +13,12 @@ import Reanimated, {
   withTiming,
 } from "react-native-reanimated";
 import { useRouter } from "expo-router";
+import { tap } from "@/src/lib/haptics";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { usePrivacy } from "@/src/context/PrivacyContext";
 import { fontFamily } from "@/src/theme/fonts";
 
-import { categoryTint } from "@/src/lib/emoji";
+import { categoryTint, chartInk } from "@/src/lib/emoji";
 import { PopIn } from "@/src/components/shared/PopIn";
 import { BottomSheet } from "@/src/components/shared/Modal";
 import { Button } from "@/src/components/ui/Button";
@@ -26,6 +27,7 @@ import { DonutChart } from "./DonutChart";
 import { CATEGORY_ICON_COMPONENTS } from "@/src/components/shared/CategoryIcon";
 import type { CategoryIconKey } from "@/src/lib/categoryIcons";
 import { EmptyState } from "@/src/components/shared/EmptyState";
+import { DonutSkeleton } from "@/src/components/shared/TabSkeleton";
 import { useReveal } from "./useReveal";
 import { clampPct } from "@/src/lib/monthly";
 import type { BreakdownRow, MonthComparison } from "@/src/lib/monthly";
@@ -151,7 +153,7 @@ export function CategoryBreakdown({
 }: Props) {
   const { currencySymbol, formatCurrency } = useCurrency()
 
-  const { tokens, space, radius, type } = useTheme();
+  const { tokens, scheme, space, radius, type } = useTheme();
   const { hideAmounts } = usePrivacy();
   const router = useRouter();
   const [expanded, setExpanded] = useState(false);
@@ -276,10 +278,13 @@ export function CategoryBreakdown({
   // Same name-hashed tint as the category's icon tile on Home, so a category
   // is one colour everywhere instead of whatever its rank here happens to be.
   const tintByKey = useMemo(() => {
-    const map = new Map<string, { bg: string; ink: string }>();
-    rows.forEach((row) => map.set(row.key, categoryTint(row.label, tokens)));
+    const map = new Map<string, { bg: string; ink: string; chart: string }>();
+    rows.forEach((row) => {
+      const tint = categoryTint(row.label, tokens);
+      map.set(row.key, { ...tint, chart: chartInk(tint.ink, scheme) });
+    });
     return map;
-  }, [rows, tokens]);
+  }, [rows, tokens, scheme]);
 
   const segments = useMemo(() => {
     const big = displayRows.filter((r) => r.pct >= DONUT_TAIL_PCT);
@@ -288,18 +293,18 @@ export function CategoryBreakdown({
       key: row.key,
       label: row.label,
       value: row.spent,
-      color: tintByKey.get(row.key)?.ink ?? tokens.text3,
+      color: tintByKey.get(row.key)?.chart ?? chartInk(tokens.text3, scheme),
     }));
     if (small.length > 0) {
       result.push({
         key: "__other__",
         label: "Other",
         value: small.reduce((s, r) => s + r.spent, 0),
-        color: tokens.text3,
+        color: chartInk(tokens.text3, scheme),
       });
     }
     return result;
-  }, [displayRows, tintByKey, tokens]);
+  }, [displayRows, tintByKey, tokens, scheme]);
 
   const selectedRow = displayRows.find((r) => r.key === selectedKey) ?? null;
   // A selected row bucketed into the donut's "Other" wedge (below the tail
@@ -485,7 +490,10 @@ export function CategoryBreakdown({
                 ? `Filter chart, ${filterActiveCount} ${activeFilterNoun} active`
                 : "Filter chart"
             }
-            onPress={openFilter}
+            onPress={() => {
+              tap();
+              openFilter();
+            }}
             style={[
               styles.headerFilterButton,
               {
@@ -525,7 +533,10 @@ export function CategoryBreakdown({
         >
           <Pressable
             accessibilityLabel="By category"
-            onPress={() => onModeChange("category")}
+            onPress={() => {
+              tap();
+              onModeChange("category");
+            }}
             style={[
               styles.toggleBtn,
               { borderRadius: radius.full },
@@ -544,7 +555,10 @@ export function CategoryBreakdown({
           </Pressable>
           <Pressable
             accessibilityLabel="By group"
-            onPress={() => onModeChange("group")}
+            onPress={() => {
+              tap();
+              onModeChange("group");
+            }}
             style={[
               styles.toggleBtn,
               { borderRadius: radius.full },
@@ -572,7 +586,10 @@ export function CategoryBreakdown({
           >
             <Pressable
               accessibilityLabel="Measure by amount spent"
-              onPress={() => setSortBy("spend")}
+              onPress={() => {
+                tap();
+                setSortBy("spend");
+              }}
               style={[
                 styles.measureCell,
                 { borderRadius: radius.full },
@@ -592,7 +609,10 @@ export function CategoryBreakdown({
             </Pressable>
             <Pressable
               accessibilityLabel="Measure by percent of budget used"
-              onPress={() => setSortBy("budget")}
+              onPress={() => {
+                tap();
+                setSortBy("budget");
+              }}
               style={[
                 styles.measureCell,
                 { borderRadius: radius.full },
@@ -613,8 +633,8 @@ export function CategoryBreakdown({
         </View>
       </View>
 
-      {empty && loading ? (
-        <View style={[styles.emptyState, styles.emptyContent]} />
+      {loading ? (
+        <DonutSkeleton />
       ) : empty ? (
         <EmptyState
           testID="breakdown-empty"
@@ -798,7 +818,7 @@ export function CategoryBreakdown({
           <View style={{ marginTop: space.md, gap: space.sm }}>
             {visibleRows.map((row, i) => {
               const tint = tintByKey.get(row.key);
-              const color = tint?.ink ?? tokens.text3;
+              const color = tint?.chart ?? chartInk(tokens.text3, scheme);
               const isSelected = selectedKey === row.key;
               const hasBudget = !row.assignedIsCarried && row.assigned > 0;
               const rowDelay =
@@ -818,7 +838,10 @@ export function CategoryBreakdown({
                     delay={rowDelay}
                   >
                     <Pressable
-                      onPress={() => onSelectKey(isSelected ? null : row.key)}
+                      onPress={() => {
+                        tap();
+                        onSelectKey(isSelected ? null : row.key);
+                      }}
                       style={[
                         isSelected && { opacity: 1 },
                         !isSelected && selectedKey != null && { opacity: 0.5 },
@@ -1025,7 +1048,10 @@ export function CategoryBreakdown({
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={`${allDraftItemsSelected ? "Deselect" : "Select"} all ${filterTab === "category" ? "categories" : "groups"}`}
-            onPress={toggleAllDraftKeys}
+            onPress={() => {
+              tap();
+              toggleAllDraftKeys();
+            }}
             hitSlop={8}
           >
             <Text
@@ -1059,7 +1085,10 @@ export function CategoryBreakdown({
                 key={tab}
                 accessibilityRole="tab"
                 accessibilityState={{ selected: active }}
-                onPress={() => setFilterTab(tab)}
+                onPress={() => {
+                  tap();
+                  setFilterTab(tab);
+                }}
                 style={[
                   styles.filterTab,
                   { borderRadius: radius.full },
@@ -1099,7 +1128,10 @@ export function CategoryBreakdown({
                   accessibilityRole="checkbox"
                   accessibilityLabel={row.label}
                   accessibilityState={{ checked }}
-                  onPress={() => toggleDraftKey(row.key)}
+                  onPress={() => {
+                    tap();
+                    toggleDraftKey(row.key);
+                  }}
                   style={[
                     styles.filterOption,
                     index > 0 && {
@@ -1209,7 +1241,6 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
   },
   donutWrap: { alignItems: "center", marginTop: 16 },
-  emptyState: { alignItems: "center", paddingVertical: 44 },
   emptyContainer: { minHeight: 480 },
   emptyContent: { flex: 1 },
   revealContent: { opacity: 1 },
@@ -1280,11 +1311,11 @@ function RowMark({
   fallback,
 }: {
   icon: CategoryIconKey | null;
-  tint: { bg: string; ink: string } | undefined;
+  tint: { bg: string; ink: string; chart: string } | undefined;
   fallback: string;
 }) {
   if (!icon || !tint) {
-    return <View style={[styles.legendDot, { backgroundColor: tint?.ink ?? fallback }]} />;
+    return <View style={[styles.legendDot, { backgroundColor: tint?.chart ?? fallback }]} />;
   }
   const Icon = CATEGORY_ICON_COMPONENTS[icon];
   return (

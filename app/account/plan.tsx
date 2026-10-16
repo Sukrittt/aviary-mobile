@@ -1,23 +1,20 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import { View, Text, Pressable, ScrollView, Linking, ActivityIndicator, StyleSheet } from 'react-native'
 import { useRouter } from 'expo-router'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { ArrowLeft, CaretRight, ArrowSquareOut, Question, Lock, SignOut, ArrowCounterClockwise, ShieldCheck, User, type PhosphorIcon } from '@/src/components/shared/icons'
-import type { PurchasesPackage } from 'react-native-purchases'
-import { Alert } from '@/src/components/ui/AlertHost'
 import { PlanPicker } from '@/src/components/billing/PlanPicker'
 import { CurrentPlan } from '@/src/components/billing/CurrentPlan'
-import { trackAviaryPro } from '@/src/lib/trackAviaryPro'
 import { track } from '@/src/lib/analytics'
 import { Icon } from '@/src/components/shared/Icon'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { clearAccess, sessionId } from '@/src/api/accessMode'
 import { revokeSession } from '@/src/api/account'
-import { useBillingStatus, seedBillingStatus } from '@/src/hooks/useBillingStatus'
-import { getPackages, managementUrl, purchase, purchasesAvailable, restore } from '@/src/lib/purchases'
-import { accessAllowed, formatDate, isWebPlan, lockedCopy, planSummary } from '@/src/lib/billingStatus'
+import { usePaywall } from '@/src/hooks/usePaywall'
+import { managementUrl } from '@/src/lib/purchases'
+import { PACKAGE_TYPE } from 'react-native-purchases'
+import { formatDate, isWebPlan, lockedCopy, planSummary } from '@/src/lib/billingStatus'
 import { BASE_URL } from '@/src/api/client'
 
 const PLAY_SUBSCRIPTIONS_URL = 'https://play.google.com/store/account/subscriptions?package=com.sukrit04.envelope'
@@ -32,66 +29,30 @@ const WEB_ACCOUNT_URL = `${BASE_URL}/account#subscription`
  * why the exits the plan promises (export, account, delete, sign out) live
  * on this screen rather than behind navigation the user can no longer reach.
  *
- * The device never decides access: every purchase and restore ends with the
- * server's answer, seeded into the cache (see src/lib/purchases.ts).
+ * Plans are only inline once access has ended (the benefits pitch, under
+ * the lock card so the exits stay one scroll away). During the trial Play
+ * can't sell yet, so there's one row that opens the paywall modal instead.
  */
 export default function PlanScreen() {
   const { tokens } = useTheme()
   const insets = useSafeAreaInsets()
   const router = useRouter()
-  const qc = useQueryClient()
-  const { data: status, isLoading } = useBillingStatus()
-  const [busy, setBusy] = useState<string | null>(null)
-
-  const locked = !accessAllowed(status)
-  // Checkout opens at trial expiry for v1 (payment-subscriptions-plan.md).
-  // Play charges the moment a subscription starts, so buying early would
-  // quietly forfeit the rest of the trial. During the trial the plans are
-  // shown with their prices, but can't be bought yet.
-  const showPlans = !!status?.purchaseEnabled && purchasesAvailable() && (status.mode === 'expired' || status.mode === 'trial')
-  const canBuy = showPlans && status?.mode === 'expired'
-  const paid = status?.mode === 'paid'
-  const packagesQuery = useQuery({ queryKey: ['billing-packages'], queryFn: getPackages, enabled: showPlans || (paid && purchasesAvailable()) })
-  // Once per visit, the first moment plans are actually on screen. `trigger`
-  // separates someone browsing plans mid-trial from someone locked out.
+  const { status, isLoading, locked, showPlans, canBuy, paid, packagesQuery, busy, setBusy, buy, doRestore } = usePaywall()
+  const inlinePlans = showPlans && (locked || status?.mode === 'expired')
+  // Once per visit, the first moment plans are actually on screen.
   const paywallSeen = useRef(false)
   useEffect(() => {
-    if (!showPlans || paywallSeen.current) return
+    if (!inlinePlans || paywallSeen.current) return
     paywallSeen.current = true
     track('paywall_viewed', { trigger: locked ? 'access_expired' : 'plan_screen', plan_status: status?.mode ?? 'unknown' })
-  }, [showPlans, locked, status?.mode])
+  }, [inlinePlans, locked, status?.mode])
   const manageable = !!status?.productId && status.renewalState !== 'revoked' && status.renewalState !== 'expired'
   // Bought on the website: Play knows nothing about it, so managing and cancelling happen there.
   const web = isWebPlan(status)
-
-  async function buy(pkg: PurchasesPackage) {
-    setBusy(pkg.identifier)
-    const outcome = await purchase(pkg)
-    setBusy(null)
-    if (outcome.status === 'purchased') {
-      seedBillingStatus(qc, outcome.access)
-      if (outcome.access.allowed) void trackAviaryPro(pkg, outcome.access.paidExpiresAt)
-      if (!outcome.access.allowed) Alert.alert('Almost there', "Google Play took the payment, but we couldn't confirm it yet. Give it a minute and tap Restore purchases.")
-    } else if (outcome.status === 'pending') {
-      void qc.invalidateQueries({ queryKey: ['billing-status'] })
-      Alert.alert('Payment pending', "Google Play is still confirming your payment. We'll unlock Aviary as soon as it clears. No need to pay again.")
-    } else if (outcome.status === 'failed') {
-      Alert.alert("Couldn't complete purchase", 'Google Play didn\'t finish the payment. Check your connection and try again.')
-    }
-  }
-
-  async function doRestore() {
-    setBusy('restore')
-    try {
-      const next = await restore()
-      seedBillingStatus(qc, next)
-      if (!next.allowed) Alert.alert('Nothing to restore', "We didn't find an active subscription for this Google account. Subscriptions belong to the Aviary account that bought them.")
-    } catch {
-      Alert.alert("Couldn't reach the store", 'Check your connection and try again.')
-    } finally {
-      setBusy(null)
-    }
-  }
+  // The cheapest monthly figure Play quotes, for the trial row's hint. Never formatted here.
+  const fromPrice =
+    packagesQuery.data?.find((p) => p.packageType === PACKAGE_TYPE.ANNUAL)?.product.pricePerMonthString ??
+    packagesQuery.data?.find((p) => p.packageType === PACKAGE_TYPE.MONTHLY)?.product.priceString
 
   async function openManage() {
     if (web) {
@@ -158,14 +119,35 @@ export default function PlanScreen() {
                     {`Free until ${formatDate(status.trialEndsAt)}. You won't be charged unless you pick a plan.`}
                   </Text>
                 ) : null}
+                {status.mode === 'trial' && showPlans ? (
+                  <>
+                    <View style={[styles.divider, { backgroundColor: tokens.border, marginHorizontal: -16, marginTop: 10 }]} />
+                    <Pressable onPress={() => router.push('/account/paywall')} accessibilityRole="button" style={styles.planRow}>
+                      <View style={{ flex: 1, gap: 2 }}>
+                        <Text style={[styles.rowLabel, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>
+                          {status.trialDaysRemaining <= 7 ? 'See plans' : `What happens on ${formatDate(status.trialEndsAt)}`}
+                        </Text>
+                        {fromPrice ? (
+                          <Text style={[styles.cardMeta, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
+                            {`From ${fromPrice}/month. Nothing's charged unless you subscribe.`}
+                          </Text>
+                        ) : null}
+                      </View>
+                      <Icon icon={CaretRight} size={16} color={tokens.text3} />
+                    </Pressable>
+                  </>
+                ) : null}
               </View>
             )}
 
-            {showPlans ? (
+            {inlinePlans ? (
               packagesQuery.data?.length ? (
                 <PlanPicker
                   packages={packagesQuery.data}
-                  unlockDate={canBuy ? null : formatDate(status.trialEndsAt)}
+                  variant="benefits"
+                  trialEndsAt={status.trialEndsAt}
+                  trialDaysRemaining={status.trialDaysRemaining}
+                  canBuy={canBuy}
                   busy={busy !== null}
                   onBuy={(pkg) => void buy(pkg)}
                 />
@@ -250,5 +232,6 @@ const styles = StyleSheet.create({
   lockHead: { flexDirection: 'row', gap: 14, padding: 16, alignItems: 'flex-start' },
   lockBadge: { width: 40, height: 40, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   lockTitle: { fontSize: 19 },
+  planRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 12 },
   footnote: { fontSize: 12, lineHeight: 17, paddingHorizontal: 4 },
 })

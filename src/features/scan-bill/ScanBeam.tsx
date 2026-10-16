@@ -135,8 +135,8 @@ export function ScanBeam({
               style={[StyleSheet.absoluteFill, { backgroundColor: tokens.mintSoft }]}
             />
             <View style={s.stampWrap} pointerEvents="none">
-              <Animated.View style={[s.stamp, { backgroundColor: tokens.mint, shadowColor: tokens.mint }, stampStyle]}>
-                <CheckIcon color={tokens.onAccent} size={34} />
+              <Animated.View style={[s.stamp, { backgroundColor: tokens.successBg, shadowColor: tokens.mint }, stampStyle]}>
+                <CheckIcon color={tokens.onSuccess} size={34} />
               </Animated.View>
             </View>
           </>

@@ -463,6 +463,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
             from, with nothing underneath to go back to. */}
         <Stack.Protected guard={signedIn}>
           <Stack.Screen name="account/plan" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+          <Stack.Screen name="account/paywall" options={{ presentation: 'fullScreenModal', headerShown: false }} />
           <Stack.Screen name="account/security" options={{ presentation: 'card', animation: 'slide_from_right' }} />
           <Stack.Screen name="account/data" options={{ presentation: 'card', animation: 'slide_from_right' }} />
           <Stack.Screen name="account/help" options={{ presentation: 'card', animation: 'slide_from_right' }} />
