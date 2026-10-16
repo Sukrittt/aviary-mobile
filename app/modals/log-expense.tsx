@@ -49,6 +49,7 @@ import { NAV_HEIGHT } from "@/src/theme/scale";
 import { useIsFocused,useLocalSearchParams,useRouter } from "expo-router";
 import { Camera, CaretDown, ChatText, Plus, Warning } from "@/src/components/shared/icons";
 import { useCaptureTip } from "@/src/hooks/useCaptureTip";
+import { useFeedOn } from "@/src/hooks/useActivityView";
 import { noteManualLog, type CaptureTipReason } from "@/src/lib/captureTip";
 import { CaptureTipBubble } from "@/src/features/log-expense/CaptureTipBubble";
 import { IncomeFloodButton } from "@/src/features/log-expense/IncomeFloodButton";
@@ -134,6 +135,7 @@ export default function LogExpenseScreen() {
   const origTimestamp = str(params.timestamp);
   const isEdit = origTimestamp !== "";
   const cachedUser = useCachedUser();
+  const feedOn = useFeedOn().on;
   const showIncome = !isEdit && !isHidden(cachedUser, "income");
   // "Several at once" runs through Ask Aviary, so it goes when that does.
   const showCapture = !isEdit && !isHidden(cachedUser, "askAviary");
@@ -638,7 +640,7 @@ export default function LogExpenseScreen() {
           {/* The moment you log is the moment to snap it, so the camera sits
               out here; the library and removing a photo stay in More. It
               comes with the photo feed, the place those photos show up. */}
-          {photoAllowed && online && cachedUser?.activityFeed === true && (
+          {photoAllowed && online && feedOn && (
             <Pressable
               onPress={async () => {
                 tap();

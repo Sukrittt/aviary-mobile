@@ -22,8 +22,10 @@ import { tap } from "@/src/lib/haptics";
 import { AnimatedPressable, usePressSpring } from "@/src/components/ui/Button";
 import { CaretLeft, CaretRight, Images, MoneyWavy, Rows, SlidersHorizontal, Trash, X } from "@/src/components/shared/icons";
 import { ActivityFeed } from "@/src/components/activity/ActivityFeed";
-import { useActivityView } from "@/src/hooks/useActivityView";
-import { useUser } from "@/src/hooks/useUser";
+import { useActivityView, useFeedOn } from "@/src/hooks/useActivityView";
+import { useFeedTip } from "@/src/hooks/useFeedTip";
+import { CaptureTipBubble } from "@/src/features/log-expense/CaptureTipBubble";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { track } from "@/src/lib/analytics";
 import Reanimated, { FadeIn, FadeOut, LinearTransition } from "react-native-reanimated";
 import { Screen } from "@/src/components/ui/Screen";
@@ -99,7 +101,8 @@ function keyOf(t: ExpenseRow): string {
 export default function ActivityScreen() {
   const { formatCurrency } = useCurrency()
 
-  const { tokens, scheme } = useTheme();
+  const { tokens, scheme, space } = useTheme();
+  const insets = useSafeAreaInsets();
   const categoryRowPress = usePressSpring();
   const { refreshing, onRefresh } = useRefresh();
   const { hideAmounts } = usePrivacy();
@@ -118,7 +121,8 @@ export default function ActivityScreen() {
   const scrollRef = useRef<ScrollView>(null);
   const [page, setPage] = useState(1);
   const [view, setView] = useActivityView();
-  const feedOn = useUser().data?.activityFeed === true;
+  const feed = useFeedOn();
+  const feedOn = feed.on;
 
   const changePage = useCallback((next: number, scrollToTop = false) => {
     tap();
@@ -178,9 +182,11 @@ export default function ActivityScreen() {
   const [selectedKeys, setSelectedKeys] = useState<ReadonlySet<string>>(() => new Set());
   const selecting = selectedKeys.size > 0;
   // Selection is the list's; the feed has no checkboxes to show it with.
-  // Turning the feed on in Features opens Activity on it; the header button
-  // still flips to the list, and that choice sticks on this device.
-  const feedView = feedOn && (view ?? "feed") === "feed" && !selecting;
+  // Turning the feed on in Features opens Activity on it. When it came on by
+  // itself (first photo) the list stays put and a tip points at the switch.
+  // Either way the header button flips views, and that choice sticks on this device.
+  const feedView = feedOn && (view ?? (feed.auto ? "list" : "feed")) === "feed" && !selecting;
+  const feedTip = useFeedTip(feed.auto && view === null && !selecting);
   const [confirmBulk, setConfirmBulk] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
   // Rows hidden the moment a bulk delete starts; failed ones come back.
@@ -1097,6 +1103,22 @@ export default function ActivityScreen() {
           noneLabel="All categories"
         />
       </Screen>
+      {feedTip.show && (
+        // The feed switch is the header's last icon, so it sits at the right edge.
+        <CaptureTipBubble
+          anchor={{ top: insets.top + space.md, right: space.lg, size: 40 }}
+          title="Your photos, as a feed"
+          body="Tap here to scroll your expenses with their photos."
+          tryLabel="Try the feed"
+          ringColor={tokens.accent}
+          onTry={() => {
+            feedTip.close("try");
+            setView("feed");
+            track("activity_view_changed", { view: "feed" });
+          }}
+          onDismiss={() => feedTip.close("dismiss")}
+        />
+      )}
     </>
   );
 }
