@@ -1,6 +1,7 @@
 import { memo, useCallback, useMemo, useRef, useState, type ReactElement } from 'react'
 import { ActivityIndicator, FlatList, Image, Pressable, StyleSheet, Text, View, type RefreshControlProps } from 'react-native'
 import { CategoryIcon } from '@/src/components/shared/CategoryIcon'
+import { FeedSkeleton } from '@/src/components/shared/TabSkeleton'
 import { DeletingRow } from '@/src/components/activity/DeletingRow'
 import { TransactionDetail, type CardRect } from '@/src/components/activity/TransactionDetail'
 import { useNavPadding } from '@/src/components/ui/Screen'
@@ -82,7 +83,7 @@ export function ActivityFeed({ params, header, empty, categoryByName, accountNam
         ListHeaderComponent={header}
         ListEmptyComponent={
           feed.isLoading ? (
-            <ActivityIndicator color={tokens.text3} style={{ marginTop: space.xl }} />
+            <FeedSkeleton />
           ) : feed.isError ? (
             <Text style={[caption, { marginTop: space.xl }]}>Couldn&apos;t load your feed. Pull down to try again.</Text>
           ) : (

@@ -206,17 +206,55 @@ export function DonutSkeleton({ size = 200 }: { size?: number }) {
   )
 }
 
-export function ActivitySkeleton() {
+/** Activity's feed cards: day label, then cards of a header row over a photo-sized block. */
+function FeedCards() {
+  const { tokens, space, radius } = useTheme()
+  return (
+    <>
+      <Bone w={90} h={12} style={{ marginTop: space.md }} />
+      {[0, 1].map((i) => (
+        <View key={i} style={[styles.feedCard, { borderColor: tokens.border, borderRadius: radius.lg, marginTop: space.sm }]}>
+          <View style={[styles.row, { padding: space.md, gap: space.md }]}>
+            <Bone w={32} h={32} r={16} />
+            <View style={styles.rowText}>
+              <Bone w="50%" h={14} />
+              <Bone w="25%" h={11} />
+            </View>
+            <Bone w={56} h={14} />
+          </View>
+          <View style={[styles.feedPhoto, { backgroundColor: tokens.inputBg }]} />
+        </View>
+      ))}
+    </>
+  )
+}
+
+/** The feed's first page while it loads, under the real search row. */
+export function FeedSkeleton() {
+  return (
+    <Pulse label="Loading your feed">
+      <FeedCards />
+    </Pulse>
+  )
+}
+
+export function ActivitySkeleton({ feed = false }: { feed?: boolean }) {
   const { space } = useTheme()
   return (
     <Screen title="Activity">
-      <Pulse>
+      <Pulse label={feed ? 'Loading your feed' : 'Loading'}>
         <View style={[styles.searchRow, { marginBottom: space.md }]}>
           <Bone w={undefined} h={46} r={100} style={styles.flex} />
           <Bone w={44} h={44} r={22} />
         </View>
-        <Bone w={90} h={12} style={{ marginTop: space.sm }} />
-        <Rows count={7} />
+        {feed ? (
+          <FeedCards />
+        ) : (
+          <>
+            <Bone w={90} h={12} style={{ marginTop: space.sm }} />
+            <Rows count={7} />
+          </>
+        )}
       </Pulse>
     </Screen>
   )
@@ -301,6 +339,8 @@ const styles = StyleSheet.create({
   briefLines: { gap: 8, marginTop: 12 },
   briefChips: { flexDirection: 'row', gap: 8 },
   rowText: { flex: 1, gap: 6 },
+  feedCard: { overflow: 'hidden', borderWidth: StyleSheet.hairlineWidth },
+  feedPhoto: { aspectRatio: 3 / 2 },
   trend: { flexDirection: 'row', alignItems: 'flex-end', gap: 10 },
   trendCol: { flex: 1, alignItems: 'center', gap: 8 },
   donut: { alignItems: 'center', marginTop: 16, marginBottom: 8 },

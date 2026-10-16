@@ -1,4 +1,4 @@
-import { Image, RefreshControl, Text } from 'react-native'
+import { ActivityIndicator, Image, RefreshControl, Text } from 'react-native'
 import { act, fireEvent } from '@testing-library/react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import type { ExpenseRow } from '@/src/types'
@@ -95,4 +95,11 @@ describe('detail page', () => {
     fireEvent(screen.getByLabelText('Plant, Home. View details'), 'longPress')
     expect(onOpenActions).toHaveBeenCalledWith(expect.objectContaining({ id: 'e1' }))
   })
+})
+
+it('shows feed-shaped skeleton cards, not a spinner, while the first page loads', () => {
+  mockFeed.mockReturnValue({ data: undefined, isLoading: true, isError: false, hasNextPage: false })
+  const screen = renderWithProviders(<Harness onOpenActions={jest.fn()} />)
+  expect(screen.getByLabelText('Loading your feed')).toBeTruthy()
+  expect(screen.UNSAFE_queryAllByType(ActivityIndicator)).toHaveLength(0)
 })

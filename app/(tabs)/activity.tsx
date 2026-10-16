@@ -491,7 +491,7 @@ export default function ActivityScreen() {
   if (!online) return <OfflineScreen />;
 
   if (isLoading) {
-    return <ActivitySkeleton />;
+    return <ActivitySkeleton feed={feedView} />;
   }
 
   if (hasError) {
