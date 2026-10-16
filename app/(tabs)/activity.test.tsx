@@ -454,7 +454,7 @@ describe('feed view', () => {
 
   it('deletes from the feed as soon as the delete is confirmed', () => {
     const screen = renderWithProviders(<ActivityScreen />)
-    fireEvent.press(screen.getByLabelText('Item 1, Food. Edit or delete'))
+    fireEvent(screen.getByLabelText('Item 1, Food. View details'), 'longPress')
     fireEvent.press(screen.getByText('Delete'))
     fireEvent.press(screen.getAllByText('Delete').at(-1)!)
     expect(mockDelete).toHaveBeenCalledWith(expect.objectContaining({ id: 'row-1' }), expect.anything())

@@ -636,8 +636,9 @@ export default function LogExpenseScreen() {
 
           <View style={[styles.quickRow, { gap: space.xl }]}>
           {/* The moment you log is the moment to snap it, so the camera sits
-              out here; the library and removing a photo stay in More. */}
-          {photoAllowed && online && (
+              out here; the library and removing a photo stay in More. It
+              comes with the photo feed, the place those photos show up. */}
+          {photoAllowed && online && cachedUser?.activityFeed === true && (
             <Pressable
               onPress={async () => {
                 tap();

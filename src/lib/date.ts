@@ -61,3 +61,10 @@ export function formatDayLabel(iso: string, today: Date = new Date()): string {
     year: d.getFullYear() !== today.getFullYear() ? 'numeric' : undefined,
   })
 }
+
+/** "1:30 pm" for a server timestamp, or '' when it doesn't parse. */
+export function formatTime(timestamp: string): string {
+  const d = new Date(timestamp)
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit' }).toLowerCase()
+}

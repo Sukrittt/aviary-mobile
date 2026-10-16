@@ -1,4 +1,4 @@
-import { toLocalDateString, todayLocal, nowLocal, deviceTimezone } from './date'
+import { toLocalDateString, todayLocal, nowLocal, deviceTimezone, formatTime } from './date'
 
 // Jest pins TZ=UTC (see jest.config.js), so "local" here is UTC.
 describe('toLocalDateString', () => {
@@ -31,5 +31,12 @@ describe('nowLocal', () => {
 describe('deviceTimezone', () => {
   it('returns an IANA name', () => {
     expect(deviceTimezone()).toMatch(/^[A-Za-z_]+(\/[A-Za-z_+\-0-9]+)*$/)
+  })
+})
+
+describe('formatTime', () => {
+  it('reads a timestamp as a short local time, and blanks a bad one', () => {
+    expect(formatTime(new Date(2026, 9, 15, 13, 5).toISOString())).toMatch(/^1:05\s?pm$/)
+    expect(formatTime('nope')).toBe('')
   })
 })
