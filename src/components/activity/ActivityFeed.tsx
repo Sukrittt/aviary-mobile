@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState, type ReactElement } from 'react'
 import { ActivityIndicator, Alert, FlatList, Image, Modal, Pressable, StyleSheet, Text, View, type RefreshControlProps } from 'react-native'
 import * as Haptics from 'expo-haptics'
-import { Camera } from '@/src/components/shared/icons'
+import { Camera, ImageSquare } from '@/src/components/shared/icons'
+import { BottomSheet } from '@/src/components/shared/Modal'
 import { CategoryIcon } from '@/src/components/shared/CategoryIcon'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { useNavPadding } from '@/src/components/ui/Screen'
@@ -121,6 +122,7 @@ function FeedCard({ txn, category, onOpenActions, onView }: {
   const [picked, setPicked] = useState<{ uri: string; over?: string } | null>(null)
   if (picked && picked.over !== txn.photo_url) setPicked(null)
   const [justAdded, setJustAdded] = useState(false)
+  const [choosing, setChoosing] = useState(false)
   const signed = useMemo(() => (txn.photo_url ? stablePhotoUrl(txn.photo_url) : null), [txn.photo_url])
   const uri = picked?.uri ?? signed
 
@@ -131,7 +133,10 @@ function FeedCard({ txn, category, onOpenActions, onView }: {
   }, [justAdded])
 
   async function addFrom(source: 'camera' | 'library') {
+    // Picked over the open sheet, like More's photo field: closing it first
+    // races the picker against the sheet's slide-out on iOS.
     const photo = await pickPhoto(source)
+    setChoosing(false)
     if (!photo || !txn.id) return
     setPicked({ uri: photo.uri, over: txn.photo_url })
     try {
@@ -146,11 +151,7 @@ function FeedCard({ txn, category, onOpenActions, onView }: {
 
   function addPhoto() {
     Haptics.selectionAsync().catch(() => {})
-    Alert.alert('Add a photo', undefined, [
-      { text: 'Take photo', onPress: () => void addFrom('camera') },
-      { text: 'Choose photo', onPress: () => void addFrom('library') },
-      { text: 'Cancel', style: 'cancel' },
-    ])
+    setChoosing(true)
   }
 
   const name = splitEmoji(txn.category).text
@@ -218,6 +219,35 @@ function FeedCard({ txn, category, onOpenActions, onView }: {
         )}
       </View>
 
+      <BottomSheet visible={choosing} onClose={() => setChoosing(false)}>
+        <Text style={[styles.sheetTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Add a photo</Text>
+        <Text numberOfLines={1} style={[styles.sheetSub, { color: tokens.text2, fontFamily: fontFamily.bodyMedium, marginBottom: space.lg }]}>
+          {txn.item}
+        </Text>
+        <View style={{ flexDirection: 'row', gap: space.sm }}>
+          {([
+            { source: 'camera', label: 'Take photo', icon: Camera },
+            { source: 'library', label: 'Choose photo', icon: ImageSquare },
+          ] as const).map((o) => (
+            <Pressable
+              key={o.source}
+              onPress={() => void addFrom(o.source)}
+              accessibilityRole="button"
+              accessibilityLabel={o.label}
+              style={({ pressed }) => [styles.option, { backgroundColor: tokens.inputBg, borderRadius: radius.lg, padding: space.lg, gap: space.sm, opacity: pressed ? 0.7 : 1 }]}
+            >
+              <View style={[styles.optionIcon, { backgroundColor: tint.bg }]}>
+                <o.icon size={26} color={tint.ink} weight="duotone" />
+              </View>
+              <Text style={{ color: tokens.text, fontFamily: fontFamily.bodySemiBold, fontSize: 14 }}>{o.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+        <Pressable onPress={() => setChoosing(false)} accessibilityRole="button" hitSlop={8} style={{ alignSelf: 'center', marginTop: space.lg, padding: space.sm }}>
+          <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodySemiBold, fontSize: 14 }}>Not now</Text>
+        </Pressable>
+      </BottomSheet>
+
       {notes ? (
         <Text numberOfLines={3} style={{ color: tokens.text2, fontFamily: fontFamily.bodyMedium, fontSize: 14, padding: space.md }}>
           {notes}
@@ -236,5 +266,9 @@ const styles = StyleSheet.create({
   placeholder: { width: '100%', aspectRatio: 3 / 2, alignItems: 'center', justifyContent: 'center' },
   addPhoto: { position: 'absolute', flexDirection: 'row', alignItems: 'center' },
   center: { alignItems: 'center', justifyContent: 'center' },
+  sheetTitle: { fontSize: 19, textAlign: 'center' },
+  sheetSub: { fontSize: 13, textAlign: 'center', marginTop: 4 },
+  option: { flex: 1, alignItems: 'center' },
+  optionIcon: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
   added: { position: 'absolute', width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
 })

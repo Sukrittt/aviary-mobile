@@ -60,11 +60,11 @@ it('shows the empty state when nothing matches', () => {
 })
 
 it('adds a photo from the card, shows it straight away and tracks it', async () => {
-  jest.spyOn(Alert, 'alert').mockImplementation((_t, _m, buttons) => buttons?.find((b) => b.text === 'Choose photo')?.onPress?.())
   mockPick.mockResolvedValue({ uri: 'file:///picked.jpg', base64: 'abc', mimeType: 'image/jpeg' })
   mockSave.mockResolvedValue(undefined)
   const screen = renderFeed([txn({})])
-  await act(async () => fireEvent.press(screen.getByLabelText('Add a photo to Plant')))
+  fireEvent.press(screen.getByLabelText('Add a photo to Plant'))
+  await act(async () => fireEvent.press(screen.getByLabelText('Choose photo')))
   expect(mockPick).toHaveBeenCalledWith('library')
   expect(mockSave).toHaveBeenCalledWith({ id: 'e1', photo: { base64: 'abc', mimeType: 'image/jpeg' } })
   await waitFor(() => expect(mockTrack).toHaveBeenCalledWith('expense_photo_added', { from: 'feed' }))
@@ -72,24 +72,23 @@ it('adds a photo from the card, shows it straight away and tracks it', async () 
 })
 
 it('takes the photo back off and says so when the upload fails', async () => {
-  const alert = jest.spyOn(Alert, 'alert').mockImplementation((title, _m, buttons) => {
-    if (title === 'Add a photo') buttons?.find((b) => b.text === 'Take photo')?.onPress?.()
-  })
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {})
   mockPick.mockResolvedValue({ uri: 'file:///picked.jpg', base64: 'abc', mimeType: 'image/jpeg' })
   mockSave.mockRejectedValue(new Error('503'))
   const screen = renderFeed([txn({})])
-  await act(async () => fireEvent.press(screen.getByLabelText('Add a photo to Plant')))
+  fireEvent.press(screen.getByLabelText('Add a photo to Plant'))
+  await act(async () => fireEvent.press(screen.getByLabelText('Take photo')))
   await waitFor(() => expect(alert).toHaveBeenCalledWith("Photo didn't upload", 'Check your connection and try again.'))
   expect(screen.getByLabelText('Add a photo to Plant')).toBeTruthy()
   expect(mockTrack).not.toHaveBeenCalled()
 })
 
 it('drops the just-picked photo once the server photo changes, so a later removal shows Add a photo again', async () => {
-  jest.spyOn(Alert, 'alert').mockImplementation((_t, _m, buttons) => buttons?.find((b) => b.text === 'Choose photo')?.onPress?.())
   mockPick.mockResolvedValue({ uri: 'file:///picked.jpg', base64: 'abc', mimeType: 'image/jpeg' })
   mockSave.mockResolvedValue(undefined)
   const screen = renderFeed([txn({})])
-  await act(async () => fireEvent.press(screen.getByLabelText('Add a photo to Plant')))
+  fireEvent.press(screen.getByLabelText('Add a photo to Plant'))
+  await act(async () => fireEvent.press(screen.getByLabelText('Choose photo')))
   await waitFor(() => expect(mockTrack).toHaveBeenCalled())
 
   const rerender = (row: ExpenseRow) => {
