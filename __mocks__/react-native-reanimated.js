@@ -28,6 +28,18 @@ function useDerivedValue(fn) {
   return { value: fn() }
 }
 
+// Re-runs prepare after each render and reacts when its result changes, like
+// the real hook does each frame.
+function useAnimatedReaction(prepare, react) {
+  const prev = React.useRef(null)
+  React.useEffect(() => {
+    const next = prepare()
+    if (next === prev.current) return
+    react(next, prev.current)
+    prev.current = next
+  })
+}
+
 function useAnimatedRef() {
   return React.useRef(null)
 }
@@ -105,6 +117,7 @@ module.exports = {
   useAnimatedStyle,
   useAnimatedProps,
   useDerivedValue,
+  useAnimatedReaction,
   useAnimatedRef,
   useAnimatedScrollHandler,
   useReducedMotion: () => false,
