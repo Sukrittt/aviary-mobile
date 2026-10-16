@@ -2,7 +2,6 @@ import { act, fireEvent } from '@testing-library/react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { CategoryBreakdown } from './CategoryBreakdown'
 import type { BreakdownRow } from '@/src/lib/monthly'
-import { categoryTint, chartInk } from '@/src/lib/emoji'
 import { lightTokens } from '@/src/theme/tokens'
 
 const mockPush = jest.fn()
@@ -42,6 +41,7 @@ function renderBreakdown(
       rows={mode === 'category' ? rows : groupRows}
       categoryRows={rows}
       groupRows={groupRows}
+      colorOrder={['Travel', 'Cook', 'Investments']}
       categoryGroupMap={categoryGroupMap}
       mode={mode}
       onModeChange={onModeChange}
@@ -71,6 +71,7 @@ describe('CategoryBreakdown filtering', () => {
         rows={rows}
         categoryRows={rows}
         groupRows={groupRows}
+        colorOrder={[]}
         categoryGroupMap={categoryGroupMap}
         mode="category"
         onModeChange={jest.fn()}
@@ -93,6 +94,7 @@ describe('CategoryBreakdown filtering', () => {
         rows={[]}
         categoryRows={[]}
         groupRows={[]}
+        colorOrder={[]}
         categoryGroupMap={new Map()}
         mode="category"
         onModeChange={jest.fn()}
@@ -117,6 +119,7 @@ describe('CategoryBreakdown filtering', () => {
         rows={[]}
         categoryRows={[]}
         groupRows={[]}
+        colorOrder={[]}
         categoryGroupMap={new Map()}
         mode="category"
         onModeChange={jest.fn()}
@@ -235,6 +238,7 @@ describe('CategoryBreakdown group delta under a partial filter', () => {
         rows={groups}
         categoryRows={categoryRows}
         groupRows={groups}
+        colorOrder={[]}
         categoryGroupMap={new Map([['Cook', 'Everyday'], ['Travel', 'Everyday'], ['Fuel', 'Everyday'], ['Investments', 'Savings']])}
         mode="group"
         onModeChange={jest.fn()}
@@ -273,6 +277,7 @@ describe('CategoryBreakdown group delta under a partial filter', () => {
         rows={groups}
         categoryRows={categoryRows}
         groupRows={groups}
+        colorOrder={[]}
         categoryGroupMap={new Map([['Snacks', 'Everyday'], ['Travel', 'Everyday'], ['Fuel', 'Everyday'], ['Investments', 'Savings']])}
         mode="group"
         onModeChange={jest.fn()}
@@ -296,12 +301,10 @@ describe('CategoryBreakdown group delta under a partial filter', () => {
 })
 
 describe('CategoryBreakdown colours', () => {
-  it("colours each wedge with the category's Home icon tint, not its rank", () => {
+  it("colours each wedge by the category's place in the user's list, not its rank", () => {
     const { UNSAFE_root } = renderBreakdown()
     const strokes = UNSAFE_root.findAll((n) => typeof n.props.stroke === 'string').map((n) => n.props.stroke)
-    for (const label of ['Investments', 'Cook']) {
-      expect(strokes).toContain(chartInk(categoryTint(label, lightTokens).ink, 'light'))
-    }
+    expect(strokes).toEqual(expect.arrayContaining([lightTokens.chart3, lightTokens.chart2, lightTokens.chart1]))
   })
 })
 
