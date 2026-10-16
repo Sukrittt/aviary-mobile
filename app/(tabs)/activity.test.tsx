@@ -442,6 +442,13 @@ describe('feed view', () => {
     expect(screen.queryByLabelText('Show as feed')).toBeNull()
   })
 
+  it('loads with the feed skeleton on the feed, and the list skeleton on the list', () => {
+    mockUseExpensesPage.mockReturnValue({ data: undefined, isLoading: true, error: null })
+    expect(renderWithProviders(<ActivityScreen />).getByLabelText('Loading your feed')).toBeTruthy()
+    mockUser = {}
+    expect(renderWithProviders(<ActivityScreen />).queryByLabelText('Loading your feed')).toBeNull()
+  })
+
   it('opens on the feed once turned on, and switches to the list and back', () => {
     const screen = renderWithProviders(<ActivityScreen />)
     expect(screen.getByLabelText('Item 1, Food. View details')).toBeTruthy()
