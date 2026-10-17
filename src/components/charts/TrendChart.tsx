@@ -11,6 +11,7 @@ import Reanimated, {
   withTiming,
 } from 'react-native-reanimated'
 import { useTheme } from '@/src/theme/ThemeProvider'
+import type { ThemeTokens } from '@/src/theme/tokens'
 import { fontFamily } from '@/src/theme/fonts'
 
 import { monthAbbrev } from '@/src/lib/envelope'
@@ -19,7 +20,6 @@ import { TrendSkeleton } from '@/src/components/shared/TabSkeleton'
 
 const AnimatedRect = Reanimated.createAnimatedComponent(Rect)
 const AnimatedLine = Reanimated.createAnimatedComponent(Line)
-const AnimatedG = Reanimated.createAnimatedComponent(G)
 
 export interface TrendPoint {
   /** Month key, "YYYY-MM". */
@@ -50,6 +50,18 @@ interface Props {
   partialNote?: string | null
   /** Shown instead of the chart when `data` is empty. */
   emptyNote?: string
+}
+
+/** Bar colour. Dimmed bars are the accent at reduced opacity in light; in dark that
+ *  reads as muddy brown, so they go neutral and only the highlighted bars keep colour. */
+export function barFill(
+  tokens: ThemeTokens,
+  scheme: 'light' | 'dark',
+  value: number,
+  dimmed: boolean,
+): { fill: string; fillOpacity: number } {
+  if (dimmed && scheme === 'dark') return { fill: tokens.chipActiveBg, fillOpacity: 1 }
+  return { fill: value < 0 ? tokens.coral : tokens.accent, fillOpacity: dimmed ? 0.42 : 1 }
 }
 
 const PAD_TOP = 30
@@ -97,19 +109,17 @@ interface BaselineProps {
   x1: number
   x2: number
   y: number
-  label: string
   /** Starts once the last bar has finished growing. */
   delay: number
   signature: string
   reducedMotion: boolean
   stroke: string
-  labelFill: string
-  halo: string
 }
 
-/** Dashed average line, drawn left to right after the bars land, label fading
- *  in behind it. Replays whenever the bars regrow. */
-function Baseline({ x1, x2, y, label, delay, signature, reducedMotion, stroke, labelFill, halo }: BaselineProps) {
+/** Dashed average line, drawn left to right after the bars land. Replays
+ *  whenever the bars regrow. Its label lives in the header legend: inside the
+ *  plot it always ended up sitting on a bar. */
+function Baseline({ x1, x2, y, delay, signature, reducedMotion, stroke }: BaselineProps) {
   const draw = useSharedValue(reducedMotion ? 1 : 0)
 
   useEffect(() => {
@@ -121,38 +131,18 @@ function Baseline({ x1, x2, y, label, delay, signature, reducedMotion, stroke, l
   }, [signature, reducedMotion])
 
   const lineProps = useAnimatedProps(() => ({ x2: x1 + (x2 - x1) * draw.value }))
-  const labelProps = useAnimatedProps(() => ({ opacity: Math.max(0, draw.value * 2 - 1) }))
 
   return (
-    <G>
-      <AnimatedLine
-        animatedProps={lineProps}
-        x1={x1}
-        y1={y}
-        y2={y}
-        stroke={stroke}
-        strokeOpacity={0.5}
-        strokeWidth={1.5}
-        strokeDasharray="4,5"
-      />
-      <AnimatedG animatedProps={labelProps}>
-        {/* Halo pass first, fill pass on top (paintOrder isn't reliable in react-native-svg). */}
-        {[true, false].map((isHalo) => (
-          <SvgText
-            key={String(isHalo)}
-            x={x1 + 4}
-            y={y - 6}
-            fill={labelFill}
-            stroke={isHalo ? halo : undefined}
-            strokeWidth={isHalo ? 3 : 0}
-            fontSize={10}
-            fontFamily={fontFamily.bodyExtraBold}
-          >
-            {label}
-          </SvgText>
-        ))}
-      </AnimatedG>
-    </G>
+    <AnimatedLine
+      animatedProps={lineProps}
+      x1={x1}
+      y1={y}
+      y2={y}
+      stroke={stroke}
+      strokeOpacity={0.5}
+      strokeWidth={1.5}
+      strokeDasharray="4,5"
+    />
   )
 }
 
@@ -173,7 +163,7 @@ export function TrendChart({
 }: Props) {
   const { formatCompact } = useCurrency()
 
-  const { tokens } = useTheme()
+  const { tokens, scheme } = useTheme()
   const reducedMotion = useReducedMotion()
   // viewBox tracks the measured width so bars keep true proportions (a fixed
   // viewBox letterboxed the plot into a thin strip on phones).
@@ -228,7 +218,19 @@ export function TrendChart({
 
   return (
     <View>
-      <Text style={[styles.axisLabel, { color: tokens.text3 }]}>{formatCompact(max, hideAmounts)}</Text>
+      <View style={styles.header}>
+        <Text style={[styles.axisLabel, { color: tokens.text3 }]}>{formatCompact(max, hideAmounts)}</Text>
+        {baseline != null && (
+          <View style={styles.legend}>
+            <Svg width={16} height={2}>
+              <Line x1={0} x2={16} y1={1} y2={1} stroke={tokens.text3} strokeWidth={1.5} strokeDasharray="4,3" />
+            </Svg>
+            <Text style={[styles.legendLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
+              avg {formatCompact(baseline, hideAmounts)}
+            </Text>
+          </View>
+        )}
+      </View>
       <View style={{ height }} onLayout={(e) => setWidth(Math.round(e.nativeEvent.layout.width))}>
         {width > 0 && (
           <Svg viewBox={`0 0 ${width} ${height}`} width={width} height={height}>
@@ -262,8 +264,7 @@ export function TrendChart({
                       h={b.h}
                       index={i}
                       signature={signature}
-                      fill={b.value < 0 ? tokens.coral : tokens.accent}
-                      fillOpacity={dimmed ? 0.42 : 1}
+                      {...barFill(tokens, scheme, b.value, dimmed)}
                       reducedMotion={reducedMotion}
                       downward={b.value < 0}
                     />
@@ -292,20 +293,16 @@ export function TrendChart({
                 </G>
               )
             })}
-            {/* Drawn after the bars so tall bars don't hide it; card-coloured
-                halo keeps the label legible where it crosses a bar. */}
+            {/* Drawn after the bars so tall bars don't hide it. */}
             {baselineY != null && (
               <Baseline
                 x1={PAD_X}
                 x2={width - PAD_X}
                 y={baselineY}
-                label={`avg ${formatCompact(baseline!, hideAmounts)}`}
                 delay={(n - 1) * STAGGER_STEP + GROW_DURATION}
                 signature={`${signature}#${baseline}`}
                 reducedMotion={reducedMotion}
                 stroke={tokens.text3}
-                labelFill={tokens.text2}
-                halo={tokens.card}
               />
             )}
           </Svg>
@@ -328,7 +325,10 @@ export function TrendChart({
 }
 
 const styles = StyleSheet.create({
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   axisLabel: { fontSize: 12, paddingHorizontal: 4 },
+  legend: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 4 },
+  legendLabel: { fontSize: 12 },
   columnRow: { flex: 1, flexDirection: 'row' },
   partialNote: { fontSize: 12, paddingHorizontal: 4, paddingTop: 4 },
 })

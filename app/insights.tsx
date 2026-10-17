@@ -80,7 +80,9 @@ function MonthStepper({
   onShift: (delta: number) => void;
   onReset: () => void;
 }) {
-  const { tokens, space, radius, type } = useTheme();
+  const { tokens, space, radius, type, scheme } = useTheme();
+  // text3 at glyph size all but vanishes on the dark surface; light text3 already passes.
+  const offGlyph = scheme === "dark" ? tokens.text2 : tokens.text3;
   const insets = useSafeAreaInsets();
   const canGoPrev = month > earliestMonth;
   const canGoNext = month < currentMonth;
@@ -177,7 +179,7 @@ function MonthStepper({
               style={[
                 styles.monthNavGlyph,
                 {
-                  color: canGoPrev ? tokens.accent : tokens.text3,
+                  color: canGoPrev ? tokens.accent : offGlyph,
                   fontSize: type.bodyLg,
                   lineHeight: type.bodyLg,
                 },
@@ -204,7 +206,7 @@ function MonthStepper({
               style={[
                 styles.monthNavGlyph,
                 {
-                  color: canGoNext ? tokens.accent : tokens.text3,
+                  color: canGoNext ? tokens.accent : offGlyph,
                   fontSize: type.bodyLg,
                   lineHeight: type.bodyLg,
                 },

@@ -144,6 +144,7 @@ function DraggableCategoryList({
   onReorder: (name: string, toIndex: number) => void
   onMenu: (name: string) => void
 }) {
+  const { scheme } = useTheme()
   // react-query's cache notifications land on a setTimeout(0), a tick after React's own
   // state updates commit — clearing drag state on drop would flash the old order for a
   // frame before the query catches up. Keep a local order, synced from items, and reorder
@@ -253,7 +254,7 @@ function DraggableCategoryList({
               </Text>
               <View style={styles.catActions}>
                 <View {...responder.panHandlers} hitSlop={8} style={styles.dragHandle}>
-                  <Icon icon={Equals} size={14} color={tokens.text3} />
+                  <Icon icon={Equals} size={14} color={scheme === 'dark' ? tokens.text2 : tokens.text3} />
                 </View>
               </View>
             </Pressable>
@@ -495,7 +496,9 @@ type SheetState =
   | { kind: 'renameGroup'; name: string }
 
 export default function EnvelopesScreen() {
-  const { tokens } = useTheme()
+  const { tokens, scheme } = useTheme()
+  // Handles, kebab and counts are too dim on the dark surface at text3; light text3 already passes.
+  const dimInk = scheme === 'dark' ? tokens.text2 : tokens.text3
   const { refreshing, onRefresh } = useRefresh()
   const insets = useSafeAreaInsets()
   const navPadding = useNavPadding()
@@ -912,7 +915,7 @@ export default function EnvelopesScreen() {
                   onDrop={dropGroup}
                   cardStyle={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}
                   liftedStyle={{ elevation: 4, backgroundColor: tokens.chipActiveBg }}
-                  handleColor={tokens.text3}
+                  handleColor={dimInk}
                   renderHeader={(handle) => (
                     <Pressable
                       style={styles.groupHeader}
@@ -934,13 +937,13 @@ export default function EnvelopesScreen() {
                         >
                           {name ? splitEmoji(name).text : OTHER_LABEL}
                         </Text>
-                        <Text style={{ color: tokens.text3, fontSize: 12, marginTop: 2, fontFamily: fontFamily.bodySemiBold }}>
+                        <Text style={{ color: dimInk, fontSize: 12, marginTop: 2, fontFamily: fontFamily.bodySemiBold }}>
                           {items.length === 0 ? 'empty' : `${items.length} categor${items.length === 1 ? 'y' : 'ies'}`}
                         </Text>
                       </View>
                       {name !== '' && (
                         <Pressable onPress={() => openGroupMenu(name)} hitSlop={8}>
-                          <Icon icon={DotsThreeVertical} size={17} color={tokens.text3} />
+                          <Icon icon={DotsThreeVertical} size={17} color={dimInk} />
                         </Pressable>
                       )}
                       {handle}
