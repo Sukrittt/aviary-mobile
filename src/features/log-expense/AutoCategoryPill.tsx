@@ -6,6 +6,7 @@ import Reanimated, {
   Easing,
   runOnJS,
   type SharedValue,
+  useAnimatedReaction,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
@@ -24,6 +25,8 @@ import type { CategoryIconKey } from '@/src/lib/categoryIcons'
 // out onto the pick with a small overshoot. The reel runs entirely on the UI
 // thread (one shared position value), so it stays smooth while JS is busy.
 // Quick answers and hand picks skip the spin and roll a single notch.
+// Every notch that passes the window ticks like a reel; a settled pick lands
+// with a light tap.
 
 export const PICKING_LABEL = 'Picking…'
 /** How long the reel takes to ease out onto the pick. */
@@ -98,7 +101,7 @@ export function AutoCategoryPill({ selected, thinking, auto, highlighted, rollIc
     const id = setTimeout(() => {
       setPhase('idle')
       setPopTick((t) => t + 1)
-      Haptics.selectionAsync().catch(() => {})
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {})
     }, SETTLE_MS)
     return () => clearTimeout(id)
   }, [phase])
@@ -311,6 +314,15 @@ function IconReel({ phase, target, rollIn, pool, color }: ReelProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, target])
 
+  // Tick once per icon that crosses the window. Compared mod n so the spin's
+  // loop wrap (from + 1 + n back to from + 1) isn't a second tick.
+  useAnimatedReaction(
+    () => ((Math.round(pos.value) % n) + n) % n,
+    (notch, prev) => {
+      if (prev !== null && notch !== prev) runOnJS(tickHaptic)()
+    },
+  )
+
   return (
     <View style={styles.slot}>
       {strip.map((icon, i) => (
@@ -326,6 +338,10 @@ interface ReelItemProps {
   pos: SharedValue<number>
   color: string
   icon: CategoryIconKey
+}
+
+function tickHaptic() {
+  Haptics.selectionAsync().catch(() => {})
 }
 
 function StaticIcon({ icon, color }: { icon: CategoryIconKey; color: string }) {

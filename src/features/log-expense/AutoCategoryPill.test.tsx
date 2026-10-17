@@ -2,6 +2,7 @@ import { useEffect, useState, type ComponentProps } from 'react'
 import { act, fireEvent } from '@testing-library/react-native'
 import { View } from 'react-native'
 import * as Reanimated from 'react-native-reanimated'
+import * as Haptics from 'expo-haptics'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { AutoCategoryPill, PICKING_LABEL, SETTLE_MS } from './AutoCategoryPill'
 
@@ -45,6 +46,18 @@ it('says it is picking while thinking, then settles on the auto-picked category'
   act(() => { jest.advanceTimersByTime(SETTLE_MS) })
   expect(getByText('Groceries')).toBeTruthy()
   expect(getByLabelText('Category: Groceries, picked for you')).toBeTruthy()
+})
+
+it('ticks as each icon rolls past, then lands with a light tap', () => {
+  const tick = jest.spyOn(Haptics, 'selectionAsync').mockResolvedValue()
+  const tap = jest.spyOn(Haptics, 'impactAsync').mockResolvedValue()
+  const { rerender } = renderPill({ ...base, selected: null, thinking: true, auto: false })
+  rerender({ selected: groceries, thinking: false, auto: true })
+  expect(tick).toHaveBeenCalled()
+  expect(tap).not.toHaveBeenCalled()
+  act(() => { jest.advanceTimersByTime(SETTLE_MS) })
+  expect(tap).toHaveBeenCalledTimes(1)
+  expect(tap).toHaveBeenCalledWith(Haptics.ImpactFeedbackStyle.Light)
 })
 
 it('eases the reel out even when the answer is the category already showing', () => {
