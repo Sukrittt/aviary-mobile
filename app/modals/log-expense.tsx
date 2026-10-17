@@ -105,6 +105,9 @@ function suggestCategory(
   return best;
 }
 
+// Shortest description worth an AI call; "ba" is half a word, not an expense.
+const MIN_LLM_CHARS = 3;
+
 /**
  * The app's primary verb, as a full-bleed accent screen rather than a form:
  * amount first on a custom keypad, description second, category picked from a
@@ -226,8 +229,10 @@ export default function LogExpenseScreen() {
   // Drives the "picked for you" a11y label and the landing pop.
   const [autoPicked, setAutoPicked] = useState(draft?.autoPicked ?? false);
   // Where the last auto-pick came from, for the acceptance-rate event on save:
-  // the local keyword map or the AI fallback. Null if nothing was ever picked.
-  const suggestedBy = useRef<null | "keyword" | "ai">(null);
+  // the local keyword map, the AI fallback, or "none" when both came up empty.
+  // Null if prediction never ran. pickMs is the wait from last keystroke to pick.
+  const suggestedBy = useRef<null | "keyword" | "ai" | "none">(null);
+  const pickMs = useRef(0);
   // "Picking…" is only shown for the slow AI fallback, and only once it's been
   // pending long enough to be worth showing (see thinkingGate.ts).
   const [suggesting, setSuggesting] = useState(false);
@@ -239,29 +244,32 @@ export default function LogExpenseScreen() {
   // expense, changing that description releases the choice and predicts again.
   useEffect(() => {
     const gate = gateRef.current!;
-    if (categoryTouched || !item.trim() || !categoryMapQ.data) {
+    // No wait on the keyword map: while it loads (or if it failed), the AI still answers.
+    if (categoryTouched || !item.trim()) {
       gate.cancel();
       return;
     }
     let cancelled = false;
+    const startedAt = Date.now();
     const apply = (name: string, by: "keyword" | "ai") => () => {
       if (cancelled || !name) return;
       suggestedBy.current = by;
+      pickMs.current = Date.now() - startedAt;
       setCategory(name);
       setAutoPicked(true);
     };
+    const categoryNames = categories.map((c) => c.name);
+    // The keyword map is local, so it answers on the keystroke. Only the AI waits for a pause.
+    const suggested = suggestCategory(item, categoryMapQ.data?.words ?? {}, categoryNames);
+    if (suggested) {
+      gate.finish(apply(suggested, "keyword"));
+      return;
+    }
+    if (item.trim().length < MIN_LLM_CHARS) {
+      gate.cancel();
+      return;
+    }
     const timer = setTimeout(() => {
-      const categoryNames = categories.map((c) => c.name);
-      const suggested = suggestCategory(
-        item,
-        categoryMapQ.data!.words,
-        categoryNames,
-      );
-      if (suggested) {
-        gate.finish(apply(suggested, "keyword"));
-        return;
-      }
-      // No local match — fall back to the LLM suggestion endpoint.
       gate.start();
       suggestCategoryLLM(item, categoryNames).then((llmSuggested) => {
         if (cancelled) return;
@@ -272,12 +280,15 @@ export default function LogExpenseScreen() {
         // Nothing found: land on Miscellaneous, like Web. Not an auto-pick, so no ✨.
         const misc = categoryNames.find((n) => n.toLowerCase().includes("miscellaneous"));
         gate.finish(() => {
-          if (cancelled || !misc) return;
+          if (cancelled) return;
+          suggestedBy.current = "none";
+          pickMs.current = Date.now() - startedAt;
+          if (!misc) return;
           setCategory(misc);
           setAutoPicked(false);
         });
       });
-    }, 300);
+    }, 200);
     return () => {
       cancelled = true;
       clearTimeout(timer);
@@ -415,7 +426,7 @@ export default function LogExpenseScreen() {
       );
     } else {
       // Kept (still auto-picked at save) or overridden (the user changed it).
-      if (suggestedBy.current) track("ai_category_suggested", { accepted: autoPicked, source: suggestedBy.current });
+      if (suggestedBy.current) track("ai_category_suggested", { accepted: autoPicked, source: suggestedBy.current, ms: pickMs.current });
       addMutate(
         {
           item: savedItem,

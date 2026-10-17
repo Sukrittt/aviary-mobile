@@ -76,12 +76,13 @@ function Harness() {
   return null
 }
 
-function setup(params: Record<string, string> = {}, expenses: ExpenseRow[] = [], categories = [{ name: 'Groceries', group: 'Food' }], { coldAccounts = false, activityFeed = true } = {}) {
+function setup(params: Record<string, string> = {}, expenses: ExpenseRow[] = [], categories = [{ name: 'Groceries', group: 'Food' }], { coldAccounts = false, activityFeed = true, words = {} as Record<string, string>, mapPending = false } = {}) {
   mockParams = params
   ;(getRecentExpenses as jest.Mock).mockResolvedValue({ rows: expenses, lastSpent: {} })
   ;(getCategories as jest.Mock).mockResolvedValue(categories)
   ;(getGroups as jest.Mock).mockResolvedValue(['Food'])
-  ;(getCategoryMap as jest.Mock).mockResolvedValue({ words: {} })
+  if (mapPending) (getCategoryMap as jest.Mock).mockImplementation(() => new Promise(() => {}))
+  else (getCategoryMap as jest.Mock).mockResolvedValue({ words })
   ;(suggestCategoryLLM as jest.Mock).mockResolvedValue('')
   // Accounts are usually cached by the time this opens (Home loads them).
   const queryClient = createTestQueryClient()
@@ -895,4 +896,30 @@ it('ticks when the category picker or More opens', () => {
   fireEvent.press(utils.getByText('More'))
   expect(impact).toHaveBeenCalledTimes(2)
   impact.mockRestore()
+})
+
+it('picks from the keyword map on the keystroke, with no debounce', async () => {
+  const utils = setup({}, [], undefined, { words: { banana: 'Groceries' } })
+  await act(async () => { await Promise.resolve(); await Promise.resolve() })
+  fireEvent.changeText(utils.getByPlaceholderText('What was it for?'), 'banana')
+  await act(async () => { await Promise.resolve() })
+  expect(utils.getByLabelText('Category: Groceries, picked for you')).toBeTruthy()
+  expect(suggestCategoryLLM).not.toHaveBeenCalled()
+})
+
+it('skips the AI for half a word', async () => {
+  const utils = setup()
+  await act(async () => { await Promise.resolve(); await Promise.resolve() })
+  fireEvent.changeText(utils.getByPlaceholderText('What was it for?'), 'ba')
+  await act(async () => { jest.advanceTimersByTime(1000) })
+  expect(suggestCategoryLLM).not.toHaveBeenCalled()
+})
+
+it('still asks the AI while the keyword map is loading', async () => {
+  const utils = setup({}, [], undefined, { mapPending: true })
+  ;(suggestCategoryLLM as jest.Mock).mockResolvedValue('Groceries')
+  await act(async () => { await Promise.resolve(); await Promise.resolve() })
+  fireEvent.changeText(utils.getByPlaceholderText('What was it for?'), 'banana')
+  await act(async () => { jest.advanceTimersByTime(300); await Promise.resolve() })
+  expect(utils.getByLabelText('Category: Groceries, picked for you')).toBeTruthy()
 })
