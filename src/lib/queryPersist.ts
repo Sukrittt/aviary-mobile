@@ -29,8 +29,6 @@ export function shouldPersistQuery(query: Query): boolean {
   const [root] = query.queryKey
   // ['expenses'] alone is all-time history (Insights only): too big for AsyncStorage.
   if (root === 'expenses' && query.queryKey.length === 1) return false
-  // The photo feed's loaded pages and signed photo URLs don't belong in a snapshot.
-  if (root === 'expenses' && query.queryKey[1] === 'feed') return false
   // Activity's first page only. Every other page, search and filter is its own
   // key, and saving them all would grow the snapshot with every browse.
   // The photo feed's signed URLs expire within the hour; a restored one would 403.
