@@ -24,8 +24,8 @@ type FeedParams = { category?: string; account?: string; from?: string; to?: str
 
 /**
  * Activity's feed view: every expense as a post, photo first, newest at the
- * top, loading more as you scroll. Expenses without a photo show their
- * category on its tint. Income stays in the
+ * top, loading more as you scroll. Expenses without a photo stay a compact
+ * card, just the header and notes, so photos stand out. Income stays in the
  * list view; this is the story of your spending. Tapping a card opens it
  * up into the expense's detail page.
  */
@@ -167,18 +167,14 @@ const FeedCard = memo(function FeedCard({ txn, category, hidden, onOpenActions, 
       </Pressable>
 
       {/* Same as the header for touch; VoiceOver gets the one button above. */}
-      <Pressable onPress={open} onLongPress={() => onOpenActions(txn)} accessible={false}>
-        {uri ? (
+      {uri ? (
+        <Pressable onPress={open} onLongPress={() => onOpenActions(txn)} accessible={false}>
           <Image source={{ uri }} style={[styles.photo, { backgroundColor: tokens.inputBg }]} />
-        ) : (
-          <View style={[styles.placeholder, { backgroundColor: tint.bg }]}>
-            <CategoryIcon name={txn.category} icon={category?.icon} group={category?.group} size={56} color={tint.ink} />
-          </View>
-        )}
-      </Pressable>
+        </Pressable>
+      ) : null}
 
       {notes ? (
-        <Text numberOfLines={3} style={{ color: tokens.text2, fontFamily: fontFamily.bodyMedium, fontSize: 14, padding: space.md }}>
+        <Text numberOfLines={3} style={{ color: tokens.text2, fontFamily: fontFamily.bodyMedium, fontSize: 14, padding: space.md, paddingTop: uri ? space.md : 0 }}>
           {notes}
         </Text>
       ) : null}
@@ -192,5 +188,4 @@ const styles = StyleSheet.create({
   head: { flexDirection: 'row', alignItems: 'center' },
   avatar: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   photo: { width: '100%', aspectRatio: 1 },
-  placeholder: { width: '100%', aspectRatio: 3 / 2, alignItems: 'center', justifyContent: 'center' },
 })
