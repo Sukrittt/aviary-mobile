@@ -16,6 +16,21 @@ import { MIN_SPIN_MS, SETTLE_MS } from '@/src/features/log-expense/AutoCategoryP
 import { todayLocal } from '@/src/lib/date'
 import { useLogExpenseSubmitState, LogExpenseSubmitProvider } from '@/src/features/log-expense/SubmitContext'
 
+// Records every prop set the pill renders with, so a test can catch an
+// in-between frame (selected blanked, then re-picked) that restarts its landing.
+const mockPillSelected: (string | null)[] = []
+jest.mock('@/src/features/log-expense/AutoCategoryPill', () => {
+  const actual = jest.requireActual('@/src/features/log-expense/AutoCategoryPill')
+  const React = jest.requireActual('react')
+  return {
+    ...actual,
+    AutoCategoryPill: (props: { selected: { name: string } | null }) => {
+      mockPillSelected.push(props.selected?.name ?? null)
+      return React.createElement(actual.AutoCategoryPill, props)
+    },
+  }
+})
+
 jest.mock('@/src/api/expenses', () => ({
   getRecentExpenses: jest.fn(),
   postExpensePayload: jest.fn(),
@@ -921,5 +936,18 @@ it('still asks the AI while the keyword map is loading', async () => {
   await act(async () => { await Promise.resolve(); await Promise.resolve() })
   fireEvent.changeText(utils.getByPlaceholderText('What was it for?'), 'banana')
   await act(async () => { jest.advanceTimersByTime(300); await Promise.resolve() })
+  expect(utils.getByLabelText('Category: Groceries, picked for you')).toBeTruthy()
+})
+
+it('keeps the keyword pick steady while typing on, so the pill does not land again per keystroke', async () => {
+  const utils = setup({}, [], undefined, { words: { coffee: 'Groceries' } })
+  await act(async () => { await Promise.resolve(); await Promise.resolve() })
+  fireEvent.changeText(utils.getByPlaceholderText('What was it for?'), 'coffee')
+  await act(async () => { await Promise.resolve() })
+  mockPillSelected.length = 0
+  fireEvent.changeText(utils.getByPlaceholderText('What was it for?'), 'coffee b')
+  fireEvent.changeText(utils.getByPlaceholderText('What was it for?'), 'coffee be')
+  await act(async () => { await Promise.resolve() })
+  expect(mockPillSelected).not.toContain(null)
   expect(utils.getByLabelText('Category: Groceries, picked for you')).toBeTruthy()
 })
