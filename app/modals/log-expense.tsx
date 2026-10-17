@@ -245,8 +245,17 @@ export default function LogExpenseScreen() {
   useEffect(() => {
     const gate = gateRef.current!;
     // No wait on the keyword map: while it loads (or if it failed), the AI still answers.
-    if (categoryTouched || !item.trim()) {
+    if (categoryTouched) {
       gate.cancel();
+      return;
+    }
+    const clear = () => {
+      setCategory("");
+      setAutoPicked(false);
+    };
+    if (!item.trim()) {
+      gate.cancel();
+      clear();
       return;
     }
     let cancelled = false;
@@ -265,6 +274,8 @@ export default function LogExpenseScreen() {
       gate.finish(apply(suggested, "keyword"));
       return;
     }
+    // No keyword pick: the old one doesn't describe this text, so it can't stay up.
+    clear();
     if (item.trim().length < MIN_LLM_CHARS) {
       gate.cancel();
       return;
@@ -283,8 +294,7 @@ export default function LogExpenseScreen() {
           if (cancelled) return;
           suggestedBy.current = "none";
           pickMs.current = Date.now() - startedAt;
-          if (!misc) return;
-          setCategory(misc);
+          setCategory(misc ?? "");
           setAutoPicked(false);
         });
       });
@@ -303,11 +313,11 @@ export default function LogExpenseScreen() {
   function handleItemChange(value: string) {
     if (value === item) return;
     setItem(value);
+    // The current pick stays up while the prediction effect reruns: blanking it
+    // here made the pill land again on every keystroke, even for the same pick.
     if (!isEdit) {
       gateRef.current?.cancel();
       setCategoryTouched(false);
-      setCategory("");
-      setAutoPicked(false);
       suggestedBy.current = null;
     }
   }
