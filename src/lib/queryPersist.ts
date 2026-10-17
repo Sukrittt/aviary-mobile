@@ -31,6 +31,8 @@ export function shouldPersistQuery(query: Query): boolean {
   if (root === 'expenses' && query.queryKey.length === 1) return false
   // Activity's first page only. Every other page, search and filter is its own
   // key, and saving them all would grow the snapshot with every browse.
+  // The photo feed's signed URLs expire within the hour; a restored one would 403.
+  if (root === 'expenses' && query.queryKey[1] === 'feed') return false
   if (root === 'expenses' && query.queryKey[1] === 'page') {
     const params = query.queryKey[2] as { page?: number; q?: string; category?: string }
     if (params.page !== 1 || params.q || params.category) return false
