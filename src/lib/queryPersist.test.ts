@@ -36,6 +36,10 @@ it('saves only the first unfiltered Activity page', () => {
   expect(persisted(['expenses', 'page', { page: 1, limit: 20, category: 'Food' }])).toBe(false)
 })
 
+it('leaves out the photo feed', () => {
+  expect(persisted(['expenses', 'feed', { limit: 12 }], { pages: [], pageParams: [] })).toBe(false)
+})
+
 it('stores the snapshot through the encrypted store', async () => {
   jest.useFakeTimers()
   const client = { timestamp: 1, buster: 'b', clientState: { mutations: [], queries: [] } }
