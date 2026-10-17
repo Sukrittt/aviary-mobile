@@ -101,6 +101,12 @@ export function ActivityFeed({ params, header, empty, categoryByName, accountNam
           if (feed.hasNextPage && !feed.isFetchingNextPage) void feed.fetchNextPage()
         }}
         onEndReachedThreshold={1.5}
+        // The feed keeps a window of pages; scrolling back up brings the dropped ones back.
+        onStartReached={() => {
+          if (feed.hasPreviousPage && !feed.isFetchingPreviousPage) void feed.fetchPreviousPage()
+        }}
+        onStartReachedThreshold={1.5}
+        maintainVisibleContentPosition={{ minIndexForVisible: 0, autoscrollToTopThreshold: 10 }}
         refreshControl={refreshControl}
         contentContainerStyle={{ flexGrow: 1, paddingBottom: navPad }}
         showsVerticalScrollIndicator={false}

@@ -86,12 +86,18 @@ export function useExpensesPage(params: ExpensesPageParams) {
  * Activity's photo feed: the same paged read with `photo_url`s, loaded page
  * after page as you scroll. Under `'expenses'` too, so writes refresh it.
  */
+export const FEED_MAX_PAGES = 5
+
 export function useExpensesFeed(params: Omit<ExpensesPageParams, 'page' | 'photos'>) {
   return useInfiniteQuery({
     queryKey: [...key, 'feed', params] as const,
     queryFn: ({ pageParam }) => getExpensesPage({ ...params, page: pageParam, photos: true }),
     initialPageParam: 1,
     getNextPageParam: (last) => (last.page < last.pageCount ? last.page + 1 : undefined),
+    // A write invalidates ['expenses'], which refetches every loaded page (and re-signs
+    // each photo). Keep a window of pages; scrolling back up refetches the dropped ones.
+    getPreviousPageParam: (first) => (first.page > 1 ? first.page - 1 : undefined),
+    maxPages: FEED_MAX_PAGES,
     staleTime: 30_000,
   })
 }

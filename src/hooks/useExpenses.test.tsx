@@ -1,15 +1,16 @@
 import type { ReactNode } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { renderHook, waitFor } from '@testing-library/react-native'
-import { getExpenses, mintExpensePayload, postExpensePayload, updateExpense } from '@/src/api/expenses'
+import { act, renderHook, waitFor } from '@testing-library/react-native'
+import { getExpenses, getExpensesPage, mintExpensePayload, postExpensePayload, updateExpense } from '@/src/api/expenses'
 import { HttpError } from '@/src/api/client'
 import { enqueue } from '@/src/lib/pendingExpenses'
 import { isOnline } from '@/src/lib/netStatus'
 import { track, trackFirst } from '@/src/lib/analytics'
-import { useExpenses, useAddExpense, useUpdateExpense, useDeleteExpense } from './useExpenses'
+import { FEED_MAX_PAGES, useExpensesFeed, useExpenses, useAddExpense, useUpdateExpense, useDeleteExpense } from './useExpenses'
 
 jest.mock('@/src/api/expenses', () => ({
   getExpenses: jest.fn(),
+  getExpensesPage: jest.fn(),
   mintExpensePayload: jest.fn((row) => ({ ...row, client_id: 'client-1', date: '2026-01-01', timestamp: '2026-01-01T10:00:00+05:30' })),
   postExpensePayload: jest.fn(),
   updateExpense: jest.fn(),
@@ -176,4 +177,18 @@ describe('expense analytics', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
     expect(track).toHaveBeenCalledWith('expense_deleted')
   })
+})
+
+it('useExpensesFeed refetches at most a window of pages after a write', async () => {
+  ;(getExpensesPage as jest.Mock).mockImplementation(async ({ page }) => ({ rows: [{ id: `e${page}` }], page, pageCount: 20 }))
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } })
+  const { result } = renderHook(() => useExpensesFeed({ limit: 12 }), { wrapper: wrapper(queryClient) })
+  await waitFor(() => expect(result.current.isSuccess).toBe(true))
+  let feed = result.current.data
+  for (let i = 0; i < 7; i++) feed = (await act(() => result.current.fetchNextPage())).data
+  expect(feed?.pages.map((p) => p.page)).toEqual([4, 5, 6, 7, 8])
+
+  ;(getExpensesPage as jest.Mock).mockClear()
+  await act(() => queryClient.invalidateQueries({ queryKey: ['expenses'] }))
+  expect(getExpensesPage).toHaveBeenCalledTimes(FEED_MAX_PAGES)
 })
