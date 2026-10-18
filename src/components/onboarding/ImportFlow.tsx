@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type StyleProp, type ViewStyle } from 'react-native'
 import Animated, { FadeIn, FadeInDown, useAnimatedStyle, useReducedMotion, useSharedValue, withSpring, withTiming } from 'react-native-reanimated'
 import * as Haptics from 'expo-haptics'
-import { ArrowLeft, ArrowsClockwise, CaretDown, CaretRight, Check, FileText, Plus, Sparkle, type PhosphorIcon } from '@/src/components/shared/icons'
+import { ArrowLeft, CaretDown, CaretRight, Check, FileText, Plus } from '@/src/components/shared/icons'
 import { CurrencyPicker } from '@/src/components/CurrencyPicker'
 import { CurrencyScope, useCurrency } from '@/src/context/CurrencyContext'
 import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
@@ -54,6 +54,12 @@ const ACCOUNT_TYPES: { value: ImportAccountType; label: string }[] = [
 
 const READING = ['Reading your file…', 'Sorting your categories…', 'Looking for your payday…', 'Adding up a typical month…']
 
+type StartChoice = 'fresh' | 'switch'
+const START_CHOICES: { id: StartChoice; title: string; detail: string }[] = [
+  { id: 'fresh', title: 'I’m starting fresh', detail: 'We’ll guide you through it in about a minute.' },
+  { id: 'switch', title: 'I’m switching apps', detail: 'Bring your envelopes and history from YNAB, Wallet and more.' },
+]
+
 type Stage = 'ask' | 'pick' | 'upload' | 'review'
 const STAGES: Stage[] = ['ask', 'pick', 'upload', 'review']
 
@@ -67,6 +73,7 @@ export function ImportFlow({ onFresh, onDone }: { onFresh: () => void; onDone: (
   const [stage, setStage] = useState<Stage>('ask')
   const [app, setApp] = useState<AppChoice | null>(null)
   const [review, setReview] = useState<ImportReview | null>(null)
+  const [start, setStart] = useState<StartChoice | null>(null)
   const at = STAGES.indexOf(stage)
 
   const back = () => setStage((s) => (s === 'review' ? 'upload' : s === 'upload' ? 'pick' : 'ask'))
@@ -98,33 +105,23 @@ export function ImportFlow({ onFresh, onDone }: { onFresh: () => void; onDone: (
       </View>
 
       {stage === 'ask' && (
-        // Two equal ways in: starting fresh is as good a start as switching, so
-        // neither is the big button with the other as a small link under it.
+        // Two equal ways in, neither picked for you: starting fresh is as good a
+        // start as switching, so neither is the big button with the other a link.
         <Animated.View key="ask" entering={FadeIn.duration(280)} style={styles.ask}>
           <Title>How do you want to start?</Title>
           <Blurb>Both get you a budget in a few minutes.</Blurb>
-          <View style={styles.choices}>
-            <Choice
-              delay={60}
-              icon={Sparkle}
-              title="Start fresh"
-              detail="Set up your budget in about a minute. We’ll guide you."
-              onPress={() => {
-                tap()
-                onFresh()
-              }}
-            />
-            <Choice
-              delay={120}
-              icon={ArrowsClockwise}
-              title="Bring my budget over"
-              detail="From YNAB, Money Manager, Wallet and more."
-              onPress={() => {
-                tap()
-                setStage('pick')
-              }}
-            />
+          <View style={styles.choices} accessibilityRole="radiogroup">
+            {START_CHOICES.map((c, i) => (
+              <Choice key={c.id} delay={60 + i * 60} title={c.title} detail={c.detail} on={start === c.id} onPress={() => setStart(c.id)} />
+            ))}
           </View>
+          <Continue
+            disabled={!start}
+            onPress={() => {
+              if (start === 'fresh') onFresh()
+              else if (start === 'switch') setStage('pick')
+            }}
+          />
         </Animated.View>
       )}
 
@@ -659,21 +656,54 @@ function Review({ review, onReview, onDone }: { review: ImportReview; onReview: 
   )
 }
 
-function Choice({ icon: Icon, title, detail, delay, onPress }: { icon: PhosphorIcon; title: string; detail: string; delay: number; onPress: () => void }) {
-  const { tokens } = useTheme()
+function Choice({ title, detail, on, delay, onPress }: { title: string; detail: string; on: boolean; delay: number; onPress: () => void }) {
+  const { tokens, motion } = useTheme()
+  const reduceMotion = useReducedMotion()
+  // The dot fills with a small pop, like a check landing.
+  const dot = useSharedValue(on ? 1 : 0)
+  useEffect(() => {
+    dot.value = reduceMotion ? (on ? 1 : 0) : withSpring(on ? 1 : 0, motion.springTight)
+  }, [on, dot, reduceMotion, motion.springTight])
+  const dotStyle = useAnimatedStyle(() => ({ opacity: dot.value, transform: [{ scale: 0.4 + dot.value * 0.6 }] }))
   return (
     <PopIn play delay={delay}>
-      <Press accessibilityLabel={`${title}. ${detail}`} onPress={onPress} style={[styles.choice, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
-        <View style={[styles.choiceIcon, { backgroundColor: tokens.accentSoft }]}>
-          <Icon size={22} color={tokens.accentInk} weight="bold" />
+      <Press
+        accessibilityRole="radio"
+        accessibilityLabel={`${title}. ${detail}`}
+        accessibilityState={{ checked: on }}
+        onPress={() => {
+          if (!on) Haptics.selectionAsync().catch(() => {})
+          onPress()
+        }}
+        style={[styles.choice, { backgroundColor: on ? tokens.accentSoft : tokens.card, borderColor: on ? tokens.accent : tokens.border }]}
+      >
+        <View style={[styles.radio, { borderColor: on ? tokens.accent : tokens.borderStrong }]}>
+          <Animated.View style={[styles.radioDot, { backgroundColor: tokens.accent }, dotStyle]} />
         </View>
         <View style={styles.fill}>
           <Text style={[styles.choiceTitle, { color: tokens.text, fontFamily: fontFamily.bodyBold }]}>{title}</Text>
           <Text style={[styles.choiceDetail, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>{detail}</Text>
         </View>
-        <CaretRight size={16} color={tokens.text3} />
       </Press>
     </PopIn>
+  )
+}
+
+/** The ask step's Continue: muted until a way in is picked, as the wizard's own Continue is until a step is done. */
+function Continue({ disabled, onPress }: { disabled: boolean; onPress: () => void }) {
+  const { tokens } = useTheme()
+  return (
+    <Press
+      accessibilityState={{ disabled }}
+      disabled={disabled}
+      onPress={() => {
+        tap()
+        onPress()
+      }}
+      style={[styles.cta, styles.askCta, { backgroundColor: disabled ? tokens.inputBg : tokens.accent }]}
+    >
+      <Text style={[styles.ctaText, { color: disabled ? tokens.text3 : tokens.onAccent, fontFamily: fontFamily.displaySemiBold }]}>Continue</Text>
+    </Press>
   )
 }
 
@@ -734,13 +764,15 @@ function Press({
   children,
   accessibilityLabel,
   accessibilityState,
+  accessibilityRole = 'button',
 }: {
   onPress: () => void
   disabled?: boolean
   style: StyleProp<ViewStyle>
   children: React.ReactNode
   accessibilityLabel?: string
-  accessibilityState?: { busy?: boolean; disabled?: boolean }
+  accessibilityState?: { busy?: boolean; disabled?: boolean; checked?: boolean }
+  accessibilityRole?: 'button' | 'radio'
 }) {
   const { motion } = useTheme()
   const reduceMotion = useReducedMotion()
@@ -748,7 +780,7 @@ function Press({
   const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }))
   return (
     <AnimatedPressable
-      accessibilityRole="button"
+      accessibilityRole={accessibilityRole}
       accessibilityLabel={accessibilityLabel}
       accessibilityState={accessibilityState}
       onPress={onPress}
@@ -776,8 +808,10 @@ const styles = StyleSheet.create({
   blurb: { fontSize: 14, lineHeight: 21, marginTop: 7, maxWidth: 310 },
   ask: { flex: 1, justifyContent: 'center', paddingBottom: 40 },
   choices: { gap: 12, marginTop: 28 },
-  choice: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 18, paddingHorizontal: 16, borderRadius: 20, borderWidth: 1 },
-  choiceIcon: { width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center' },
+  choice: { flexDirection: 'row', alignItems: 'flex-start', gap: 14, paddingVertical: 16, paddingHorizontal: 16, borderRadius: 20, borderWidth: 1.5 },
+  radio: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
+  radioDot: { width: 10, height: 10, borderRadius: 5 },
+  askCta: { marginTop: 20 },
   choiceTitle: { fontSize: 16 },
   choiceDetail: { fontSize: 13, lineHeight: 18, marginTop: 3 },
   textAction: { alignSelf: 'center', paddingVertical: 12, paddingHorizontal: 8 },

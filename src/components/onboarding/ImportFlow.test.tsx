@@ -55,7 +55,8 @@ function render() {
 
 function toReview(app = 'Monefy') {
   const utils = render()
-  fireEvent.press(utils.getByText('Bring my budget over'))
+  fireEvent.press(utils.getByText('I’m switching apps'))
+  fireEvent.press(utils.getByText('Continue'))
   fireEvent.press(utils.getByLabelText(app))
   fireEvent.press(utils.getByLabelText('Choose your export file'))
   return utils
@@ -72,7 +73,21 @@ beforeEach(() => {
 it('starting fresh hands straight back to the usual setup', () => {
   const { getByText, onFresh } = render()
   expect(getByText('How do you want to start?')).toBeTruthy()
-  fireEvent.press(getByText('Start fresh'))
+  fireEvent.press(getByText('I’m starting fresh'))
+  fireEvent.press(getByText('Continue'))
+  expect(onFresh).toHaveBeenCalled()
+})
+
+it('picks nothing for you: Continue waits for a choice, and the choice can change', () => {
+  const { getByText, getByLabelText, onFresh } = render()
+  fireEvent.press(getByText('Continue'))
+  expect(onFresh).not.toHaveBeenCalled()
+  expect(getByText('How do you want to start?')).toBeTruthy()
+  fireEvent.press(getByText('I’m switching apps'))
+  fireEvent.press(getByText('I’m starting fresh'))
+  expect(getByLabelText(/^I’m starting fresh/).props.accessibilityState).toMatchObject({ checked: true })
+  expect(getByLabelText(/^I’m switching apps/).props.accessibilityState).toMatchObject({ checked: false })
+  fireEvent.press(getByText('Continue'))
   expect(onFresh).toHaveBeenCalled()
 })
 
