@@ -60,11 +60,14 @@ export function SetupDone({
   income,
   groupCount,
   categoryCount,
+  historyComing = false,
   onFinish,
 }: {
   income: number
   groupCount: number
   categoryCount: number
+  /** An import's transactions are still being booked behind the celebration. */
+  historyComing?: boolean
   onFinish: () => void
 }) {
   const { formatMoney } = useCurrency()
@@ -101,6 +104,14 @@ export function SetupDone({
       >
         Everything below can be changed later from Categories.
       </Animated.Text>
+      {historyComing && (
+        <Animated.Text
+          entering={FadeIn.delay(160).duration(350)}
+          style={[styles.blurb, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}
+        >
+          Your history is still coming in. Close the app if you like, we’ll let you know when it’s done.
+        </Animated.Text>
+      )}
       {/* Sets up the first-week recap from day 0. */}
       <Animated.View entering={FadeIn.delay(170).duration(350)} style={[styles.promise, { backgroundColor: tokens.accentSoft }]}>
         <Sparkle size={13} color={tokens.accentInk} weight="bold" />

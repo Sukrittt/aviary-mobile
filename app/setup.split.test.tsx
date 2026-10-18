@@ -3,6 +3,9 @@ import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import SetupScreen from './setup'
 import { getSplitBuckets } from '@/src/api/categories'
 
+// The usual setup steps, as on a binary without the file picker; setup.import.test.tsx covers the import.
+jest.mock('@/src/lib/filePicker', () => ({ canPickFiles: false, pickFile: jest.fn() }))
+
 jest.mock('@/src/api/account', () => ({
   getUser: jest.fn(async () => ({ onboardedAt: null })),
   updateUser: jest.fn(async (patch) => patch),

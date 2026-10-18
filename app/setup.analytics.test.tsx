@@ -5,6 +5,9 @@ import { track } from '@/src/lib/analytics'
 import { completeOnboarding } from '@/src/api/billing'
 import { getUser } from '@/src/api/account'
 
+// The usual setup steps, as on a binary without the file picker; setup.import.test.tsx covers the import.
+jest.mock('@/src/lib/filePicker', () => ({ canPickFiles: false, pickFile: jest.fn() }))
+
 jest.mock('@/src/lib/analytics', () => ({ track: jest.fn(), startTimer: () => () => 7 }))
 jest.mock('@/src/api/account', () => ({
   getUser: jest.fn(async () => ({ email: 'tester@example.com', emailVerified: true, onboardedAt: null })),
