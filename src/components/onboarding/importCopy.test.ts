@@ -67,5 +67,6 @@ describe('commit steps', () => {
   it('names each write in order, leaving out what the import has none of', () => {
     expect(commitSteps(6, 2, true)).toEqual(['Making your 6 envelopes…', 'Adding your 2 accounts…', 'Setting up your payday…', 'Filling this month’s budget…'])
     expect(commitSteps(1, 0, false)).toEqual(['Making your 1 envelope…', 'Filling this month’s budget…'])
+    expect(commitSteps(0, 0, true)).toEqual(['Setting up your payday…', 'Filling this month’s budget…'])
   })
 })

@@ -81,7 +81,7 @@ export function directionCopy(review: Pick<ImportReview, 'direction' | 'directio
 /** What the set-me-up button says while the commit runs, in the order the server does it. Web's commitSteps. */
 export function commitSteps(envelopes: number, accounts: number, salary: boolean): string[] {
   return [
-    `Making your ${plural(envelopes, 'envelope', 'envelopes')}…`,
+    ...(envelopes ? [`Making your ${plural(envelopes, 'envelope', 'envelopes')}…`] : []),
     ...(accounts ? [`Adding your ${plural(accounts, 'account', 'accounts')}…`] : []),
     ...(salary ? ['Setting up your payday…'] : []),
     'Filling this month’s budget…',
