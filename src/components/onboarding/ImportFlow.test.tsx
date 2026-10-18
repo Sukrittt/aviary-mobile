@@ -177,3 +177,16 @@ it('stops a file over 4 MB before uploading it', async () => {
   expect(await findByText('That file’s too big. Export a shorter date range and try again.')).toBeTruthy()
   expect(mockPreview).not.toHaveBeenCalled()
 })
+
+it('an edit survives a flip that drops its envelope and the flip back that returns it', async () => {
+  const without = { ...review, direction: 'positive_spend' as const, categories: [{ source: 'Salary', name: 'Salary', group: 'Lifestyle', monthly: 3000 }] }
+  mockRecompute.mockResolvedValueOnce(without).mockResolvedValueOnce(review)
+  const { findByLabelText, getByLabelText, getByText, findByText } = toReview()
+  fireEvent.press(await findByLabelText('Group for Gifts, Lifestyle'))
+  fireEvent.press(getByText('Savings'))
+  fireEvent.press(getByText('That’s backwards'))
+  await findByText('We’re reading positive amounts as spends.')
+  fireEvent.press(getByText('That’s backwards'))
+  await findByText('We’re reading negative amounts as spends.')
+  expect(getByLabelText('Group for Gifts, Savings')).toBeTruthy()
+})

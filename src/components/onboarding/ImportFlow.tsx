@@ -265,17 +265,26 @@ function Review({ review, onReview, onDone }: { review: ImportReview; onReview: 
   const [error, setError] = useState('')
   const seen = useRef(`${review.importId}:${review.direction}:${review.currency}`)
   const salaryEdited = useRef(false)
+  // Every edit, by source, for the whole review: a flip can drop an envelope
+  // and the flip back bring it again, so the last list alone would lose it.
+  const catEdits = useRef<Record<string, Partial<CategoryEdit>>>({})
+  const accountEdits = useRef<Record<string, Partial<AccountEdit>>>({})
+  const editCat = (source: string, patch: Partial<CategoryEdit>) => {
+    catEdits.current[source] = { ...catEdits.current[source], ...patch }
+    setCats((all) => all.map((c) => (c.source === source ? { ...c, ...patch } : c)))
+  }
+  const editAccount = (source: string, patch: Partial<AccountEdit>) => {
+    accountEdits.current[source] = { ...accountEdits.current[source], ...patch }
+    setAccounts((all) => all.map((a) => (a.source === source ? { ...a, ...patch } : a)))
+  }
 
   // A flip or a currency change brings a new review: keep what the user edited, by source.
   useEffect(() => {
     const key = `${review.importId}:${review.direction}:${review.currency}`
     if (seen.current === key) return
     seen.current = key
-    setCats((prev) => review.categories.map((c) => {
-      const old = prev.find((p) => p.source === c.source)
-      return old ? { ...c, name: old.name, group: old.group } : c
-    }))
-    setAccounts((prev) => review.accounts.map((a) => prev.find((p) => p.source === a.source) ?? a))
+    setCats(review.categories.map((c) => ({ ...c, ...catEdits.current[c.source] })))
+    setAccounts(review.accounts.map((a) => ({ ...a, ...accountEdits.current[a.source] })))
     // A flip can find a salary the first read missed, or lose one it found.
     if (!salaryEdited.current) {
       setSalary(review.salary ? String(review.salary.amount) : '')
@@ -309,7 +318,7 @@ function Review({ review, onReview, onDone }: { review: ImportReview; onReview: 
     setGroups((g) => [...g, name])
     setNewGroup('')
     // Adding from an envelope's picker files that envelope under it too.
-    if (groupFor) setCats((all) => all.map((c) => (c.source === groupFor ? { ...c, group: name } : c)))
+    if (groupFor) editCat(groupFor, { group: name })
   }
 
   const salaryAmount = Math.round(Number(salary) * 100) / 100
@@ -388,13 +397,13 @@ function Review({ review, onReview, onDone }: { review: ImportReview; onReview: 
         </Section>
 
         <Section delay={120} heading="Your envelopes">
-          {cats.map((c, i) => (
+          {cats.map((c) => (
             <View key={c.source} style={[styles.editRow, { borderColor: tokens.border }]}>
               <TextInput
                 value={c.name}
                 maxLength={60}
                 accessibilityLabel={`Name for ${c.source}`}
-                onChangeText={(name) => setCats((all) => all.map((x, j) => (j === i ? { ...x, name } : x)))}
+                onChangeText={(name) => editCat(c.source, { name })}
                 style={[styles.input, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}
               />
               <Text style={[styles.rowAmount, { color: tokens.text2, fontFamily: fontFamily.displaySemiBold }]}>{formatMoney(c.monthly)}</Text>
@@ -417,13 +426,13 @@ function Review({ review, onReview, onDone }: { review: ImportReview; onReview: 
 
         {accounts.length > 0 && (
           <Section delay={160} heading="Your accounts">
-            {accounts.map((a, i) => (
+            {accounts.map((a) => (
               <View key={a.source} style={[styles.editRow, { borderColor: tokens.border }]}>
                 <TextInput
                   value={a.name}
                   maxLength={30}
                   accessibilityLabel={`Name for ${a.source}`}
-                  onChangeText={(name) => setAccounts((all) => all.map((x, j) => (j === i ? { ...x, name } : x)))}
+                  onChangeText={(name) => editAccount(a.source, { name })}
                   style={[styles.input, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}
                 />
                 <View style={styles.typeRow}>
@@ -437,7 +446,7 @@ function Review({ review, onReview, onDone }: { review: ImportReview; onReview: 
                         accessibilityLabel={`${a.source}, ${t.label}`}
                         onPress={() => {
                           Haptics.selectionAsync().catch(() => {})
-                          setAccounts((all) => all.map((x, j) => (j === i ? { ...x, type: t.value } : x)))
+                          editAccount(a.source, { type: t.value })
                         }}
                         style={[styles.typeChip, { backgroundColor: on ? tokens.accent : tokens.pillBg, borderColor: on ? tokens.accent : tokens.border }]}
                       >
@@ -560,7 +569,7 @@ function Review({ review, onReview, onDone }: { review: ImportReview; onReview: 
                   accessibilityState={{ checked: on }}
                   onPress={() => {
                     Haptics.selectionAsync().catch(() => {})
-                    setCats((all) => all.map((c) => (c.source === picking.source ? { ...c, group: g } : c)))
+                    editCat(picking.source, { group: g })
                     setGroupFor(null)
                   }}
                   style={[styles.groupOption, { backgroundColor: on ? tokens.accentSoft : tokens.card, borderColor: on ? tokens.accent : tokens.border }]}

@@ -1,5 +1,6 @@
 // Ported from Web/src/api/imports.ts. The shapes are Web's lib/import types,
 // copied here since Mobile can't import server code.
+import { File } from 'expo-file-system'
 import { apiFetch } from './client'
 
 type Direction = 'negative_spend' | 'positive_spend'
@@ -95,8 +96,9 @@ const jsonInit = (body: unknown): RequestInit => ({ method: 'POST', headers: { '
 
 export function previewImport(file: PickedFile): Promise<ImportReview> {
   const form = new FormData()
-  // React Native's FormData streams the file from its uri; no read into memory.
-  form.append('file', { uri: file.uri, name: file.name, type: file.mimeType ?? 'application/octet-stream' } as unknown as Blob)
+  // Expo's fetch takes a part with bytes(), not React Native's { uri } object
+  // ("Unsupported FormDataPart implementation"). Capped at 4 MB before this.
+  form.append('file', new File(file.uri) as unknown as Blob, file.name)
   return call('/api/import/preview', { method: 'POST', body: form })
 }
 
