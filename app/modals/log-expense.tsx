@@ -233,6 +233,9 @@ export default function LogExpenseScreen() {
   // Null if prediction never ran. pickMs is the wait from last keystroke to pick.
   const suggestedBy = useRef<null | "keyword" | "ai" | "none">(null);
   const pickMs = useRef(0);
+  // AI answers by trimmed description, so a trailing space or the keyword map
+  // arriving late doesn't spend another AI request on the same text.
+  const llmPicks = useRef(new Map<string, string>());
   // "Picking…" is only shown for the slow AI fallback, and only once it's been
   // pending long enough to be worth showing (see thinkingGate.ts).
   const [suggesting, setSuggesting] = useState(false);
@@ -250,6 +253,7 @@ export default function LogExpenseScreen() {
       return;
     }
     const clear = () => {
+      suggestedBy.current = null;
       setCategory("");
       setAutoPicked(false);
     };
@@ -274,10 +278,18 @@ export default function LogExpenseScreen() {
       gate.finish(apply(suggested, "keyword"));
       return;
     }
-    // No keyword pick: the old one doesn't describe this text, so it can't stay up.
-    clear();
+    // No keyword pick: an old keyword pick doesn't describe this text, so it can't
+    // stay up. An AI pick (or its Miscellaneous fallback) stays until a new answer lands.
+    if (suggestedBy.current !== "ai" && suggestedBy.current !== "none") clear();
     if (item.trim().length < MIN_LLM_CHARS) {
+      // Too short to ask the AI, so no new answer will replace the pick.
       gate.cancel();
+      clear();
+      return;
+    }
+    const cached = llmPicks.current.get(item.trim());
+    if (cached && categoryNames.includes(cached)) {
+      gate.finish(apply(cached, "ai"));
       return;
     }
     const timer = setTimeout(() => {
@@ -285,6 +297,7 @@ export default function LogExpenseScreen() {
       suggestCategoryLLM(item, categoryNames).then((llmSuggested) => {
         if (cancelled) return;
         if (categoryNames.includes(llmSuggested)) {
+          llmPicks.current.set(item.trim(), llmSuggested);
           gate.finish(apply(llmSuggested, "ai"));
           return;
         }
@@ -317,8 +330,9 @@ export default function LogExpenseScreen() {
     // here made the pill land again on every keystroke, even for the same pick.
     if (!isEdit) {
       gateRef.current?.cancel();
+      // A manual choice isn't an AI pick, so the next prediction may clear it.
+      if (categoryTouched) suggestedBy.current = null;
       setCategoryTouched(false);
-      suggestedBy.current = null;
     }
   }
 
