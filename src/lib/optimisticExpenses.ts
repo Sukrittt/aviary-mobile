@@ -10,7 +10,7 @@ import type { ExpenseRow } from '@/src/types'
 // 'feed'. Anything else under the prefix (duplicates) is left to the refetch.
 
 type Snapshot = [QueryKey, unknown][]
-type Match = { id?: string; timestamp: string }
+type Match = { id?: string; timestamp: string; item: string; amountInr: number }
 
 const prefix = ['expenses'] as const
 
@@ -49,7 +49,10 @@ export function insertExpense(qc: QueryClient, row: ExpenseRow): void {
   }
 }
 
-const matches = (m: Match) => (r: ExpenseRow) => (m.id ? r.id === m.id : r.timestamp === m.timestamp)
+// No id (a legacy row): the same triple the server's delete matches on, so a
+// second row logged in the same second stays put.
+const matches = (m: Match) => (r: ExpenseRow) =>
+  m.id ? r.id === m.id : r.timestamp === m.timestamp && r.item === m.item && Number(r.amount_inr) === m.amountInr
 
 function dropFromPage(page: ExpensesPage, m: Match): ExpensesPage {
   const gone = page.rows.find(matches(m))
