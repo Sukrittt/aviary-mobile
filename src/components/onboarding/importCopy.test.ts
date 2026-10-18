@@ -4,6 +4,7 @@ describe('import copy', () => {
   it('counts spends, paydays and the date range', () => {
     expect(countsLine({ expense: 1240, income: 36, from: '2019-03-04', to: '2026-10-01' })).toBe('1,240 spends · 36 paydays · Mar 2019 to Oct 2026')
     expect(countsLine({ expense: 1, income: 1, from: '2026-10-01', to: '2026-10-09' })).toBe('1 spend · 1 payday · Oct 2026')
+    expect(countsLine({ expense: 10, refund: 2, income: 5, from: '2026-07-01', to: '2026-10-06' })).toBe('10 spends · 2 refunds · 5 paydays · Jul 2026 to Oct 2026')
   })
 
   it('says what was left out and why', () => {

@@ -18,7 +18,7 @@ import { pickFile } from '@/src/lib/filePicker'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { commitImport, ImportFailure, previewImport, recomputeImport, type CommitResult, type ImportAccountType, type ImportReview } from '@/src/api/imports'
-import { commitSteps, countsLine, directionCopy, importErrorCopy, ordinal, skippedCopy } from './importCopy'
+import { commitSteps, countsLine, directionCopy, importErrorCopy, ordinal, precheckFile, shortDate, skippedCopy } from './importCopy'
 
 /**
  * "How do you want to start?": the first onboarding step, and the import that follows
@@ -27,6 +27,8 @@ import { commitSteps, countsLine, directionCopy, importErrorCopy, ordinal, skipp
  */
 
 const MAX_BYTES = 4 * 1024 * 1024
+/** The server's name for spends without a category (Web's lib/import/propose.ts UNCATEGORISED). */
+const UNCATEGORISED = 'Uncategorised'
 /** Web's lib/accounts.ts MAX_BANK_ACCOUNTS: the balance check asks about at most five. */
 const MAX_BANK_ACCOUNTS = 5
 /** How long the success tick holds before the celebration, as every other success CTA. */
@@ -196,9 +198,11 @@ function Upload({ app, onPreview, onAlreadySetUp }: { app: AppChoice; onPreview:
       return
     }
     if (!file) return
-    if ((file.size ?? 0) > MAX_BYTES) {
-      setError(importErrorCopy('too_big'))
-      track('import_failed', { stage: 'preview', reason: 'too_big' })
+    // An empty file, a PDF, a photo or an old .xls: say so now, not after an upload.
+    const bad = precheckFile(file, MAX_BYTES)
+    if (bad) {
+      setError(importErrorCopy(bad))
+      track('import_failed', { stage: bad === 'too_big' ? 'preview' : 'precheck', reason: bad })
       return
     }
     setBusy(true)
@@ -446,7 +450,7 @@ function Review({ review, picked, onReview, onDone, onAlreadySetUp }: { review: 
           </View>
           {review.samples.map((s, i) => (
             <View key={`${s.date}-${i}`} style={styles.sample}>
-              <Text style={[styles.sampleDate, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>{s.date}</Text>
+              <Text style={[styles.sampleDate, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>{shortDate(s.date)}</Text>
               <Text numberOfLines={1} style={[styles.sampleItem, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>{s.item}</Text>
               <Text style={[styles.sampleAmount, { color: s.kind === 'expense' ? tokens.text : tokens.mint, fontFamily: fontFamily.displaySemiBold }]}>
                 {s.kind === 'expense' ? '−' : '+'}{formatMoney(s.amount)}
@@ -488,6 +492,11 @@ function Review({ review, picked, onReview, onDone, onAlreadySetUp }: { review: 
               </Pressable>
             </View>
           ))}
+          {cats.length === 1 && cats[0].source === UNCATEGORISED && review.counts.expense > 0 && (
+            <Text style={[styles.note, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>
+              Your file doesn’t have categories, so every spend starts in this one envelope. Rename it here, or split it up later from Categories.
+            </Text>
+          )}
         </Section>
 
         {accounts.length > 0 && (
@@ -902,7 +911,7 @@ const styles = StyleSheet.create({
   action: { paddingVertical: 7, paddingHorizontal: 12, borderRadius: 100 },
   actionText: { fontSize: 12 },
   sample: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  sampleDate: { fontSize: 12, width: 78 },
+  sampleDate: { fontSize: 12, width: 84 },
   sampleItem: { flex: 1, fontSize: 13 },
   sampleAmount: { fontSize: 14 },
   editRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, paddingBottom: 10, borderBottomWidth: StyleSheet.hairlineWidth },

@@ -14,6 +14,10 @@ export function listOf(parts: string[]): string {
 const ERRORS: Record<string, string> = {
   too_big: 'That file’s too big. Export a shorter date range and try again.',
   unreadable: 'We couldn’t read that file. Check it’s the transactions export, not a report.',
+  empty_file: 'That file’s empty. Export it again from your app and try once more.',
+  pdf: 'That’s a PDF. We need the spreadsheet, so export as csv or Excel instead.',
+  image: 'That’s a picture. We need the csv or Excel file your app exports.',
+  old_excel: 'That’s an old Excel file (.xls). Open it, save it as .xlsx or .csv, then pick that instead.',
   no_columns: 'We couldn’t find a date and an amount column. Check the file is the transactions export, not a report.',
   already_importing: 'You’re already bringing in a file. Give it a few minutes and check Home.',
   already_onboarded: 'You’re already set up. Head to Home to keep going.',
@@ -31,9 +35,30 @@ function monthYear(date: string): string {
   return new Date(`${date}T00:00:00Z`).toLocaleString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' })
 }
 
-/** "1,240 spends · 36 paydays · Mar 2019 to Oct 2026" */
+/** "16 Oct 2026", for the sample rows. */
+export function shortDate(date: string): string {
+  return new Date(`${date}T00:00:00Z`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })
+}
+
+/**
+ * What's wrong with a file we can tell from its name and size alone, before
+ * uploading it: an empty file, a PDF statement, a photo, an old .xls. Null
+ * when it's worth sending.
+ */
+export function precheckFile(file: { name: string; size?: number; mimeType?: string }, maxBytes: number): string | null {
+  const ext = file.name.toLowerCase().split('.').pop() ?? ''
+  const type = file.mimeType ?? ''
+  if (file.size === 0) return 'empty_file'
+  if ((file.size ?? 0) > maxBytes) return 'too_big'
+  if (ext === 'pdf' || type === 'application/pdf') return 'pdf'
+  if (/^(png|jpe?g|heic|heif|webp|gif)$/.test(ext) || type.startsWith('image/')) return 'image'
+  if (ext === 'xls') return 'old_excel'
+  return null
+}
+
+/** "1,240 spends · 14 refunds · 36 paydays · Mar 2019 to Oct 2026", refunds only when there are some. */
 export function countsLine(counts: ImportReview['counts']): string {
-  const parts = [plural(counts.expense, 'spend', 'spends'), plural(counts.income, 'payday', 'paydays')]
+  const parts = [plural(counts.expense, 'spend', 'spends'), ...(counts.refund ? [plural(counts.refund, 'refund', 'refunds')] : []), plural(counts.income, 'payday', 'paydays')]
   if (counts.from && counts.to) {
     const from = monthYear(counts.from)
     const to = monthYear(counts.to)

@@ -15,7 +15,8 @@ export interface ImportReview {
   directionSource: 'column' | 'sign'
   currency: string
   hasCurrency: boolean
-  counts: { expense: number; income: number; from: string; to: string }
+  /** `refund`: money back on a spending category, booked as a negative spend. Not in `expense`. */
+  counts: { expense: number; refund?: number; income: number; from: string; to: string }
   skipped: Partial<Record<SkipReason, number>>
   /** The codes behind `skipped.other_currency`, most rows first. */
   otherCurrencies: string[]

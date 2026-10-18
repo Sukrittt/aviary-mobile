@@ -200,6 +200,19 @@ it('stops a file over 4 MB before uploading it', async () => {
   expect(mockPreview).not.toHaveBeenCalled()
 })
 
+it('says why a file without categories lands in one envelope', async () => {
+  mockPreview.mockResolvedValue({ ...review, categories: [{ source: 'Uncategorised', name: 'Uncategorised', group: 'Essentials', monthly: 27500 }] })
+  const { findByText } = toReview()
+  expect(await findByText('Your file doesn’t have categories, so every spend starts in this one envelope. Rename it here, or split it up later from Categories.')).toBeTruthy()
+})
+
+it('stops a PDF before uploading it, with words that say what to export instead', async () => {
+  mockPick.mockResolvedValue({ uri: 'file:///statement.pdf', name: 'statement.pdf', mimeType: 'application/pdf', size: 2000 })
+  const { findByText } = toReview('YNAB')
+  expect(await findByText('That’s a PDF. We need the spreadsheet, so export as csv or Excel instead.')).toBeTruthy()
+  expect(mockPreview).not.toHaveBeenCalled()
+})
+
 it('an edit survives a flip that drops its envelope and the flip back that returns it', async () => {
   const without = { ...review, direction: 'positive_spend' as const, categories: [{ source: 'Salary', name: 'Salary', group: 'Lifestyle', monthly: 3000 }] }
   mockRecompute.mockResolvedValueOnce(without).mockResolvedValueOnce(review)
