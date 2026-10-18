@@ -35,6 +35,8 @@ import { HeardFrom } from "@/src/components/onboarding/HeardFrom";
 import { PickRow } from "@/src/components/onboarding/PickRow";
 import { SetupDone } from "@/src/components/onboarding/SetupDone";
 import { AmountTicker } from "@/src/components/onboarding/AmountTicker";
+import { ImportFlow, type ImportDone } from "@/src/components/onboarding/ImportFlow";
+import { canPickFiles } from "@/src/lib/filePicker";
 import { BottomSheet } from "@/src/components/shared/Modal";
 import { LoadingPhrase } from "@/src/components/shared/LoadingPhrase";
 import { CategoryIcon, CATEGORY_ICON_COMPONENTS } from "@/src/components/shared/CategoryIcon";
@@ -237,6 +239,11 @@ function CurrencyWizard({
   const qc = useQueryClient();
 
   const [step, setStep] = useState(0);
+  // The first question, before any step: bring data from another app, or the
+  // usual setup. 'fresh' runs the steps below exactly as they always were. A
+  // binary without the file picker skips the question.
+  const [entry, setEntry] = useState<"ask" | "fresh">(canPickFiles ? "ask" : "fresh");
+  const [historyComing, setHistoryComing] = useState(false);
   // Whether the user chose to pick their own groups and categories. Without
   // it, setup finishes from the income step on the starter budget.
   const [custom, setCustom] = useState(false);
@@ -291,10 +298,10 @@ function CurrencyWizard({
   }, []);
 
   useEffect(() => {
-    if (step > 4) return;
+    if (step > 4 || entry !== "fresh") return;
     stepTimer.current = startTimer();
     track("onboarding_step_viewed", { step, step_name: STEP_NAMES[step] });
-  }, [step]);
+  }, [step, entry]);
 
   const selectedGroups = groups.filter((g) => g.on && g.name.trim());
   const selectedCatCount = selectedGroups.reduce(
@@ -536,6 +543,8 @@ function CurrencyWizard({
         step_name: STEP_NAMES[step],
       });
     setError("");
+    // Back from the first step is back to "Switching apps?".
+    if (step === 0 && canPickFiles) setEntry("ask");
     setStep((s) => Math.max(0, s - 1));
   };
 
@@ -791,6 +800,41 @@ function CurrencyWizard({
     next();
   };
 
+  // An import sets the account up on the server in one call, then lands on the same celebration.
+  const imported = ({ result: r, currency }: ImportDone) => {
+    onCurrencyChange(currency);
+    track("onboarding_completed", {
+      total_seconds: wizardTimer.current(),
+      groups_count: r.groupCount,
+      categories_count: r.categoryCount,
+      currency,
+      imported: true,
+      skipped_income: r.income === 0,
+    });
+    qc.invalidateQueries({ queryKey: ["user"] });
+    void qc.invalidateQueries();
+    setResult({ income: r.income, groupCount: r.groupCount, categoryCount: r.categoryCount });
+    setHistoryComing(r.total > 0);
+    setStep(5);
+  };
+
+  if (entry === "ask" && step < 5) {
+    return (
+      <View
+        style={[
+          styles.container,
+          {
+            backgroundColor: tokens.bg,
+            paddingTop: insets.top + 20,
+            paddingBottom: insets.bottom + 20,
+          },
+        ]}
+      >
+        <ImportFlow onFresh={() => setEntry("fresh")} onDone={imported} />
+      </View>
+    );
+  }
+
   if (step === 5 && result) {
     return (
       <View
@@ -807,6 +851,7 @@ function CurrencyWizard({
           income={result.income}
           groupCount={result.groupCount}
           categoryCount={result.categoryCount}
+          historyComing={historyComing}
           onFinish={() => setStep(6)}
         />
       </View>
@@ -912,13 +957,13 @@ function CurrencyWizard({
           accessibilityLabel="Go back"
           accessibilityRole="button"
           onPress={back}
-          disabled={step === 0}
+          disabled={step === 0 && !canPickFiles}
           style={[
             styles.backButton,
             {
               backgroundColor: tokens.card,
               borderColor: tokens.border,
-              opacity: step === 0 ? 0.35 : 1,
+              opacity: step === 0 && !canPickFiles ? 0.35 : 1,
             },
           ]}
         >

@@ -36,12 +36,14 @@ function shuffleArray<T>(array: T[]): T[] {
 interface Props {
   style?: StyleProp<ViewStyle>
   phrases?: string[]
+  /** Play the phrases in order, like steps, instead of shuffled. */
+  ordered?: boolean
 }
 
-export function LoadingCaption({ style, phrases = PHRASES }: Props) {
+export function LoadingCaption({ style, phrases = PHRASES, ordered = false }: Props) {
   const { tokens } = useTheme()
   const [phraseIndex, setPhraseIndex] = useState(0)
-  const [shuffledPhrases] = useState(() => shuffleArray(phrases))
+  const [shuffledPhrases] = useState(() => (ordered ? phrases : shuffleArray(phrases)))
 
   useEffect(() => {
     const interval = setInterval(() => {

@@ -7,6 +7,9 @@ import { addGroup, updateGroup } from '@/src/api/groups'
 import { track } from '@/src/lib/analytics'
 import { INCOME_CATEGORY } from '@/src/lib/envelope'
 
+// The usual setup steps, as on a binary without the file picker; setup.import.test.tsx covers the import.
+jest.mock('@/src/lib/filePicker', () => ({ canPickFiles: false, pickFile: jest.fn() }))
+
 jest.mock('@/src/lib/analytics', () => ({ track: jest.fn(), startTimer: () => () => 7 }))
 jest.mock('@/src/api/account', () => ({
   getUser: jest.fn(async () => ({ onboardedAt: null })),
