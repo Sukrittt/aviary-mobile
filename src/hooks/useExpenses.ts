@@ -27,6 +27,8 @@ import { invalidateExpenseCreateQueries } from '@/src/lib/expenseQueries'
 import { splitEmoji } from '@/src/lib/emoji'
 import { isOnline } from '@/src/lib/netStatus'
 import { undoPendingExpense } from '@/src/sync/undoExpense'
+import { flush } from '@/src/sync/flush'
+import { insertExpense, removeExpense, restoreExpenses, snapshotExpenses } from '@/src/lib/optimisticExpenses'
 
 const key = ['expenses'] as const
 // Ask Aviary's brief is computed from expenses too, but keyed separately —
@@ -119,10 +121,23 @@ export function prefetchExpensesPage(qc: QueryClient, params: ExpensesPageParams
 /** `category` is the server's, which can differ from the one posted if it was renamed. Absent offline. */
 export type AddExpenseResult = { id?: string; timestamp?: string; version?: number; category?: string; clientId: string; pending: boolean }
 
+/**
+ * `instant`: don't hold the caller past SLOW_SAVE_MS. A POST still in flight by
+ * then is queued as well (submitted, so the replay is a client_id dedupe) and
+ * the caller gets a pending result. Only for callers that need no server id
+ * straight away: scan-bill links its bill to `id`, the money brain collects them.
+ */
+export type AddExpenseVars = NewExpenseRow & { instant?: boolean }
+
+// A stalled connection held the log screen for the full 15s request timeout
+// (PostHog, 2026-10-18: a 10.7s save). Past this, the save finishes in the background.
+export const SLOW_SAVE_MS = 2500
+const SLOW = Symbol('slow')
+
 export function useAddExpense() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (row: NewExpenseRow): Promise<AddExpenseResult> => {
+    mutationFn: async ({ instant, ...row }: AddExpenseVars): Promise<AddExpenseResult> => {
       const owner = currentUserId()
       const generation = sessionGeneration()
       const payload = mintExpensePayload(row)
@@ -133,7 +148,19 @@ export function useAddExpense() {
         return { timestamp: payload.timestamp, clientId: payload.client_id, pending: true }
       }
       try {
-        const result = await postExpensePayload(payload, generation)
+        const post = postExpensePayload(payload, generation)
+        let timer: ReturnType<typeof setTimeout> | undefined
+        const result = instant && owner
+          ? await Promise.race([post, new Promise<typeof SLOW>((r) => { timer = setTimeout(() => r(SLOW), SLOW_SAVE_MS) })]).finally(() => clearTimeout(timer))
+          : await post
+        if (result === SLOW) {
+          // Queued before the caller moves on, so the save survives a killed app.
+          // Whichever lands first, this POST or the replay, the server keeps one row.
+          await enqueue(payload, owner, true)
+          if (generation !== sessionGeneration()) throw new SessionChangedError()
+          void post.catch(() => {}).finally(() => void flush())
+          return { timestamp: payload.timestamp, clientId: payload.client_id, pending: true }
+        }
         if (generation !== sessionGeneration()) throw new SessionChangedError()
         return { id: result.id, timestamp: result.timestamp, version: result.version, category: result.category, clientId: payload.client_id, pending: false }
       } catch (err) {
@@ -145,7 +172,7 @@ export function useAddExpense() {
         return { timestamp: payload.timestamp, clientId: payload.client_id, pending: true }
       }
     },
-    onSuccess: (_data, row) => {
+    onSuccess: (res, row) => {
       // Both the manual screen and scan-bill's confirm land here, which is the
       // point: one event for "an expense got saved". $screen_name splits them
       // after the fact. No amount, no item name and no category name either:
@@ -158,7 +185,26 @@ export function useAddExpense() {
         // says how often people skip naming. A yes/no only, never the text.
         named: row.item.trim() !== splitEmoji(row.category).text,
       })
-      void invalidateExpenseCreateQueries(qc)
+      if (!res.pending || !res.timestamp) {
+        void invalidateExpenseCreateQueries(qc)
+        return
+      }
+      // Not on the server yet, so a refetch now would drop it. Show it in the
+      // cached lists instead (envelopes count it straight away); the drain's
+      // synced event refetches everything once the server has it.
+      insertExpense(qc, {
+        timestamp: res.timestamp,
+        date: res.timestamp.slice(0, 10),
+        item: row.item,
+        amount_inr: row.amount_inr,
+        category: row.category,
+        notes: row.notes ?? '',
+        source: row.source ?? 'manual',
+        amount: '',
+        description: '',
+        payment_method: row.payment_method ?? 'bank',
+        ...(row.account_id ? { account_id: row.account_id } : {}),
+      })
     },
   })
 }
@@ -215,6 +261,16 @@ export function useDeleteExpense() {
   return useMutation({
     mutationFn: (params: { id?: string; version?: number; timestamp: string; item: string; amountInr: number }) =>
       deleteExpense(params.id, params.timestamp, params.item, params.amountInr, params.version),
+    // Gone from every list (and its envelope) on tap; a failed delete puts it back.
+    onMutate: async (params) => {
+      await qc.cancelQueries({ queryKey: key })
+      const snapshot = snapshotExpenses(qc)
+      removeExpense(qc, params)
+      return { snapshot }
+    },
+    onError: (_err, _params, context) => {
+      if (context) restoreExpenses(qc, context.snapshot)
+    },
     onSuccess: () => track('expense_deleted'),
     onSettled: () => {
       qc.invalidateQueries({ queryKey: key })

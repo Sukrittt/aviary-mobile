@@ -449,6 +449,9 @@ export default function LogExpenseScreen() {
           payment_method: accountId ? accounts.find((a) => a.id === accountId)?.type ?? paymentMethod : paymentMethod,
           ...(accountId ? { account_id: accountId } : {}),
           source: 'manual',
+          // A slow save finishes in the background instead of holding this
+          // screen. Not with a photo: its upload needs the server id.
+          instant: !photo,
         },
         {
           // replace, not push: this screen is spent, and Done on the success
@@ -495,7 +498,7 @@ export default function LogExpenseScreen() {
         },
       );
     }
-  }, [canSubmit, unusual, unusualWarnedFor, warnKey, base, amount, expectedVersion, isEdit, origId, origTimestamp, origItem, origAmountInr, item, savedItem, parsedAmount, date, category, notes, paymentMethod, accountId, accounts, editedDraft, router, addMutate, updateMutate, autoPicked, syncPhoto]);
+  }, [canSubmit, unusual, unusualWarnedFor, warnKey, base, amount, expectedVersion, isEdit, origId, origTimestamp, origItem, origAmountInr, item, savedItem, parsedAmount, date, category, notes, paymentMethod, accountId, accounts, editedDraft, router, addMutate, updateMutate, autoPicked, syncPhoto, photo]);
 
   // Publish only when the action or its visible state changes, and only while
   // focused: a prefilled log-expense (habit nudge) stacks over the launch one,
