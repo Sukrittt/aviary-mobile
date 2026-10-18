@@ -78,6 +78,16 @@ export function directionCopy(review: Pick<ImportReview, 'direction' | 'directio
   return review.direction === 'negative_spend' ? 'We’re reading negative amounts as spends.' : 'We’re reading positive amounts as spends.'
 }
 
+/** What the set-me-up button says while the commit runs, in the order the server does it. Web's commitSteps. */
+export function commitSteps(envelopes: number, accounts: number, salary: boolean): string[] {
+  return [
+    `Making your ${plural(envelopes, 'envelope', 'envelopes')}…`,
+    ...(accounts ? [`Adding your ${plural(accounts, 'account', 'accounts')}…`] : []),
+    ...(salary ? ['Setting up your payday…'] : []),
+    'Filling this month’s budget…',
+  ]
+}
+
 export function ordinal(day: number): string {
   const tens = day % 100
   const suffix = tens >= 11 && tens <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[day % 10] ?? 'th'

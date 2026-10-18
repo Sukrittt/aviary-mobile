@@ -55,7 +55,7 @@ function render() {
 
 function toReview(app = 'Monefy') {
   const utils = render()
-  fireEvent.press(utils.getByText('Bring it all over'))
+  fireEvent.press(utils.getByText('Bring my budget over'))
   fireEvent.press(utils.getByLabelText(app))
   fireEvent.press(utils.getByLabelText('Choose your export file'))
   return utils
@@ -71,8 +71,8 @@ beforeEach(() => {
 
 it('starting fresh hands straight back to the usual setup', () => {
   const { getByText, onFresh } = render()
-  expect(getByText('Switching apps?')).toBeTruthy()
-  fireEvent.press(getByText('No, start fresh'))
+  expect(getByText('How do you want to start?')).toBeTruthy()
+  fireEvent.press(getByText('Start fresh'))
   expect(onFresh).toHaveBeenCalled()
 })
 
@@ -200,4 +200,14 @@ it('going back during a slow preview stays back when it lands', async () => {
   await act(async () => land(review))
   expect(getByText('Where are you coming from?')).toBeTruthy()
   expect(queryByText('Here’s what we found')).toBeNull()
+})
+
+it('names the step being written while the commit runs, like Finish setup does', async () => {
+  let land: (r: unknown) => void = () => {}
+  mockCommit.mockReturnValue(new Promise((r) => { land = r }))
+  const { findByText, getByText, getByLabelText } = toReview()
+  fireEvent.press(await findByText('Looks right, set me up'))
+  expect(getByText('Making your 2 envelopes…')).toBeTruthy()
+  expect(getByLabelText('Making your 2 envelopes…').props.accessibilityState).toMatchObject({ busy: true, disabled: true })
+  await act(async () => land({ importId: 'imp1', total: 9, groupCount: 2, categoryCount: 2, income: 3000 }))
 })

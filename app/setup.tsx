@@ -543,7 +543,7 @@ function CurrencyWizard({
         step_name: STEP_NAMES[step],
       });
     setError("");
-    // Back from the first step is back to "Switching apps?".
+    // Back from the first step is back to "How do you want to start?".
     if (step === 0 && canPickFiles) setEntry("ask");
     setStep((s) => Math.max(0, s - 1));
   };
