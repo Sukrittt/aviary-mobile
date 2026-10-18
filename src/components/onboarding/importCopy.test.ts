@@ -1,4 +1,4 @@
-import { bannerDone, bannerProgress, countsLine, directionCopy, importErrorCopy, listOf, ordinal, skippedCopy } from './importCopy'
+import { commitSteps, bannerDone, bannerProgress, countsLine, directionCopy, importErrorCopy, listOf, ordinal, skippedCopy } from './importCopy'
 
 describe('import copy', () => {
   it('counts spends, paydays and the date range', () => {
@@ -60,5 +60,13 @@ describe('import copy edge cases', () => {
   it('names at most three skipped currencies, then says there were others', () => {
     expect(skippedCopy({ skipped: { other_currency: 9 }, otherCurrencies: ['USD', 'EUR', 'GBP', 'JPY'], droppedOverCap: 0 }))
       .toEqual(['We skipped 9 rows in USD, EUR, GBP and other currencies.'])
+  })
+})
+
+describe('commit steps', () => {
+  it('names each write in order, leaving out what the import has none of', () => {
+    expect(commitSteps(6, 2, true)).toEqual(['Making your 6 envelopes…', 'Adding your 2 accounts…', 'Setting up your payday…', 'Filling this month’s budget…'])
+    expect(commitSteps(1, 0, false)).toEqual(['Making your 1 envelope…', 'Filling this month’s budget…'])
+    expect(commitSteps(0, 0, true)).toEqual(['Setting up your payday…', 'Filling this month’s budget…'])
   })
 })

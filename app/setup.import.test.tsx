@@ -30,11 +30,11 @@ beforeEach(() => jest.clearAllMocks())
 
 it('asks about switching first, and back from currency returns to the question', () => {
   const { getByText, getByLabelText } = renderWithProviders(<SetupScreen />)
-  expect(getByText('Switching apps?')).toBeTruthy()
-  fireEvent.press(getByText('No, start fresh'))
+  expect(getByText('How do you want to start?')).toBeTruthy()
+  fireEvent.press(getByText('Start fresh'))
   expect(getByText('Choose your currency')).toBeTruthy()
   fireEvent.press(getByLabelText('Go back'))
-  expect(getByText('Switching apps?')).toBeTruthy()
+  expect(getByText('How do you want to start?')).toBeTruthy()
 })
 
 it('an import lands on the celebration with its history still coming in, onboarded by the server', async () => {
@@ -48,7 +48,7 @@ it('an import lands on the celebration with its history still coming in, onboard
   })
   mockCommit.mockResolvedValue({ importId: 'imp1', total: 43, groupCount: 1, categoryCount: 1, income: 0 })
   const { getByText, getByLabelText, findByText } = renderWithProviders(<SetupScreen />)
-  fireEvent.press(getByText('Bring it all over'))
+  fireEvent.press(getByText('Bring my budget over'))
   fireEvent.press(getByLabelText('YNAB'))
   fireEvent.press(getByLabelText('Choose your export file'))
   fireEvent.press(await findByText('Looks right, set me up'))

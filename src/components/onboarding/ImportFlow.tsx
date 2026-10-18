@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type StyleProp, type ViewStyle } from 'react-native'
-import Animated, { FadeIn, FadeInDown, useAnimatedStyle, useReducedMotion, useSharedValue, withSpring } from 'react-native-reanimated'
+import Animated, { FadeIn, FadeInDown, useAnimatedStyle, useReducedMotion, useSharedValue, withSpring, withTiming } from 'react-native-reanimated'
 import * as Haptics from 'expo-haptics'
-import { ArrowLeft, ArrowsClockwise, CaretDown, CaretRight, Check, FileText, Plus } from '@/src/components/shared/icons'
+import { ArrowLeft, ArrowsClockwise, CaretDown, CaretRight, Check, FileText, Plus, Sparkle, type PhosphorIcon } from '@/src/components/shared/icons'
 import { CurrencyPicker } from '@/src/components/CurrencyPicker'
 import { CurrencyScope, useCurrency } from '@/src/context/CurrencyContext'
 import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
+import { LoadingPhrase } from '@/src/components/shared/LoadingPhrase'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { BottomSheet } from '@/src/components/shared/Modal'
 import { PopIn } from '@/src/components/shared/PopIn'
@@ -17,10 +18,10 @@ import { pickFile } from '@/src/lib/filePicker'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { commitImport, ImportFailure, previewImport, recomputeImport, type CommitResult, type ImportAccountType, type ImportReview } from '@/src/api/imports'
-import { countsLine, directionCopy, importErrorCopy, ordinal, skippedCopy } from './importCopy'
+import { commitSteps, countsLine, directionCopy, importErrorCopy, ordinal, skippedCopy } from './importCopy'
 
 /**
- * "Switching apps?": the first onboarding step, and the import that follows
+ * "How do you want to start?": the first onboarding step, and the import that follows
  * it. Ported from Web's ImportFlow. The review is the only screen with work
  * on it; nothing is written until its button is pressed.
  */
@@ -97,17 +98,32 @@ export function ImportFlow({ onFresh, onDone }: { onFresh: () => void; onDone: (
       </View>
 
       {stage === 'ask' && (
+        // Two equal ways in: starting fresh is as good a start as switching, so
+        // neither is the big button with the other as a small link under it.
         <Animated.View key="ask" entering={FadeIn.duration(280)} style={styles.ask}>
-          <PopIn play delay={60} style={[styles.askBadge, { backgroundColor: tokens.accentSoft }]}>
-            <ArrowsClockwise size={30} color={tokens.accentInk} weight="bold" />
-          </PopIn>
-          <Title>Switching apps?</Title>
-          <Blurb center>Don’t start from zero. Export one file from your old app and we’ll rebuild it all here.</Blurb>
-          <View style={styles.askActions}>
-            <Cta label="Bring it all over" onPress={() => setStage('pick')} />
-            <Pressable accessibilityRole="button" onPress={onFresh} hitSlop={8} style={styles.textAction}>
-              <Text style={[styles.textActionLabel, { color: tokens.accentInk, fontFamily: fontFamily.bodyBold }]}>No, start fresh</Text>
-            </Pressable>
+          <Title>How do you want to start?</Title>
+          <Blurb>Both get you a budget in a few minutes.</Blurb>
+          <View style={styles.choices}>
+            <Choice
+              delay={60}
+              icon={Sparkle}
+              title="Start fresh"
+              detail="Set up your budget in about a minute. We’ll guide you."
+              onPress={() => {
+                tap()
+                onFresh()
+              }}
+            />
+            <Choice
+              delay={120}
+              icon={ArrowsClockwise}
+              title="Bring my budget over"
+              detail="From YNAB, Money Manager, Wallet and more."
+              onPress={() => {
+                tap()
+                setStage('pick')
+              }}
+            />
           </View>
         </Animated.View>
       )}
@@ -269,6 +285,14 @@ function Review({ review, onReview, onDone }: { review: ImportReview; onReview: 
   const [groupFor, setGroupFor] = useState<string | null>(null)
   const [recomputing, setRecomputing] = useState(false)
   const [phase, setPhase] = useState<'idle' | 'saving' | 'success'>('idle')
+  // The same save state as the wizard's Finish setup: a fill that grows under a
+  // caption naming the step, so a slow commit visibly moves.
+  const saveProgress = useCreep(phase === 'saving')
+  const saveFill = useSharedValue(0)
+  useEffect(() => {
+    saveFill.value = withTiming(phase === 'idle' ? 0 : phase === 'success' ? 1 : saveProgress, { duration: phase === 'idle' ? 0 : 250 })
+  }, [phase, saveProgress, saveFill])
+  const saveFillStyle = useAnimatedStyle(() => ({ width: `${saveFill.value * 100}%` }))
   const [error, setError] = useState('')
   const seen = useRef(`${review.importId}:${review.direction}:${review.currency}`)
   const salaryEdited = useRef(false)
@@ -337,6 +361,8 @@ function Review({ review, onReview, onDone }: { review: ImportReview; onReview: 
   const tooManyBanks = accounts.filter((a) => a.type === 'bank').length > MAX_BANK_ACCOUNTS
   const busy = phase !== 'idle' || recomputing
   const picking = cats.find((c) => c.source === groupFor)
+  const steps = commitSteps(cats.length, accounts.length, hasSalary)
+  const saveStep = steps[Math.min(steps.length - 1, Math.floor((saveProgress / CREEP_MAX) * steps.length))]
 
   const commit = async () => {
     if (busy || tooManyBanks) return
@@ -541,15 +567,26 @@ function Review({ review, onReview, onDone }: { review: ImportReview; onReview: 
         onPress={commit}
         disabled={busy || tooManyBanks}
         accessibilityRole="button"
-        accessibilityLabel={phase === 'success' ? 'You’re set up' : undefined}
+        accessibilityLabel={phase === 'success' ? 'You’re set up' : phase === 'saving' ? saveStep : undefined}
         accessibilityState={{ disabled: busy || tooManyBanks, busy: phase === 'saving' }}
-        style={[styles.cta, { backgroundColor: phase === 'success' ? tokens.successBg : tooManyBanks ? tokens.inputBg : tokens.accent, opacity: phase === 'saving' || recomputing ? 0.6 : 1 }]}
+        style={[
+          styles.cta,
+          {
+            backgroundColor: phase === 'success' ? tokens.successBg : phase === 'saving' || tooManyBanks ? tokens.inputBg : tokens.accent,
+            opacity: recomputing ? 0.6 : 1,
+          },
+        ]}
       >
         {phase === 'success' ? (
           <CheckIcon color={tokens.onSuccess} />
+        ) : phase === 'saving' ? (
+          <>
+            <Animated.View pointerEvents="none" style={[styles.ctaFill, saveFillStyle]} />
+            <LoadingPhrase phrases={[saveStep]} color={tokens.text3} style={[styles.ctaText, styles.ctaPhrase, { fontFamily: fontFamily.displaySemiBold }]} />
+          </>
         ) : (
           <Text style={[styles.ctaText, { color: tooManyBanks ? tokens.text3 : tokens.onAccent, fontFamily: fontFamily.displaySemiBold }]}>
-            {phase === 'saving' ? 'Setting you up…' : 'Looks right, set me up'}
+            Looks right, set me up
           </Text>
         )}
       </Pressable>
@@ -622,6 +659,42 @@ function Review({ review, onReview, onDone }: { review: ImportReview; onReview: 
   )
 }
 
+function Choice({ icon: Icon, title, detail, delay, onPress }: { icon: PhosphorIcon; title: string; detail: string; delay: number; onPress: () => void }) {
+  const { tokens } = useTheme()
+  return (
+    <PopIn play delay={delay}>
+      <Press accessibilityLabel={`${title}. ${detail}`} onPress={onPress} style={[styles.choice, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
+        <View style={[styles.choiceIcon, { backgroundColor: tokens.accentSoft }]}>
+          <Icon size={22} color={tokens.accentInk} weight="bold" />
+        </View>
+        <View style={styles.fill}>
+          <Text style={[styles.choiceTitle, { color: tokens.text, fontFamily: fontFamily.bodyBold }]}>{title}</Text>
+          <Text style={[styles.choiceDetail, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>{detail}</Text>
+        </View>
+        <CaretRight size={16} color={tokens.text3} />
+      </Press>
+    </PopIn>
+  )
+}
+
+// The fill climbs toward this while the commit runs; the success tick takes it the rest of the way.
+const CREEP_MAX = 0.92
+
+/** 0 while idle; while `active`, climbs fast then slows, never quite arriving. Web's useCreep. */
+function useCreep(active: boolean): number {
+  const [progress, setProgress] = useState(0)
+  useEffect(() => {
+    if (!active) return
+    const start = Date.now()
+    const id = setInterval(() => setProgress(CREEP_MAX * (1 - Math.exp(-(Date.now() - start) / 5000))), 250)
+    return () => {
+      clearInterval(id)
+      setProgress(0)
+    }
+  }, [active])
+  return progress
+}
+
 function Title({ children }: { children: string }) {
   const { tokens } = useTheme()
   return <Text style={[styles.title, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>{children}</Text>
@@ -648,21 +721,6 @@ function Action({ label, onPress, disabled }: { label: string; onPress: () => vo
     <Pressable accessibilityRole="button" onPress={onPress} disabled={disabled} hitSlop={8} style={[styles.action, { backgroundColor: tokens.accentSoft, opacity: disabled ? 0.5 : 1 }]}>
       <Text style={[styles.actionText, { color: tokens.accentInk, fontFamily: fontFamily.bodyBold }]}>{label}</Text>
     </Pressable>
-  )
-}
-
-function Cta({ label, onPress }: { label: string; onPress: () => void }) {
-  const { tokens } = useTheme()
-  return (
-    <Press
-      onPress={() => {
-        tap()
-        onPress()
-      }}
-      style={[styles.cta, { backgroundColor: tokens.accent }]}
-    >
-      <Text style={[styles.ctaText, { color: tokens.onAccent, fontFamily: fontFamily.displaySemiBold }]}>{label}</Text>
-    </Press>
   )
 }
 
@@ -716,9 +774,12 @@ const styles = StyleSheet.create({
   dots: { flexDirection: 'row', gap: 6 },
   title: { fontSize: 27, lineHeight: 31, marginTop: 16, letterSpacing: -0.2 },
   blurb: { fontSize: 14, lineHeight: 21, marginTop: 7, maxWidth: 310 },
-  ask: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingBottom: 40 },
-  askBadge: { width: 68, height: 68, borderRadius: 34, alignItems: 'center', justifyContent: 'center' },
-  askActions: { alignSelf: 'stretch', marginTop: 28, gap: 6 },
+  ask: { flex: 1, justifyContent: 'center', paddingBottom: 40 },
+  choices: { gap: 12, marginTop: 28 },
+  choice: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 18, paddingHorizontal: 16, borderRadius: 20, borderWidth: 1 },
+  choiceIcon: { width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center' },
+  choiceTitle: { fontSize: 16 },
+  choiceDetail: { fontSize: 13, lineHeight: 18, marginTop: 3 },
   textAction: { alignSelf: 'center', paddingVertical: 12, paddingHorizontal: 8 },
   textActionLabel: { fontSize: 14, textAlign: 'center' },
   appList: { gap: 8, paddingTop: 16, paddingBottom: 12 },
@@ -762,6 +823,8 @@ const styles = StyleSheet.create({
   dayInput: { width: 72, textAlign: 'center' },
   cta: { marginTop: 12, minHeight: 54, borderRadius: 28, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   ctaText: { fontSize: 15 },
+  ctaFill: { position: 'absolute', left: 0, top: 0, bottom: 0, backgroundColor: 'rgba(255,255,255,0.22)' },
+  ctaPhrase: { textAlign: 'center' },
   sheet: { gap: 10 },
   grabber: { alignSelf: 'center', width: 38, height: 4, borderRadius: 100, marginBottom: 4 },
   sheetTitle: { fontSize: 17, marginBottom: 4 },
