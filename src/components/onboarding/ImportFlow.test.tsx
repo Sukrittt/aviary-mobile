@@ -158,7 +158,16 @@ it('a flip that finds a salary fills it in', async () => {
   expect((await findByLabelText('Monthly income')).props.value).toBe('')
   fireEvent.press(getByText('That’s backwards'))
   await waitFor(() => expect(getByLabelText('Monthly income').props.value).toBe('3100'))
-  expect(getByLabelText('Payday, day of the month').props.value).toBe('2')
+  expect(getByLabelText('Payday, the 2nd of the month')).toBeTruthy()
+})
+
+it('picks the payday from a day-of-month sheet', async () => {
+  const { findByLabelText, getByLabelText, getByText } = toReview()
+  fireEvent.press(await findByLabelText('Payday, the 1st of the month'))
+  fireEvent.press(getByLabelText('The 28th'))
+  expect(getByLabelText('Payday, the 28th of the month')).toBeTruthy()
+  fireEvent.press(getByText('Looks right, set me up'))
+  await waitFor(() => expect(mockCommit.mock.calls[0][1]).toMatchObject({ salary: { amount: 3000, day: 28 } }))
 })
 
 it('stops at more bank accounts than the app holds, rather than dropping one quietly', async () => {

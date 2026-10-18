@@ -298,7 +298,8 @@ function Review({ review, picked, onReview, onDone, onAlreadySetUp }: { review: 
   const [cats, setCats] = useState<CategoryEdit[]>(review.categories)
   const [accounts, setAccounts] = useState<AccountEdit[]>(review.accounts)
   const [salary, setSalary] = useState(review.salary ? String(review.salary.amount) : '')
-  const [day, setDay] = useState(String(review.salary?.day ?? 1))
+  const [day, setDay] = useState(review.salary?.day ?? 1)
+  const [dayOpen, setDayOpen] = useState(false)
   const [currencyOpen, setCurrencyOpen] = useState(false)
   // The envelope whose group is being picked, by source.
   const [groupFor, setGroupFor] = useState<string | null>(null)
@@ -341,7 +342,7 @@ function Review({ review, picked, onReview, onDone, onAlreadySetUp }: { review: 
     // A flip can find a salary the first read missed, or lose one it found.
     if (!salaryEdited.current) {
       setSalary(review.salary ? String(review.salary.amount) : '')
-      setDay(String(review.salary?.day ?? 1))
+      setDay(review.salary?.day ?? 1)
     }
   }, [review])
 
@@ -395,7 +396,7 @@ function Review({ review, picked, onReview, onDone, onAlreadySetUp }: { review: 
         groups,
         categories: cats.map((c) => ({ source: c.source, name: c.name.trim() || c.source, group: c.group })),
         accounts: accounts.map((a) => ({ ...a, name: a.name.trim() || a.source })),
-        salary: hasSalary ? { amount: salaryAmount, day: Math.min(31, Math.max(1, Math.round(Number(day)) || 1)) } : null,
+        salary: hasSalary ? { amount: salaryAmount, day } : null,
       })
       track('import_committed', { app: review.app, categories: cats.length, accounts: accounts.length, has_salary: hasSalary, rows: result.total })
       setPhase('success')
@@ -557,18 +558,18 @@ function Review({ review, picked, onReview, onDone, onAlreadySetUp }: { review: 
             />
             <View style={styles.dayField}>
               <Text style={[styles.dayLabel, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>Payday</Text>
-              <TextInput
-                value={day}
-                keyboardType="number-pad"
-                maxLength={2}
-                accessibilityLabel="Payday, day of the month"
-                onFocus={revealIncome}
-                onChangeText={(v) => {
-                  salaryEdited.current = true
-                  setDay(v.replace(/\D/g, ''))
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Payday, the ${ordinal(day)} of the month`}
+                onPress={() => {
+                  tap()
+                  setDayOpen(true)
                 }}
-                style={[styles.field, styles.dayInput, { backgroundColor: tokens.inputBg, borderColor: tokens.border, color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}
-              />
+                style={[styles.field, styles.dayButton, { backgroundColor: tokens.inputBg, borderColor: tokens.border }]}
+              >
+                <Text style={[styles.dayText, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>{ordinal(day)}</Text>
+                <CaretDown size={12} color={tokens.text3} weight="bold" />
+              </Pressable>
             </View>
           </View>
         </Section>
@@ -618,6 +619,37 @@ function Review({ review, picked, onReview, onDone, onAlreadySetUp }: { review: 
           </Text>
         )}
       </Pressable>
+
+      <BottomSheet visible={dayOpen} onClose={() => setDayOpen(false)}>
+        <View style={styles.sheet}>
+          <View style={[styles.grabber, { backgroundColor: tokens.borderStrong }]} />
+          <Text style={[styles.sheetTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>When does your pay land?</Text>
+          <Text style={[styles.note, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>Pick the day of the month. In a shorter month, we’ll use its last day.</Text>
+          <View style={styles.dayGrid}>
+            {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => {
+              const on = d === day
+              return (
+                <View key={d} style={styles.dayCellWrap}>
+                  <Pressable
+                    accessibilityRole="radio"
+                    accessibilityState={{ checked: on }}
+                    accessibilityLabel={`The ${ordinal(d)}`}
+                    onPress={() => {
+                      Haptics.selectionAsync().catch(() => {})
+                      salaryEdited.current = true
+                      setDay(d)
+                      setDayOpen(false)
+                    }}
+                    style={[styles.dayCell, on && { backgroundColor: tokens.accent }]}
+                  >
+                    <Text style={[styles.dayCellText, { color: on ? tokens.onAccent : tokens.text, fontFamily: fontFamily.bodySemiBold }]}>{d}</Text>
+                  </Pressable>
+                </View>
+              )
+            })}
+          </View>
+        </View>
+      </BottomSheet>
 
       <BottomSheet visible={currencyOpen} onClose={() => setCurrencyOpen(false)}>
         <View style={styles.sheet}>
@@ -885,7 +917,12 @@ const styles = StyleSheet.create({
   field: { borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 11, fontSize: 15 },
   dayField: { gap: 4 },
   dayLabel: { fontSize: 12 },
-  dayInput: { width: 72, textAlign: 'center' },
+  dayButton: { width: 84, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 },
+  dayText: { fontSize: 15 },
+  dayGrid: { flexDirection: 'row', flexWrap: 'wrap' },
+  dayCellWrap: { width: `${100 / 7}%`, height: 48, alignItems: 'center', justifyContent: 'center' },
+  dayCell: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  dayCellText: { fontSize: 13 },
   cta: { marginTop: 12, minHeight: 54, borderRadius: 28, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   ctaText: { fontSize: 15 },
   ctaFill: { position: 'absolute', left: 0, top: 0, bottom: 0, backgroundColor: 'rgba(255,255,255,0.22)' },
