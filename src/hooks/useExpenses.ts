@@ -265,11 +265,11 @@ export function useDeleteExpense() {
     onMutate: async (params) => {
       await qc.cancelQueries({ queryKey: key })
       const snapshot = snapshotExpenses(qc)
-      removeExpense(qc, params)
-      return { snapshot }
+      const written = removeExpense(qc, params)
+      return { snapshot, written }
     },
     onError: (_err, _params, context) => {
-      if (context) restoreExpenses(qc, context.snapshot)
+      if (context) restoreExpenses(qc, context.snapshot, context.written)
     },
     onSuccess: () => track('expense_deleted'),
     onSettled: () => {

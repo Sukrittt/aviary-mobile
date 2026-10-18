@@ -86,12 +86,22 @@ describe('removeExpense', () => {
   })
 })
 
-it('restoreExpenses puts back exactly what snapshotExpenses saw', () => {
+it('restoreExpenses puts back what snapshotExpenses saw', () => {
   const qc = seeded()
   const snap = snapshotExpenses(qc)
-  removeExpense(qc, { id: 'a', timestamp: '2026-10-09T09:00:00', item: 'Coffee', amountInr: 100 })
-  insertExpense(qc, row({ id: 'z' }))
-  restoreExpenses(qc, snap)
+  const written = removeExpense(qc, { id: 'a', timestamp: '2026-10-09T09:00:00', item: 'Coffee', amountInr: 100 })
+  restoreExpenses(qc, snap, written)
   expect(qc.getQueryData<ExpenseRow[]>(['expenses'])!.map((r) => r.id)).toEqual(['a', 'b'])
   expect(qc.getQueryData<RecentExpenses>(recentKey)!.rows.map((r) => r.id)).toEqual(['a', 'b'])
+})
+
+it('restoreExpenses leaves a list changed since (a pending add) for the refetch instead of erasing it', () => {
+  const qc = seeded()
+  const snap = snapshotExpenses(qc)
+  const written = removeExpense(qc, { id: 'a', timestamp: '2026-10-09T09:00:00', item: 'Coffee', amountInr: 100 })
+  insertExpense(qc, row({ id: 'z' }))
+  restoreExpenses(qc, snap, written)
+  expect(qc.getQueryData<ExpenseRow[]>(['expenses'])!.map((r) => r.id)).toEqual(['z', 'b'])
+  // Lists the add didn't touch still roll back.
+  expect(qc.getQueryData<ExpensesPage>(['expenses', 'page', { page: 1, limit: 20 }])!.rows.map((r) => r.id)).toEqual(['a', 'b'])
 })

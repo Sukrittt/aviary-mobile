@@ -18,8 +18,18 @@ export function snapshotExpenses(qc: QueryClient): Snapshot {
   return qc.getQueriesData({ queryKey: prefix })
 }
 
-export function restoreExpenses(qc: QueryClient, snapshot: Snapshot): void {
-  for (const [key, data] of snapshot) qc.setQueryData(key, data)
+/**
+ * Rolls back a failed write. With `written` (what the write left in each list),
+ * a list changed since (a pending add landed meanwhile) is skipped rather than
+ * reset, so the rollback can't erase that add; the write's settle refetch
+ * fixes the list instead.
+ */
+export function restoreExpenses(qc: QueryClient, snapshot: Snapshot, written?: Snapshot): void {
+  const ours = written && new Map(written.map(([key, data]) => [JSON.stringify(key), data]))
+  for (const [key, data] of snapshot) {
+    if (ours && qc.getQueryData(key) !== ours.get(JSON.stringify(key))) continue
+    qc.setQueryData(key, data)
+  }
 }
 
 function kind(key: QueryKey): 'all' | 'recent' | 'page' | 'feed' | null {
@@ -65,8 +75,8 @@ function dropFromPage(page: ExpensesPage, m: Match): ExpensesPage {
   }
 }
 
-/** Drops a row from every cached list, Activity's pages and feed included. */
-export function removeExpense(qc: QueryClient, m: Match): void {
+/** Drops a row from every cached list, Activity's pages and feed included. Returns what it wrote, for restoreExpenses. */
+export function removeExpense(qc: QueryClient, m: Match): Snapshot {
   const keep = (r: ExpenseRow) => !matches(m)(r)
   for (const [key, data] of snapshotExpenses(qc)) {
     if (data === undefined) continue
@@ -88,4 +98,5 @@ export function removeExpense(qc: QueryClient, m: Match): void {
       }
     }
   }
+  return snapshotExpenses(qc)
 }
