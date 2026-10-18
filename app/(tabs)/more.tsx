@@ -671,9 +671,11 @@ function wrappedCardProps(status: WrappedStatus | undefined, tokens: ReturnType<
 
 const INVITE_URL = `${WEB_URL}/?ref=invite`
 
-async function inviteFriend() {
-  const result = await Share.share({ message: `I've been budgeting with Aviary. Give it a try: ${INVITE_URL}` })
-  track('invite_shared', { shared: result.action === Share.sharedAction })
+// Android reports sharedAction even when the chooser is dismissed, so this
+// counts share sheets opened, not invites actually sent.
+function inviteFriend() {
+  track('invite_shared')
+  Share.share({ message: `I've been budgeting with Aviary. Give it a try: ${INVITE_URL}` }).catch(() => {})
 }
 
 function AccountRow({
