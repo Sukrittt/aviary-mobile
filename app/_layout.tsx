@@ -223,11 +223,11 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
 
   useEffect(
     () =>
-      onOnboarded(() => {
+      onOnboarded(({ elsewhere }) => {
         // Drop a cached setup_incomplete answer, or the check below would send
         // the user straight back to setup before the fresh status lands.
         void queryClient.resetQueries({ queryKey: billingKey })
-        setJustOnboarded(true)
+        setJustOnboarded(!elsewhere)
         setLandOnHome(true)
         setOnboarded(true)
       }),

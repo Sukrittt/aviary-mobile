@@ -68,7 +68,9 @@ export interface ImportDone {
   currency: string
 }
 
-export function ImportFlow({ onFresh, onDone }: { onFresh: () => void; onDone: (done: ImportDone) => void }) {
+// onAlreadySetUp: the server refused because setup was finished on another
+// device. There's nothing to fix here, so the screen hands the user on.
+export function ImportFlow({ onFresh, onDone, onAlreadySetUp }: { onFresh: () => void; onDone: (done: ImportDone) => void; onAlreadySetUp: () => void }) {
   const { tokens } = useTheme()
   const [stage, setStage] = useState<Stage>('ask')
   const [app, setApp] = useState<AppChoice | null>(null)
@@ -149,6 +151,7 @@ export function ImportFlow({ onFresh, onDone }: { onFresh: () => void; onDone: (
       {stage === 'upload' && app && (
         <Upload
           app={app}
+          onAlreadySetUp={onAlreadySetUp}
           onPreview={(r) => {
             setReview(r)
             setStage('review')
@@ -158,14 +161,14 @@ export function ImportFlow({ onFresh, onDone }: { onFresh: () => void; onDone: (
 
       {stage === 'review' && review && (
         <CurrencyScope code={review.currency}>
-          <Review review={review} onReview={setReview} onDone={onDone} />
+          <Review review={review} onReview={setReview} onDone={onDone} onAlreadySetUp={onAlreadySetUp} />
         </CurrencyScope>
       )}
     </>
   )
 }
 
-function Upload({ app, onPreview }: { app: AppChoice; onPreview: (review: ImportReview) => void }) {
+function Upload({ app, onPreview, onAlreadySetUp }: { app: AppChoice; onPreview: (review: ImportReview) => void; onAlreadySetUp: () => void }) {
   const { tokens } = useTheme()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -209,6 +212,7 @@ function Upload({ app, onPreview }: { app: AppChoice; onPreview: (review: Import
     } catch (err) {
       if (!live.current) return
       const code = err instanceof ImportFailure ? err.code : 'network'
+      if (code === 'already_onboarded') return onAlreadySetUp()
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {})
       setError(importErrorCopy(code))
       track('import_failed', { stage: 'preview', reason: code })
@@ -262,7 +266,7 @@ function Upload({ app, onPreview }: { app: AppChoice; onPreview: (review: Import
 type CategoryEdit = ImportReview['categories'][number]
 type AccountEdit = ImportReview['accounts'][number]
 
-function Review({ review, onReview, onDone }: { review: ImportReview; onReview: (r: ImportReview) => void; onDone: (done: ImportDone) => void }) {
+function Review({ review, onReview, onDone, onAlreadySetUp }: { review: ImportReview; onReview: (r: ImportReview) => void; onDone: (done: ImportDone) => void; onAlreadySetUp: () => void }) {
   const { tokens } = useTheme()
   const { formatMoney } = useCurrency()
   const [groups, setGroups] = useState(review.groups)
@@ -375,6 +379,7 @@ function Review({ review, onReview, onDone }: { review: ImportReview; onReview: 
     } catch (err) {
       setPhase('idle')
       const code = err instanceof ImportFailure ? err.code : 'network'
+      if (code === 'already_onboarded') return onAlreadySetUp()
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {})
       setError(importErrorCopy(code))
       track('import_failed', { stage: 'commit', reason: code })

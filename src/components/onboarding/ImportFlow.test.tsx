@@ -49,7 +49,7 @@ const file = (size = 10) => ({ uri: 'file:///monefy.csv', name: 'monefy.csv', mi
 function render() {
   const onDone = jest.fn()
   const onFresh = jest.fn()
-  const utils = renderWithProviders(<ImportFlow onFresh={onFresh} onDone={onDone} />)
+  const utils = renderWithProviders(<ImportFlow onFresh={onFresh} onDone={onDone} onAlreadySetUp={jest.fn()} />)
   return { ...utils, onDone, onFresh }
 }
 
