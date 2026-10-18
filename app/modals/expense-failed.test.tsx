@@ -168,7 +168,7 @@ it.each([false, true])('preserves Retry create metadata and supports Undo (offli
   const success = renderWithProviders(<ExpenseAddedScreen />)
   if (offline) {
     expect(enqueue).toHaveBeenCalled()
-    expect(success.getByText(/Logged offline/)).toBeTruthy()
+    expect(success.getByText(/Saved on your phone/)).toBeTruthy()
     expect(success.queryByText(/left of/)).toBeNull()
   }
   fireEvent.press(success.getByText('Undo'))
