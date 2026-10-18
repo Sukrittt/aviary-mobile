@@ -64,6 +64,12 @@ function useGlide(target: number | null, ms: number): number {
   return reduceMotion && target !== null ? target : value
 }
 
+/** Whether an import's history is still being booked, from the banner's own poll. */
+export function useImportInProgress(): boolean {
+  const { data } = useQuery<ImportStatus>({ queryKey: ['import-status'], queryFn: getImportStatus, staleTime: POLL_MS })
+  return data?.status === 'importing'
+}
+
 export function ImportBanner() {
   const { tokens, type, space } = useTheme()
   const router = useRouter()
