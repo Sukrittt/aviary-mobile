@@ -72,9 +72,16 @@ export interface PickedFile {
  * the server's text never reaches the user.
  */
 export class ImportFailure extends Error {
-  constructor(readonly code: string) {
+  /** What went wrong underneath, for analytics: an error's name ("TypeError") or the HTTP status. Never a message. */
+  constructor(readonly code: string, readonly detail?: string) {
     super(code)
   }
+}
+
+function transportFailure(err: unknown): ImportFailure {
+  const name = err instanceof Error ? err.name : 'unknown'
+  if (__DEV__) console.warn('[import] request failed before an answer', err)
+  return new ImportFailure('network', name)
 }
 
 // Upload plus parse, or a commit's setup writes, can outlast the default 15 s.
@@ -84,21 +91,25 @@ async function call<T>(path: string, init: RequestInit): Promise<T> {
   let resp: Response
   try {
     resp = await apiFetch(path, { signal: AbortSignal.timeout(SLOW_MS), ...init })
-  } catch {
-    throw new ImportFailure('network')
+  } catch (err) {
+    throw transportFailure(err)
   }
   if (resp.ok) return resp.json() as Promise<T>
   const body = (await resp.json().catch(() => null)) as { error?: unknown } | null
-  throw new ImportFailure(typeof body?.error === 'string' && resp.status < 500 ? body.error : 'network')
+  throw new ImportFailure(typeof body?.error === 'string' && resp.status < 500 ? body.error : 'network', String(resp.status))
 }
 
 const jsonInit = (body: unknown): RequestInit => ({ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
 
-export function previewImport(file: PickedFile): Promise<ImportReview> {
+export async function previewImport(file: PickedFile): Promise<ImportReview> {
   const form = new FormData()
-  // Expo's fetch takes a part with bytes(), not React Native's { uri } object
-  // ("Unsupported FormDataPart implementation"). Capped at 4 MB before this.
-  form.append('file', new File(file.uri) as unknown as Blob, file.name)
+  try {
+    // Expo's fetch takes a part with bytes(), not React Native's { uri } object
+    // ("Unsupported FormDataPart implementation"). Capped at 4 MB before this.
+    form.append('file', new File(file.uri) as unknown as Blob, file.name)
+  } catch (err) {
+    throw transportFailure(err)
+  }
   return call('/api/import/preview', { method: 'POST', body: form })
 }
 

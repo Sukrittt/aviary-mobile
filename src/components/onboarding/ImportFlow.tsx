@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type StyleProp, type ViewStyle } from 'react-native'
 import Animated, { FadeIn, FadeInDown, useAnimatedStyle, useReducedMotion, useSharedValue, withSpring, withTiming } from 'react-native-reanimated'
 import * as Haptics from 'expo-haptics'
-import { ArrowLeft, CaretDown, CaretRight, Check, FileText, Plus } from '@/src/components/shared/icons'
+import { ArrowLeft, CaretDown, CaretRight, Check, FileText, Plus, SealCheck } from '@/src/components/shared/icons'
 import { CurrencyPicker } from '@/src/components/CurrencyPicker'
 import { CurrencyScope, useCurrency } from '@/src/context/CurrencyContext'
 import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
@@ -32,19 +32,25 @@ const MAX_BANK_ACCOUNTS = 5
 /** How long the success tick holds before the celebration, as every other success CTA. */
 const SUCCESS_MS = 1100
 
-type AppChoice = { id: string; name: string; by?: string; how: [string, string] }
+/** `file`: what the app exports, for the hint under Choose a file. */
+type AppChoice = { id: string; name: string; by?: string; file: string; how: [string, string] }
 
 const APPS: AppChoice[] = [
-  { id: 'moneymanager', name: 'Money Manager', by: 'Realbyte', how: ['Open More, then Backup, then Export to Excel file.', 'Save the file to your phone and pick it here.'] },
-  { id: 'monefy', name: 'Monefy', how: ['Open Settings, then Export to file.', 'Save the csv to your phone and pick it here.'] },
-  { id: 'wallet', name: 'Wallet', by: 'BudgetBakers', how: ['In Wallet on the web, open Records and export them.', 'Pick csv as the format.'] },
-  { id: 'spendee', name: 'Spendee', how: ['Open a wallet’s settings and tap Export to CSV.', 'It lands in your email.'] },
-  { id: 'ynab', name: 'YNAB', how: ['On the web, open your plan’s menu and pick Export plan.', 'Pick the zip as it is. No need to unzip it.'] },
-  { id: 'goodbudget', name: 'Goodbudget', how: ['On the website, open Account, then Export data.', 'Pick the csv of your transactions.'] },
-  { id: 'axio', name: 'axio', by: 'formerly Walnut', how: ['Ask axio for your data from its settings.', 'Use the CSV from the email, not the PDF.'] },
+  { id: 'moneymanager', name: 'Money Manager', by: 'Realbyte', file: 'xlsx', how: ['Open More, then Backup, then Export to Excel file.', 'Save the file to your phone and pick it here.'] },
+  { id: 'monefy', name: 'Monefy', file: 'csv', how: ['Open Settings, then Export to file.', 'Save the csv to your phone and pick it here.'] },
+  { id: 'wallet', name: 'Wallet', by: 'BudgetBakers', file: 'csv', how: ['In Wallet on the web, open Records and export them.', 'Pick csv as the format.'] },
+  { id: 'spendee', name: 'Spendee', file: 'csv', how: ['Open a wallet’s settings and tap Export to CSV.', 'It lands in your email.'] },
+  { id: 'ynab', name: 'YNAB', file: 'zip', how: ['On the web, open your plan’s menu and pick Export plan.', 'Pick the zip as it is. No need to unzip it.'] },
+  { id: 'goodbudget', name: 'Goodbudget', file: 'csv', how: ['On the website, open Account, then Export data.', 'Pick the csv of your transactions.'] },
+  { id: 'axio', name: 'axio', by: 'formerly Walnut', file: 'csv', how: ['Ask axio for your data from its settings.', 'Use the CSV from the email, not the PDF.'] },
 ]
 // The catch-all sits under the list as a text link, not as an eighth "app".
-const OTHER: AppChoice = { id: 'other', name: 'Another app or a spreadsheet', how: ['Any file with a date, an amount and a description works.', 'One row per transaction.'] }
+const OTHER: AppChoice = { id: 'other', name: 'Another app or a spreadsheet', file: 'csv or xlsx', how: ['Any file with a date, an amount and a description works.', 'One row per transaction.'] }
+
+/** The app a file came from, by the id the server detected. Null for a spreadsheet or an app without a preset. Web's appName. */
+function appName(id: string): string | null {
+  return APPS.find((a) => a.id === id)?.name ?? null
+}
 
 const ACCOUNT_TYPES: { value: ImportAccountType; label: string }[] = [
   { value: 'bank', label: 'Bank' },
@@ -161,7 +167,7 @@ export function ImportFlow({ onFresh, onDone, onAlreadySetUp }: { onFresh: () =>
 
       {stage === 'review' && review && (
         <CurrencyScope code={review.currency}>
-          <Review review={review} onReview={setReview} onDone={onDone} onAlreadySetUp={onAlreadySetUp} />
+          <Review review={review} picked={app} onReview={setReview} onDone={onDone} onAlreadySetUp={onAlreadySetUp} />
         </CurrencyScope>
       )}
     </>
@@ -215,7 +221,7 @@ function Upload({ app, onPreview, onAlreadySetUp }: { app: AppChoice; onPreview:
       if (code === 'already_onboarded') return onAlreadySetUp()
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {})
       setError(importErrorCopy(code))
-      track('import_failed', { stage: 'preview', reason: code })
+      track('import_failed', { stage: 'preview', reason: code, detail: err instanceof ImportFailure ? err.detail ?? '' : 'unknown' })
     } finally {
       if (live.current) setBusy(false)
     }
@@ -235,30 +241,47 @@ function Upload({ app, onPreview, onAlreadySetUp }: { app: AppChoice; onPreview:
           </Animated.View>
         ))}
       </View>
-      <Press
-        accessibilityLabel="Choose your export file"
-        accessibilityState={{ busy, disabled: busy }}
-        disabled={busy}
-        onPress={choose}
-        style={[styles.drop, { borderColor: busy ? tokens.accent : tokens.borderStrong, backgroundColor: busy ? tokens.accentSoft : tokens.inputBg }]}
-      >
-        {busy ? (
-          <LoadingCaption phrases={READING} ordered />
-        ) : (
-          <>
-            <View style={[styles.dropIcon, { backgroundColor: tokens.accentSoft }]}>
-              <FileText size={22} color={tokens.accentInk} weight="bold" />
-            </View>
-            <Text style={[styles.dropTitle, { color: tokens.text, fontFamily: fontFamily.bodyBold }]}>Choose a file</Text>
-            <Text style={[styles.dropHint, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>csv, xlsx or the YNAB zip · up to 4 MB</Text>
-          </>
-        )}
-      </Press>
+      {/* The box rises in after the steps, as the next thing to read. */}
+      <Animated.View entering={FadeInDown.delay(80 + app.how.length * 70).duration(260)}>
+        <Press
+          accessibilityLabel="Choose your export file"
+          accessibilityState={{ busy, disabled: busy }}
+          disabled={busy}
+          onPress={choose}
+          style={[styles.drop, { borderColor: busy ? tokens.accent : tokens.borderStrong, backgroundColor: busy ? tokens.accentSoft : tokens.inputBg }]}
+        >
+          {busy ? (
+            <LoadingCaption phrases={READING} ordered />
+          ) : (
+            <>
+              <View style={[styles.dropIcon, { backgroundColor: tokens.accentSoft }]}>
+                <FileText size={22} color={tokens.accentInk} weight="bold" />
+              </View>
+              <Text style={[styles.dropTitle, { color: tokens.text, fontFamily: fontFamily.bodyBold }]}>Choose a file</Text>
+              <Text style={[styles.dropHint, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>{app.file} · up to 4 MB</Text>
+            </>
+          )}
+        </Press>
+      </Animated.View>
       {error !== '' && (
         <Animated.Text entering={FadeIn.duration(180)} accessibilityRole="alert" style={[styles.error, { color: tokens.coral, fontFamily: fontFamily.bodySemiBold }]}>
           {error}
         </Animated.Text>
       )}
+      <View style={styles.fill} />
+      {/* The same action within the thumb's reach, where every other step keeps its button. */}
+      <Animated.View entering={FadeInDown.delay(160 + app.how.length * 70).duration(260)}>
+        <Press
+          disabled={busy}
+          accessibilityState={{ busy, disabled: busy }}
+          onPress={choose}
+          style={[styles.cta, { backgroundColor: busy ? tokens.inputBg : tokens.accent }]}
+        >
+          <Text style={[styles.ctaText, { color: busy ? tokens.text3 : tokens.onAccent, fontFamily: fontFamily.displaySemiBold }]}>
+            {busy ? 'Reading your file…' : error ? 'Try another file' : 'Choose your file'}
+          </Text>
+        </Press>
+      </Animated.View>
     </Animated.View>
   )
 }
@@ -266,9 +289,10 @@ function Upload({ app, onPreview, onAlreadySetUp }: { app: AppChoice; onPreview:
 type CategoryEdit = ImportReview['categories'][number]
 type AccountEdit = ImportReview['accounts'][number]
 
-function Review({ review, onReview, onDone, onAlreadySetUp }: { review: ImportReview; onReview: (r: ImportReview) => void; onDone: (done: ImportDone) => void; onAlreadySetUp: () => void }) {
+function Review({ review, picked, onReview, onDone, onAlreadySetUp }: { review: ImportReview; picked: AppChoice | null; onReview: (r: ImportReview) => void; onDone: (done: ImportDone) => void; onAlreadySetUp: () => void }) {
   const { tokens } = useTheme()
   const { formatMoney } = useCurrency()
+  const from = appName(review.app) ?? (picked && picked.id !== 'other' ? picked.name : null)
   const [groups, setGroups] = useState(review.groups)
   const [newGroup, setNewGroup] = useState('')
   const [cats, setCats] = useState<CategoryEdit[]>(review.categories)
@@ -391,6 +415,14 @@ function Review({ review, onReview, onDone, onAlreadySetUp }: { review: ImportRe
   return (
     <KeyboardAvoidingView style={styles.fill} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <Animated.View entering={FadeIn.duration(220)}>
+        {/* The app the file came from, as the server read it: picking Wallet and
+            uploading a Money Manager file still says Money Manager. */}
+        <PopIn play delay={60} style={[styles.found, { backgroundColor: tokens.mintSoft }]}>
+          <SealCheck size={14} color={tokens.mint} weight="fill" />
+          <Text numberOfLines={1} style={[styles.foundText, { color: tokens.mint, fontFamily: fontFamily.bodyBold }]}>
+            {from ? `${from} export` : review.filename}
+          </Text>
+        </PopIn>
         <Title>Here’s what we found</Title>
         <Blurb>{countsLine(review.counts)}</Blurb>
       </Animated.View>
@@ -822,6 +854,8 @@ const styles = StyleSheet.create({
   stepNum: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   stepNumText: { fontSize: 12 },
   stepText: { flex: 1, fontSize: 14, lineHeight: 21, paddingTop: 1 },
+  found: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 14, paddingVertical: 4, paddingHorizontal: 10, borderRadius: 100, maxWidth: '100%' },
+  foundText: { fontSize: 12, flexShrink: 1 },
   drop: { marginTop: 24, minHeight: 168, borderRadius: 22, borderWidth: 1.5, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: 16 },
   dropIcon: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
   dropTitle: { fontSize: 15 },

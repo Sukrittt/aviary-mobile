@@ -224,3 +224,20 @@ it('names the step being written while the commit runs, like Finish setup does',
   expect(getByLabelText('Making your 2 envelopes…').props.accessibilityState).toMatchObject({ busy: true, disabled: true })
   await act(async () => land({ importId: 'imp1', total: 9, groupCount: 2, categoryCount: 2, income: 3000 }))
 })
+
+it('names the app the file really came from, even when another was picked', async () => {
+  mockPreview.mockResolvedValue({ ...review, app: 'moneymanager' })
+  const { findByText, queryByText } = toReview('Wallet, BudgetBakers')
+  expect(await findByText('Money Manager export')).toBeTruthy()
+  expect(queryByText('Wallet export')).toBeNull()
+})
+
+it('asks for the file the picked app exports, and keeps a button in thumb reach', () => {
+  const { getByText, getByLabelText } = render()
+  fireEvent.press(getByText('I’m switching apps'))
+  fireEvent.press(getByText('Continue'))
+  fireEvent.press(getByLabelText('Wallet, BudgetBakers'))
+  expect(getByText('csv · up to 4 MB')).toBeTruthy()
+  fireEvent.press(getByText('Choose your file'))
+  expect(mockPick).toHaveBeenCalled()
+})
