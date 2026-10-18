@@ -13,6 +13,7 @@ import { Icon } from '@/src/components/shared/Icon'
 import { LoadingPhrase } from '@/src/components/shared/LoadingPhrase'
 import { usePrivacy } from '@/src/context/PrivacyContext'
 import { formatDateShort } from '@/src/lib/format'
+import { toLocalDateString } from '@/src/lib/date'
 import { PopIn } from '@/src/components/shared/PopIn'
 import { Button, usePressSpring } from '@/src/components/ui/Button'
 import { Chip } from '@/src/components/ui/Chip'
@@ -140,7 +141,7 @@ export default function RecurringSuggestionsScreen() {
           </Text>
           <Text style={[styles.headerSub, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
             {data?.scannedAt
-              ? `Last scanned ${formatDateShort(data.scannedAt.slice(0, 10))}`
+              ? `Last scanned ${formatDateShort(toLocalDateString(new Date(data.scannedAt)))}`
               : allMode ? 'Spot subscriptions and bills that repeat' : subscriptionMode ? 'Spot services you already pay for' : 'Spot repeated payments'}
           </Text>
         </View>
