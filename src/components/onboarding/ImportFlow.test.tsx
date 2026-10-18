@@ -206,6 +206,18 @@ it('says why a file without categories lands in one envelope', async () => {
   expect(await findByText('Your file doesn’t have categories, so every spend starts in this one envelope. Rename it here, or split it up later from Categories.')).toBeTruthy()
 })
 
+it('names an unrecognised file by what the user picked, not the cache copy the server saw', async () => {
+  mockPick.mockResolvedValue({ uri: 'file:///cache/57d5c570.csv', name: 'hdfc-statement.csv', mimeType: 'text/csv', size: 10 })
+  mockPreview.mockResolvedValue({ ...review, app: 'generic', filename: '57d5c570.csv' })
+  const utils = render()
+  fireEvent.press(utils.getByText('I’m switching apps'))
+  fireEvent.press(utils.getByText('Continue'))
+  fireEvent.press(utils.getByText('Using something else? Pick any csv or xlsx'))
+  fireEvent.press(utils.getByLabelText('Choose your export file'))
+  expect(await utils.findByText('hdfc-statement.csv')).toBeTruthy()
+  expect(utils.queryByText('57d5c570.csv')).toBeNull()
+})
+
 it('stops a PDF before uploading it, with words that say what to export instead', async () => {
   mockPick.mockResolvedValue({ uri: 'file:///statement.pdf', name: 'statement.pdf', mimeType: 'application/pdf', size: 2000 })
   const { findByText } = toReview('YNAB')

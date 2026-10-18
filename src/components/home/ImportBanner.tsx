@@ -173,24 +173,26 @@ export function ImportBanner() {
         )}
 
         {data.status === 'done' && (
-          <Card style={[styles.card, { backgroundColor: tokens.pillGoodBg, borderColor: 'transparent' }]} elevated={false}>
-            <View style={styles.grow}>
-              <Text style={[label, { color: tokens.text, fontFamily: fontFamily.bodyBold }]}>{historyDone(data.total, data.failed)}</Text>
-              <Text style={[sub, { color: tokens.text2 }]}>Want us to find your repeat payments?</Text>
+          <Card style={[styles.doneCard, { backgroundColor: tokens.pillGoodBg, borderColor: 'transparent' }]} elevated={false}>
+            <Text style={[label, { color: tokens.text, fontFamily: fontFamily.bodyBold }]}>{historyDone(data.total, data.failed)}</Text>
+            <Text style={[sub, { color: tokens.text2 }]}>Want us to find your repeat payments?</Text>
+            {/* Under the text, not beside it: beside, the headline broke onto a second line. */}
+            <View style={styles.actions}>
+              <Pressable
+                accessibilityRole="button"
+                hitSlop={8}
+                onPress={() => {
+                  setDismissed(true)
+                  // Both kinds: Netflix is a subscription, rent a recurring payment.
+                  router.push({ pathname: '/account/recurring-suggestions', params: { kind: 'all' } })
+                }}
+              >
+                <Text style={[label, { color: tokens.mint, fontFamily: fontFamily.bodyExtraBold }]}>Find them</Text>
+              </Pressable>
+              <Pressable accessibilityRole="button" disabled={leaving} hitSlop={8} onPress={() => setLeaving(true)}>
+                <Text style={[label, { color: tokens.text2 }]}>Not now</Text>
+              </Pressable>
             </View>
-            <Pressable
-              accessibilityRole="button"
-              hitSlop={8}
-              onPress={() => {
-                setDismissed(true)
-                router.push('/account/recurring-suggestions')
-              }}
-            >
-              <Text style={[label, { color: tokens.mint, fontFamily: fontFamily.bodyExtraBold }]}>Find them</Text>
-            </Pressable>
-            <Pressable accessibilityRole="button" disabled={leaving} hitSlop={8} onPress={() => setLeaving(true)}>
-              <Text style={[label, { color: tokens.text2 }]}>Not now</Text>
-            </Pressable>
           </Card>
         )}
       </SlideStrip>
@@ -206,6 +208,8 @@ export function ImportBanner() {
 const styles = StyleSheet.create({
   card: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   grow: { flex: 1 },
+  doneCard: { gap: 2 },
+  actions: { flexDirection: 'row', gap: 20, marginTop: 10 },
   progress: { flex: 1, gap: 8 },
   track: { height: 6, borderRadius: 3, overflow: 'hidden' },
   bar: { height: 6, borderRadius: 3 },

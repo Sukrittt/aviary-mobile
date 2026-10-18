@@ -169,7 +169,7 @@ export function ImportFlow({ onFresh, onDone, onAlreadySetUp }: { onFresh: () =>
 
       {stage === 'review' && review && (
         <CurrencyScope code={review.currency}>
-          <Review review={review} picked={app} onReview={setReview} onDone={onDone} onAlreadySetUp={onAlreadySetUp} />
+          <Review review={review} picked={app} onReview={(r) => setReview((prev) => ({ ...r, filename: prev?.filename ?? r.filename }))} onDone={onDone} onAlreadySetUp={onAlreadySetUp} />
         </CurrencyScope>
       )}
     </>
@@ -218,7 +218,8 @@ function Upload({ app, onPreview, onAlreadySetUp }: { app: AppChoice; onPreview:
         accounts: review.accounts.length,
         ...Object.fromEntries(Object.entries(review.skipped).map(([reason, count]) => [`skipped_${reason}`, count ?? 0])),
       })
-      onPreview(review)
+      // The upload goes from the picker's cache copy, so the server only ever sees a random name.
+      onPreview({ ...review, filename: file.name })
     } catch (err) {
       if (!live.current) return
       const code = err instanceof ImportFailure ? err.code : 'network'

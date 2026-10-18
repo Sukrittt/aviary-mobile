@@ -50,7 +50,7 @@ it('nudges toward the recurring scan when done, and remembers the tap', async ()
   expect(await findByText('All 11,240 spends and paydays are in')).toBeTruthy()
   expect(getByText('Want us to find your repeat payments?')).toBeTruthy()
   fireEvent.press(getByText('Find them'))
-  expect(mockPush).toHaveBeenCalledWith('/account/recurring-suggestions')
+  expect(mockPush).toHaveBeenCalledWith({ pathname: '/account/recurring-suggestions', params: { kind: 'all' } })
   await waitFor(() => expect(SecureStore.setItemAsync).toHaveBeenCalledWith('mc-rollover-dismissed-import-imp1', '1'))
 })
 
