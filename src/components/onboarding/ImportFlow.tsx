@@ -73,7 +73,7 @@ export function ImportFlow({ onFresh, onDone }: { onFresh: () => void; onDone: (
   const [stage, setStage] = useState<Stage>('ask')
   const [app, setApp] = useState<AppChoice | null>(null)
   const [review, setReview] = useState<ImportReview | null>(null)
-  const [start, setStart] = useState<StartChoice | null>(null)
+  const [start, setStart] = useState<StartChoice>('fresh')
   const at = STAGES.indexOf(stage)
 
   const back = () => setStage((s) => (s === 'review' ? 'upload' : s === 'upload' ? 'pick' : 'ask'))
@@ -105,8 +105,8 @@ export function ImportFlow({ onFresh, onDone }: { onFresh: () => void; onDone: (
       </View>
 
       {stage === 'ask' && (
-        // Two equal ways in, neither picked for you: starting fresh is as good a
-        // start as switching, so neither is the big button with the other a link.
+        // Two equal ways in, as radio cards: starting fresh is as good a start as
+        // switching. Fresh is picked to begin with, since most people won't have an export.
         <Animated.View key="ask" entering={FadeIn.duration(280)} style={styles.ask}>
           <Title>How do you want to start?</Title>
           <Blurb>Both get you a budget in a few minutes.</Blurb>
@@ -115,13 +115,7 @@ export function ImportFlow({ onFresh, onDone }: { onFresh: () => void; onDone: (
               <Choice key={c.id} delay={60 + i * 60} title={c.title} detail={c.detail} on={start === c.id} onPress={() => setStart(c.id)} />
             ))}
           </View>
-          <Continue
-            disabled={!start}
-            onPress={() => {
-              if (start === 'fresh') onFresh()
-              else if (start === 'switch') setStage('pick')
-            }}
-          />
+          <Continue onPress={() => (start === 'fresh' ? onFresh() : setStage('pick'))} />
         </Animated.View>
       )}
 
@@ -689,20 +683,18 @@ function Choice({ title, detail, on, delay, onPress }: { title: string; detail: 
   )
 }
 
-/** The ask step's Continue: muted until a way in is picked, as the wizard's own Continue is until a step is done. */
-function Continue({ disabled, onPress }: { disabled: boolean; onPress: () => void }) {
+/** The ask step's Continue, the same pill as the review's set-me-up button. */
+function Continue({ onPress }: { onPress: () => void }) {
   const { tokens } = useTheme()
   return (
     <Press
-      accessibilityState={{ disabled }}
-      disabled={disabled}
       onPress={() => {
         tap()
         onPress()
       }}
-      style={[styles.cta, styles.askCta, { backgroundColor: disabled ? tokens.inputBg : tokens.accent }]}
+      style={[styles.cta, styles.askCta, { backgroundColor: tokens.accent }]}
     >
-      <Text style={[styles.ctaText, { color: disabled ? tokens.text3 : tokens.onAccent, fontFamily: fontFamily.displaySemiBold }]}>Continue</Text>
+      <Text style={[styles.ctaText, { color: tokens.onAccent, fontFamily: fontFamily.displaySemiBold }]}>Continue</Text>
     </Press>
   )
 }
