@@ -190,3 +190,14 @@ it('an edit survives a flip that drops its envelope and the flip back that retur
   await findByText('We’re reading negative amounts as spends.')
   expect(getByLabelText('Group for Gifts, Savings')).toBeTruthy()
 })
+
+it('going back during a slow preview stays back when it lands', async () => {
+  let land: (r: ImportReview) => void = () => {}
+  mockPreview.mockReturnValue(new Promise<ImportReview>((r) => { land = r }))
+  const { getByLabelText, getByText, queryByText } = toReview()
+  await waitFor(() => expect(mockPreview).toHaveBeenCalled())
+  fireEvent.press(getByLabelText('Go back'))
+  await act(async () => land(review))
+  expect(getByText('Where are you coming from?')).toBeTruthy()
+  expect(queryByText('Here’s what we found')).toBeNull()
+})

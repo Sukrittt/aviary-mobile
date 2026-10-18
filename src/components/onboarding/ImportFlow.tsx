@@ -162,6 +162,11 @@ function Upload({ app, onPreview }: { app: AppChoice; onPreview: (review: Import
   const { tokens } = useTheme()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  // Back during a slow preview unmounts this step; a late answer mustn't pull the user back to review.
+  const live = useRef(true)
+  useEffect(() => () => {
+    live.current = false
+  }, [])
 
   const choose = async () => {
     if (busy) return
@@ -183,6 +188,7 @@ function Upload({ app, onPreview }: { app: AppChoice; onPreview: (review: Import
     setBusy(true)
     try {
       const review = await previewImport(file)
+      if (!live.current) return
       track('import_previewed', {
         picked: app.id,
         detected: review.app,
@@ -194,12 +200,13 @@ function Upload({ app, onPreview }: { app: AppChoice; onPreview: (review: Import
       })
       onPreview(review)
     } catch (err) {
+      if (!live.current) return
       const code = err instanceof ImportFailure ? err.code : 'network'
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {})
       setError(importErrorCopy(code))
       track('import_failed', { stage: 'preview', reason: code })
     } finally {
-      setBusy(false)
+      if (live.current) setBusy(false)
     }
   }
 

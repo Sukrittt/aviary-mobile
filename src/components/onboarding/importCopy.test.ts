@@ -50,3 +50,15 @@ describe('import copy', () => {
     expect(bannerDone(12)).toBe('All in, apart from 12 rows we couldn’t add. Want us to find your repeat payments?')
   })
 })
+
+describe('import copy edge cases', () => {
+  it('never returns an inherited property for an odd error code', () => {
+    expect(importErrorCopy('toString')).toBe('Check your connection and try again.')
+    expect(importErrorCopy('constructor')).toBe('Check your connection and try again.')
+  })
+
+  it('names at most three skipped currencies, then says there were others', () => {
+    expect(skippedCopy({ skipped: { other_currency: 9 }, otherCurrencies: ['USD', 'EUR', 'GBP', 'JPY'], droppedOverCap: 0 }))
+      .toEqual(['We skipped 9 rows in USD, EUR, GBP and other currencies.'])
+  })
+})

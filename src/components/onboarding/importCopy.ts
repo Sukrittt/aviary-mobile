@@ -23,7 +23,8 @@ const ERRORS: Record<string, string> = {
 
 /** The written message for a failure code. Anything unknown gets the generic line, never the code itself. */
 export function importErrorCopy(code: string): string {
-  return ERRORS[code] ?? 'Check your connection and try again.'
+  // Own keys only: a code like 'toString' would otherwise find Object.prototype's.
+  return Object.hasOwn(ERRORS, code) ? ERRORS[code] : 'Check your connection and try again.'
 }
 
 function monthYear(date: string): string {
@@ -41,6 +42,12 @@ export function countsLine(counts: ImportReview['counts']): string {
   return parts.join(' · ')
 }
 
+/** The skipped currencies by code, at most three named so the count never belongs to a list it doesn't match. */
+function currencyNames(codes: string[]): string[] {
+  if (!codes.length) return ['another currency']
+  return codes.length > 3 ? [...codes.slice(0, 3), 'other currencies'] : codes
+}
+
 /**
  * What we left out, in up to two sentences: the bookkeeping that isn't
  * spending, then the rows we couldn't use. Empty when nothing was skipped.
@@ -54,7 +61,7 @@ export function skippedCopy(review: Pick<ImportReview, 'skipped' | 'otherCurrenc
   ].filter(Boolean) as string[]
   // Other-currency rows may well be spending, just not in this budget's money.
   const unusable = [
-    s.other_currency && `${plural(s.other_currency, 'row', 'rows')} in ${listOf(review.otherCurrencies.length ? review.otherCurrencies.slice(0, 3) : ['another currency'])}`,
+    s.other_currency && `${plural(s.other_currency, 'row', 'rows')} in ${listOf(currencyNames(review.otherCurrencies))}`,
     s.unparseable && plural(s.unparseable, 'row we couldn’t read', 'rows we couldn’t read'),
     s.future && plural(s.future, 'row dated in the future', 'rows dated in the future'),
     s.zero && plural(s.zero, 'zero amount', 'zero amounts'),
