@@ -11,6 +11,7 @@ import {
   ScrollView,
   Pressable,
   StyleSheet,
+  Alert,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQueryClient } from "@tanstack/react-query";
@@ -665,6 +666,14 @@ function CurrencyWizard({
     };
 
     try {
+      // Setup may have been finished on another device while this one sat in
+      // the wizard. Writing now would lay a second budget over it.
+      const me = await getUser();
+      if (me.onboardedAt) {
+        qc.setQueryData(["user"], me);
+        alreadySetUp();
+        return;
+      }
       const month = currentMonthKey();
       const budgetVersions = new Map(
         (await getBudgets()).map((row) => [
@@ -800,6 +809,14 @@ function CurrencyWizard({
     next();
   };
 
+  const alreadySetUp = () =>
+    Alert.alert(
+      "You’re already set up",
+      "You finished setup on another device, so we’ll take you to your budget.",
+      [{ text: "Go to my budget", onPress: () => signalOnboarded({ elsewhere: true }) }],
+      { cancelable: false },
+    );
+
   // An import sets the account up on the server in one call, then lands on the same celebration.
   const imported = ({ result: r, currency }: ImportDone) => {
     onCurrencyChange(currency);
@@ -830,7 +847,7 @@ function CurrencyWizard({
           },
         ]}
       >
-        <ImportFlow onFresh={() => setEntry("fresh")} onDone={imported} />
+        <ImportFlow onFresh={() => setEntry("fresh")} onDone={imported} onAlreadySetUp={alreadySetUp} />
       </View>
     );
   }
@@ -887,7 +904,7 @@ function CurrencyWizard({
           },
         ]}
       >
-        <HeardFrom onDone={signalOnboarded} />
+        <HeardFrom onDone={() => signalOnboarded()} />
       </View>
     );
   }

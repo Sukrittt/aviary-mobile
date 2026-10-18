@@ -82,11 +82,14 @@ it('reports a failed save, and never counts it as a finished step', async () => 
 
 it('continues to success when the final response failed after onboarding was committed', async () => {
   ;(completeOnboarding as jest.Mock).mockRejectedValueOnce(new Error('503'))
-  ;(getUser as jest.Mock).mockResolvedValueOnce({
-    email: 'tester@example.com',
-    emailVerified: true,
-    onboardedAt: '2026-09-23T20:37:26.618Z',
-  })
+  // Not onboarded when the save starts; onboarded by the time it's re-checked.
+  ;(getUser as jest.Mock)
+    .mockResolvedValueOnce({ email: 'tester@example.com', emailVerified: true, onboardedAt: null })
+    .mockResolvedValueOnce({
+      email: 'tester@example.com',
+      emailVerified: true,
+      onboardedAt: '2026-09-23T20:37:26.618Z',
+    })
 
   const { getByText, queryByText, unmount } = walkToFinish()
   await waitFor(() => expect(getByText('Continue')).toBeTruthy(), { timeout: 3000 })

@@ -360,6 +360,21 @@ it('opens the trial notice directly when the setup completion button signals onb
   expect(mockPush).not.toHaveBeenCalled()
 })
 
+// Setup finished on another device: the trial notice was seen there, so this
+// one goes straight Home.
+it('lands a user who finished setup elsewhere on Home, skipping the trial notice', async () => {
+  mockFontsLoaded = true
+  mockPathname = '/setup'
+  mockInitAccessMode.mockResolvedValue('real')
+  mockGetUser.mockResolvedValue({ email: 'a@b.com', emailVerified: true, onboardedAt: null })
+  const { getByTestId, getAllByTestId, queryByTestId } = render(<RootLayout />)
+  await waitFor(() => expect(getByTestId('screen:setup')).toBeTruthy())
+  act(() => signalOnboarded({ elsewhere: true }))
+  expect(queryByTestId('screen:setup')).toBeNull()
+  expect(queryByTestId('screen:account/trial-notice')).toBeNull()
+  expect(getAllByTestId(/^screen:/)[0].props.testID).toBe('screen:(tabs)')
+})
+
 // A fresh sign-in leaves the ungated (auth)/email screen under /setup, so when
 // setup unregisters the stack isn't empty and never rebuilds onto the tour —
 // it falls back to (auth)/email, and the auth-screen redirect has to pick the trial notice.
