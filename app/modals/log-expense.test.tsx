@@ -384,7 +384,7 @@ it('predicts again when a new expense name changes after a manual category choic
   expect(utils.getByLabelText('Category: Rent, picked for you')).toBeTruthy()
 })
 
-it('clears an earlier auto-pick while predicting a different new expense name', async () => {
+it('keeps an AI pick up while predicting a different new expense name, until the new answer lands', async () => {
   let answer: (v: string) => void = () => {}
   const utils = setup({}, [], [{ name: 'Eating out', group: 'Food' }, { name: 'Rent', group: 'Food' }])
   ;(suggestCategoryLLM as jest.Mock).mockResolvedValueOnce('Eating out')
@@ -395,11 +395,44 @@ it('clears an earlier auto-pick while predicting a different new expense name', 
   expect(utils.getByLabelText('Category: Eating out, picked for you')).toBeTruthy()
 
   fireEvent.changeText(utils.getByPlaceholderText('What was it for?'), 'house rent')
-  expect(utils.queryByLabelText('Category: Eating out, picked for you')).toBeNull()
+  expect(utils.getByLabelText('Category: Eating out, picked for you')).toBeTruthy()
   await act(async () => { jest.advanceTimersByTime(300) })
   expect(suggestCategoryLLM).toHaveBeenLastCalledWith('house rent', ['Eating out', 'Rent'])
   await act(async () => { answer('Rent'); await Promise.resolve() })
   expect(utils.getByLabelText('Category: Rent, picked for you')).toBeTruthy()
+})
+
+it('keeps an AI pick through a trailing space without asking the AI again', async () => {
+  const utils = setup({}, [], [{ name: 'Food', group: 'Food' }, { name: 'Rent', group: 'Food' }])
+  ;(suggestCategoryLLM as jest.Mock).mockResolvedValue('Food')
+  await act(async () => { await Promise.resolve(); await Promise.resolve() })
+  fireEvent.changeText(utils.getByPlaceholderText('What was it for?'), 'zomato')
+  await act(async () => { jest.advanceTimersByTime(300); await Promise.resolve() })
+  expect(utils.getByLabelText('Category: Food, picked for you')).toBeTruthy()
+
+  fireEvent.changeText(utils.getByPlaceholderText('What was it for?'), 'zomato ')
+  expect(utils.getByLabelText('Category: Food, picked for you')).toBeTruthy()
+  await act(async () => { jest.advanceTimersByTime(300); await Promise.resolve() })
+  expect(utils.getByLabelText('Category: Food, picked for you')).toBeTruthy()
+  expect(suggestCategoryLLM).toHaveBeenCalledTimes(1)
+})
+
+it('keeps an AI pick that beat the keyword map when the map arrives', async () => {
+  let loadMap: (v: { words: Record<string, string> }) => void = () => {}
+  // Runs before setup's default, so the map stays loading until loadMap.
+  ;(getCategoryMap as jest.Mock).mockImplementationOnce(() => new Promise((r) => { loadMap = r }))
+  const utils = setup({}, [], [{ name: 'Food', group: 'Food' }, { name: 'Rent', group: 'Food' }])
+  ;(suggestCategoryLLM as jest.Mock).mockResolvedValue('Food')
+  await act(async () => { await Promise.resolve(); await Promise.resolve() })
+  fireEvent.changeText(utils.getByPlaceholderText('What was it for?'), 'zomato')
+  await act(async () => { jest.advanceTimersByTime(300); await Promise.resolve() })
+  expect(utils.getByLabelText('Category: Food, picked for you')).toBeTruthy()
+
+  await act(async () => { loadMap({ words: {} }); await Promise.resolve(); await Promise.resolve() })
+  expect(utils.getByLabelText('Category: Food, picked for you')).toBeTruthy()
+  await act(async () => { jest.advanceTimersByTime(300); await Promise.resolve() })
+  expect(utils.getByLabelText('Category: Food, picked for you')).toBeTruthy()
+  expect(suggestCategoryLLM).toHaveBeenCalledTimes(1)
 })
 
 it('keeps a manual choice made during prediction until the name changes again', async () => {
