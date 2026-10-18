@@ -272,6 +272,9 @@ function Review({ review, onReview, onDone }: { review: ImportReview; onReview: 
   const [error, setError] = useState('')
   const seen = useRef(`${review.importId}:${review.direction}:${review.currency}`)
   const salaryEdited = useRef(false)
+  const scroll = useRef<ScrollView>(null)
+  // The income fields sit at the bottom; Android won't scroll a focused input clear of the keyboard itself.
+  const revealIncome = () => setTimeout(() => scroll.current?.scrollToEnd({ animated: true }), 250)
   // Every edit, by source, for the whole review: a flip can drop an envelope
   // and the flip back bring it again, so the last list alone would lose it.
   const catEdits = useRef<Record<string, Partial<CategoryEdit>>>({})
@@ -364,12 +367,13 @@ function Review({ review, onReview, onDone }: { review: ImportReview; onReview: 
   const text = { color: tokens.text2, fontFamily: fontFamily.bodyMedium }
 
   return (
-    <KeyboardAvoidingView style={styles.fill} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+    <KeyboardAvoidingView style={styles.fill} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <Animated.View entering={FadeIn.duration(220)}>
         <Title>Here’s what we found</Title>
         <Blurb>{countsLine(review.counts)}</Blurb>
       </Animated.View>
       <ScrollView
+        ref={scroll}
         style={[styles.fill, { opacity: recomputing ? 0.5 : 1 }]}
         contentContainerStyle={styles.reviewBody}
         keyboardShouldPersistTaps="handled"
@@ -490,6 +494,7 @@ function Review({ review, onReview, onDone }: { review: ImportReview; onReview: 
               placeholder="Monthly income"
               placeholderTextColor={tokens.text3}
               accessibilityLabel="Monthly income"
+              onFocus={revealIncome}
               onChangeText={(v) => {
                 salaryEdited.current = true
                 setSalary(v.replace(/[^0-9.]/g, ''))
@@ -503,6 +508,7 @@ function Review({ review, onReview, onDone }: { review: ImportReview; onReview: 
                 keyboardType="number-pad"
                 maxLength={2}
                 accessibilityLabel="Payday, day of the month"
+                onFocus={revealIncome}
                 onChangeText={(v) => {
                   salaryEdited.current = true
                   setDay(v.replace(/\D/g, ''))
