@@ -1,4 +1,4 @@
-import { commitSteps, bannerDone, bannerProgress, countsLine, directionCopy, importErrorCopy, listOf, ordinal, skippedCopy } from './importCopy'
+import { commitSteps, bannerProgress, bannerSub, historyDone, importEta, countsLine, directionCopy, importErrorCopy, listOf, ordinal, skippedCopy } from './importCopy'
 
 describe('import copy', () => {
   it('counts spends, paydays and the date range', () => {
@@ -46,8 +46,11 @@ describe('import copy', () => {
     expect(listOf(['a', 'b', 'c'])).toBe('a, b and c')
     expect([1, 2, 3, 4, 11, 12, 13, 21, 22, 31].map(ordinal)).toEqual(['1st', '2nd', '3rd', '4th', '11th', '12th', '13th', '21st', '22nd', '31st'])
     expect(bannerProgress(4210, 11240)).toBe('Bringing in your history · 4,210 of 11,240')
-    expect(bannerDone(0)).toBe('All in. Want us to find your repeat payments?')
-    expect(bannerDone(12)).toBe('All in, apart from 12 rows we couldn’t add. Want us to find your repeat payments?')
+    expect(historyDone(135, 0)).toBe('All 135 spends and paydays are in')
+    expect(historyDone(135, 3)).toBe('132 of 135 spends and paydays are in')
+    expect(historyDone(1, 0)).toBe('It’s all in')
+    expect(bannerSub('About 24 min left')).toBe('About 24 min left · Keep using Aviary. We’ll tell you when it’s in.')
+    expect(bannerSub(null)).toBe('Keep using Aviary. We’ll tell you when it’s in.')
   })
 })
 
@@ -68,5 +71,18 @@ describe('commit steps', () => {
     expect(commitSteps(6, 2, true)).toEqual(['Making your 6 envelopes…', 'Adding your 2 accounts…', 'Setting up your payday…', 'Filling this month’s budget…'])
     expect(commitSteps(1, 0, false)).toEqual(['Making your 1 envelope…', 'Filling this month’s budget…'])
     expect(commitSteps(0, 0, true)).toEqual(['Setting up your payday…', 'Filling this month’s budget…'])
+  })
+
+  it('estimates the time left from the pace so far, once there is a pace', () => {
+    const start = '2026-10-19T10:00:00Z'
+    const at = (s: number) => Date.parse(start) + s * 1000
+    expect(importEta(0, 25000, start, at(60))).toBeNull()
+    expect(importEta(500, 25000, start, at(5))).toBeNull()
+    expect(importEta(500, 25000, null, at(60))).toBeNull()
+    expect(importEta(25000, 25000, start, at(60))).toBeNull()
+    // 1,000 rows a minute, 24,000 to go.
+    expect(importEta(1000, 25000, start, at(60))).toBe('About 24 min left')
+    expect(importEta(24500, 25000, start, at(60))).toBe('Almost there')
+    expect(importEta(100, 25000, start, at(60))).toBe('About 4 hr left')
   })
 })
