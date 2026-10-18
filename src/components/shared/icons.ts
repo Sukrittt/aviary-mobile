@@ -88,6 +88,7 @@ export { ThumbsUpIcon as ThumbsUp } from 'phosphor-react-native/src/icons/Thumbs
 export { TrashIcon as Trash } from 'phosphor-react-native/src/icons/Trash'
 export { TrendUpIcon as TrendUp } from 'phosphor-react-native/src/icons/TrendUp'
 export { UserIcon as User } from 'phosphor-react-native/src/icons/User'
+export { UserPlusIcon as UserPlus } from 'phosphor-react-native/src/icons/UserPlus'
 export { WalletIcon as Wallet } from 'phosphor-react-native/src/icons/Wallet'
 export { WarningCircleIcon as WarningCircle } from 'phosphor-react-native/src/icons/WarningCircle'
 export { WarningIcon as Warning } from 'phosphor-react-native/src/icons/Warning'

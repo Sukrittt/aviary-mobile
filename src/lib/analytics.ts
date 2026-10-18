@@ -137,6 +137,8 @@ export type AppEvent =
   | 'feedback_sent'
   | 'idea_posted'
   | 'idea_voted'
+  // "Invite a friend" share sheet opened. `shared` is false when it was dismissed.
+  | 'invite_shared'
 
 export type EventProperties = Record<string, string | number | boolean>
 

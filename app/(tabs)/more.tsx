@@ -1,13 +1,13 @@
 import { CurrencySetting } from '@/src/components/CurrencyPicker'
 import { useState, type ReactNode } from 'react'
-import { View, Text, Image, Pressable, RefreshControl, Linking, Platform, StyleSheet } from 'react-native'
+import { View, Text, Image, Pressable, RefreshControl, Linking, Platform, Share, StyleSheet } from 'react-native'
 import { Toggle } from '@/src/components/ui/Toggle'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useQuery } from '@tanstack/react-query'
 import { requestPinWidget } from 'react-native-android-widget'
 import * as ImagePicker from 'expo-image-picker'
 import * as Haptics from 'expo-haptics'
-import { Gift, Brain, Wallet, Bank, TrendUp, Lock, Database, Archive, Repeat, CreditCard, ChatCircle, SquaresFour, CaretRight, Scan, Camera, Images, FileText, Receipt, ChartLine, ClockCounterClockwise, Plus, type PhosphorIcon } from '@/src/components/shared/icons'
+import { Gift, Brain, Wallet, Bank, TrendUp, Lock, Database, Archive, Repeat, CreditCard, ChatCircle, SquaresFour, CaretRight, Scan, Camera, Images, FileText, Receipt, ChartLine, ClockCounterClockwise, Plus, UserPlus, type PhosphorIcon } from '@/src/components/shared/icons'
 import { Screen } from '@/src/components/ui/Screen'
 import { Alert } from '@/src/components/ui/AlertHost'
 import { useTheme } from '@/src/theme/ThemeProvider'
@@ -38,6 +38,7 @@ import appJson from '@/app.json'
 import { isVersionNewer } from '@/src/lib/version'
 import { hiddenFeatures, isHidden, OPT_IN_FEATURES } from '@/src/lib/features'
 import { tap } from '@/src/lib/haptics'
+import { track } from '@/src/lib/analytics'
 
 const THEME_OPTIONS = [
   { value: 'light', label: 'Light' },
@@ -435,6 +436,8 @@ export default function MoreScreen() {
                 </Pressable>
               </Pressable>
               <View style={[styles.divider, { backgroundColor: tokens.border }]} />
+              <AccountRow icon={UserPlus} label="Invite a friend" hint="Share Aviary with someone" onPress={inviteFriend} tokens={tokens} />
+              <View style={[styles.divider, { backgroundColor: tokens.border }]} />
               <AccountRow icon={ChatCircle} label="Help & feedback" hint="Tour, changelog and more" onPress={() => router.push('/account/help')} tokens={tokens} />
               <View style={[styles.divider, { backgroundColor: tokens.border }]} />
               <AccountRow
@@ -664,6 +667,13 @@ function wrappedCardProps(status: WrappedStatus | undefined, tokens: ReturnType<
       </View>
     ),
   }
+}
+
+const INVITE_URL = `${WEB_URL}/?ref=invite`
+
+async function inviteFriend() {
+  const result = await Share.share({ message: `I've been budgeting with Aviary. Give it a try: ${INVITE_URL}` })
+  track('invite_shared', { shared: result.action === Share.sharedAction })
 }
 
 function AccountRow({
