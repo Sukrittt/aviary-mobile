@@ -102,12 +102,23 @@ export async function syncTimezone(user: UserProfile): Promise<void> {
   }
 }
 
-export async function deleteAccount(email: string): Promise<void> {
+/** Shared budgets you own that have other people in them: deleting your account has to hand each one on or close it. */
+export type SharedBudget = { id: string; name: string; emoji: string; personal: boolean; members: { userId: string; name: string | null }[] }
+
+export async function getSharedBudgets(): Promise<SharedBudget[]> {
+  const resp = await apiFetch('/api/user/shared-budgets')
+  if (!resp.ok) throw new Error(`Failed to load shared budgets: ${resp.status}`)
+  const body: { budgets: SharedBudget[] } = await resp.json()
+  return body.budgets
+}
+
+/** `transfers`: spaceId to the member who takes it over. Shared budgets left out close for their members. */
+export async function deleteAccount(email: string, transfers?: Record<string, string>): Promise<void> {
   await unregisterDevicePushToken()
   const resp = await apiFetch('/api/user', {
     method: 'DELETE',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email }),
+    body: JSON.stringify(transfers && Object.keys(transfers).length ? { email, transfers } : { email }),
   })
   if (!resp.ok) throw new Error(`Failed to delete account: ${resp.status}`)
 }

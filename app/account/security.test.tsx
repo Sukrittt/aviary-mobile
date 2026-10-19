@@ -1,7 +1,7 @@
 import { fireEvent, waitFor } from '@testing-library/react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { clearAccess } from '@/src/api/accessMode'
-import { deleteAccount, resendEmailCode } from '@/src/api/account'
+import { deleteAccount, getSharedBudgets, resendEmailCode } from '@/src/api/account'
 import { clearAll } from '@/src/lib/pendingExpenses'
 import SecurityScreen from './security'
 
@@ -20,11 +20,13 @@ jest.mock('@/src/hooks/useUser', () => ({
 jest.mock('@/src/api/accessMode', () => ({
   ...jest.requireActual('@/src/api/accessMode'),
   clearAccess: jest.fn(),
+  currentUserId: () => 'me',
 }))
 jest.mock('@/src/lib/pendingExpenses', () => ({ clearAll: jest.fn(() => Promise.resolve()) }))
 jest.mock('@/src/api/account', () => ({
   resendEmailCode: jest.fn(),
   deleteAccount: jest.fn(),
+  getSharedBudgets: jest.fn(async () => []),
   revokeAllSessions: jest.fn(),
   revokeSession: jest.fn(),
 }))
@@ -42,12 +44,34 @@ it('lets you retry the resend when it fails', async () => {
 // offline queue, so delete must leave it on disk.
 it('keeps the offline queue when deleting the account', async () => {
   ;(deleteAccount as jest.Mock).mockResolvedValue(undefined)
-  const { getAllByText, getByPlaceholderText } = renderWithProviders(<SecurityScreen />)
+  const { getAllByText, findByPlaceholderText } = renderWithProviders(<SecurityScreen />)
   fireEvent.press(getAllByText('Delete account')[1])
-  fireEvent.changeText(getByPlaceholderText('a@b.co'), 'a@b.co')
+  fireEvent.changeText(await findByPlaceholderText('a@b.co'), 'a@b.co')
   const buttons = getAllByText('Delete account')
   fireEvent.press(buttons[buttons.length - 1])
 
   await waitFor(() => expect(clearAccess).toHaveBeenCalled())
   expect(clearAll).not.toHaveBeenCalled()
+  expect(deleteAccount).toHaveBeenCalledWith('a@b.co', {})
+})
+
+it('asks what happens to each shared budget before the final confirm', async () => {
+  ;(deleteAccount as jest.Mock).mockResolvedValue(undefined)
+  ;(getSharedBudgets as jest.Mock).mockResolvedValue([
+    { id: 'sp_home', name: 'Home', emoji: '🏠', personal: false, members: [{ userId: 'u1', name: 'Rahul Verma' }, { userId: 'u3', name: 'Meera' }] },
+    { id: 'sp_goa', name: 'Goa trip', emoji: '✈️', personal: false, members: [{ userId: 'me', name: 'Ana' }, { userId: 'u3', name: 'Meera' }] },
+  ])
+  const utils = renderWithProviders(<SecurityScreen />)
+  fireEvent.press(utils.getAllByText('Delete account')[1])
+  expect(await utils.findByText('Your shared budgets')).toBeTruthy()
+  // First member picked to begin with; you're never offered yourself.
+  expect(utils.getByLabelText('Home: Hand it to Rahul').props.accessibilityState.checked).toBe(true)
+  expect(utils.queryByLabelText('Goa trip: Hand it to Ana')).toBeNull()
+  fireEvent.press(utils.getByLabelText('Goa trip: Close it'))
+  expect(utils.getByText('Everyone in it loses access. It comes back if you restore your account within 7 days.')).toBeTruthy()
+  fireEvent.press(utils.getByText('Next'))
+  fireEvent.changeText(utils.getByPlaceholderText('a@b.co'), 'a@b.co')
+  const buttons = utils.getAllByText('Delete account')
+  fireEvent.press(buttons[buttons.length - 1])
+  await waitFor(() => expect(deleteAccount).toHaveBeenCalledWith('a@b.co', { sp_home: 'u1' }))
 })
