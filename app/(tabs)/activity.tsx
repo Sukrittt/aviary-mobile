@@ -1,5 +1,8 @@
 import { MoveExpenseSheet } from "@/src/components/budgets/MoveExpenseSheet";
 import { useBudgetSpaces } from "@/src/hooks/useBudgetSpaces";
+import { Avatar } from "@/src/components/budgets/MemberAvatars";
+import { firstName, loggedBy, onlyMine } from "@/src/lib/budgetMembership";
+import { currentUserId } from "@/src/api/accessMode";
 import { ExpenseNoticeScreen } from '@/src/features/log-expense/ExpenseNoticeScreen';
 import { useIncomes } from "@/src/hooks/useIncomes";
 import { liveAccounts, useAccounts } from "@/src/hooks/useAccounts";
@@ -178,7 +181,10 @@ function ActivityScreen() {
   const [sheetTxn, setSheetTxn] = useState<ExpenseRow | null>(null);
   // "Move to another budget", offered only with 2+ budgets.
   const [moveTxn, setMoveTxn] = useState<ExpenseRow | null>(null);
-  const { multi: multiBudget } = useBudgetSpaces();
+  const { multi: multiBudget, active: activeBudget } = useBudgetSpaces();
+  // Who logged what: only in a budget with 2+ people. One person, no change.
+  const shared = (activeBudget?.members.length ?? 0) > 1;
+  const [mineOnly, setMineOnly] = useState(false);
   const [deleteTxn, setDeleteTxn] = useState<ExpenseRow | null>(null);
   // Set once the confirm sheet's Delete is tapped; drives the row's collapse
   // animation in DeletingRow. The actual mutate() call is deferred until that
@@ -301,9 +307,11 @@ function ActivityScreen() {
   // Where this page's income starts: the oldest date on the page before it
   // (src/lib/incomeActivity.ts). Already cached from visiting that page.
   const prevPageQ = useExpensesPage({ ...pageParams, page: Math.max(1, page - 1) });
-  const filtered = emptyForPreview(expensesQ.data?.rows ?? EMPTY).filter(
+  const pageExpenses = emptyForPreview(expensesQ.data?.rows ?? EMPTY).filter(
     (t) => !removedKeys.has(keyOf(t)),
   );
+  // ponytail: Mine filters the loaded page client-side, so totals and page counts stay everyone's. Server filter if that confuses.
+  const filtered = shared && mineOnly ? onlyMine(pageExpenses, activeBudget, currentUserId()) : pageExpenses;
   const selectedTxns = filtered.filter((t) => selectedKeys.has(keyOf(t)));
   // keepPreviousData shows the old page's rows while the new one loads; they
   // aren't what the filter asked for, so nothing gets picked or deleted then.
@@ -569,6 +577,12 @@ function ActivityScreen() {
           onPress={() => setCategorySheetOpen(true)}
         />
       </View>
+      {shared && !feedView ? (
+        <View style={styles.whoRow}>
+          <Chip label="Everyone" selected={!mineOnly} onPress={() => setMineOnly(false)} />
+          <Chip label="Mine" selected={mineOnly} onPress={() => setMineOnly(true)} />
+        </View>
+      ) : null}
 
       {hasActiveFilters ? (
         <Reanimated.View
@@ -756,6 +770,7 @@ function ActivityScreen() {
               const tint = tintOf(txn.category);
               const cat = categoryByName.get(txn.category);
               const isSelected = selectedKeys.has(keyOf(txn));
+              const who = shared ? loggedBy(txn, activeBudget) : undefined;
               const content = (
                 <Pressable
                   onPress={() => (selecting ? toggleSelected(txn) : setSheetTxn(txn))}
@@ -799,6 +814,11 @@ function ActivityScreen() {
                       {txn.has_photo ? " · Photo" : ""}
                     </Text>
                   </View>
+                  {who ? (
+                    <View testID="logged-by" accessibilityLabel={`Added by ${firstName(who.name) ?? "someone"}`}>
+                      <Avatar name={who.name} avatarUrl={null} size={20} />
+                    </View>
+                  ) : null}
                   <Text
                     style={[
                       styles.rowAmount,
@@ -937,6 +957,11 @@ function ActivityScreen() {
           >
             {sheetTxn?.item}
           </Text>
+          {shared && sheetTxn ? (
+            <Text style={[styles.addedBy, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>
+              {addedByLabel(loggedBy(sheetTxn, activeBudget))}
+            </Text>
+          ) : null}
           <SheetOption
             label="Edit"
             color={tokens.text}
@@ -1193,6 +1218,10 @@ function AppliedFilterChip({
   );
 }
 
+function addedByLabel(who: { userId: string; name: string | null } | undefined): string {
+  return `Added by ${who?.userId === currentUserId() ? "you" : firstName(who?.name) ?? "someone"}`;
+}
+
 function SheetOption({
   label,
   color,
@@ -1341,6 +1370,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     paddingTop: 4,
   },
+  whoRow: { flexDirection: "row", gap: 8, marginTop: 10 },
+  addedBy: { fontSize: 12, marginTop: -4, marginBottom: 8 },
   sheetTitle: {
     fontSize: 12,
     textTransform: "uppercase",

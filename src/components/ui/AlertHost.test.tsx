@@ -24,4 +24,12 @@ describe('AlertHost', () => {
     expect(onDelete).toHaveBeenCalledTimes(1)
     expect(queryByText('Delete holding')).toBeNull()
   })
+
+  it("keeps a sticky alert up over a screen's own one that follows it", () => {
+    const { getByText, queryByText } = renderWithProviders(<AlertHost />)
+    act(() => Alert.alert('This budget is read-only', undefined, undefined, { sticky: true }))
+    act(() => Alert.alert("Couldn't save", 'Check your connection and try again.'))
+    expect(getByText('This budget is read-only')).toBeTruthy()
+    expect(queryByText("Couldn't save")).toBeNull()
+  })
 })

@@ -35,6 +35,8 @@ export interface ExpenseRow {
   photo_url?: string
   /** One of the user's accounts, or '' / absent for an unlabelled row. */
   account_id?: string
+  /** Who logged it in a shared budget. Null (or absent) is the budget's owner. */
+  created_by?: string | null
 }
 
 /** One payment that came in (Web/lib/income.ts). `counted: 'extra'` rows are part of their month's Ready to Assign; 'monthly' rows are a payday of the monthly income, already counted from day 1. */

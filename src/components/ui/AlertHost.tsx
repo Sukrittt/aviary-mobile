@@ -14,6 +14,9 @@ interface AlertRequest {
   title: string
   message?: string
   buttons: AlertButton[]
+  /** Not replaced by an ordinary alert while it's up, e.g. a screen's own
+   *  "couldn't save" for the same failed request a moment later. */
+  sticky?: boolean
 }
 
 const DEFAULT_BUTTONS: AlertButton[] = [{ text: 'OK' }]
@@ -24,8 +27,8 @@ const DEFAULT_BUTTONS: AlertButton[] = [{ text: 'OK' }]
 let listener: ((request: AlertRequest) => void) | null = null
 
 export const Alert = {
-  alert(title: string, message?: string, buttons: AlertButton[] = DEFAULT_BUTTONS) {
-    listener?.({ title, message, buttons })
+  alert(title: string, message?: string, buttons: AlertButton[] = DEFAULT_BUTTONS, options?: { sticky?: boolean }) {
+    listener?.({ title, message, buttons, sticky: options?.sticky })
   },
 }
 
@@ -35,7 +38,7 @@ export function AlertHost() {
   const [request, setRequest] = useState<AlertRequest | null>(null)
 
   useEffect(() => {
-    listener = setRequest
+    listener = (next) => setRequest((prev) => (prev?.sticky && !next.sticky ? prev : next))
     return () => {
       listener = null
     }

@@ -144,3 +144,10 @@ describe('planPeriod and daysUntilLabel', () => {
     expect(daysUntilLabel(new Date(2026, 9, 18, 9, 0).toISOString(), now)).toBe('in 30 days')
   })
 })
+
+describe('accessAllowed in a budget someone else pays for', () => {
+  it("stays open when the owner's plan covers it, whatever this person's own plan says", () => {
+    expect(accessAllowed({ allowed: false, enforced: true, mode: 'expired', covered: true } as never)).toBe(true)
+    expect(accessAllowed({ allowed: false, enforced: true, mode: 'expired', covered: false } as never)).toBe(false)
+  })
+})

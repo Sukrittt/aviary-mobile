@@ -6,6 +6,8 @@ import { apiFetch } from './client'
 
 /** Mirrors the `Access` shape returned by Web/app/api/billing/status. */
 export interface BillingStatus {
+  /** The open budget is someone else's, and their plan covers it. */
+  covered?: boolean
   mode: 'setup_incomplete' | 'trial' | 'paid' | 'expired'
   /** May the account use normal budgeting, reports, AI and writes? */
   allowed: boolean

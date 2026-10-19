@@ -16,6 +16,7 @@ jest.mock('@/src/api/spaces', () => ({
   getBudgets: jest.fn(),
   getBudgetCategories: jest.fn(async () => [{ name: 'Groceries', group: 'Needs' }, { name: 'Rent', group: 'Needs' }]),
   moveExpense: jest.fn(async () => ({ version: 3 })),
+  restoreBudget: jest.fn(async () => {}),
 }))
 
 const personal: Budget = { id: 'u1', name: 'Personal', emoji: '🐦', role: 'owner', ownerId: 'u1', currencyCode: 'INR', personal: true, members: [] }
@@ -65,6 +66,23 @@ describe('BudgetSwitcherSheet', () => {
     const utils = renderWithProviders(<BudgetSwitcherSheet visible onClose={() => {}} />, { queryClient: withBudgets({}) })
     fireEvent.press(utils.getByTestId('new-budget'))
     expect(mockPush).toHaveBeenCalledWith('/modals/new-budget')
+  })
+
+  it('offers "Join with a code" beside it, and each budget\'s members', () => {
+    const utils = renderWithProviders(<BudgetSwitcherSheet visible onClose={() => {}} />, { queryClient: withBudgets({ budgets: [personal, home], count: 2 }) })
+    fireEvent.press(utils.getByTestId('join-budget'))
+    expect(mockPush).toHaveBeenCalledWith('/modals/join-budget')
+    fireEvent.press(utils.getByLabelText('Home members and settings'))
+    expect(mockPush).toHaveBeenLastCalledWith('/budget-members?id=sp_home')
+  })
+
+  it('brings back a budget deleted in the last 30 days', async () => {
+    const { restoreBudget } = jest.requireMock('@/src/api/spaces')
+    const deleted = [{ id: 'sp_trip', name: 'Goa', emoji: '✈️', deletedAt: '', deletedBy: 'Priya', canRestore: true }]
+    const utils = renderWithProviders(<BudgetSwitcherSheet visible onClose={() => {}} />, { queryClient: withBudgets({ deleted }) })
+    expect(utils.getByText('Goa · Deleted')).toBeTruthy()
+    fireEvent.press(utils.getByLabelText('Restore Goa'))
+    expect(restoreBudget).toHaveBeenCalledWith('sp_trip')
   })
 
   it('says "5 of 5 budgets" at the limit, and where to ask for more', () => {
