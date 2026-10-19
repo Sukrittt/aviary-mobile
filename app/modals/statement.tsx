@@ -67,7 +67,7 @@ export default function StatementScreen() {
   const [pickingFor, setPickingFor] = useState<string | null>(null)
   const [progress, setProgress] = useState(0)
   const [done, setDone] = useState<CaughtUp | null>(null)
-  const logged = useRef(new Set<string>())
+  const logged = useRef(new Map<string, string>())
   const online = useOnline()
 
   // The tick holds, then the caught-up screen. Cleared on unmount, so a screen already closed can't flip.
@@ -160,7 +160,7 @@ export default function StatementScreen() {
       if (logged.current.has(item.id)) continue
       try {
         await addExpense.mutateAsync(statementExpense(item, rows[item.id].category))
-        logged.current.add(item.id)
+        logged.current.set(item.id, rows[item.id].category)
       } catch {
         failed++
       }
@@ -171,7 +171,8 @@ export default function StatementScreen() {
       return
     }
     track('statement_logged', { rows: toLog.length, unchecked: proposal.items.length - toLog.length })
-    setDone(caughtUp(toLog.map((i) => ({ amount: i.amount, date: i.date, category: rows[i.id].category }))))
+    // Everything saved here, with the category it was saved under, including rows an earlier failed try saved and you've since unticked.
+    setDone(caughtUp(proposal.items.filter((i) => logged.current.has(i.id)).map((i) => ({ amount: i.amount, date: i.date, category: logged.current.get(i.id) ?? '' }))))
     setSaving('success')
   }
 

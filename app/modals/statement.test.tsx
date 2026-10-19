@@ -110,6 +110,26 @@ it('ends on what got filled in, then closes or goes to Activity', async () => {
   }
 })
 
+it('counts a row an earlier failed try already saved, even once it is unticked', async () => {
+  jest.useFakeTimers()
+  try {
+    const screen = await openReview()
+    fireEvent.press(screen.getByLabelText(/Add Rapido/))
+    mockMutate.mockResolvedValueOnce({}).mockRejectedValueOnce(new Error('503'))
+    fireEvent.press(screen.getByText(/^Log 2 · /))
+    expect(await screen.findByText("Couldn't log 1. Check your connection and try again.")).toBeTruthy()
+    fireEvent.press(screen.getByLabelText(/Add Swiggy/))
+    fireEvent.press(screen.getByText(/^Log 1 · /))
+    await waitFor(() => expect(mockMutate).toHaveBeenCalledTimes(3))
+    await waitFor(() => jest.advanceTimersByTime(1100))
+    expect(await screen.findByText("You're caught up.")).toBeTruthy()
+    expect(screen.getByText('2 payments added')).toBeTruthy()
+    expect(mockMutate.mock.calls[2][0].client_id).toBe('statement:b')
+  } finally {
+    jest.useRealTimers()
+  }
+})
+
 it('turns away a file that is not a statement, and words a locked pdf', async () => {
   mockPickFile.mockResolvedValueOnce({ uri: 'file:///x.docx', name: 'x.docx' })
   const screen = renderWithProviders(<StatementScreen />)
