@@ -17,6 +17,11 @@ export function takePendingJoinCode(): string | null {
   return code
 }
 
+/** The waiting code, left in place: the root layout routes a new account to it instead of setup. */
+export function peekPendingJoinCode(): string | null {
+  return pending
+}
+
 export function onPendingJoinCode(fn: () => void): () => void {
   subs.add(fn)
   return () => subs.delete(fn)

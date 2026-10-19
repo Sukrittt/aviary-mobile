@@ -5,10 +5,13 @@ import JoinBudgetModal from './join-budget'
 import { budgetsKey } from '@/src/hooks/useBudgetSpaces'
 import { BudgetRefusedError, joinBudget, previewJoin } from '@/src/api/spaces'
 import { switchBudget } from '@/src/lib/budgetSwitch'
+import { signalOnboarded } from '@/src/api/onboardingSignal'
 
 const mockBack = jest.fn()
-let mockParams: { code?: string } = {}
-jest.mock('expo-router', () => ({ useRouter: () => ({ push: jest.fn(), back: mockBack }), useLocalSearchParams: () => mockParams }))
+const mockReplace = jest.fn()
+let mockParams: { code?: string; fresh?: string } = {}
+jest.mock('expo-router', () => ({ useRouter: () => ({ push: jest.fn(), back: mockBack, replace: mockReplace }), useLocalSearchParams: () => mockParams }))
+jest.mock('@/src/api/onboardingSignal', () => ({ signalOnboarded: jest.fn() }))
 jest.mock('@/src/api/accessMode', () => ({ currentUserId: () => 'u1', accessMode: { subscribeLogout: () => () => {}, subscribe: () => () => {} } }))
 jest.mock('@/src/lib/budgetSwitch', () => ({ switchBudget: jest.fn(async () => {}) }))
 jest.mock('@/src/api/spaces', () => ({
@@ -95,4 +98,28 @@ it("just opens a budget you're already in", async () => {
   await waitFor(() => expect(switchBudget).toHaveBeenCalledWith(expect.anything(), 'u1', 'sp_home'))
   await waitFor(() => expect(mockBack).toHaveBeenCalled())
   expect(joinBudget).not.toHaveBeenCalled()
+})
+
+it("lets a brand-new account join instead of setting up, and sends it to setup if it backs out", async () => {
+  mockParams = { code: 'AB12CD', fresh: '1' }
+  ;(previewJoin as jest.Mock).mockResolvedValue(ok)
+  const utils = setup()
+  expect(await utils.findByText('Join Home budget?')).toBeTruthy()
+  fireEvent.press(utils.getByText('Cancel'))
+  expect(mockReplace).toHaveBeenCalledWith('/setup')
+  expect(signalOnboarded).not.toHaveBeenCalled()
+
+  jest.useFakeTimers()
+  fireEvent.press(utils.getByText('Join Home'))
+  await waitFor(() => expect(joinBudget).toHaveBeenCalled())
+  await act(async () => { jest.advanceTimersByTime(1200) })
+  jest.useRealTimers()
+  fireEvent.press(await utils.findByText('Next'))
+  jest.useFakeTimers()
+  fireEvent.press(utils.getByText('Got it'))
+  act(() => { jest.runAllTimers() })
+  jest.useRealTimers()
+  expect(signalOnboarded).toHaveBeenCalledWith({ elsewhere: true })
+  expect(mockReplace).toHaveBeenCalledWith('/(tabs)')
+  expect(mockBack).not.toHaveBeenCalled()
 })

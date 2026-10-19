@@ -9,6 +9,7 @@ import { CrashScreen } from '@/src/components/shared/CrashScreen'
 import { subscribeExchanging } from '@/src/api/useSignIn'
 import { AlertHost } from '@/src/components/ui/AlertHost'
 import { BudgetAccessWatcher } from '@/src/components/budgets/BudgetAccessWatcher'
+import { peekPendingJoinCode, takePendingJoinCode } from '@/src/lib/pendingJoin'
 import { PrivacyProvider } from '@/src/context/PrivacyContext'
 import { MaintenanceBanner } from '@/src/components/shared/MaintenanceBanner'
 import { LogExpenseNavigation } from '@/src/features/log-expense/LogExpenseNavigation'
@@ -357,6 +358,13 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
     if (resolving || !hasSession) return
     if (segments[0] !== '(auth)' || authScreenMode === 'change-email') return
     if (router.canDismiss()) router.dismissAll()
+    // A new account that came in through an invite joins that budget instead
+    // of setting up one of its own (app/modals/join-budget.tsx, `fresh`).
+    const joinCode = !onboarded ? peekPendingJoinCode() : null
+    if (joinCode) {
+      router.replace(`/modals/join-budget?code=${takePendingJoinCode()}&fresh=1` as Href)
+      return
+    }
     router.replace((!onboarded ? '/setup' : justOnboarded ? '/account/trial-notice' : landOnHome ? '/(tabs)' : LOG_EXPENSE_PATH) as Href)
   }, [resolving, hasSession, onboarded, justOnboarded, landOnHome, segments, authScreenMode, router])
 
@@ -456,7 +464,6 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
           <Stack.Screen name="modals/recurring-income" options={{ presentation: 'modal' }} />
           <Stack.Screen name="modals/account" options={{ presentation: 'modal' }} />
           <Stack.Screen name="modals/new-budget" options={{ presentation: 'modal' }} />
-          <Stack.Screen name="modals/join-budget" options={{ presentation: 'modal' }} />
           <Stack.Screen name="budget-members" options={{ presentation: 'card', animation: 'slide_from_right' }} />
           <Stack.Screen name="modals/bill-scan" options={{ presentation: 'modal' }} />
           <Stack.Screen name="modals/duplicates" options={{ presentation: 'modal' }} />
@@ -481,6 +488,11 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
           <Stack.Screen name="account/changelog" options={{ presentation: 'card', animation: 'slide_from_right' }} />
           <Stack.Screen name="account/ideas" options={{ presentation: 'card', animation: 'slide_from_right' }} />
           <Stack.Screen name="account/feedback" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+        </Stack.Protected>
+
+        {/* Signed in, set up or not: a brand-new account joins from here instead of running setup. */}
+        <Stack.Protected guard={!resolving && hasSession}>
+          <Stack.Screen name="modals/join-budget" options={{ presentation: 'modal' }} />
         </Stack.Protected>
 
         {/* Ungated: these are reached both signed out (from welcome) and signed

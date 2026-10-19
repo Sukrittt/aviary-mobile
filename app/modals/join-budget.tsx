@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { View, Text, TextInput, Pressable, ScrollView, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { useLocalSearchParams, useRouter } from 'expo-router'
+import { type Href, useLocalSearchParams, useRouter } from 'expo-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useTheme } from '@/src/theme/ThemeProvider'
@@ -10,6 +10,7 @@ import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { BudgetRefusedError, joinBudget, previewJoin, type JoinPreview } from '@/src/api/spaces'
 import { budgetsKey, useBudgetSpaces } from '@/src/hooks/useBudgetSpaces'
 import { switchBudget } from '@/src/lib/budgetSwitch'
+import { signalOnboarded } from '@/src/api/onboardingSignal'
 import { currentUserId } from '@/src/api/accessMode'
 import { MAX_MEMBERS } from '@/src/lib/budgetMembership'
 
@@ -46,7 +47,9 @@ export default function JoinBudgetModal() {
   const insets = useSafeAreaInsets()
   const router = useRouter()
   const queryClient = useQueryClient()
-  const params = useLocalSearchParams<{ code?: string }>()
+  const params = useLocalSearchParams<{ code?: string; fresh?: string }>()
+  // `fresh`: a new account that came in through an invite, sent here instead of setup.
+  const fresh = params.fresh === '1'
   const { budgets, limit, atLimit } = useBudgetSpaces()
   const [code, setCode] = useState(() => cleanCode(params.code ?? ''))
   const [joined, setJoined] = useState<string | null>(null)
@@ -67,6 +70,15 @@ export default function JoinBudgetModal() {
   const refused = join.error ? (join.error instanceof BudgetRefusedError ? join.error.code : null) : undefined
   const blocked = invite && !alreadyIn ? blockedReason(invite, refused, { limit, atLimit }) : null
 
+  // Leave the modal. A new account has nothing under it: joining makes them
+  // set up (the budget they joined is), and backing out means their own setup.
+  function done(joinedOne: boolean) {
+    if (!fresh) return router.back()
+    if (!joinedOne) return router.replace('/setup' as Href)
+    signalOnboarded({ elsewhere: true })
+    setTimeout(() => router.replace('/(tabs)' as Href), 0)
+  }
+
   async function open(spaceId: string, showIntro: boolean) {
     // The fresh list first, so nothing reads the new budget as one you're not in.
     await queryClient.refetchQueries({ queryKey: budgetsKey }).catch(() => {})
@@ -74,7 +86,7 @@ export default function JoinBudgetModal() {
     if (uid) await switchBudget(queryClient, uid, spaceId)
     const seen = showIntro ? await AsyncStorage.getItem(introKey(spaceId)).catch(() => '1') : '1'
     if (seen) {
-      router.back()
+      done(true)
       return
     }
     void AsyncStorage.setItem(introKey(spaceId), '1').catch(() => {})
@@ -91,7 +103,7 @@ export default function JoinBudgetModal() {
 
   const header = (
     <View style={[styles.header, { paddingTop: insets.top + 8, borderBottomColor: tokens.border }]}>
-      <Pressable onPress={() => router.back()} hitSlop={12} disabled={!!joined && intro === null}>
+      <Pressable onPress={() => done(intro !== null)} hitSlop={12} disabled={!!joined && intro === null}>
         <Text style={[styles.headerAction, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>{intro === null ? 'Cancel' : 'Close'}</Text>
       </Pressable>
       <Text style={[styles.headerTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Join a budget</Text>
@@ -114,7 +126,7 @@ export default function JoinBudgetModal() {
           <Text style={[styles.introText, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>{card.body}</Text>
           <Text style={[styles.hint, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>{`${intro + 1} of ${cards.length}`}</Text>
           <Pressable
-            onPress={() => (intro === 0 ? setIntro(1) : router.back())}
+            onPress={() => (intro === 0 ? setIntro(1) : done(true))}
             accessibilityRole="button"
             style={[styles.confirmButton, { backgroundColor: tokens.accent, alignSelf: 'stretch' }]}
           >

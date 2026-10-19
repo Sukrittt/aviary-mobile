@@ -31,6 +31,8 @@ export const REMINDER_DAYS = [7, 3, 1]
  */
 export function accessAllowed(status: BillingStatus | undefined, now: number = Date.now()): boolean {
   if (!status) return true
+  // The open budget is someone else's, and their plan covers it.
+  if (status.covered) return true
   if (!status.allowed) return false
   if (!status.enforced) return true
   const knownEnd =
