@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type StyleProp, type ViewStyle } from 'react-native'
+import { KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type StyleProp, type ViewStyle } from 'react-native'
 import Animated, { FadeIn, FadeInDown, useAnimatedStyle, useReducedMotion, useSharedValue, withSpring, withTiming } from 'react-native-reanimated'
 import * as Haptics from 'expo-haptics'
 import { ArrowLeft, CaretDown, CaretRight, Check, FileText, Plus, SealCheck } from '@/src/components/shared/icons'
@@ -34,17 +34,53 @@ const MAX_BANK_ACCOUNTS = 5
 /** How long the success tick holds before the celebration, as every other success CTA. */
 const SUCCESS_MS = 1100
 
-/** `file`: what the app exports, for the hint under Choose a file. */
-type AppChoice = { id: string; name: string; by?: string; file: string; how: [string, string] }
+/** `file`: what the app exports, for the hint under Choose a file. `note`: what trips people up (a paid-only
+ * export, a missing platform, a file sent by email). `help`: the app's own export guide, which keeps its
+ * screenshots current so we don't have to. */
+type AppChoice = { id: string; name: string; by?: string; file: string; how: string[]; note?: string; help?: string }
 
+// Checked against each app's help pages in Oct 2026. Web's APPS says the same with `›` breadcrumbs.
 const APPS: AppChoice[] = [
-  { id: 'moneymanager', name: 'Money Manager', by: 'Realbyte', file: 'xlsx', how: ['Open More, then Backup, then Export to Excel file.', 'Save the file to your phone and pick it here.'] },
-  { id: 'monefy', name: 'Monefy', file: 'csv', how: ['Open Settings, then Export to file.', 'Save the csv to your phone and pick it here.'] },
-  { id: 'wallet', name: 'Wallet', by: 'BudgetBakers', file: 'csv', how: ['In Wallet on the web, open Records and export them.', 'Pick csv as the format.'] },
-  { id: 'spendee', name: 'Spendee', file: 'csv', how: ['Open a wallet’s settings and tap Export to CSV.', 'It lands in your email.'] },
-  { id: 'ynab', name: 'YNAB', file: 'zip', how: ['On the web, open your plan’s menu and pick Export plan.', 'Pick the zip as it is. No need to unzip it.'] },
-  { id: 'goodbudget', name: 'Goodbudget', file: 'csv', how: ['On the website, open Account, then Export data.', 'Pick the csv of your transactions.'] },
-  { id: 'axio', name: 'axio', by: 'formerly Walnut', file: 'csv', how: ['Ask axio for your data from its settings.', 'Use the CSV from the email, not the PDF.'] },
+  {
+    id: 'moneymanager', name: 'Money Manager', by: 'Realbyte', file: 'xlsx',
+    how: ['On the Trans. tab, switch to Total.', 'Tap Export data to Excel and send it to your email.', 'Save the file from that email and pick it here.'],
+    help: 'https://help.realbyteapps.com/hc/en-us/articles/360046150874-Home-tab',
+  },
+  {
+    id: 'monefy', name: 'Monefy', file: 'csv',
+    how: ['In Monefy, open the ⋮ menu, then Settings.', 'Tap Export to file.', 'Save the csv to your phone and pick it here.'],
+    help: 'https://www.monefy.com/help-center',
+  },
+  {
+    id: 'wallet', name: 'Wallet', by: 'BudgetBakers', file: 'csv',
+    how: ['In Wallet on Android, open the ≡ menu, then Others, then Export.', 'Pick CSV and the dates you want.', 'Save the file and pick it here.'],
+    note: 'Exporting needs Wallet Premium. The iPhone app can’t export, so use Wallet on the web there: Records, then Export.',
+    help: 'https://support.budgetbakers.com/hc/en-us/articles/7151606064018-How-to-export-transactions-from-Wallet',
+  },
+  {
+    id: 'spendee', name: 'Spendee', file: 'csv',
+    how: ['In Spendee, open More, then Export.', 'Pick all accounts and the whole period.', 'Choose CSV, save it and pick it here.'],
+    note: 'On the free plan you get your last 365 days.',
+    help: 'https://help.spendee.com/article/137-export-transactions',
+  },
+  {
+    id: 'ynab', name: 'YNAB', file: 'zip',
+    how: ['On app.ynab.com, tap your plan’s name at the top left.', 'Pick Export Plan.', 'Pick the zip as it is. No need to unzip it.'],
+    note: 'The YNAB phone app can’t export, so use the web.',
+    help: 'https://support.ynab.com/en_us/how-to-export-plan-data-Sy_CouWA9',
+  },
+  {
+    id: 'goodbudget', name: 'Goodbudget', file: 'csv',
+    how: ['Log in on goodbudget.com and open Transactions.', 'Tap Export CSV above the list.', 'Pick the csv here.'],
+    note: 'Goodbudget exports your spending, not your envelope amounts. We work those out from what you spent.',
+    help: 'https://goodbudget.com/help/customize-your-goodbudget/export-transactions/',
+  },
+  {
+    id: 'axio', name: 'axio', by: 'formerly Walnut', file: 'csv',
+    how: ['In axio’s Money Manager tab, tap your profile at the top right.', 'Under Expense Tracking, tap Email Statements.', 'Save the CSV from that email, not the PDF, and pick it here.'],
+    note: 'It comes by email. Check Spam or Promotions if you can’t see it.',
+    help: 'https://www.axio.co.in/faq',
+  },
 ]
 // The catch-all sits under the list as a text link, not as an eighth "app".
 const OTHER: AppChoice = { id: 'other', name: 'Another app or a spreadsheet', file: 'csv or xlsx', how: ['Any file with a date, an amount and a description works.', 'One row per transaction.'] }
@@ -246,6 +282,16 @@ function Upload({ app, onPreview, onAlreadySetUp }: { app: AppChoice; onPreview:
           </Animated.View>
         ))}
       </View>
+      {(app.note || app.help) && (
+        <Animated.View entering={FadeInDown.delay(80 + app.how.length * 70).duration(260)} style={styles.howExtra}>
+          {app.note && <Text style={[styles.howNote, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>{app.note}</Text>}
+          {app.help && (
+            <Pressable accessibilityRole="link" onPress={() => Linking.openURL(app.help!)} hitSlop={8}>
+              <Text style={[styles.howHelp, { color: tokens.accentInk, fontFamily: fontFamily.bodySemiBold }]}>{`Still stuck? See ${app.name}’s own guide`}</Text>
+            </Pressable>
+          )}
+        </Animated.View>
+      )}
       {/* The box rises in after the steps, as the next thing to read. */}
       <Animated.View entering={FadeInDown.delay(80 + app.how.length * 70).duration(260)}>
         <Press
@@ -896,6 +942,10 @@ const styles = StyleSheet.create({
   stepNum: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   stepNumText: { fontSize: 12 },
   stepText: { flex: 1, fontSize: 14, lineHeight: 21, paddingTop: 1 },
+  // Indented under the step text, past the number column.
+  howExtra: { gap: 8, marginTop: 12, paddingLeft: 36 },
+  howNote: { fontSize: 13, lineHeight: 19 },
+  howHelp: { fontSize: 13, lineHeight: 19, textDecorationLine: 'underline' },
   found: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 14, paddingVertical: 4, paddingHorizontal: 10, borderRadius: 100, maxWidth: '100%' },
   foundText: { fontSize: 12, flexShrink: 1 },
   drop: { marginTop: 24, minHeight: 168, borderRadius: 22, borderWidth: 1.5, borderStyle: 'dashed', alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: 16 },

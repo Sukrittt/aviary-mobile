@@ -1,6 +1,7 @@
 import { act, fireEvent, waitFor } from '@testing-library/react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { ImportFailure, type ImportReview } from '@/src/api/imports'
+import { Linking } from 'react-native'
 import { ImportFlow } from './ImportFlow'
 
 const mockPreview = jest.fn()
@@ -89,9 +90,22 @@ it('starts on starting fresh, and the choice can change before Continue', () => 
   expect(onFresh).toHaveBeenCalled()
 })
 
+it('walks through the export in steps, with the catch and the app’s own guide', () => {
+  const openURL = jest.spyOn(Linking, 'openURL').mockResolvedValue(true)
+  const utils = render()
+  fireEvent.press(utils.getByText('I’m switching apps'))
+  fireEvent.press(utils.getByText('Continue'))
+  fireEvent.press(utils.getByLabelText('Wallet, BudgetBakers'))
+  expect(utils.getByText('In Wallet on Android, open the ≡ menu, then Others, then Export.')).toBeTruthy()
+  expect(utils.getByText('3')).toBeTruthy()
+  expect(utils.getByText(/needs Wallet Premium/)).toBeTruthy()
+  fireEvent.press(utils.getByRole('link', { name: 'Still stuck? See Wallet’s own guide' }))
+  expect(openURL).toHaveBeenCalledWith(expect.stringMatching(/^https:\/\/support\.budgetbakers\.com\//))
+})
+
 it('shows how to export from the picked app, then what it read', async () => {
   const { getByText, findByText } = toReview()
-  expect(getByText('Open Settings, then Export to file.')).toBeTruthy()
+  expect(getByText('Tap Export to file.')).toBeTruthy()
   expect(await findByText('Here’s what we found')).toBeTruthy()
   expect(mockPreview).toHaveBeenCalledWith(expect.objectContaining({ uri: 'file:///monefy.csv' }))
   expect(getByText('7 spends · 2 paydays · Sep 2026 to Oct 2026')).toBeTruthy()
