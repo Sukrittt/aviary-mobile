@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { addGroup, deleteGroup, getGroupIcons, getGroups, moveGroup, updateGroup } from '@/src/api/groups'
+import { addGroup, deleteGroup, getGroupColors, getGroupIcons, getGroups, moveGroup, updateGroup } from '@/src/api/groups'
 import { readGroupCache, writeGroupCache } from '@/src/lib/groupCache'
 import { isTransportFailure } from '@/src/api/client'
 
@@ -43,6 +43,12 @@ export function useGroupIcons(): Map<string, string> {
 const toIconMap = (pairs: [string, string][]) => new Map(pairs)
 const EMPTY_ICONS = new Map<string, string>()
 
+/** Picked group colours by name; a group missing here wears groupColor's default. */
+export function useGroupColors(): Map<string, string> {
+  const { data } = useQuery({ queryKey: [...key, 'colors'], queryFn: getGroupColors, select: toIconMap, staleTime: 30_000 })
+  return data ?? EMPTY_ICONS
+}
+
 export function useAddGroup() {
   const qc = useQueryClient()
   return useMutation({
@@ -57,8 +63,8 @@ export function useAddGroup() {
 export function useUpdateGroup() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (params: { name: string; newName?: string; icon?: string }) =>
-      updateGroup(params.name, { newName: params.newName, icon: params.icon }),
+    mutationFn: (params: { name: string; newName?: string; icon?: string; color?: string }) =>
+      updateGroup(params.name, { newName: params.newName, icon: params.icon, color: params.color }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: key })
       qc.invalidateQueries({ queryKey: categoriesKey })

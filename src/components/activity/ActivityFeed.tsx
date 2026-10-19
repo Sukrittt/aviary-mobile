@@ -1,3 +1,4 @@
+import { useCategoryTint } from '@/src/hooks/useCategories'
 import { memo, useCallback, useMemo, useRef, useState, type ReactElement } from 'react'
 import { ActivityIndicator, FlatList, Image, Pressable, StyleSheet, Text, View, type RefreshControlProps } from 'react-native'
 import { CategoryIcon } from '@/src/components/shared/CategoryIcon'
@@ -10,7 +11,7 @@ import { useCurrency } from '@/src/context/CurrencyContext'
 import { usePrivacy } from '@/src/context/PrivacyContext'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
-import { categoryTint, splitEmoji } from '@/src/lib/emoji'
+import { splitEmoji } from '@/src/lib/emoji'
 import { groupByDay, stablePhotoUrl, type FeedItem } from '@/src/lib/activityFeed'
 import { formatDayLabel } from '@/src/lib/date'
 import { EMPTY } from '@/src/lib/constants'
@@ -139,9 +140,10 @@ const FeedCard = memo(function FeedCard({ txn, category, hidden, onOpenActions, 
   onOpen: (txn: ExpenseRow, rect: CardRect, uri: string | null) => void
 }) {
   const { tokens, space, radius } = useTheme()
+  const tintOf = useCategoryTint()
   const { hideAmounts } = usePrivacy()
   const { formatCurrency } = useCurrency()
-  const tint = categoryTint(txn.category, tokens)
+  const tint = tintOf(txn.category)
   const uri = useMemo(() => (txn.photo_url ? stablePhotoUrl(txn.photo_url) : null), [txn.photo_url])
   const cardRef = useRef<View>(null)
   function open() {

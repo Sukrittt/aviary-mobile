@@ -1,10 +1,11 @@
+import { useCategoryTint } from '@/src/hooks/useCategories'
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { useCallback, useState } from 'react'
 import { View, Text, Pressable, StyleSheet } from 'react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 
-import { categoryTint, splitEmoji } from '@/src/lib/emoji'
+import { splitEmoji } from '@/src/lib/emoji'
 import { CATEGORY_ICON_COMPONENTS } from '@/src/components/shared/CategoryIcon'
 import type { CategoryIconKey } from '@/src/lib/categoryIcons'
 import { parseLocalDate, toLocalDateString } from '@/src/lib/date'
@@ -75,6 +76,7 @@ export function EnvelopeRow({
   const { formatCurrency } = useCurrency()
 
   const { tokens } = useTheme()
+  const tintOf = useCategoryTint()
   const [sheetOpen, setSheetOpen] = useState(false)
 
   function openSheet() {
@@ -90,7 +92,7 @@ export function EnvelopeRow({
 
   const pill = availablePill(envelope, tokens)
   const Icon = CATEGORY_ICON_COMPONENTS[icon]
-  const tint = categoryTint(envelope.category, tokens)
+  const tint = tintOf(envelope.category)
   const name = displayName ?? splitEmoji(envelope.category).text
   // Spending with nothing assigned: "₹713/₹0" and "Used ∞" said nothing useful.
   const unbudgeted = envelope.assigned === 0 && envelope.spent > 0

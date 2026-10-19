@@ -8,11 +8,11 @@ import { Numpad } from '@/src/components/ui/Numpad'
 import { useAmountEntry } from '@/src/components/ui/useAmountEntry'
 import { usePrivacy } from '@/src/context/PrivacyContext'
 import { useBudgets,useUpdateBudget } from '@/src/hooks/useBudgets'
-import { useCategories } from '@/src/hooks/useCategories'
+import { useCategories, useCategoryTint } from '@/src/hooks/useCategories'
 import { useRecentExpenses } from '@/src/hooks/useExpenses'
 import { useGroups } from '@/src/hooks/useGroups'
 import { EMPTY } from '@/src/lib/constants'
-import { categoryTint, splitEmoji } from '@/src/lib/emoji'
+import { splitEmoji } from '@/src/lib/emoji'
 import { categoryIconKey, type CategoryIconKey } from '@/src/lib/categoryIcons'
 import { CATEGORY_ICON_COMPONENTS } from '@/src/components/shared/CategoryIcon'
 import { computeEnvelopeState,currentMonthKey,prevMonthKey } from '@/src/lib/envelope'
@@ -128,6 +128,7 @@ function EditAmountBody({
   const { formatCurrency, formatAmountInput, formatMoney } = useCurrency()
 
   const { tokens, space, radius, type } = useTheme()
+  const tintOf = useCategoryTint()
   const { hideAmounts } = usePrivacy()
   const insets = useSafeAreaInsets()
   const router = useRouter()
@@ -269,7 +270,7 @@ function EditAmountBody({
           disabled={saving || success}
           name={name}
           icon={iconKey}
-          tint={categoryTint(name, tokens)}
+          tint={tintOf(isCreditCardPayment ? name : category)}
           spent={spent}
           currentAssigned={baseAssigned}
           hideAmounts={hideAmounts}

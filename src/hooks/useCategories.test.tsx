@@ -4,9 +4,12 @@ import { act, renderHook, waitFor } from '@testing-library/react-native'
 import { addCategory, getCategories, moveCategory, updateCategory } from '@/src/api/categories'
 import { readCategoryCache, writeCategoryCache } from '@/src/lib/categoryCache'
 import { computeEnvelopeState } from '@/src/lib/envelope'
+import { categoryTint } from '@/src/lib/emoji'
 import type { BudgetRow, ExpenseRow, CategoryRow } from '@/src/types'
-import { useAddCategory, useCategories, useMoveCategory, useUpdateCategory } from './useCategories'
+import { lightTokens } from '@/src/theme/tokens'
+import { useAddCategory, useCategories, useCategoryTint, useMoveCategory, useUpdateCategory } from './useCategories'
 
+jest.mock('@/src/theme/ThemeProvider', () => ({ useTheme: () => ({ tokens: jest.requireActual('@/src/theme/tokens').lightTokens }) }))
 jest.mock('@/src/api/categories', () => ({
   getCategories: jest.fn(),
   addCategory: jest.fn(),
@@ -231,4 +234,12 @@ it.each([{ alertPcts: [90, 60] }, { alertPcts: null }])('persists group and aler
   expect(qc.getQueryData(['categories'])).toEqual(expected)
   expect(writeCategoryCache).toHaveBeenCalledWith(expected)
   qc.clear()
+})
+
+it("tints a category by name with its picked colour, and the rest by the hash", async () => {
+  ;(getCategories as jest.Mock).mockResolvedValue([{ name: 'Rent', group: 'Home', color: 'mint' }, { name: 'Water', group: 'Home' }])
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } })
+  const { result } = renderHook(() => useCategoryTint(), { wrapper: wrapper(queryClient) })
+  await waitFor(() => expect(result.current('Rent')).toEqual({ bg: lightTokens.mintSoft, ink: lightTokens.mint }))
+  expect(result.current('Water')).toEqual(categoryTint('Water', lightTokens))
 })

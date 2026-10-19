@@ -84,6 +84,8 @@ export interface CategoryRow {
   alertPcts?: number[]
   /** The Phosphor icon the user picked (a key of CATEGORY_ICONS), if any. */
   icon?: string
+  /** The tint the user picked (a key of CATEGORY_COLORS), if any. */
+  color?: string
 }
 
 export interface CategoryMap {

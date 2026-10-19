@@ -1,6 +1,6 @@
 import { apiFetch, apiErrorMessage } from './client'
 
-type GroupRow = { name: string; icon?: string }
+type GroupRow = { name: string; icon?: string; color?: string }
 
 // One request feeds both reads: `?icons=1` carries the names too, and the
 // groups and icons queries used to send two requests on every mount.
@@ -29,6 +29,11 @@ export async function getGroupIcons(): Promise<[string, string][]> {
   return (await getGroupRows()).flatMap((r): [string, string][] => (r.icon ? [[r.name, r.icon]] : []))
 }
 
+/** Each group's picked colour as [name, color] pairs, like getGroupIcons. */
+export async function getGroupColors(): Promise<[string, string][]> {
+  return (await getGroupRows()).flatMap((r): [string, string][] => (r.color ? [[r.name, r.color]] : []))
+}
+
 export async function addGroup(name: string): Promise<void> {
   const resp = await apiFetch('/api/groups', {
     method: 'POST',
@@ -38,7 +43,7 @@ export async function addGroup(name: string): Promise<void> {
   if (!resp.ok) throw new Error(await apiErrorMessage(resp, 'Failed to add group'))
 }
 
-export async function updateGroup(name: string, updates: { newName?: string; icon?: string }): Promise<void> {
+export async function updateGroup(name: string, updates: { newName?: string; icon?: string; color?: string }): Promise<void> {
   const resp = await apiFetch('/api/groups', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },

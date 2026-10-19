@@ -2,10 +2,11 @@ import { useState, type ReactNode } from 'react'
 import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
-import { MagnifyingGlass, PencilSimple } from './icons'
+import { Check, MagnifyingGlass, PencilSimple } from './icons'
 import { CATEGORY_ICON_COMPONENTS } from './CategoryIcon'
 import { BottomSheet } from './Modal'
 import { searchCategoryIcons, type CategoryIconKey } from '@/src/lib/categoryIcons'
+import { CATEGORY_COLORS, colorTint, type CategoryColor } from '@/src/lib/emoji'
 
 /** "ForkKnife" → "Fork knife", for accessibility labels. */
 export function iconLabel(key: string): string {
@@ -105,7 +106,47 @@ export function CategoryIconPicker({ value, onChange, tint, disabled, children }
   )
 }
 
+const COLOR_LABELS: Record<CategoryColor, string> = {
+  mint: 'Green', violet: 'Purple', blue: 'Blue', accent: 'Orange', warn: 'Yellow', coral: 'Red',
+}
+
+/** A row of the six tints, for picking a category's or group's colour. */
+export function ColorSwatches({ value, onChange, disabled }: {
+  value: CategoryColor
+  onChange: (color: CategoryColor) => void
+  disabled?: boolean
+}) {
+  const { tokens } = useTheme()
+  return (
+    <View style={styles.swatches} accessibilityRole="radiogroup">
+      {CATEGORY_COLORS.map((color) => {
+        const { bg, ink } = colorTint(color, tokens)
+        const on = color === value
+        return (
+          <Pressable
+            key={color}
+            onPress={() => onChange(color)}
+            disabled={disabled}
+            accessibilityRole="radio"
+            accessibilityLabel={COLOR_LABELS[color]}
+            accessibilityState={{ selected: on }}
+            hitSlop={4}
+            style={[styles.swatch, { backgroundColor: bg, borderColor: on ? ink : 'transparent' }]}
+          >
+            <View style={[styles.swatchDot, { backgroundColor: ink }]}>
+              {on && <Check size={14} weight="bold" color={tokens.cardSolid} />}
+            </View>
+          </Pressable>
+        )
+      })}
+    </View>
+  )
+}
+
 const styles = StyleSheet.create({
+  swatches: { flexDirection: 'row', justifyContent: 'space-between' },
+  swatch: { width: 44, height: 44, borderRadius: 22, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  swatchDot: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   row: { flexDirection: 'row', gap: 10, alignItems: 'stretch' },
   tile: { width: 52, minHeight: 56, borderRadius: 16, borderWidth: 1, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   badge: { position: 'absolute', right: -5, bottom: -5, width: 20, height: 20, borderRadius: 10, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },

@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useCallback, useMemo } from 'react'
 import { notifyManager, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   addCategory,
@@ -10,6 +10,8 @@ import {
 import type { CategoryRow } from '@/src/types'
 import { track } from '@/src/lib/analytics'
 import { categoryIconKey } from '@/src/lib/categoryIcons'
+import { categoryTint } from '@/src/lib/emoji'
+import { useTheme } from '@/src/theme/ThemeProvider'
 import { readCategoryCache, writeCategoryCache } from '@/src/lib/categoryCache'
 import { isTransportFailure } from '@/src/api/client'
 
@@ -89,10 +91,27 @@ export function useCategoryIcons(): Map<string, string> {
   return useMemo(() => new Map((data ?? []).map((c) => [c.name, categoryIconKey(c.name, c.icon, c.group)])), [data])
 }
 
+/** Picked category colours by name; categories without one are left out. */
+export function useCategoryColors(): Map<string, string> {
+  const { data } = useCategories()
+  return useMemo(() => new Map((data ?? []).flatMap((c): [string, string][] => (c.color ? [[c.name, c.color]] : []))), [data])
+}
+
+/**
+ * Tints a category by name with its picked colour, for rows that only carry
+ * the name (an expense, an envelope). Unknown names fall back to the hash.
+ */
+export function useCategoryTint(): (name: string) => { bg: string; ink: string } {
+  const { tokens } = useTheme()
+  const colors = useCategoryColors()
+  return useCallback((name: string) => categoryTint(name, tokens, colors.get(name)), [tokens, colors])
+}
+
 export function useAddCategory() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (params: { name: string; group?: string; icon?: string }) => addCategory(params.name, params.group, params.icon),
+    mutationFn: (params: { name: string; group?: string; icon?: string; color?: string }) =>
+      addCategory(params.name, params.group, params.icon, params.color),
     onSuccess: (_data, params) => {
       // Envelopes get created from two places: the setup wizard and the
       // inline "new category" row inside log-expense. $screen_name tells them
@@ -106,7 +125,7 @@ export function useAddCategory() {
 export function useUpdateCategory() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (params: { name: string; updates: { newName?: string; group?: string; alertPcts?: number[] | null; icon?: string } }) =>
+    mutationFn: (params: { name: string; updates: { newName?: string; group?: string; alertPcts?: number[] | null; icon?: string; color?: string } }) =>
       updateCategory(params.name, params.updates),
     onSuccess: async (_data, { name, updates }) => {
       const newName = updates.newName
@@ -127,6 +146,7 @@ export function useUpdateCategory() {
             name: newName,
             ...(updates.group !== undefined ? { group: updates.group } : {}),
             ...(updates.icon !== undefined ? { icon: updates.icon } : {}),
+            ...(updates.color !== undefined ? { color: updates.color } : {}),
             ...(updates.alertPcts !== undefined ? {
               alertPcts: updates.alertPcts === null ? undefined : [...updates.alertPcts].sort((a, b) => a - b),
             } : {}),

@@ -7,11 +7,11 @@ import { useAmountEntry } from '@/src/components/ui/useAmountEntry'
 import { useProgressWidth } from '@/src/components/ui/useProgressWidth'
 import { usePrivacy } from '@/src/context/PrivacyContext'
 import { useBudgets,useTransferBudget } from '@/src/hooks/useBudgets'
-import { useCategories } from '@/src/hooks/useCategories'
+import { useCategories, useCategoryTint } from '@/src/hooks/useCategories'
 import { useRecentExpenses } from '@/src/hooks/useExpenses'
 import { useGroups } from '@/src/hooks/useGroups'
 import { EMPTY } from '@/src/lib/constants'
-import { categoryTint, splitEmoji } from '@/src/lib/emoji'
+import { splitEmoji } from '@/src/lib/emoji'
 import { categoryIconKey, type CategoryIconKey } from '@/src/lib/categoryIcons'
 import { CATEGORY_ICON_COMPONENTS, CategoryIcon } from '@/src/components/shared/CategoryIcon'
 import { computeEnvelopeState,currentMonthKey } from '@/src/lib/envelope'
@@ -518,9 +518,10 @@ function DestinationCard({
   type: Record<string, number>
 }) {
   const { formatCurrency } = useCurrency()
+  const tintOf = useCategoryTint()
 
   const { text } = splitEmoji(targetCategoryName)
-  const tint = categoryTint(targetCategoryName, tokens)
+  const tint = tintOf(targetCategoryName)
   return (
     <View style={[styles.destCard, { backgroundColor: tokens.card, borderColor: tokens.border, borderRadius: radius.lg, padding: space.md, gap: space.md }]}>
       <View style={[styles.destIcon, { backgroundColor: tint.bg, borderRadius: radius.md }]}>

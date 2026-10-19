@@ -36,6 +36,7 @@ jest.mock('@/src/hooks/useAccounts', () => ({ useAccounts: () => ({ data: [] }),
 
 jest.mock('@/src/hooks/useCategories', () => ({
   useCategories: () => ({ data: [], isLoading: false, error: null }),
+  useCategoryTint: () => () => ({ bg: '#eee', ink: '#333' }),
 }))
 
 jest.mock('@/src/hooks/useGroups', () => ({

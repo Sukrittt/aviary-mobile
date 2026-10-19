@@ -36,7 +36,7 @@ import { useTheme } from "@/src/theme/ThemeProvider";
 import { usePrivacy } from "@/src/context/PrivacyContext";
 import { fontFamily } from "@/src/theme/fonts";
 
-import { categoryTint, splitEmoji } from "@/src/lib/emoji";
+import { splitEmoji } from "@/src/lib/emoji";
 import { CategoryIcon } from "@/src/components/shared/CategoryIcon";
 import {
   useExpensesPage,
@@ -44,7 +44,7 @@ import {
   useDuplicates,
   prefetchExpensesPage,
 } from "@/src/hooks/useExpenses";
-import { useCategories } from "@/src/hooks/useCategories";
+import { useCategories, useCategoryTint } from "@/src/hooks/useCategories";
 import { CategoryPickerSheet } from "@/src/components/shared/CategoryPickerSheet";
 import { BottomSheet } from "@/src/components/shared/Modal";
 import { DatePicker, type DateRange } from "@/src/components/shared/DatePicker";
@@ -103,6 +103,7 @@ function ActivityScreen() {
   const { formatCurrency } = useCurrency()
 
   const { tokens, scheme, space } = useTheme();
+  const tintOf = useCategoryTint();
   const insets = useSafeAreaInsets();
   const categoryRowPress = usePressSpring();
   const { refreshing, onRefresh } = useRefresh();
@@ -747,7 +748,7 @@ function ActivityScreen() {
                 );
               }
               const txn = entry.txn;
-              const tint = categoryTint(txn.category, tokens);
+              const tint = tintOf(txn.category);
               const cat = categoryByName.get(txn.category);
               const isSelected = selectedKeys.has(keyOf(txn));
               const content = (
