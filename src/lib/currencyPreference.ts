@@ -1,7 +1,8 @@
 import * as SecureStore from 'expo-secure-store'
+import { budgetKeySuffix } from './activeBudget'
 import { currentUserId } from '@/src/api/accessMode'
 import { resolveCurrency } from './currencies'
-const key = (id: string) => `mc-currency-${id}`
+const key = (id: string) => `mc-currency-${id}${budgetKeySuffix('-')}`
 export async function readCurrencyPreference(): Promise<string> {
   const id = currentUserId()
   if (!id) return 'INR'

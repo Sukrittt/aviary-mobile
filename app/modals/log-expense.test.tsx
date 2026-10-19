@@ -49,6 +49,10 @@ jest.mock('expo-image-picker', () => ({
   launchCameraAsync: (opts: unknown) => mockLaunchCamera(opts),
   launchImageLibraryAsync: (opts: unknown) => mockLaunchLibrary(opts),
 }))
+const personal = { id: 'u1', name: 'Personal', emoji: '🐦', role: 'owner', ownerId: 'u1', currencyCode: 'INR', personal: true, members: [] }
+let mockBudgetList = { budgets: [personal], count: 1, limit: 5, activeId: 'u1' }
+jest.mock('@/src/api/spaces', () => ({ getBudgets: jest.fn(async () => mockBudgetList) }))
+
 jest.mock('@/src/api/categories', () => ({
   getCategories: jest.fn(),
   addCategory: jest.fn(),
@@ -91,6 +95,10 @@ function Harness() {
   ;(globalThis as any).__onInvalid = onInvalid
   return null
 }
+
+beforeEach(() => {
+  mockBudgetList = { budgets: [personal], count: 1, limit: 5, activeId: 'u1' }
+})
 
 function setup(params: Record<string, string> = {}, expenses: ExpenseRow[] = [], categories = [{ name: 'Groceries', group: 'Food' }], { coldAccounts = false, activityFeed = true, words = {} as Record<string, string>, mapPending = false } = {}) {
   mockParams = params
@@ -1012,4 +1020,18 @@ it('keeps the keyword pick steady while typing on, so the pill does not land aga
   await act(async () => { await Promise.resolve() })
   expect(mockPillSelected).not.toContain(null)
   expect(utils.getByLabelText('Category: Groceries, picked for you')).toBeTruthy()
+})
+
+describe('which budget it logs to', () => {
+  it('says nothing about budgets with just the one', async () => {
+    const utils = setup()
+    await waitFor(() => expect(utils.getByText('Log expense')).toBeTruthy())
+    expect(utils.queryByTestId('log-budget')).toBeNull()
+  })
+
+  it('names the budget with 2+, so nothing lands in the wrong one', async () => {
+    mockBudgetList = { budgets: [personal, { ...personal, id: 'sp_home', name: 'Home', emoji: '🏠', personal: false }], count: 2, limit: 5, activeId: 'u1' }
+    const utils = setup()
+    await waitFor(() => expect(utils.getByTestId('log-budget')).toHaveTextContent('Logging to 🐦 Personal'))
+  })
 })

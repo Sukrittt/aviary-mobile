@@ -10,7 +10,7 @@
 import { FlexWidget, OverlapWidget, TextWidget, SvgWidget } from "react-native-android-widget";
 import type { ThemeTokens } from "@/src/theme/tokens";
 import { widgetFontFamily as fontFamily } from "@/src/theme/fonts";
-import { headerRightLabel, heroFontSize, widgetMood, type WidgetData } from "./data";
+import { headerRightLabel, heroFontSize, widgetMood, withBudget, type WidgetData } from "./data";
 import { WidgetSurface, color } from "./surface";
 import { plusSvg } from "./icons";
 import { birdFrames, birdSvg, FRAME_MS, heroTint, ringSvg } from "./bird";
@@ -126,7 +126,7 @@ export function EnvelopeMiniWidget({
             />
             <FlexWidget style={{ flex: 1 }}>
               <TextWidget
-                text={headerRightLabel(data.daysLeft, data.updatedAt)}
+                text={withBudget(data, headerRightLabel(data.daysLeft, data.updatedAt))}
                 truncate="END"
                 maxLines={1}
                 style={{

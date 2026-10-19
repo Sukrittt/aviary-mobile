@@ -1,3 +1,4 @@
+import { useBudgetSpaces } from "@/src/hooks/useBudgetSpaces";
 import { expenseSuccessParams } from '@/src/lib/expenseSuccessParams'
 import { ExpenseNoticeScreen } from '@/src/features/log-expense/ExpenseNoticeScreen'
 import { liveAccounts, useAccounts } from "@/src/hooks/useAccounts";
@@ -141,6 +142,7 @@ export default function LogExpenseScreen() {
   const origId = str(params.id) || undefined;
   const origTimestamp = str(params.timestamp);
   const isEdit = origTimestamp !== "";
+  const { multi: multiBudget, active: activeBudget } = useBudgetSpaces();
   const cachedUser = useCachedUser();
   const feedOn = useFeedOn().on;
   const showIncome = !isEdit && !isHidden(cachedUser, "income");
@@ -609,6 +611,13 @@ export default function LogExpenseScreen() {
           </Reanimated.View>
         )}
       </View>
+
+      {multiBudget && activeBudget && (
+        // With 2+ budgets, always say which one this lands in.
+        <Text testID="log-budget" numberOfLines={1} style={{ color: onAccentDim, fontFamily: fontFamily.bodySemiBold, fontSize: type.micro, textAlign: "center", paddingHorizontal: space.lg }}>
+          {`${isEdit ? "In" : "Logging to"} ${activeBudget.emoji} ${activeBudget.name}`}
+        </Text>
+      )}
 
       {showCapture && captureTip.reason && nudge === 0 && unusualNudge === 0 && (
         // The moment it would help (src/lib/captureTip.ts): logging a few by

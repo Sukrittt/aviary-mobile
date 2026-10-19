@@ -7,7 +7,7 @@ import { FlexWidget, OverlapWidget, TextWidget, SvgWidget } from "react-native-a
 import { fillColor } from "@/src/components/envelope/ProgressBar";
 import type { ThemeTokens } from "@/src/theme/tokens";
 import { widgetFontFamily as fontFamily } from "@/src/theme/fonts";
-import { heroFontSize, layoutFor, widgetMood, withPerDay, type WidgetData } from "./data";
+import { heroFontSize, layoutFor, widgetMood, withPerDay, withBudget, type WidgetData } from "./data";
 import { birdFrames, birdSvg, FRAME_MS, heroTint, ringSvg } from "./bird";
 import { doodlesSvg } from "./doodles";
 import { WidgetSurface, color } from "./surface";
@@ -132,7 +132,7 @@ export function EnvelopeWidget({
             />
             <FlexWidget style={{ flex: 1 }}>
               <TextWidget
-                text={withPerDay(data)}
+                text={withBudget(data, withPerDay(data))}
                 truncate="END"
                 maxLines={1}
                 style={{

@@ -38,6 +38,8 @@ import appJson from '@/app.json'
 import { isVersionNewer } from '@/src/lib/version'
 import { hiddenFeatures, isHidden, OPT_IN_FEATURES } from '@/src/lib/features'
 import { tap } from '@/src/lib/haptics'
+import { BudgetSwitcherSheet } from '@/src/components/budgets/BudgetSwitcherSheet'
+import { useBudgetSpaces } from '@/src/hooks/useBudgetSpaces'
 import { track } from '@/src/lib/analytics'
 
 const THEME_OPTIONS = [
@@ -408,6 +410,8 @@ function MoreScreen() {
               <AccountRow icon={Lock} label="Account & security" onPress={() => router.push('/account/security')} tokens={tokens} />
               <View style={[styles.divider, { backgroundColor: tokens.border }]} />
               <AccountRow icon={Database} label="Your data" onPress={() => router.push('/account/data')} tokens={tokens} />
+              <View style={[styles.divider, { backgroundColor: tokens.border }]} />
+              <BudgetsRow tokens={tokens} />
               {Platform.OS === 'android' && (
                 <>
                   <View style={[styles.divider, { backgroundColor: tokens.border }]} />
@@ -676,6 +680,24 @@ const INVITE_URL = `${WEB_URL}/?ref=invite`
 function inviteFriend() {
   track('invite_shared')
   Share.share({ message: `I've been budgeting with Aviary. Give it a try: ${INVITE_URL}` }).catch(() => {})
+}
+
+/** More → Budgets: where a one-budget person makes their second, and where everyone can switch. */
+function BudgetsRow({ tokens }: { tokens: ReturnType<typeof useTheme>['tokens'] }) {
+  const { multi, active, count } = useBudgetSpaces()
+  const [open, setOpen] = useState(false)
+  return (
+    <>
+      <AccountRow
+        icon={Wallet}
+        label="Budgets"
+        hint={multi && active ? `${count} budgets · you're in ${active.name}` : 'Start one for a trip or a shared home'}
+        onPress={() => setOpen(true)}
+        tokens={tokens}
+      />
+      <BudgetSwitcherSheet visible={open} onClose={() => setOpen(false)} />
+    </>
+  )
 }
 
 function AccountRow({

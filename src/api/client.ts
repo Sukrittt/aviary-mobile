@@ -4,7 +4,7 @@ import { clearAccess, currentAccessToken, getValidToken, sessionGeneration, Sess
 import { setOnline, markSynced } from '@/src/lib/netStatus'
 import { markAccessBlocked, SUBSCRIPTION_REQUIRED_STATUS } from '@/src/lib/accessGate'
 import { track } from '@/src/lib/analytics'
-import { activeBudgetId, budgetHeaders } from '@/src/lib/activeBudget'
+import { activeBudgetId, budgetHeaders, restoreActiveBudget } from '@/src/lib/activeBudget'
 
 // A dev build with no API URL set would otherwise silently point at
 // production data (see the fallback below) with no warning — fail loudly
@@ -40,6 +40,8 @@ export async function apiFetch(path: string, init?: RequestInit & { anonymous?: 
     throw err
   }
   if (expectedGeneration !== sessionGeneration()) throw new SessionChangedError()
+  // A cold start's first requests must name the budget the person was last in.
+  if (token) await restoreActiveBudget()
   const tokenMs = Date.now() - startedAt
   let resp: Response
   try {
