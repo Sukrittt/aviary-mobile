@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
@@ -18,6 +18,7 @@ import { formatDateShort } from '@/src/lib/format'
 import { splitEmoji } from '@/src/lib/emoji'
 import { track } from '@/src/lib/analytics'
 import { tap } from '@/src/lib/haptics'
+import { useOnline } from '@/src/lib/netStatus'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 
@@ -55,6 +56,14 @@ export default function StatementScreen() {
   const [saving, setSaving] = useState<'idle' | 'saving' | 'success'>('idle')
   const [pickingFor, setPickingFor] = useState<string | null>(null)
   const logged = useRef(new Set<string>())
+  const online = useOnline()
+
+  // Cleared on unmount, so a screen already dismissed during the tick can't pop the one underneath.
+  useEffect(() => {
+    if (saving !== 'success') return
+    const timer = setTimeout(() => router.back(), SUCCESS_MS)
+    return () => clearTimeout(timer)
+  }, [saving, router])
 
   async function read(input: Parameters<typeof readStatement>[0], kind: 'screenshots' | 'file') {
     setError('')
@@ -73,7 +82,16 @@ export default function StatementScreen() {
   }
 
   async function pickScreenshots() {
+    if (!online) return
     tap()
+    try {
+      await chooseScreenshots()
+    } catch {
+      setError("Couldn't open that. Try again.")
+    }
+  }
+
+  async function chooseScreenshots() {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync()
     if (!perm.granted) {
       Alert.alert('Permission needed', 'Photo access is off. You can turn it on in Settings.')
@@ -102,8 +120,14 @@ export default function StatementScreen() {
   }
 
   async function pickStatement() {
+    if (!online) return
     tap()
-    const file = await pickFile()
+    let file
+    try {
+      file = await pickFile()
+    } catch {
+      return setError("Couldn't open that. Try again.")
+    }
     if (!file) return
     if (!STATEMENT_FILE.test(file.name)) return setError('Pick a CSV, Excel or PDF statement.')
     if ((file.size ?? 0) > MAX_FILE_BYTES) return setError("That's too big to upload. Try a shorter date range.")
@@ -134,7 +158,6 @@ export default function StatementScreen() {
     }
     track('statement_logged', { rows: toLog.length, unchecked: proposal.items.length - toLog.length })
     setSaving('success')
-    setTimeout(() => router.back(), SUCCESS_MS)
   }
 
   const busy = saving !== 'idle'
@@ -168,8 +191,9 @@ export default function StatementScreen() {
         <View style={{ padding: space.lg, gap: space.md }}>
           <Text style={{ color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: type.title }}>Fill in the days you missed</Text>
           <Text style={caption}>Your UPI or bank app already has them. We&apos;ll read the payments, you pick what to add. Nothing&apos;s logged until you say so.</Text>
-          <PickButton icon={ImageSquare} label="Choose screenshots" hint="Up to 5 from your UPI or bank app" onPress={pickScreenshots} />
-          {canPickFiles && <PickButton icon={FileText} label="Choose a statement" hint="CSV, Excel or PDF from net banking" onPress={pickStatement} />}
+          {!online && <Text style={{ ...caption, color: tokens.warnInk }}>You&apos;re offline. Uploads need a connection.</Text>}
+          <PickButton icon={ImageSquare} label="Choose screenshots" hint="Up to 5 from your UPI or bank app" onPress={pickScreenshots} disabled={!online} />
+          {canPickFiles && <PickButton icon={FileText} label="Choose a statement" hint="CSV, Excel or PDF from net banking" onPress={pickStatement} disabled={!online} />}
           {error !== '' && <Text accessibilityRole="alert" style={{ color: tokens.coral, fontFamily: fontFamily.bodyMedium, fontSize: type.caption }}>{error}</Text>}
         </View>
       )}
@@ -240,13 +264,14 @@ export default function StatementScreen() {
   )
 }
 
-function PickButton({ icon, label, hint, onPress }: { icon: typeof ImageSquare; label: string; hint: string; onPress: () => void }) {
+function PickButton({ icon, label, hint, onPress, disabled }: { icon: typeof ImageSquare; label: string; hint: string; onPress: () => void; disabled?: boolean }) {
   const { tokens, space, radius, type } = useTheme()
   return (
     <Pressable
       accessibilityRole="button"
       onPress={onPress}
-      style={[styles.pick, { gap: space.md, padding: space.md, backgroundColor: tokens.card, borderColor: tokens.border, borderRadius: radius.lg }]}
+      disabled={disabled}
+      style={[styles.pick, { gap: space.md, padding: space.md, backgroundColor: tokens.card, borderColor: tokens.border, borderRadius: radius.lg, opacity: disabled ? 0.5 : 1 }]}
     >
       <Icon icon={icon} size={20} color={tokens.accentInk} />
       <View style={{ flex: 1 }}>

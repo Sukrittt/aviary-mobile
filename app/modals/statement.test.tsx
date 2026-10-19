@@ -18,6 +18,8 @@ jest.mock('@/src/components/shared/CategoryPickerSheet', () => {
       visible ? <Pressable onPress={() => onSelect('Food')}><Text>pick-food</Text></Pressable> : null,
   }
 })
+let mockOnline = true
+jest.mock('@/src/lib/netStatus', () => ({ ...jest.requireActual('@/src/lib/netStatus'), useOnline: () => mockOnline }))
 const mockBack = jest.fn()
 jest.mock('expo-router', () => ({ useRouter: () => ({ back: mockBack, push: jest.fn() }) }))
 
@@ -34,6 +36,7 @@ const PROPOSAL = {
 
 beforeEach(() => {
   jest.clearAllMocks()
+  mockOnline = true
   mockRead.mockResolvedValue(PROPOSAL)
   mockMutate.mockResolvedValue({})
   mockPickFile.mockResolvedValue({ uri: 'file:///hdfc.csv', name: 'hdfc.csv', size: 1200 })
@@ -79,4 +82,19 @@ it('turns away a file that is not a statement, and words a locked pdf', async ()
   mockRead.mockRejectedValueOnce(new StatementFailure('That PDF has a password. Download the statement as Excel or CSV from net banking and upload that instead.'))
   fireEvent.press(screen.getByText('Choose a statement'))
   expect(await screen.findByText(/That PDF has a password/)).toBeTruthy()
+})
+
+it('says uploads need a connection when offline, and picks nothing', () => {
+  mockOnline = false
+  const screen = renderWithProviders(<StatementScreen />)
+  expect(screen.getByText("You're offline. Uploads need a connection.")).toBeTruthy()
+  fireEvent.press(screen.getByText('Choose a statement'))
+  expect(mockPickFile).not.toHaveBeenCalled()
+})
+
+it('recovers when the file picker itself fails', async () => {
+  mockPickFile.mockRejectedValueOnce(new Error('picker crashed'))
+  const screen = renderWithProviders(<StatementScreen />)
+  fireEvent.press(screen.getByText('Choose a statement'))
+  expect(await screen.findByText("Couldn't open that. Try again.")).toBeTruthy()
 })

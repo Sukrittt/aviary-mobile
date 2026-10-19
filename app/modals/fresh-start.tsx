@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
+import { useEffect, useState } from 'react'
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { CaretDown, X } from '@/src/components/shared/icons'
@@ -41,6 +41,13 @@ export default function FreshStartScreen() {
   const expense = freshStartExpense(amount, category, since || today, today)
   const busy = phase !== 'idle'
 
+  // Cleared on unmount, so a screen already dismissed during the tick can't pop the one underneath.
+  useEffect(() => {
+    if (phase !== 'success') return
+    const timer = setTimeout(() => router.back(), SUCCESS_MS)
+    return () => clearTimeout(timer)
+  }, [phase, router])
+
   async function save() {
     if (!expense || busy) return
     tap()
@@ -50,7 +57,6 @@ export default function FreshStartScreen() {
       await addExpense.mutateAsync(expense)
       track('fresh_start_logged')
       setPhase('success')
-      setTimeout(() => router.back(), SUCCESS_MS)
     } catch {
       setPhase('idle')
       setError('Check your connection and try again.')
@@ -58,8 +64,12 @@ export default function FreshStartScreen() {
   }
 
   return (
-    <View
-      style={[styles.screen, { backgroundColor: tokens.bg, paddingTop: insets.top + space.sm, paddingBottom: insets.bottom + space.lg, paddingHorizontal: space.lg, gap: space.lg }]}>
+    <ScrollView
+      style={[styles.screen, { backgroundColor: tokens.bg }]}
+      contentContainerStyle={{ paddingTop: insets.top + space.sm, paddingBottom: insets.bottom + space.lg, paddingHorizontal: space.lg, gap: space.lg }}
+      keyboardShouldPersistTaps="handled"
+      automaticallyAdjustKeyboardInsets
+    >
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Close"
@@ -137,7 +147,7 @@ export default function FreshStartScreen() {
         title="Category"
         noneLabel="No category"
       />
-    </View>
+    </ScrollView>
   )
 }
 

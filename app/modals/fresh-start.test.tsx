@@ -1,4 +1,4 @@
-import { fireEvent, waitFor } from '@testing-library/react-native'
+import { act, fireEvent, waitFor } from '@testing-library/react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import FreshStartScreen from './fresh-start'
 
@@ -36,4 +36,18 @@ it('"No idea" closes without logging', () => {
   fireEvent.press(screen.getByText('No idea'))
   expect(mockBack).toHaveBeenCalled()
   expect(mockMutate).not.toHaveBeenCalled()
+})
+
+it('does not close whatever is underneath if it was already dismissed during the tick', async () => {
+  jest.useFakeTimers()
+  const screen = renderWithProviders(<FreshStartScreen />)
+  fireEvent.changeText(screen.getByLabelText('Rough total'), '500')
+  fireEvent.press(screen.getByLabelText('Pick a category'))
+  fireEvent.press(screen.getByText('pick-food'))
+  fireEvent.press(screen.getByText('Log it'))
+  await waitFor(() => expect(mockMutate).toHaveBeenCalled())
+  screen.unmount()
+  await act(async () => { jest.advanceTimersByTime(2000) })
+  expect(mockBack).not.toHaveBeenCalled()
+  jest.useRealTimers()
 })
