@@ -21,6 +21,9 @@ jest.mock('expo-secure-store', () => ({
   deleteItemAsync: jest.fn(() => Promise.resolve()),
 }))
 
+// Home is memoized, so a refetch reaches it the way react-query's does: through
+// a subscription the hook reads, not a parent re-render.
+const mockRefetched = mockReact.createContext(0)
 let mockBudgets: { month: string; category: string; assigned: string; rolled_over: string }[] = []
 let mockBudgetsError: Error | null = null
 let mockUser: { onboardedAt?: string; getStartedAt?: string; manualTransactionCompletedAt?: string; guidedTourCompletedAt?: string; createdAt?: string; hiddenFeatures?: string[] } = {}
@@ -32,7 +35,10 @@ const mockMutate = jest.fn()
 const mockRefetch = jest.fn()
 
 jest.mock('@/src/hooks/useBudgets', () => ({
-  useBudgets: () => ({ data: mockBudgets, isLoading: false, error: mockBudgetsError, refetch: mockRefetch }),
+  useBudgets: () => {
+    mockReact.useContext(mockRefetched)
+    return { data: mockBudgets, isLoading: false, error: mockBudgetsError, refetch: mockRefetch }
+  },
 }))
 jest.mock('@/src/hooks/useExpenses', () => ({
   useRecentExpenses: () => ({ data: mockExpenses, isLoading: false, error: null, refetch: jest.fn() }),
@@ -206,9 +212,9 @@ describe('HomeScreen · Ready to Assign', () => {
     // A budget save refetches into the same mounted screen; a rerender with new data stands in for it.
     let refetched = () => {}
     function Harness() {
-      const [, setTick] = useState(0)
+      const [tick, setTick] = useState(0)
       refetched = () => setTick((n) => n + 1)
-      return <HomeScreen />
+      return <mockRefetched.Provider value={tick}><HomeScreen /></mockRefetched.Provider>
     }
     const view = renderWithProviders(<Harness />)
     expect(view.queryByText('Every rupee has a job.')).toBeNull()
@@ -239,9 +245,9 @@ describe('HomeScreen · Ready to Assign', () => {
   it('holds a Ready to Assign change made while covered until Home is back in view', () => {
     let refetched = () => {}
     function Harness() {
-      const [, setTick] = useState(0)
+      const [tick, setTick] = useState(0)
       refetched = () => setTick((n) => n + 1)
-      return <HomeScreen />
+      return <mockRefetched.Provider value={tick}><HomeScreen /></mockRefetched.Provider>
     }
     const view = renderWithProviders(<Harness />)
     act(() => mockNav.emit('blur'))

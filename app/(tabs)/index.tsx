@@ -2,7 +2,7 @@ import { useCurrency } from '@/src/context/CurrencyContext'
 import { currencyUnit } from '@/src/lib/currencies'
 import { useRecurringIncomes } from '@/src/hooks/useIncomes'
 import { useAccounts } from '@/src/hooks/useAccounts'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { View, Text, Pressable, RefreshControl, StyleSheet, Linking, Platform } from 'react-native'
 import { useQuery } from '@tanstack/react-query'
 import { useRouter, useNavigation, useFocusEffect } from 'expo-router'
@@ -68,7 +68,7 @@ import { FORCE_EMPTY_STATE_PREVIEW, emptyForPreview } from '@/src/lib/emptyState
  * which envelopes are in trouble. The trend chart, heatmap and subscriptions
  * moved to /insights — six modules on one scroll left nothing room to be large.
  */
-export default function HomeScreen() {
+function HomeScreen() {
   const { formatCurrency, currencyCode } = useCurrency()
 
   const { tokens, space, type, radius } = useTheme()
@@ -635,3 +635,7 @@ const styles = StyleSheet.create({
   emptyEnvelopesBody: { flex: 1, justifyContent: 'center' },
   insightsLink: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: 14 },
 })
+
+// memo: expo-router re-renders a tab's screen on every focus change with a
+// fresh props object, and a full HomeScreen render held up each tab switch.
+export default memo(HomeScreen)

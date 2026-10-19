@@ -1,5 +1,5 @@
 import { CurrencySetting } from '@/src/components/CurrencyPicker'
-import { useState, type ReactNode } from 'react'
+import { memo, useState, type ReactNode } from 'react'
 import { View, Text, Image, Pressable, RefreshControl, Linking, Platform, Share, StyleSheet } from 'react-native'
 import { Toggle } from '@/src/components/ui/Toggle'
 import { useLocalSearchParams, useRouter } from 'expo-router'
@@ -52,7 +52,7 @@ const NOTIFY_OPTIONS: { value: NonNullable<UserProfile['notifyCadence']>; label:
   { value: 'daily', label: 'Daily' },
 ]
 
-export default function MoreScreen() {
+function MoreScreen() {
   const theme = useTheme()
   const { tokens } = theme
   const privacy = usePrivacy()
@@ -747,3 +747,7 @@ const styles = StyleSheet.create({
   sourceLabel: { fontSize: 15 },
   chip: { alignSelf: 'flex-start', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
 })
+
+// memo: expo-router re-renders a tab's screen on every focus change with a
+// fresh props object, and a full MoreScreen render held up each tab switch.
+export default memo(MoreScreen)

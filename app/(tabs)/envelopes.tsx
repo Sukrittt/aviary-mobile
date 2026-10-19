@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { View, Text, ScrollView, Pressable, TextInput, RefreshControl, StyleSheet, Animated, PanResponder } from 'react-native'
 import type { LayoutChangeEvent } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -495,7 +495,7 @@ type SheetState =
   | { kind: 'addGroup' }
   | { kind: 'renameGroup'; name: string }
 
-export default function EnvelopesScreen() {
+function EnvelopesScreen() {
   const { tokens, scheme } = useTheme()
   // Handles, kebab and counts are too dim on the dark surface at text3; light text3 already passes.
   const dimInk = scheme === 'dark' ? tokens.text2 : tokens.text3
@@ -1319,3 +1319,7 @@ const styles = StyleSheet.create({
   saveBtn: { flex: 1, paddingVertical: 15, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   toast: { position: 'absolute', left: 24, right: 24, alignItems: 'center', paddingVertical: 12, paddingHorizontal: 18, borderRadius: 100, borderWidth: 1 },
 })
+
+// memo: expo-router re-renders a tab's screen on every focus change with a
+// fresh props object, and a full EnvelopesScreen render held up each tab switch.
+export default memo(EnvelopesScreen)

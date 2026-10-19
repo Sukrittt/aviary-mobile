@@ -5,8 +5,13 @@ import TabsLayout from './_layout'
 
 let mockPathname = '/more'
 let mockRoutes = [{ name: '(tabs)' }]
+const mockDispatch = jest.fn()
 jest.mock('expo-router', () => ({
   usePathname: () => mockPathname,
+  useNavigationContainerRef: () => ({
+    getRootState: () => ({ routes: [{ name: '__root', state: { routes: [{ name: '(tabs)', state: { key: 'tabs-1', index: 3, routes: [{ name: 'index' }, { name: 'activity' }, { name: 'envelopes' }, { name: 'more' }] } }] } }] }),
+    dispatch: mockDispatch,
+  }),
   useNavigation: () => ({ getState: () => ({ routes: mockRoutes }), addListener: () => () => {} }),
 }))
 const mockTabs = jest.fn((_props: { screenOptions?: { animation?: string } }) => null)
@@ -19,6 +24,7 @@ beforeEach(() => {
   mockPathname = '/more'
   mockRoutes = [{ name: '(tabs)' }]
   tabsNavCover.value = 0
+  mockDispatch.mockClear()
 })
 
 it('stands in for the nav while a screen is pushed over the tabs', () => {
@@ -39,4 +45,14 @@ it('stays hidden when signing out drops the tabs from the stack', () => {
 it('switches tabs instantly, with no fade between them', () => {
   render(<TabsLayout />, { wrapper: ThemeProvider })
   expect(mockTabs.mock.calls[0][0].screenOptions?.animation).toBe('none')
+})
+
+it('mounts the other tabs once the landing tab is up, so a first visit is no slower than a repeat one', () => {
+  jest.useFakeTimers()
+  render(<TabsLayout />, { wrapper: ThemeProvider })
+  expect(mockDispatch).not.toHaveBeenCalled()
+  jest.runOnlyPendingTimers()
+  expect(mockDispatch.mock.calls.map(([a]) => a.payload.name)).toEqual(['index', 'activity', 'envelopes'])
+  expect(mockDispatch).toHaveBeenCalledWith({ type: 'PRELOAD', payload: { name: 'activity' }, target: 'tabs-1' })
+  jest.useRealTimers()
 })

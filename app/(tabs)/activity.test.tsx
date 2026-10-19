@@ -1,5 +1,5 @@
 import { ExpenseWriteError } from '@/src/lib/expenseConflict'
-import { useState, type ReactNode } from 'react'
+import { createContext, useContext, useState, type ReactNode } from 'react'
 import { act, fireEvent, waitFor } from '@testing-library/react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import type { ExpensesPage, ExpensesPageParams } from '@/src/api/expenses'
@@ -234,7 +234,11 @@ it('pages through the Activity list via server-side pagination', () => {
 
 it('steps back to the new last page when its only row is deleted', () => {
   let pageCount = 3
+  // The screen is memoized, so the refetch reaches it the way react-query's
+  // does: through a subscription the hook reads, not a parent re-render.
+  const Refetched = createContext(0)
   mockUseExpensesPage.mockImplementation((params: ExpensesPageParams) => {
+    useContext(Refetched)
     if (params.limit === 1) return { data: pageResult({}), isLoading: false, error: null }
     const page = params.page
     return {
@@ -252,9 +256,9 @@ it('steps back to the new last page when its only row is deleted', () => {
 
   let refetch = () => {}
   function Harness() {
-    const [, setTick] = useState(0)
+    const [tick, setTick] = useState(0)
     refetch = () => setTick((n) => n + 1)
-    return <ActivityScreen />
+    return <Refetched.Provider value={tick}><ActivityScreen /></Refetched.Provider>
   }
   const { getByText, getByLabelText } = renderWithProviders(<Harness />)
   fireEvent.press(getByLabelText('Next page'))
