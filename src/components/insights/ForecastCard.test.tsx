@@ -10,7 +10,7 @@ const mockPush = jest.fn()
 jest.mock('@/src/api/forecast', () => ({ getForecast: async () => mockForecast }))
 jest.mock('@/src/api/budgets', () => ({ getBudgets: async () => [] }))
 jest.mock('@/src/hooks/useUser', () => ({ useUser: () => ({ data: mockUser }) }))
-jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }))
+jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }), useIsFocused: () => true }))
 
 const nextMonth = { month: '2026-11', income: 80000, spokenFor: 27919, free: 52081 }
 const forecast: Forecast = {
@@ -32,8 +32,9 @@ beforeEach(() => {
 
 it('lists envelopes, run-outs first, then next month', async () => {
   const { findByText, getByText, queryByText } = renderWithProviders(<ForecastCard />)
-  expect(await findByText('Runs out around 30 Oct')).toBeTruthy()
+  expect(await findByText('Covered till 30 Oct')).toBeTruthy()
   expect(getByText('Food')).toBeTruthy()
+  expect(getByText("There's enough elsewhere to cover the gap.")).toBeTruthy()
   expect(getByText('₹25,000 in bills still to come')).toBeTruthy()
   // Nothing in it and nothing coming: left out.
   expect(queryByText('Gifts')).toBeNull()
@@ -69,4 +70,31 @@ it('drops a forecast it already loaded once Insights is hidden', async () => {
   // Any refetch re-renders; the forecast's own cache is still there.
   await act(() => queryClient.invalidateQueries({ queryKey: ['budgets'] }))
   await waitFor(() => expect(queryByText('Food runs out around 30 Oct')).toBeNull())
+})
+
+it('shows the most urgent rows first and the rest on tap', async () => {
+  const quiet = ['A', 'B', 'C', 'D', 'E'].map((category) => (
+    { category, available: 500, scheduled: 0, usualDaily: 10, projected: 400, runsOutOn: null, overspent: false }
+  ))
+  mockForecast = { ...forecast, envelopes: [...quiet, forecast.envelopes[1]] }
+  const { findByText, getByText, queryByText } = renderWithProviders(<ForecastCard />)
+  expect(await findByText('Food')).toBeTruthy()
+  expect(queryByText('E')).toBeNull()
+  fireEvent.press(getByText('Show all 6'))
+  expect(getByText('E')).toBeTruthy()
+  fireEvent.press(getByText('Show fewer'))
+  expect(queryByText('E')).toBeNull()
+})
+
+it('turns a shortfall into a top-up from another envelope', async () => {
+  const { findByText } = renderWithProviders(<ForecastCard />)
+  fireEvent.press(await findByText('Top up ₹200'))
+  expect(mockPush).toHaveBeenCalledWith({ pathname: '/modals/move-money', params: { fromCategory: '🍔 Food', amount: '200' } })
+})
+
+it('skips the reassurance when the gaps outweigh what is left', async () => {
+  mockForecast = { ...forecast, totalLeft: -500 }
+  const { findByText, queryByText } = renderWithProviders(<ForecastCard />)
+  expect(await findByText('Top up ₹200')).toBeTruthy()
+  expect(queryByText(/enough elsewhere/)).toBeNull()
 })

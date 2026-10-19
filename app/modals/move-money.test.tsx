@@ -52,7 +52,7 @@ function setup(overrides: Partial<typeof BASE_PARAMS> = {}, expenses: object[] =
   return renderWithProviders(<MoveMoneyModal />)
 }
 
-const BASE_PARAMS = { fromCategory: 'Electricity' }
+const BASE_PARAMS: { fromCategory: string; amount?: string } = { fromCategory: 'Electricity' }
 
 beforeEach(() => {
   jest.clearAllMocks()
@@ -221,4 +221,12 @@ it('closes to Home when it was opened with nothing underneath', async () => {
   } finally {
     mockCanGoBack = true
   }
+})
+
+it("opens on the amount the forecast's top-up asked for", async () => {
+  const { getByText, getByLabelText, queryByText } = setup({ amount: '750' })
+  await waitFor(() => expect(getByLabelText('1')).toBeTruthy())
+  expect(queryByText('Add an amount')).toBeNull()
+  fireEvent.press(getByText('Pick sources →'))
+  await waitFor(() => expect(getByText('SUGGESTED SOURCES')).toBeTruthy())
 })

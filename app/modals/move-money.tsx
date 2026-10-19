@@ -69,6 +69,8 @@ export default function MoveMoneyModal() {
   // its call site (app/(tabs)/index.tsx) it's actually the RECIPIENT — mirrors
   // Web's MoveMoneyModal `targetCategory` prop. The source(s) are chosen below.
   const targetCategoryName = str(params.fromCategory)
+  // Insights' forecast "Top up ₹X" passes the shortfall it showed, so the numpad opens on it.
+  const prefill = /^\d+$/.test(str(params.amount)) ? str(params.amount) : ''
 
   const budgetsQ = useBudgets()
   const expensesQ = useRecentExpenses()
@@ -100,7 +102,7 @@ export default function MoveMoneyModal() {
 
   const [step, setStep] = useState<'amount' | 'sources'>('amount')
   const [allocs, setAllocs] = useState<Record<string, number>>({})
-  const { amount: amountStr, setAmount: setAmountStr, pushDigit, handleBackspace, shake } = useAmountEntry(isOverspent ? String(Math.round(shortfall)) : '', { onChange: () => setAllocs({}) })
+  const { amount: amountStr, setAmount: setAmountStr, pushDigit, handleBackspace, shake } = useAmountEntry(prefill || (isOverspent ? String(Math.round(shortfall)) : ''), { onChange: () => setAllocs({}) })
   const [query, setQuery] = useState('')
   const [error, setError] = useState('')
   const [moveSuccess, setMoveSuccess] = useState(false)

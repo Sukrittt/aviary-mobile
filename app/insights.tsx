@@ -547,7 +547,6 @@ export default function InsightsScreen() {
       }
       contentContainerStyle={{ gap: space.lg }}
     >
-      {insightMonth === month && <ForecastCard />}
       <Card elevated={false} style={{ backgroundColor: tokens.card, marginTop: space.sm }}>
         <View
           style={{
@@ -689,6 +688,8 @@ export default function InsightsScreen() {
           )}
         </View>
       </Card>
+
+      {insightMonth === month && <ForecastCard />}
 
       <Card elevated={false} style={{ backgroundColor: tokens.card }}>
         <CategoryBreakdown
