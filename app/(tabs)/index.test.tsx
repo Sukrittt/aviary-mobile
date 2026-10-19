@@ -261,6 +261,18 @@ describe('HomeScreen · Ready to Assign', () => {
     expect(view.getByLabelText('₹12,000')).toBeTruthy()
   })
 
+  it('catches up on a new month that started while another tab was in front', () => {
+    jest.useFakeTimers({ now: new Date(2026, 0, 31, 23, 0) })
+    const view = renderHome()
+    expect(view.getByText('Jan 2026')).toBeTruthy()
+    act(() => mockNav.emit('blur'))
+    jest.setSystemTime(new Date(2026, 1, 1, 9, 0))
+    act(() => mockNav.emit('focus'))
+    expect(view.getByText('Feb 2026')).toBeTruthy()
+    view.unmount()
+    jest.useRealTimers()
+  })
+
   it('shows the month in the header', () => {
     const { getByText } = renderHome()
     expect(getByText(`${monthAbbrev(MONTH)} ${MONTH.slice(0, 4)}`)).toBeTruthy()

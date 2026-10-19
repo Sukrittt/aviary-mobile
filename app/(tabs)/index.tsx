@@ -1,4 +1,5 @@
 import { useCurrency } from '@/src/context/CurrencyContext'
+import { todayLocal } from '@/src/lib/date'
 import { currencyUnit } from '@/src/lib/currencies'
 import { useRecurringIncomes } from '@/src/hooks/useIncomes'
 import { useAccounts } from '@/src/hooks/useAccounts'
@@ -173,10 +174,13 @@ function HomeScreen() {
   const [displayedReadyToAssign, setDisplayedReadyToAssign] = useState(envelopeState.readyToAssign)
   const [, setFocusTick] = useState(0)
   const rtaPending = displayedReadyToAssign !== envelopeState.readyToAssign
+  // The month and days left are read off the clock on render, so a day that
+  // turned over while Home sat behind another tab needs a render too.
+  const renderedDay = todayLocal()
   useFocusEffect(
     useCallback(() => {
-      if (rtaPending) setFocusTick((n) => n + 1)
-    }, [rtaPending]),
+      if (rtaPending || todayLocal() !== renderedDay) setFocusTick((n) => n + 1)
+    }, [rtaPending, renderedDay]),
   )
   // Adjusting state during render (not in an effect) so the sync happens in
   // the same commit as the value that triggered it, with no extra render.
