@@ -20,9 +20,10 @@ describe('stablePhotoUrl', () => {
     expect(stablePhotoUrl('https://blob.test/u/e1-a.jpg?sig=2', 10 * 60 * 1000)).toBe(first)
   })
 
-  it('takes the new URL once the old one is close to expiring', () => {
+  it('takes the new URL before the old one can expire', () => {
+    // The server may hand out a URL with only 30 of its 60 minutes left.
     stablePhotoUrl('https://blob.test/u/e2-a.jpg?sig=1', 0)
-    expect(stablePhotoUrl('https://blob.test/u/e2-a.jpg?sig=2', 51 * 60 * 1000)).toBe('https://blob.test/u/e2-a.jpg?sig=2')
+    expect(stablePhotoUrl('https://blob.test/u/e2-a.jpg?sig=2', 26 * 60 * 1000)).toBe('https://blob.test/u/e2-a.jpg?sig=2')
   })
 
   it('treats a replaced photo (new path) as new', () => {

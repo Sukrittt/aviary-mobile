@@ -7,6 +7,9 @@ import { onOnboarded } from '@/src/api/onboardingSignal'
 import { updateUser } from '@/src/api/account'
 import { completeOnboarding } from '@/src/api/billing'
 
+// The usual setup steps, as on a binary without the file picker; setup.import.test.tsx covers the import.
+jest.mock('@/src/lib/filePicker', () => ({ canPickFiles: false, pickFile: jest.fn() }))
+
 jest.mock('@/src/api/account', () => ({ updateUser: jest.fn(async patch => patch), getUser: jest.fn(async () => ({ email: 'a@b.com', emailVerified: true })) }))
 jest.mock('@/src/api/billing', () => ({
   completeOnboarding: jest.fn(async () => ({ onboardedAt: '2026-09-18T12:00:00.000Z', access: {} })),

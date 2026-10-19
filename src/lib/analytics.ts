@@ -54,6 +54,14 @@ export type AppEvent =
   // Which extras were switched on from setup's last screen. `extras` is the feature keys.
   | 'onboarding_extras_chosen'
   | 'onboarding_heard_from'
+  // Switching from another app (onboarding's first step). Counts, presets and
+  // reason codes only; never a file name, a row or an amount.
+  | 'import_started'
+  | 'import_previewed'
+  | 'import_direction_flipped'
+  | 'import_committed'
+  | 'import_done'
+  | 'import_failed'
   | 'tour_started'
   | 'tour_step_viewed'
   | 'tour_skipped'
@@ -137,6 +145,8 @@ export type AppEvent =
   | 'feedback_sent'
   | 'idea_posted'
   | 'idea_voted'
+  // "Invite a friend" share sheet opened.
+  | 'invite_shared'
 
 export type EventProperties = Record<string, string | number | boolean>
 

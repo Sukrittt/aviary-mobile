@@ -20,13 +20,15 @@ import {
 import { currentMonthKey, shiftMonthKey } from '@/src/lib/envelope'
 import { currentUserId, sessionGeneration, SessionChangedError } from '@/src/api/accessMode'
 import { HttpError } from '@/src/api/client'
-import { enqueue } from '@/src/lib/pendingExpenses'
+import { enqueue, list as listQueued } from '@/src/lib/pendingExpenses'
 import { budgetsKey } from '@/src/hooks/useBudgets'
 import { track, trackFirst } from '@/src/lib/analytics'
 import { invalidateExpenseCreateQueries } from '@/src/lib/expenseQueries'
 import { splitEmoji } from '@/src/lib/emoji'
 import { isOnline } from '@/src/lib/netStatus'
 import { undoPendingExpense } from '@/src/sync/undoExpense'
+import { flush } from '@/src/sync/flush'
+import { insertExpense, queuedRow, removeExpense, restoreExpenses, snapshotExpenses, withLastSpent, withQueued } from '@/src/lib/optimisticExpenses'
 
 const key = ['expenses'] as const
 // Ask Aviary's brief is computed from expenses too, but keyed separately —
@@ -36,8 +38,17 @@ const briefKey = ['ai-brief'] as const
 // bust it too or it shows stale suggestions for up to its 60s staleTime.
 const categoryMapKey = ['category-map'] as const
 
+// Creates still in the offline queue. Merged into the fetches below so a
+// refetch (any write's settle, or staleness) can't drop a pending save.
+const queuedPayloads = () => listQueued().then((entries) => entries.map((e) => e.payload), () => [])
+
+async function getExpensesWithQueued() {
+  const [rows, queued] = await Promise.all([getExpenses(), queuedPayloads()])
+  return withQueued(rows, queued)
+}
+
 export function useExpenses() {
-  return useQuery({ queryKey: key, queryFn: getExpenses, staleTime: 30_000 })
+  return useQuery({ queryKey: key, queryFn: getExpensesWithQueued, staleTime: 30_000 })
 }
 
 /**
@@ -55,7 +66,15 @@ const selectLastSpent = (d: RecentExpenses) => d.lastSpent
 
 function recentQuery() {
   const from = recentFrom()
-  return { queryKey: [...key, 'recent', from] as const, queryFn: () => getRecentExpenses(from), staleTime: 30_000 }
+  return {
+    queryKey: [...key, 'recent', from] as const,
+    queryFn: async (): Promise<RecentExpenses> => {
+      const [recent, queued] = await Promise.all([getRecentExpenses(from), queuedPayloads()])
+      // lastSpent is all-time, so a queued row older than the window still counts.
+      return { rows: withQueued(recent.rows, queued, from), lastSpent: withLastSpent(recent.lastSpent, queued.map(queuedRow)) }
+    },
+    staleTime: 30_000,
+  }
 }
 
 /** Recent rows only. Use instead of `useExpenses()` unless you need all history. */
@@ -86,12 +105,18 @@ export function useExpensesPage(params: ExpensesPageParams) {
  * Activity's photo feed: the same paged read with `photo_url`s, loaded page
  * after page as you scroll. Under `'expenses'` too, so writes refresh it.
  */
+export const FEED_MAX_PAGES = 5
+
 export function useExpensesFeed(params: Omit<ExpensesPageParams, 'page' | 'photos'>) {
   return useInfiniteQuery({
     queryKey: [...key, 'feed', params] as const,
     queryFn: ({ pageParam }) => getExpensesPage({ ...params, page: pageParam, photos: true }),
     initialPageParam: 1,
     getNextPageParam: (last) => (last.page < last.pageCount ? last.page + 1 : undefined),
+    // A write invalidates ['expenses'], which refetches every loaded page (and re-signs
+    // each photo). Keep a window of pages; scrolling back up refetches the dropped ones.
+    getPreviousPageParam: (first) => (first.page > 1 ? first.page - 1 : undefined),
+    maxPages: FEED_MAX_PAGES,
     staleTime: 30_000,
   })
 }
@@ -113,10 +138,23 @@ export function prefetchExpensesPage(qc: QueryClient, params: ExpensesPageParams
 /** `category` is the server's, which can differ from the one posted if it was renamed. Absent offline. */
 export type AddExpenseResult = { id?: string; timestamp?: string; version?: number; category?: string; clientId: string; pending: boolean }
 
+/**
+ * `instant`: don't hold the caller past SLOW_SAVE_MS. A POST still in flight by
+ * then is queued as well (submitted, so the replay is a client_id dedupe) and
+ * the caller gets a pending result. Only for callers that need no server id
+ * straight away: scan-bill links its bill to `id`, the money brain collects them.
+ */
+export type AddExpenseVars = NewExpenseRow & { instant?: boolean }
+
+// A stalled connection held the log screen for the full 15s request timeout
+// (PostHog, 2026-10-18: a 10.7s save). Past this, the save finishes in the background.
+export const SLOW_SAVE_MS = 2500
+const SLOW = Symbol('slow')
+
 export function useAddExpense() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (row: NewExpenseRow): Promise<AddExpenseResult> => {
+    mutationFn: async ({ instant, ...row }: AddExpenseVars): Promise<AddExpenseResult> => {
       const owner = currentUserId()
       const generation = sessionGeneration()
       const payload = mintExpensePayload(row)
@@ -127,7 +165,19 @@ export function useAddExpense() {
         return { timestamp: payload.timestamp, clientId: payload.client_id, pending: true }
       }
       try {
-        const result = await postExpensePayload(payload, generation)
+        const post = postExpensePayload(payload, generation)
+        let timer: ReturnType<typeof setTimeout> | undefined
+        const result = instant && owner
+          ? await Promise.race([post, new Promise<typeof SLOW>((r) => { timer = setTimeout(() => r(SLOW), SLOW_SAVE_MS) })]).finally(() => clearTimeout(timer))
+          : await post
+        if (result === SLOW) {
+          // Queued before the caller moves on, so the save survives a killed app.
+          // Whichever lands first, this POST or the replay, the server keeps one row.
+          await enqueue(payload, owner, true)
+          if (generation !== sessionGeneration()) throw new SessionChangedError()
+          void post.catch(() => {}).finally(() => void flush())
+          return { timestamp: payload.timestamp, clientId: payload.client_id, pending: true }
+        }
         if (generation !== sessionGeneration()) throw new SessionChangedError()
         return { id: result.id, timestamp: result.timestamp, version: result.version, category: result.category, clientId: payload.client_id, pending: false }
       } catch (err) {
@@ -139,7 +189,7 @@ export function useAddExpense() {
         return { timestamp: payload.timestamp, clientId: payload.client_id, pending: true }
       }
     },
-    onSuccess: (_data, row) => {
+    onSuccess: async (res, row) => {
       // Both the manual screen and scan-bill's confirm land here, which is the
       // point: one event for "an expense got saved". $screen_name splits them
       // after the fact. No amount, no item name and no category name either:
@@ -152,7 +202,16 @@ export function useAddExpense() {
         // says how often people skip naming. A yes/no only, never the text.
         named: row.item.trim() !== splitEmoji(row.category).text,
       })
-      void invalidateExpenseCreateQueries(qc)
+      if (!res.pending || !res.timestamp) {
+        void invalidateExpenseCreateQueries(qc)
+        return
+      }
+      // Not on the server yet, so don't refetch for it. Show it in the cached
+      // lists instead (envelopes count it straight away); later fetches merge
+      // it from the queue until the drain's synced event refetches for real.
+      // A fetch started before the enqueue would land without it, so drop that one.
+      await qc.cancelQueries({ queryKey: key })
+      insertExpense(qc, queuedRow({ ...row, date: res.timestamp.slice(0, 10), timestamp: res.timestamp, client_id: res.clientId }))
     },
   })
 }
@@ -209,6 +268,16 @@ export function useDeleteExpense() {
   return useMutation({
     mutationFn: (params: { id?: string; version?: number; timestamp: string; item: string; amountInr: number }) =>
       deleteExpense(params.id, params.timestamp, params.item, params.amountInr, params.version),
+    // Gone from every list (and its envelope) on tap; a failed delete puts it back.
+    onMutate: async (params) => {
+      await qc.cancelQueries({ queryKey: key })
+      const snapshot = snapshotExpenses(qc)
+      const written = removeExpense(qc, params)
+      return { snapshot, written }
+    },
+    onError: (_err, _params, context) => {
+      if (context) restoreExpenses(qc, context.snapshot, context.written)
+    },
     onSuccess: () => track('expense_deleted'),
     onSettled: () => {
       qc.invalidateQueries({ queryKey: key })

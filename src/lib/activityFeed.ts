@@ -20,9 +20,10 @@ export function groupByDay(rows: readonly ExpenseRow[]): FeedItem[] {
 
 // Every feed refetch re-signs every photo, and a new URL is a cache miss, so
 // each image would reload on any write. Keep the first URL seen for a blob
-// until shortly before it expires (the server signs feed URLs for an hour).
+// until it could expire. The server signs for an hour but keeps handing out a
+// URL while 30 minutes remain, so a URL seen now may only have 30 minutes left.
 // Keyed by the path, which changes when a photo is replaced.
-const REUSE_MS = 50 * 60 * 1000
+const REUSE_MS = 25 * 60 * 1000
 // Far more photos than one session scrolls past; past it, the oldest go.
 const MAX_SEEN = 500
 const seen = new Map<string, { url: string; at: number }>()

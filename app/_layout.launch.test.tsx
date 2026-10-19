@@ -69,7 +69,7 @@ it('replaces setup with the trial notice, then exits to Home without returning t
   }
   renderRouter({
     _layout: OnboardingLayout,
-    setup: () => <Button title="Continue" onPress={signalOnboarded} />,
+    setup: () => <Button title="Continue" onPress={() => signalOnboarded()} />,
     'account/trial-notice': TrialNotice,
     'modals/log-expense': () => <Text>log expense</Text>,
     index: () => <Text>home</Text>,
@@ -161,7 +161,7 @@ it('never shows the sign-in screens again once setup finishes', async () => {
       return <Button title="Verify" onPress={() => router.push('/signin')} />
     },
     signin: () => <Text>signing in</Text>,
-    setup: () => <Button title="Continue" onPress={signalOnboarded} />,
+    setup: () => <Button title="Continue" onPress={() => signalOnboarded()} />,
     'account/trial-notice': () => <Text>trial notice</Text>,
     index: () => <Text>home</Text>,
   }, { initialUrl: '/email' })

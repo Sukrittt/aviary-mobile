@@ -1,28 +1,28 @@
-import { act, renderHook, waitFor } from '@testing-library/react-native'
+import { act, renderHook } from '@testing-library/react-native'
 import * as SecureStore from 'expo-secure-store'
 import { useActivityView } from './useActivityView'
 
 jest.mock('expo-secure-store', () => ({
+  getItem: jest.fn(() => null),
   getItemAsync: jest.fn(() => Promise.resolve(null)),
   setItemAsync: jest.fn(() => Promise.resolve()),
   deleteItemAsync: jest.fn(() => Promise.resolve()),
 }))
 
-const get = SecureStore.getItemAsync as jest.Mock
+const get = SecureStore.getItem as jest.Mock
 const set = SecureStore.setItemAsync as jest.Mock
 
 beforeEach(() => jest.clearAllMocks())
 
-it('has no choice when nothing is stored', async () => {
+it('has no choice when nothing is stored', () => {
   const { result } = renderHook(() => useActivityView())
-  await waitFor(() => expect(get).toHaveBeenCalled())
   expect(result.current[0]).toBeNull()
 })
 
-it('restores a stored feed choice', async () => {
-  get.mockResolvedValueOnce('feed')
+it('restores a stored feed choice', () => {
+  get.mockReturnValueOnce('feed')
   const { result } = renderHook(() => useActivityView())
-  await waitFor(() => expect(result.current[0]).toBe('feed'))
+  expect(result.current[0]).toBe('feed')
 })
 
 it('remembers a switch', async () => {
@@ -32,8 +32,9 @@ it('remembers a switch', async () => {
   expect(set).toHaveBeenCalledWith('mc-activity-view', 'feed')
 })
 
-it('restores a stored list choice', async () => {
-  get.mockResolvedValueOnce('list')
+// The first render already has it, so Activity never flashes the feed before a stored list.
+it('restores a stored list choice on the first render', () => {
+  get.mockReturnValueOnce('list')
   const { result } = renderHook(() => useActivityView())
-  await waitFor(() => expect(result.current[0]).toBe('list'))
+  expect(result.current[0]).toBe('list')
 })

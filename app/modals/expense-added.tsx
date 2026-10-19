@@ -456,7 +456,7 @@ export default function ExpenseAddedScreen() {
             ]}
           >
             <RevealHaptic delay={STAGGER.card} />
-            Logged offline. It&apos;ll sync when you&apos;re back online.
+            Saved on your phone. It&apos;ll sync in the background.
           </Reanimated.Text>
         )}
 

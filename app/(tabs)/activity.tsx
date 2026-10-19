@@ -60,6 +60,7 @@ import type { ExpenseRow, IncomeRow } from "@/src/types";
 import { formatDayLabel, parseLocalDate, toLocalDateString } from "@/src/lib/date";
 import { useOnline } from "@/src/lib/netStatus";
 import { EMPTY } from "@/src/lib/constants";
+import { useImportInProgress } from '@/src/components/home/ImportBanner'
 import { FORCE_EMPTY_STATE_PREVIEW, emptyForPreview } from "@/src/lib/emptyStatePreview";
 
 type PeriodKey = "all" | "week" | "month" | "custom";
@@ -213,6 +214,7 @@ export default function ActivityScreen() {
   const categoryFilterLabel = selectedCategory ? splitEmoji(selectedCategory).text : null;
   const accountFilterLabel = selectedAccount ? accountName(accountsQ.data, selectedAccount) || "Account" : null;
   const hasActiveFilters = Boolean(timeFilterLabel || categoryFilterLabel || accountFilterLabel);
+  const importing = useImportInProgress();
 
   const clearTimeFilter = useCallback(() => {
     setSelectedDate("");
@@ -516,7 +518,16 @@ export default function ActivityScreen() {
     />
   );
   const feedParams = { category: pageParams.category, account: pageParams.account, from, to, q: pageParams.q };
-  const emptyState = (
+  // An import books oldest first, so this month's rows are the last to land; the date filter alone doesn't explain an empty list.
+  const historyComing = importing && !search.trim() && !categoryFilterLabel && !accountFilterLabel
+  const emptyState = historyComing ? (
+    <EmptyState
+      style={styles.emptyState}
+      mood="snoozing"
+      title="Your history is on its way"
+      description="It comes in oldest first, so your latest spends land here last."
+    />
+  ) : (
     <EmptyState
       style={styles.emptyState}
       mood={hasActiveFilters || search.trim() ? "searching" : "snoozing"}

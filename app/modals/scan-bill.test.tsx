@@ -327,7 +327,7 @@ it.each([false, true])('preserves scan create metadata and supports Undo (offlin
   mockReplace.mockClear()
   const success = renderWithProviders(<ExpenseAddedScreen />)
   if (offline) {
-    expect(success.getByText(/Logged offline/)).toBeTruthy()
+    expect(success.getByText(/Saved on your phone/)).toBeTruthy()
     expect(success.queryByText(/left of/)).toBeNull()
   }
   fireEvent.press(success.getByText('Undo'))

@@ -5,6 +5,9 @@ import { track } from '@/src/lib/analytics'
 import { completeOnboarding } from '@/src/api/billing'
 import { getUser } from '@/src/api/account'
 
+// The usual setup steps, as on a binary without the file picker; setup.import.test.tsx covers the import.
+jest.mock('@/src/lib/filePicker', () => ({ canPickFiles: false, pickFile: jest.fn() }))
+
 jest.mock('@/src/lib/analytics', () => ({ track: jest.fn(), startTimer: () => () => 7 }))
 jest.mock('@/src/api/account', () => ({
   getUser: jest.fn(async () => ({ email: 'tester@example.com', emailVerified: true, onboardedAt: null })),
@@ -79,11 +82,14 @@ it('reports a failed save, and never counts it as a finished step', async () => 
 
 it('continues to success when the final response failed after onboarding was committed', async () => {
   ;(completeOnboarding as jest.Mock).mockRejectedValueOnce(new Error('503'))
-  ;(getUser as jest.Mock).mockResolvedValueOnce({
-    email: 'tester@example.com',
-    emailVerified: true,
-    onboardedAt: '2026-09-23T20:37:26.618Z',
-  })
+  // Not onboarded when the save starts; onboarded by the time it's re-checked.
+  ;(getUser as jest.Mock)
+    .mockResolvedValueOnce({ email: 'tester@example.com', emailVerified: true, onboardedAt: null })
+    .mockResolvedValueOnce({
+      email: 'tester@example.com',
+      emailVerified: true,
+      onboardedAt: '2026-09-23T20:37:26.618Z',
+    })
 
   const { getByText, queryByText, unmount } = walkToFinish()
   await waitFor(() => expect(getByText('Continue')).toBeTruthy(), { timeout: 3000 })

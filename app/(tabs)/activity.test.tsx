@@ -29,6 +29,8 @@ jest.mock('@/src/hooks/useExpenses', () => ({
 
 let mockIncomes: Record<string, unknown>[] = []
 jest.mock('@/src/hooks/useUser', () => ({ useUser: () => ({ data: mockUser }) }))
+let mockImporting = false
+jest.mock('@/src/components/home/ImportBanner', () => ({ useImportInProgress: () => mockImporting }))
 jest.mock('@/src/hooks/useIncomes', () => ({ useIncomes: () => ({ data: mockIncomes }) }))
 jest.mock('@/src/hooks/useAccounts', () => ({ useAccounts: () => ({ data: [] }), liveAccounts: () => [] }))
 
@@ -152,6 +154,19 @@ it('hides the count and total footer when there are no transactions', () => {
   expect(getByText('No transactions for this filter.')).toBeTruthy()
   expect(queryByText(/transactions?$/)).toBeNull()
   expect(queryByText(/^Total:/)).toBeNull()
+})
+
+it('says the history is on its way while an import is still booking, not to log a first expense', () => {
+  mockUseExpensesPage.mockReturnValue({
+    data: pageResult({ rows: [], total: 0, totalAmount: 0 }),
+    isLoading: false,
+    error: null,
+  })
+  mockImporting = true
+  const { getByText, queryByText } = renderWithProviders(<ActivityScreen />)
+  expect(getByText('Your history is on its way')).toBeTruthy()
+  expect(queryByText('Log an expense')).toBeNull()
+  mockImporting = false
 })
 
 it('clears search and date filters from the empty-state action', () => {

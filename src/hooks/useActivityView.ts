@@ -13,14 +13,18 @@ const PREF_KEY = 'mc-activity-view'
  * Null until one is made, so Activity can open on the feed once it's turned on in Features.
  */
 export function useActivityView() {
-  const [view, setViewState] = useState<ActivityView | null>(null)
+  // Read synchronously so the first render already has the choice. An async
+  // read showed the feed for a beat before a stored list choice landed.
+  const [view, setViewState] = useState<ActivityView | null>(() => {
+    try {
+      const stored = SecureStore.getItem(PREF_KEY)
+      return stored === 'feed' || stored === 'list' ? stored : null
+    } catch {
+      return null
+    }
+  })
 
   useEffect(() => {
-    SecureStore.getItemAsync(PREF_KEY)
-      .then((stored) => {
-        if (stored === 'feed' || stored === 'list') setViewState(stored)
-      })
-      .catch(() => {})
     // The next account signed into on this device starts fresh.
     return accessMode.subscribeLogout(() => {
       setViewState(null)

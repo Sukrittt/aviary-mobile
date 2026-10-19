@@ -1,15 +1,18 @@
 import type { ReactNode } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { renderHook, waitFor } from '@testing-library/react-native'
-import { getExpenses, mintExpensePayload, postExpensePayload, updateExpense } from '@/src/api/expenses'
+import { act, renderHook, waitFor } from '@testing-library/react-native'
+import { deleteExpense, getExpenses, getExpensesPage, mintExpensePayload, postExpensePayload, updateExpense, type RecentExpenses } from '@/src/api/expenses'
+import { flush } from '@/src/sync/flush'
 import { HttpError } from '@/src/api/client'
 import { enqueue } from '@/src/lib/pendingExpenses'
 import { isOnline } from '@/src/lib/netStatus'
 import { track, trackFirst } from '@/src/lib/analytics'
-import { useExpenses, useAddExpense, useUpdateExpense, useDeleteExpense } from './useExpenses'
+import { FEED_MAX_PAGES, SLOW_SAVE_MS, useExpensesFeed, useExpenses, useLastSpent, useAddExpense, useUpdateExpense, useDeleteExpense } from './useExpenses'
 
 jest.mock('@/src/api/expenses', () => ({
   getExpenses: jest.fn(),
+  getRecentExpenses: jest.fn(),
+  getExpensesPage: jest.fn(),
   mintExpensePayload: jest.fn((row) => ({ ...row, client_id: 'client-1', date: '2026-01-01', timestamp: '2026-01-01T10:00:00+05:30' })),
   postExpensePayload: jest.fn(),
   updateExpense: jest.fn(),
@@ -28,7 +31,10 @@ jest.mock('@/src/api/client', () => ({
 
 jest.mock('@/src/lib/pendingExpenses', () => ({
   enqueue: jest.fn(),
+  list: jest.fn(() => Promise.resolve([])),
 }))
+
+jest.mock('@/src/sync/flush', () => ({ flush: jest.fn(() => Promise.resolve()) }))
 
 jest.mock('@/src/lib/analytics', () => ({ track: jest.fn(), trackFirst: jest.fn() }))
 jest.mock('@/src/lib/netStatus', () => ({ isOnline: jest.fn(() => true) }))
@@ -176,4 +182,123 @@ describe('expense analytics', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
     expect(track).toHaveBeenCalledWith('expense_deleted')
   })
+})
+
+it('useExpensesFeed refetches at most a window of pages after a write', async () => {
+  ;(getExpensesPage as jest.Mock).mockImplementation(async ({ page }) => ({ rows: [{ id: `e${page}` }], page, pageCount: 20 }))
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } })
+  const { result } = renderHook(() => useExpensesFeed({ limit: 12 }), { wrapper: wrapper(queryClient) })
+  await waitFor(() => expect(result.current.isSuccess).toBe(true))
+  let feed = result.current.data
+  for (let i = 0; i < 7; i++) feed = (await act(() => result.current.fetchNextPage())).data
+  expect(feed?.pages.map((p) => p.page)).toEqual([4, 5, 6, 7, 8])
+
+  ;(getExpensesPage as jest.Mock).mockClear()
+  await act(() => queryClient.invalidateQueries({ queryKey: ['expenses'] }))
+  expect(getExpensesPage).toHaveBeenCalledTimes(FEED_MAX_PAGES)
+})
+
+describe('useAddExpense instant (stalled connection)', () => {
+  const recentKey = ['expenses', 'recent', '2025-10-01']
+  beforeEach(() => {
+    jest.clearAllMocks()
+    jest.mocked(isOnline).mockReturnValue(true)
+    ;(mintExpensePayload as jest.Mock).mockReturnValue({
+      item: 'Coffee', amount_inr: '150', category: 'Food', date: '2026-01-01',
+      timestamp: '2026-01-01T10:00:00+05:30', client_id: 'client-slow-1',
+    })
+  })
+  afterEach(() => jest.useRealTimers())
+
+  it('stops waiting after SLOW_SAVE_MS: queues the create, shows it in the cache, reconciles once the POST lands', async () => {
+    jest.useFakeTimers()
+    const { currentUserId } = jest.requireMock('@/src/api/accessMode')
+    currentUserId.mockReturnValue('user-1')
+    let land!: (v: unknown) => void
+    ;(postExpensePayload as jest.Mock).mockReturnValue(new Promise((r) => { land = r }))
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { gcTime: Infinity } } })
+    queryClient.setQueryData<RecentExpenses>(recentKey, { rows: [], lastSpent: {} })
+    const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries')
+    const { result } = renderHook(() => useAddExpense(), { wrapper: wrapper(queryClient) })
+
+    act(() => { result.current.mutate({ item: 'Coffee', amount_inr: '150', category: 'Food', instant: true }) })
+    await act(async () => { jest.advanceTimersByTime(SLOW_SAVE_MS) })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    expect(result.current.data).toMatchObject({ clientId: 'client-slow-1', pending: true })
+    expect(enqueue).toHaveBeenCalledWith(expect.objectContaining({ client_id: 'client-slow-1' }), 'user-1', true)
+    // `instant` is a client option, never sent to the server.
+    expect(mintExpensePayload).toHaveBeenCalledWith({ item: 'Coffee', amount_inr: '150', category: 'Food' })
+    const rows = queryClient.getQueryData<RecentExpenses>(recentKey)!.rows
+    expect(rows).toEqual([expect.objectContaining({ item: 'Coffee', amount_inr: '150', category: 'Food', date: '2026-01-01' })])
+    // A refetch now would drop the row the server doesn't have yet.
+    expect(invalidateSpy).not.toHaveBeenCalledWith({ queryKey: ['expenses'] })
+    expect(flush).not.toHaveBeenCalled()
+
+    await act(async () => { land({ id: 'row-1', timestamp: '2026-01-01T10:00:00+05:30' }) })
+    await waitFor(() => expect(flush).toHaveBeenCalled())
+    currentUserId.mockReturnValue(null)
+  })
+
+  it('answers normally when the POST beats the deadline', async () => {
+    const { currentUserId } = jest.requireMock('@/src/api/accessMode')
+    currentUserId.mockReturnValueOnce('user-1')
+    ;(postExpensePayload as jest.Mock).mockResolvedValue({ id: 'row-1', timestamp: '2026-01-01T10:00:00+05:30' })
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { gcTime: Infinity } } })
+    const { result } = renderHook(() => useAddExpense(), { wrapper: wrapper(queryClient) })
+    result.current.mutate({ item: 'Coffee', amount_inr: '150', category: 'Food', instant: true })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(result.current.data).toMatchObject({ id: 'row-1', pending: false })
+    expect(enqueue).not.toHaveBeenCalled()
+  })
+})
+
+describe('useDeleteExpense optimistic', () => {
+  const recentKey = ['expenses', 'recent', '2025-10-01']
+  const rowA = { id: 'a', timestamp: 't-a', date: '2026-01-01', item: 'Tea', amount_inr: '50', category: 'Food', notes: '', source: 'manual', amount: '', description: '', payment_method: 'bank' }
+
+  function setup() {
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { gcTime: Infinity } } })
+    queryClient.setQueryData<RecentExpenses>(recentKey, { rows: [rowA], lastSpent: {} })
+    const { result } = renderHook(() => useDeleteExpense(), { wrapper: wrapper(queryClient) })
+    return { queryClient, result }
+  }
+
+  it('drops the row before the server answers', async () => {
+    let answer!: () => void
+    ;(deleteExpense as jest.Mock).mockReturnValue(new Promise<void>((r) => { answer = r }))
+    const { queryClient, result } = setup()
+    act(() => { result.current.mutate({ id: 'a', timestamp: 't-a', item: 'Tea', amountInr: 50 }) })
+    await waitFor(() => expect(queryClient.getQueryData<RecentExpenses>(recentKey)!.rows).toEqual([]))
+    await act(async () => answer())
+  })
+
+  it('puts the row back when the delete fails', async () => {
+    ;(deleteExpense as jest.Mock).mockRejectedValue(new Error('nope'))
+    const { queryClient, result } = setup()
+    act(() => { result.current.mutate({ id: 'a', timestamp: 't-a', item: 'Tea', amountInr: 50 }) })
+    await waitFor(() => expect(result.current.isError).toBe(true))
+    expect(queryClient.getQueryData<RecentExpenses>(recentKey)!.rows).toEqual([rowA])
+  })
+})
+
+it('useExpenses keeps a still-queued save the refetched server copy lacks (#214)', async () => {
+  const { list } = jest.requireMock('@/src/lib/pendingExpenses') as { list: jest.Mock }
+  list.mockResolvedValueOnce([{ attempts: 0, submitted: true, payload: { item: 'Coffee', amount_inr: '50', category: 'Food', date: '2026-10-10', timestamp: '2026-10-10T10:00:00', client_id: 'c1' } }])
+  ;(getExpenses as jest.Mock).mockResolvedValue([{ id: 'a', item: 'Lunch', timestamp: '2026-10-09T09:00:00', amount_inr: '200' }])
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } })
+  const { result } = renderHook(() => useExpenses(), { wrapper: wrapper(queryClient) })
+  await waitFor(() => expect(result.current.isSuccess).toBe(true))
+  expect(result.current.data!.map((r) => r.item)).toEqual(['Coffee', 'Lunch'])
+})
+
+it('useExpenses moves lastSpent for a queued row older than the recent window', async () => {
+  const { list } = jest.requireMock('@/src/lib/pendingExpenses') as { list: jest.Mock }
+  const { getRecentExpenses } = jest.requireMock('@/src/api/expenses') as { getRecentExpenses: jest.Mock }
+  list.mockResolvedValueOnce([{ attempts: 0, payload: { item: 'Gift', amount_inr: '900', category: 'Gifts', date: '2020-01-05', timestamp: '2020-01-05T10:00:00', client_id: 'c2' } }])
+  getRecentExpenses.mockResolvedValue({ rows: [], lastSpent: { Gifts: '2019-12-01' } })
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } })
+  const { result } = renderHook(() => useLastSpent(), { wrapper: wrapper(queryClient) })
+  await waitFor(() => expect(result.current.isSuccess).toBe(true))
+  expect(result.current.data).toEqual({ Gifts: '2020-01-05' })
 })

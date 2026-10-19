@@ -74,9 +74,10 @@ export function TransactionDetail({ txn, from, photoUri, category, account, onCl
     height: interpolate(progress.value, [0, 1], [from.height, screenH]),
     borderRadius: interpolate(progress.value, [0, 1], [radius.lg, 0]),
   }))
-  // The card's square photo (or 3:2 placeholder) settles to a shorter hero, so the details start above the fold.
+  // The card's square photo settles to a shorter hero, so the details start above the fold. A photoless
+  // card is just its header, so its category block grows in from nothing.
   const hero = useAnimatedStyle(() => ({
-    height: interpolate(progress.value, [0, 1], photoUri ? [from.width, screenW * 0.75] : [from.width * (2 / 3), screenW * 0.5]),
+    height: interpolate(progress.value, [0, 1], photoUri ? [from.width, screenW * 0.75] : [0, screenW * 0.5]),
   }))
   const backdrop = useAnimatedStyle(() => ({ opacity: progress.value }))
   const headPad = useAnimatedStyle(() => ({ paddingTop: space.md + insets.top * progress.value }))
@@ -211,7 +212,7 @@ const styles = StyleSheet.create({
   head: { flexDirection: 'row', alignItems: 'center' },
   avatar: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   photo: { width: '100%' },
-  placeholder: { width: '100%', alignItems: 'center', justifyContent: 'center' },
+  placeholder: { width: '100%', overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
   group: { borderWidth: StyleSheet.hairlineWidth, paddingHorizontal: 16 },
   row: { flexDirection: 'row', alignItems: 'center' },
   divider: { height: StyleSheet.hairlineWidth },

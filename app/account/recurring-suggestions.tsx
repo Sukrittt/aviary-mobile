@@ -13,6 +13,7 @@ import { Icon } from '@/src/components/shared/Icon'
 import { LoadingPhrase } from '@/src/components/shared/LoadingPhrase'
 import { usePrivacy } from '@/src/context/PrivacyContext'
 import { formatDateShort } from '@/src/lib/format'
+import { toLocalDateString } from '@/src/lib/date'
 import { PopIn } from '@/src/components/shared/PopIn'
 import { Button, usePressSpring } from '@/src/components/ui/Button'
 import { Chip } from '@/src/components/ui/Chip'
@@ -25,6 +26,8 @@ import {
 import { recurringSuggestionErrorMessage } from '@/src/api/recurringSuggestions'
 import type { RecurringSuggestion, ScanMonths } from '@/src/types/recurringSuggestions'
 import { tap } from '@/src/lib/haptics'
+import { useUser } from '@/src/hooks/useUser'
+import { isHidden } from '@/src/lib/features'
 
 const SCAN_PHRASES = [
   'Reading your expenses…',
@@ -55,8 +58,11 @@ export default function RecurringSuggestionsScreen() {
   const insets = useSafeAreaInsets()
   const router = useRouter()
   const params = useLocalSearchParams<{ kind?: string }>()
-  const targetKind: RecurringSuggestion['kind'] = params.kind === 'subscription' ? 'subscription' : 'other_recurring'
-  const subscriptionMode = targetKind === 'subscription'
+  // `all`: both kinds at once, for the import banner's "find your repeat payments".
+  const mode: RecurringSuggestion['kind'] | 'all' = params.kind === 'subscription' ? 'subscription' : params.kind === 'all' ? 'all' : 'other_recurring'
+  const subscriptionMode = mode === 'subscription'
+  const allMode = mode === 'all'
+  const { data: user } = useUser()
   const { refreshing, onRefresh } = useRefresh()
 
   const [months, setMonths] = useState<ScanMonths>(6)
@@ -65,7 +71,7 @@ export default function RecurringSuggestionsScreen() {
   const dismiss = useDismissRecurringSuggestion()
 
   const data = query.data
-  const suggestions = data?.suggestions.filter((suggestion) => suggestion.kind === targetKind) ?? []
+  const suggestions = data?.suggestions.filter((suggestion) => allMode || suggestion.kind === mode) ?? []
   const busy = scan.isPending || dismiss.isPending
   const failure = scan.error
     ? recurringSuggestionErrorMessage(scan.error, "Couldn't scan right now. Check your connection and try again.")
@@ -85,7 +91,8 @@ export default function RecurringSuggestionsScreen() {
   }
 
   function openSuggestion(s: RecurringSuggestion) {
-    if (s.kind === 'subscription') {
+    // With Subscriptions switched off, a subscription is set up as a recurring expense, so it lands somewhere they can see.
+    if (s.kind === 'subscription' && !(allMode && isHidden(user, 'subscriptions'))) {
       router.push({
         pathname: '/modals/subscription',
         params: {
@@ -130,12 +137,12 @@ export default function RecurringSuggestionsScreen() {
         </Pressable>
         <View style={{ flex: 1 }}>
           <Text style={[styles.headerTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
-            {subscriptionMode ? 'Find subscriptions' : 'Find recurring'}
+            {allMode ? 'Find repeat payments' : subscriptionMode ? 'Find subscriptions' : 'Find recurring'}
           </Text>
           <Text style={[styles.headerSub, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
             {data?.scannedAt
-              ? `Last scanned ${formatDateShort(data.scannedAt.slice(0, 10))}`
-              : subscriptionMode ? 'Spot services you already pay for' : 'Spot repeated payments'}
+              ? `Last scanned ${formatDateShort(toLocalDateString(new Date(data.scannedAt)))}`
+              : allMode ? 'Spot subscriptions and bills that repeat' : subscriptionMode ? 'Spot services you already pay for' : 'Spot repeated payments'}
           </Text>
         </View>
       </View>
@@ -152,7 +159,9 @@ export default function RecurringSuggestionsScreen() {
               <Icon icon={ArrowsClockwise} size={20} color={tokens.accent} />
             </View>
             <Text style={[styles.introBody, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
-              {subscriptionMode
+              {allMode
+                ? 'We’ll scan your expenses for subscriptions and payments that repeat. Choose which ones to keep track of.'
+                : subscriptionMode
                 ? 'We’ll scan your expenses for services with a regular billing pattern. Choose which ones to track.'
                 : 'We’ll scan your expenses for repeated payments. Choose which ones to automate.'}
             </Text>
@@ -170,7 +179,7 @@ export default function RecurringSuggestionsScreen() {
                 ? 'Scanning…'
                 : data?.scannedAt && data.remaining > 0
                   ? 'Scan remaining patterns'
-                  : subscriptionMode ? 'Find subscriptions' : 'Find recurring expenses'
+                  : allMode ? 'Find repeat payments' : subscriptionMode ? 'Find subscriptions' : 'Find recurring expenses'
             }
             onPress={() => scan.mutate(months)}
             disabled={busy || query.isLoading}
@@ -234,7 +243,7 @@ export default function RecurringSuggestionsScreen() {
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.emptyTitle, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>
-                    {subscriptionMode ? 'No new subscriptions' : 'No new recurring payments'}
+                    {allMode ? 'No new repeat payments' : subscriptionMode ? 'No new subscriptions' : 'No new recurring payments'}
                   </Text>
                   <Text style={[styles.emptyBody, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
                     Nothing new for this period. Tracked and dismissed payments stay hidden.

@@ -26,6 +26,10 @@ it('leaves out all-time expense history, billing and system status', () => {
   expect(persisted(['ai-brief'])).toBe(false)
 })
 
+it('leaves out the photo feed, whose signed URLs expire within the hour', () => {
+  expect(persisted(['expenses', 'feed', { limit: 20 }])).toBe(false)
+})
+
 it('saves only the first unfiltered Activity page', () => {
   expect(persisted(['expenses', 'page', { page: 2, limit: 20 }])).toBe(false)
   expect(persisted(['expenses', 'page', { page: 1, limit: 20, q: 'milk' }])).toBe(false)

@@ -4,6 +4,7 @@ import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import type { ExpenseRow } from '@/src/types'
 // @ts-expect-error The preset's shared native-method mocks ship without types.
 import MockNativeMethods from '@react-native/jest-preset/jest/MockNativeMethods'
+import { CategoryIcon } from '@/src/components/shared/CategoryIcon'
 import { ActivityFeed } from './ActivityFeed'
 
 const mockFeed = jest.fn()
@@ -38,9 +39,11 @@ beforeEach(() => {
   ;(MockNativeMethods.measureInWindow as jest.Mock).mockImplementation((cb: (x: number, y: number, w: number, h: number) => void) => cb(16, 200, 380, 460))
 })
 
-it('shows a photo card for a signed photo and a category card otherwise, with no add-photo button', () => {
+it('shows a photo card for a signed photo and a compact card otherwise, with no add-photo button', () => {
   const screen = renderFeed([txn({ id: 'a', item: 'Plant', has_photo: true, photo_url: 'https://blob.test/a.jpg?s=1' }), txn({ id: 'b', item: 'Tea' })])
   expect(screen.UNSAFE_queryAllByType(Image).map((i) => i.props.source.uri)).toEqual(['https://blob.test/a.jpg?s=1'])
+  // Just the header avatars: no big category placeholder for the photoless card.
+  expect(screen.UNSAFE_queryAllByType(CategoryIcon)).toHaveLength(2)
   expect(screen.queryByText('Add a photo')).toBeNull()
   expect(screen.getByText("You're all caught up.")).toBeTruthy()
 })
