@@ -47,7 +47,7 @@ import { useTheme } from "@/src/theme/ThemeProvider";
 import { fontFamily } from "@/src/theme/fonts";
 import { NAV_HEIGHT } from "@/src/theme/scale";
 import { useIsFocused,useLocalSearchParams,useRouter } from "expo-router";
-import { Camera, CaretDown, ChatText, Plus, Warning } from "@/src/components/shared/icons";
+import { Camera, CaretDown, ChatText, Plus, UploadSimple, Warning } from "@/src/components/shared/icons";
 import { useCaptureTip } from "@/src/hooks/useCaptureTip";
 import { useFeedOn } from "@/src/hooks/useActivityView";
 import { noteManualLog, type CaptureTipReason } from "@/src/lib/captureTip";
@@ -948,6 +948,24 @@ export default function LogExpenseScreen() {
               ]}
             />
           </View>
+
+          {!isEdit && (
+            // Next to the photo field, which picks like bill scan: catching up
+            // on missed days from your own UPI or bank history. Not behind
+            // billScan, since new accounts start with that off.
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => {
+                setShowMore(false);
+                router.push("/modals/statement");
+              }}
+              disabled={!online}
+              style={{ flexDirection: "row", alignItems: "center", gap: space.sm, alignSelf: "flex-start", paddingHorizontal: space.md, paddingVertical: space.sm, borderRadius: radius.full, backgroundColor: tokens.inputBg, opacity: online ? 1 : 0.5 }}
+            >
+              <UploadSimple size={16} color={tokens.accentInk} />
+              <Text style={{ color: tokens.accentInk, fontFamily: fontFamily.bodySemiBold }}>Add from statement or screenshot</Text>
+            </Pressable>
+          )}
 
           {photoAllowed && (
             <ExpensePhotoField

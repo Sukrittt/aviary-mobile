@@ -16,6 +16,7 @@ import { SlideStrip } from '@/src/components/shared/SlideStrip'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { track } from '@/src/lib/analytics'
 import { BottomSheet } from '@/src/components/shared/Modal'
+import { GapSheet } from '@/src/components/home/GapSheet'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { usePrivacy } from '@/src/context/PrivacyContext'
 import { fontFamily } from '@/src/theme/fonts'
@@ -590,6 +591,7 @@ function HomeScreen() {
           </Pressable>
         </View>}
       </Screen>
+      <GapSheet lastSpent={lastSpent} />
       {/* No room for a pencil on the hero, so tapping it opens this. With RTA
           often at 0, the title is the only place Home shows income. */}
       <BottomSheet visible={incomeSheetOpen} onClose={() => setIncomeSheetOpen(false)}>
