@@ -1,5 +1,5 @@
 import type { InfiniteData, QueryClient, QueryKey } from '@tanstack/react-query'
-import type { ExpensesPage, RecentExpenses } from '@/src/api/expenses'
+import type { ExpensePayload, ExpensesPage, RecentExpenses } from '@/src/api/expenses'
 import type { ExpenseRow } from '@/src/types'
 
 // Optimistic edits to the cached expense lists, so a write shows up (and the
@@ -40,23 +40,62 @@ function kind(key: QueryKey): 'all' | 'recent' | 'page' | 'feed' | null {
 /**
  * Adds a just-logged row to the all-history list and every recent window it
  * falls in. Activity's pages and feed are sorted and filtered server-side, so
- * they wait for the refetch rather than guessing where the row lands.
+ * they wait for the refetch rather than guessing where the row lands. A list
+ * that already has it (a fetch merged it from the queue first) is left alone.
  */
 export function insertExpense(qc: QueryClient, row: ExpenseRow): void {
+  const same = matches({ timestamp: row.timestamp, item: row.item, amountInr: Number(row.amount_inr) })
   for (const [key, data] of snapshotExpenses(qc)) {
     if (data === undefined) continue
     const k = kind(key)
     if (k === 'all') {
+      if ((data as ExpenseRow[]).some(same)) continue
       qc.setQueryData<ExpenseRow[]>(key, [row, ...(data as ExpenseRow[])])
     } else if (k === 'recent' && row.date >= String(key[2])) {
       const recent = data as RecentExpenses
-      const last = recent.lastSpent[row.category]
-      qc.setQueryData<RecentExpenses>(key, {
-        rows: [row, ...recent.rows],
-        lastSpent: !last || row.date > last ? { ...recent.lastSpent, [row.category]: row.date } : recent.lastSpent,
-      })
+      if (recent.rows.some(same)) continue
+      qc.setQueryData<RecentExpenses>(key, { rows: [row, ...recent.rows], lastSpent: withLastSpent(recent.lastSpent, [row]) })
     }
   }
+}
+
+/** A queued create as the row it becomes once the server has it. */
+export function queuedRow(p: ExpensePayload): ExpenseRow {
+  return {
+    timestamp: p.timestamp,
+    date: p.date,
+    item: p.item,
+    amount_inr: p.amount_inr,
+    category: p.category,
+    notes: p.notes ?? '',
+    source: p.source ?? 'manual',
+    amount: '',
+    description: '',
+    payment_method: p.payment_method ?? 'bank',
+    ...(p.account_id ? { account_id: p.account_id } : {}),
+  }
+}
+
+/**
+ * Server rows plus the queued creates (oldest first, as the queue holds them)
+ * the server doesn't have yet, dated on/after `from`. Run on every fetch, so a
+ * refetch while a save is still pending can't drop it from the lists.
+ */
+export function withQueued(rows: ExpenseRow[], queued: ExpensePayload[], from = ''): ExpenseRow[] {
+  const missing = queued
+    .map(queuedRow)
+    .filter((q) => q.date >= from && !rows.some(matches({ timestamp: q.timestamp, item: q.item, amountInr: Number(q.amount_inr) })))
+  return missing.length ? [...missing.reverse(), ...rows] : rows
+}
+
+/** `lastSpent` moved forward for any of `rows` dated later. */
+export function withLastSpent(lastSpent: Record<string, string>, rows: ExpenseRow[]): Record<string, string> {
+  let out = lastSpent
+  for (const r of rows) {
+    const last = out[r.category]
+    if (!last || r.date > last) out = { ...out, [r.category]: r.date }
+  }
+  return out
 }
 
 // No id (a legacy row): the same triple the server's delete matches on, so a

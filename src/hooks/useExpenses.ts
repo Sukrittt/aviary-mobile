@@ -20,7 +20,7 @@ import {
 import { currentMonthKey, shiftMonthKey } from '@/src/lib/envelope'
 import { currentUserId, sessionGeneration, SessionChangedError } from '@/src/api/accessMode'
 import { HttpError } from '@/src/api/client'
-import { enqueue } from '@/src/lib/pendingExpenses'
+import { enqueue, list as listQueued } from '@/src/lib/pendingExpenses'
 import { budgetsKey } from '@/src/hooks/useBudgets'
 import { track, trackFirst } from '@/src/lib/analytics'
 import { invalidateExpenseCreateQueries } from '@/src/lib/expenseQueries'
@@ -28,7 +28,7 @@ import { splitEmoji } from '@/src/lib/emoji'
 import { isOnline } from '@/src/lib/netStatus'
 import { undoPendingExpense } from '@/src/sync/undoExpense'
 import { flush } from '@/src/sync/flush'
-import { insertExpense, removeExpense, restoreExpenses, snapshotExpenses } from '@/src/lib/optimisticExpenses'
+import { insertExpense, queuedRow, removeExpense, restoreExpenses, snapshotExpenses, withLastSpent, withQueued } from '@/src/lib/optimisticExpenses'
 
 const key = ['expenses'] as const
 // Ask Aviary's brief is computed from expenses too, but keyed separately —
@@ -38,8 +38,17 @@ const briefKey = ['ai-brief'] as const
 // bust it too or it shows stale suggestions for up to its 60s staleTime.
 const categoryMapKey = ['category-map'] as const
 
+// Creates still in the offline queue. Merged into the fetches below so a
+// refetch (any write's settle, or staleness) can't drop a pending save.
+const queuedPayloads = () => listQueued().then((entries) => entries.map((e) => e.payload), () => [])
+
+async function getExpensesWithQueued() {
+  const [rows, queued] = await Promise.all([getExpenses(), queuedPayloads()])
+  return withQueued(rows, queued)
+}
+
 export function useExpenses() {
-  return useQuery({ queryKey: key, queryFn: getExpenses, staleTime: 30_000 })
+  return useQuery({ queryKey: key, queryFn: getExpensesWithQueued, staleTime: 30_000 })
 }
 
 /**
@@ -57,7 +66,15 @@ const selectLastSpent = (d: RecentExpenses) => d.lastSpent
 
 function recentQuery() {
   const from = recentFrom()
-  return { queryKey: [...key, 'recent', from] as const, queryFn: () => getRecentExpenses(from), staleTime: 30_000 }
+  return {
+    queryKey: [...key, 'recent', from] as const,
+    queryFn: async (): Promise<RecentExpenses> => {
+      const [recent, queued] = await Promise.all([getRecentExpenses(from), queuedPayloads()])
+      const rows = withQueued(recent.rows, queued, from)
+      return { rows, lastSpent: withLastSpent(recent.lastSpent, rows.slice(0, rows.length - recent.rows.length)) }
+    },
+    staleTime: 30_000,
+  }
 }
 
 /** Recent rows only. Use instead of `useExpenses()` unless you need all history. */
@@ -189,22 +206,10 @@ export function useAddExpense() {
         void invalidateExpenseCreateQueries(qc)
         return
       }
-      // Not on the server yet, so a refetch now would drop it. Show it in the
-      // cached lists instead (envelopes count it straight away); the drain's
-      // synced event refetches everything once the server has it.
-      insertExpense(qc, {
-        timestamp: res.timestamp,
-        date: res.timestamp.slice(0, 10),
-        item: row.item,
-        amount_inr: row.amount_inr,
-        category: row.category,
-        notes: row.notes ?? '',
-        source: row.source ?? 'manual',
-        amount: '',
-        description: '',
-        payment_method: row.payment_method ?? 'bank',
-        ...(row.account_id ? { account_id: row.account_id } : {}),
-      })
+      // Not on the server yet, so don't refetch for it. Show it in the cached
+      // lists instead (envelopes count it straight away); later fetches merge
+      // it from the queue until the drain's synced event refetches for real.
+      insertExpense(qc, queuedRow({ ...row, date: res.timestamp.slice(0, 10), timestamp: res.timestamp, client_id: res.clientId }))
     },
   })
 }

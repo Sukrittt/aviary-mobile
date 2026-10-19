@@ -30,6 +30,7 @@ jest.mock('@/src/api/client', () => ({
 
 jest.mock('@/src/lib/pendingExpenses', () => ({
   enqueue: jest.fn(),
+  list: jest.fn(() => Promise.resolve([])),
 }))
 
 jest.mock('@/src/sync/flush', () => ({ flush: jest.fn(() => Promise.resolve()) }))
@@ -278,4 +279,14 @@ describe('useDeleteExpense optimistic', () => {
     await waitFor(() => expect(result.current.isError).toBe(true))
     expect(queryClient.getQueryData<RecentExpenses>(recentKey)!.rows).toEqual([rowA])
   })
+})
+
+it('useExpenses keeps a still-queued save the refetched server copy lacks (#214)', async () => {
+  const { list } = jest.requireMock('@/src/lib/pendingExpenses') as { list: jest.Mock }
+  list.mockResolvedValueOnce([{ attempts: 0, submitted: true, payload: { item: 'Coffee', amount_inr: '50', category: 'Food', date: '2026-10-10', timestamp: '2026-10-10T10:00:00', client_id: 'c1' } }])
+  ;(getExpenses as jest.Mock).mockResolvedValue([{ id: 'a', item: 'Lunch', timestamp: '2026-10-09T09:00:00', amount_inr: '200' }])
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } })
+  const { result } = renderHook(() => useExpenses(), { wrapper: wrapper(queryClient) })
+  await waitFor(() => expect(result.current.isSuccess).toBe(true))
+  expect(result.current.data!.map((r) => r.item)).toEqual(['Coffee', 'Lunch'])
 })
