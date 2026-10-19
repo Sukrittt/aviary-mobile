@@ -292,6 +292,9 @@ function CurrencyWizard({
   // Need/want/savings tags Jev gave the user's own categories, and every name already asked about.
   const [bucketTags, setBucketTags] = useState<BucketTags>({});
   const askedBuckets = useRef(new Set<string>());
+  // Set once this session has sent completeOnboarding: an onboardedAt seen on a
+  // retry is then this device's own lost save, not another device's.
+  const completionSent = useRef(false);
 
   useEffect(() => {
     wizardTimer.current = startTimer();
@@ -671,7 +674,13 @@ function CurrencyWizard({
       const me = await getUser();
       if (me.onboardedAt) {
         qc.setQueryData(["user"], me);
-        alreadySetUp();
+        if (completionSent.current) {
+          void qc.invalidateQueries();
+          await holdStep(LAST_STEP_MIN_MS);
+          finishSetup(true);
+        } else {
+          alreadySetUp();
+        }
         return;
       }
       const month = currentMonthKey();
@@ -727,6 +736,7 @@ function CurrencyWizard({
       await showStep("Starting your budget…");
       await updateUser({ currencyCode });
       tick();
+      completionSent.current = true;
       await completeOnboarding();
       tick();
       qc.invalidateQueries({ queryKey: ["user"] });
