@@ -21,7 +21,8 @@ jest.mock('@/src/components/shared/CategoryPickerSheet', () => {
 let mockOnline = true
 jest.mock('@/src/lib/netStatus', () => ({ ...jest.requireActual('@/src/lib/netStatus'), useOnline: () => mockOnline }))
 const mockBack = jest.fn()
-jest.mock('expo-router', () => ({ useRouter: () => ({ back: mockBack, push: jest.fn() }) }))
+const mockDismissTo = jest.fn()
+jest.mock('expo-router', () => ({ useRouter: () => ({ back: mockBack, push: jest.fn(), dismissTo: mockDismissTo }) }))
 
 const PROPOSAL = {
   id: 'p1',
@@ -69,6 +70,44 @@ it('logs only ticked rows, each with its hashed client_id', async () => {
   await waitFor(() => expect(mockMutate).toHaveBeenCalledTimes(2))
   expect(mockMutate.mock.calls.map((c) => c[0].client_id)).toEqual(['statement:a', 'statement:c'])
   expect(mockMutate.mock.calls[1][0]).toMatchObject({ source: 'statement', category: 'Food', date: '2026-10-12' })
+})
+
+it('ticks every row at once, and unticks them again', async () => {
+  const screen = await openReview()
+  expect(screen.getByText('3 payments · 12 to 17 Oct')).toBeTruthy()
+  fireEvent.press(screen.getByText('Tick all'))
+  expect(screen.getByLabelText(/Add Rapido/).props.accessibilityState).toMatchObject({ checked: true })
+  fireEvent.press(screen.getByText('Untick all'))
+  expect(screen.getByText('Tick what to add')).toBeTruthy()
+})
+
+it('picking a category ticks the row it belongs to', async () => {
+  const screen = await openReview()
+  fireEvent.press(screen.getByLabelText('Pick a category for Chai'))
+  fireEvent.press(screen.getByText('pick-food'))
+  expect(screen.getByLabelText(/Add Chai/).props.accessibilityState).toMatchObject({ checked: true })
+  expect(screen.getByText(/^Log 2 · /)).toBeTruthy()
+})
+
+it('ends on what got filled in, then closes or goes to Activity', async () => {
+  jest.useFakeTimers()
+  try {
+    const screen = await openReview()
+    fireEvent.press(screen.getByLabelText(/Add Rapido/))
+    fireEvent.press(screen.getByText(/^Log 2 · /))
+    await waitFor(() => expect(mockMutate).toHaveBeenCalledTimes(2))
+    await waitFor(() => jest.advanceTimersByTime(1100))
+    expect(await screen.findByText("You're caught up.")).toBeTruthy()
+    expect(screen.getByText(/17 Oct is filled in/)).toBeTruthy()
+    expect(screen.getByText('2 payments added')).toBeTruthy()
+    expect(mockBack).not.toHaveBeenCalled()
+    fireEvent.press(screen.getByText('See them in Activity'))
+    expect(mockDismissTo).toHaveBeenCalledWith('/(tabs)/activity')
+    fireEvent.press(screen.getByText('Done'))
+    expect(mockBack).toHaveBeenCalled()
+  } finally {
+    jest.useRealTimers()
+  }
 })
 
 it('turns away a file that is not a statement, and words a locked pdf', async () => {
