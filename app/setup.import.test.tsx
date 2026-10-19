@@ -43,7 +43,7 @@ it('an import lands on the celebration with its history still coming in, onboard
   mockPreview.mockResolvedValue({
     importId: 'imp1', app: 'ynab', filename: 'ynab.zip', direction: 'negative_spend', directionSource: 'column',
     currency: 'USD', hasCurrency: false, counts: { expense: 40, income: 3, from: '2026-07-01', to: '2026-10-01' },
-    skipped: {}, otherCurrencies: [], droppedOverCap: 0, samples: [], groups: ['Essentials'],
+    skipped: {}, otherCurrencies: [], samples: [], groups: ['Essentials'],
     categories: [{ source: 'Rent', name: 'Rent', group: 'Essentials', monthly: 1200 }],
     accounts: [], droppedAccounts: [], salary: null, budgetTotal: 1200,
   })

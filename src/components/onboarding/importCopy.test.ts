@@ -8,18 +8,15 @@ describe('import copy', () => {
   })
 
   it('says what was left out and why', () => {
-    expect(skippedCopy({ skipped: { transfer: 312, opening_balance: 2, other_currency: 14 }, otherCurrencies: ['USD'], droppedOverCap: 0 })).toEqual([
+    expect(skippedCopy({ skipped: { transfer: 312, opening_balance: 2, other_currency: 14 }, otherCurrencies: ['USD'] })).toEqual([
       'We left out 312 transfers between your accounts and 2 opening balances. They aren’t spending.',
       'We also skipped 14 rows in USD.',
     ])
-    expect(skippedCopy({ skipped: { transfer: 1, future: 17, unparseable: 2 }, otherCurrencies: [], droppedOverCap: 0 })).toEqual([
+    expect(skippedCopy({ skipped: { transfer: 1, future: 17, unparseable: 2 }, otherCurrencies: [] })).toEqual([
       'We left out 1 transfer between your accounts. It isn’t spending.',
       'We also skipped 2 rows we couldn’t read and 17 rows dated in the future.',
     ])
-    expect(skippedCopy({ skipped: {}, otherCurrencies: [], droppedOverCap: 40 })).toEqual([
-      'Your file has more than 20,000 rows, so we kept the newest and left out 40 older ones.',
-    ])
-    expect(skippedCopy({ skipped: {}, otherCurrencies: [], droppedOverCap: 0 })).toEqual([])
+    expect(skippedCopy({ skipped: {}, otherCurrencies: [] })).toEqual([])
   })
 
   it('names how direction was read', () => {
@@ -37,7 +34,7 @@ describe('import copy', () => {
   it('has no em dashes in anything it builds', () => {
     const all = [
       countsLine({ expense: 2, income: 2, from: '2026-01-01', to: '2026-02-01' }),
-      ...skippedCopy({ skipped: { transfer: 2, opening_balance: 2, fill: 2, other_currency: 2, unparseable: 2, future: 2, zero: 2 }, otherCurrencies: ['USD', 'EUR'], droppedOverCap: 2 }),
+      ...skippedCopy({ skipped: { transfer: 2, opening_balance: 2, fill: 2, other_currency: 2, unparseable: 2, future: 2, zero: 2 }, otherCurrencies: ['USD', 'EUR'] }),
       ...['too_big', 'unreadable', 'no_columns', 'already_importing', 'already_onboarded', 'x'].map(importErrorCopy),
       bannerProgress(4210, 11240),
     ]
@@ -63,7 +60,7 @@ describe('import copy edge cases', () => {
   })
 
   it('names at most three skipped currencies, then says there were others', () => {
-    expect(skippedCopy({ skipped: { other_currency: 9 }, otherCurrencies: ['USD', 'EUR', 'GBP', 'JPY'], droppedOverCap: 0 }))
+    expect(skippedCopy({ skipped: { other_currency: 9 }, otherCurrencies: ['USD', 'EUR', 'GBP', 'JPY'] }))
       .toEqual(['We skipped 9 rows in USD, EUR, GBP and other currencies.'])
   })
 })
