@@ -7,10 +7,11 @@ import { HttpError } from '@/src/api/client'
 import { enqueue } from '@/src/lib/pendingExpenses'
 import { isOnline } from '@/src/lib/netStatus'
 import { track, trackFirst } from '@/src/lib/analytics'
-import { FEED_MAX_PAGES, SLOW_SAVE_MS, useExpensesFeed, useExpenses, useAddExpense, useUpdateExpense, useDeleteExpense } from './useExpenses'
+import { FEED_MAX_PAGES, SLOW_SAVE_MS, useExpensesFeed, useExpenses, useLastSpent, useAddExpense, useUpdateExpense, useDeleteExpense } from './useExpenses'
 
 jest.mock('@/src/api/expenses', () => ({
   getExpenses: jest.fn(),
+  getRecentExpenses: jest.fn(),
   getExpensesPage: jest.fn(),
   mintExpensePayload: jest.fn((row) => ({ ...row, client_id: 'client-1', date: '2026-01-01', timestamp: '2026-01-01T10:00:00+05:30' })),
   postExpensePayload: jest.fn(),
@@ -289,4 +290,15 @@ it('useExpenses keeps a still-queued save the refetched server copy lacks (#214)
   const { result } = renderHook(() => useExpenses(), { wrapper: wrapper(queryClient) })
   await waitFor(() => expect(result.current.isSuccess).toBe(true))
   expect(result.current.data!.map((r) => r.item)).toEqual(['Coffee', 'Lunch'])
+})
+
+it('useExpenses moves lastSpent for a queued row older than the recent window', async () => {
+  const { list } = jest.requireMock('@/src/lib/pendingExpenses') as { list: jest.Mock }
+  const { getRecentExpenses } = jest.requireMock('@/src/api/expenses') as { getRecentExpenses: jest.Mock }
+  list.mockResolvedValueOnce([{ attempts: 0, payload: { item: 'Gift', amount_inr: '900', category: 'Gifts', date: '2020-01-05', timestamp: '2020-01-05T10:00:00', client_id: 'c2' } }])
+  getRecentExpenses.mockResolvedValue({ rows: [], lastSpent: { Gifts: '2019-12-01' } })
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } })
+  const { result } = renderHook(() => useLastSpent(), { wrapper: wrapper(queryClient) })
+  await waitFor(() => expect(result.current.isSuccess).toBe(true))
+  expect(result.current.data).toEqual({ Gifts: '2020-01-05' })
 })

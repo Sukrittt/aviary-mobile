@@ -70,8 +70,8 @@ function recentQuery() {
     queryKey: [...key, 'recent', from] as const,
     queryFn: async (): Promise<RecentExpenses> => {
       const [recent, queued] = await Promise.all([getRecentExpenses(from), queuedPayloads()])
-      const rows = withQueued(recent.rows, queued, from)
-      return { rows, lastSpent: withLastSpent(recent.lastSpent, rows.slice(0, rows.length - recent.rows.length)) }
+      // lastSpent is all-time, so a queued row older than the window still counts.
+      return { rows: withQueued(recent.rows, queued, from), lastSpent: withLastSpent(recent.lastSpent, queued.map(queuedRow)) }
     },
     staleTime: 30_000,
   }
@@ -189,7 +189,7 @@ export function useAddExpense() {
         return { timestamp: payload.timestamp, clientId: payload.client_id, pending: true }
       }
     },
-    onSuccess: (res, row) => {
+    onSuccess: async (res, row) => {
       // Both the manual screen and scan-bill's confirm land here, which is the
       // point: one event for "an expense got saved". $screen_name splits them
       // after the fact. No amount, no item name and no category name either:
@@ -209,6 +209,8 @@ export function useAddExpense() {
       // Not on the server yet, so don't refetch for it. Show it in the cached
       // lists instead (envelopes count it straight away); later fetches merge
       // it from the queue until the drain's synced event refetches for real.
+      // A fetch started before the enqueue would land without it, so drop that one.
+      await qc.cancelQueries({ queryKey: key })
       insertExpense(qc, queuedRow({ ...row, date: res.timestamp.slice(0, 10), timestamp: res.timestamp, client_id: res.clientId }))
     },
   })
