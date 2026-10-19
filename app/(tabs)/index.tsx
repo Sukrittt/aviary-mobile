@@ -52,6 +52,7 @@ import { ErrorScreen } from '@/src/components/shared/ErrorScreen'
 import { useOnline } from '@/src/lib/netStatus'
 import { BirdLandingMark, type BirdLandingMarkHandle } from '@/src/components/splash/BirdLandingMark'
 import { BudgetChip } from '@/src/components/budgets/BudgetChip'
+import { ReadOnlyBanner } from '@/src/components/budgets/ReadOnlyBanner'
 import { useBudgetSpaces } from '@/src/hooks/useBudgetSpaces'
 import { getSystemStatus } from '@/src/api/systemStatus'
 import { isVersionNewer } from '@/src/lib/version'
@@ -343,6 +344,7 @@ function HomeScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={tokens.accent} colors={[tokens.accent]} />
         }
       >
+        <ReadOnlyBanner />
         {/* Ready to Assign is the one number the envelope method is about, so it
             is the hero rather than one tile among four, until it's zero. */}
         {rtaSettled ? (

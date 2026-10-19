@@ -16,3 +16,14 @@ describe('redirectSystemPath', () => {
     expect(redirectSystemPath({ path: 'envelope://insights', initial: false })).toBe('envelope://insights')
   })
 })
+
+describe('invite links', () => {
+  it('holds the code for the join sheet instead of routing', () => {
+    const { takePendingJoinCode } = jest.requireActual('@/src/lib/pendingJoin')
+    expect(redirectSystemPath({ path: 'envelope://join/ab12cd', initial: false })).toBeNull()
+    expect(takePendingJoinCode()).toBe('AB12CD')
+    expect(redirectSystemPath({ path: 'https://www.useaviary.com/join/ZZ99ZZ', initial: true })).toBe('/')
+    expect(takePendingJoinCode()).toBe('ZZ99ZZ')
+    expect(takePendingJoinCode()).toBeNull()
+  })
+})

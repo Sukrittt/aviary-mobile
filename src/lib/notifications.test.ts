@@ -1,4 +1,5 @@
-import { addNotificationResponseListener, addPushTokenListener, checkColdStartNotification, registerForPushNotificationsAsync, unregisterDevicePushToken } from './notifications'
+import { addNotificationResponseListener, addPushTokenListener, checkColdStartNotification, registerForPushNotificationsAsync, setNotificationBudgetSwitch, unregisterDevicePushToken } from './notifications'
+import { setActiveBudget } from './activeBudget'
 import { track } from '@/src/lib/analytics'
 import { registerPushToken } from '@/src/api/notifications'
 import { SessionChangedError } from '@/src/api/accessMode'
@@ -41,6 +42,24 @@ describe('notification tap routing', () => {
     mockPush.mockClear()
     mockGetLastNotificationResponseAsync.mockClear()
     mockClearLastNotificationResponseAsync.mockClear()
+  })
+
+  it("opens the push's budget before its screen", async () => {
+    const order: string[] = []
+    const switchTo = jest.fn(async (id: string) => { order.push(`switch ${id}`); setActiveBudget(id) })
+    mockPush.mockImplementation((r) => order.push(`push ${typeof r === 'string' ? r : r.pathname}`))
+    setNotificationBudgetSwitch(switchTo)
+    addNotificationResponseListener()
+    responseListener!({ notification: { request: { content: { data: { route: '/budget-members', spaceId: 'sp_home' } } } } })
+    await new Promise((r) => setTimeout(r, 0))
+    expect(order).toEqual(['switch sp_home', 'push /budget-members'])
+    // Already in it: straight there.
+    responseListener!({ notification: { request: { content: { data: { route: '/(tabs)/activity', spaceId: 'sp_home' } } } } })
+    expect(switchTo).toHaveBeenCalledTimes(1)
+    expect(mockPush).toHaveBeenLastCalledWith('/(tabs)/activity')
+    setNotificationBudgetSwitch(null)
+    setActiveBudget(null)
+    mockPush.mockReset()
   })
 
   it('deep-links to the activity tab for a warm tap with a date', () => {

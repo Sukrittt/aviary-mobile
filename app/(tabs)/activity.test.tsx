@@ -44,6 +44,11 @@ jest.mock('@/src/hooks/useGroups', () => ({
   useGroupIcons: () => new Map(),
 }))
 
+// One-person budget by default: who-logged-what stays out of the way.
+let mockSpaces: Record<string, unknown> = { budgets: [], active: null, multi: false }
+jest.mock('@/src/hooks/useBudgetSpaces', () => ({ useBudgetSpaces: () => mockSpaces }))
+jest.mock('@/src/api/accessMode', () => ({ ...jest.requireActual('@/src/api/accessMode'), currentUserId: () => 'u1' }))
+
 let mockOnline = true
 jest.mock('@/src/lib/netStatus', () => ({ useOnline: () => mockOnline, isOnline: () => mockOnline, readLastSynced: async () => null }))
 
@@ -110,6 +115,7 @@ beforeEach(() => {
   mockPush.mockReset()
   mockDuplicates = []
   mockOnline = true
+  mockSpaces = { budgets: [], active: null, multi: false }
 })
 
 it('shows duplicate review as a compact header action', () => {
@@ -511,5 +517,39 @@ describe('feed view', () => {
     fireEvent.press(screen.getByText('Delete'))
     fireEvent.press(screen.getAllByText('Delete').at(-1)!)
     expect(mockDelete).toHaveBeenCalledWith(expect.objectContaining({ id: 'row-1' }), expect.anything())
+  })
+})
+
+describe('who logged what', () => {
+  const member = (userId: string, name: string, role: 'owner' | 'member') => ({ userId, name, avatarUrl: null, role, joinedAt: null })
+  const home = { id: 'sp_home', name: 'Home', emoji: '🏠', role: 'member', ownerId: 'u2', currencyCode: 'INR', personal: false, members: [member('u2', 'Priya', 'owner'), member('u1', 'Rahul', 'member')] }
+  const rows = [{ ...row(1, '2026-06-01'), created_by: null }, { ...row(2, '2026-06-01'), created_by: 'u1' }]
+
+  it('changes nothing in a one-person budget', () => {
+    mockUseExpensesPage.mockReturnValue({ data: pageResult({ rows, total: 2 }), isLoading: false, error: null })
+    const screen = renderWithProviders(<ActivityScreen />)
+    expect(screen.queryByText('Mine')).toBeNull()
+    expect(screen.queryByTestId('logged-by')).toBeNull()
+  })
+
+  it('marks each row with who logged it, and Mine keeps only yours', () => {
+    mockSpaces = { budgets: [home], active: home, multi: true }
+    mockUseExpensesPage.mockReturnValue({ data: pageResult({ rows, total: 2 }), isLoading: false, error: null })
+    const screen = renderWithProviders(<ActivityScreen />)
+    expect(screen.getByLabelText('Added by Priya')).toBeTruthy()
+    expect(screen.getByLabelText('Added by Rahul')).toBeTruthy()
+    fireEvent.press(screen.getByText('Mine'))
+    expect(screen.queryByText('Item 1')).toBeNull()
+    expect(screen.getByText('Item 2')).toBeTruthy()
+    fireEvent.press(screen.getByText('Everyone'))
+    expect(screen.getByText('Item 1')).toBeTruthy()
+  })
+
+  it('says who added it in the details sheet', () => {
+    mockSpaces = { budgets: [home], active: home, multi: true }
+    mockUseExpensesPage.mockReturnValue({ data: pageResult({ rows, total: 2 }), isLoading: false, error: null })
+    const screen = renderWithProviders(<ActivityScreen />)
+    fireEvent.press(screen.getByText('Item 1'))
+    expect(screen.getByText('Added by Priya')).toBeTruthy()
   })
 })

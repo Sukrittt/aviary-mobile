@@ -1,4 +1,5 @@
-import { currentAccessToken, SessionChangedError } from '@/src/api/accessMode'
+import { currentAccessToken, currentUserId, SessionChangedError } from '@/src/api/accessMode'
+import { activeBudgetId } from '@/src/lib/activeBudget'
 import { Platform } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as Device from 'expo-device'
@@ -117,6 +118,12 @@ export function addPushTokenListener(): NotificationsType.Subscription | undefin
   })
 }
 
+// Registered by BudgetAccessWatcher, which has the query client a switch needs.
+let budgetSwitch: ((spaceId: string) => Promise<void>) | null = null
+export function setNotificationBudgetSwitch(fn: typeof budgetSwitch): void {
+  budgetSwitch = fn
+}
+
 /**
  * Deep-link on notification tap. A `data.route` wins if present (server picks
  * the destination); otherwise falls back to the Activity tab for a `data.date`
@@ -143,13 +150,28 @@ function routeFromNotificationResponse(response: NotificationsType.NotificationR
     ...(typeof data?.kind === 'string' && { kind: data.kind }),
     ...(typeof data?.step === 'number' && { step: data.step }),
   })
+  // A push about a shared budget opens that budget before its screen.
+  const spaceId = typeof data?.spaceId === 'string' && data.spaceId ? data.spaceId : null
+  if (spaceId && budgetSwitch && spaceId !== (activeBudgetId() ?? currentUserId())) {
+    void budgetSwitch(spaceId).catch(() => {}).finally(() => routeTo(data))
+    return
+  }
+  routeTo(data)
+}
+
+function routeTo(data: Record<string, unknown> | undefined): void {
+  const route = data?.route
   if (typeof route === 'string' && route) {
-    if (route === '/wrapped' || route === '/recap' || route === '/activity' || route === '/investments' || route === '/account/recurring') router.push(route)
+    if (route === '/budget-members') {
+      router.push({ pathname: '/budget-members' as never, params: typeof data?.spaceId === 'string' ? { id: data.spaceId } : {} })
+      return
+    }
+    if (route === '/wrapped' || route === '/recap' || route === '/activity' || route === '/(tabs)/activity' || route === '/investments' || route === '/account/recurring') router.push(route)
     // Evening check. log-expense is the launch screen, so it's usually already
     // at the bottom of the stack: go back to it rather than stack a second one.
     else if (route === '/modals/log-expense') router.dismissTo(route)
     // Pace nudge: `category` is the hot envelope, which move-money calls `fromCategory` (it's the recipient).
-    else if (route === '/modals/move-money' && typeof data.category === 'string' && data.category) {
+    else if (route === '/modals/move-money' && typeof data?.category === 'string' && data.category) {
       router.push({ pathname: '/modals/move-money', params: { fromCategory: data.category } })
     }
     return

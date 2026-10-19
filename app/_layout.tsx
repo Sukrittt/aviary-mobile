@@ -8,6 +8,7 @@ import { BirdLandingSplash } from '@/src/components/splash/BirdLandingSplash'
 import { CrashScreen } from '@/src/components/shared/CrashScreen'
 import { subscribeExchanging } from '@/src/api/useSignIn'
 import { AlertHost } from '@/src/components/ui/AlertHost'
+import { BudgetAccessWatcher } from '@/src/components/budgets/BudgetAccessWatcher'
 import { PrivacyProvider } from '@/src/context/PrivacyContext'
 import { MaintenanceBanner } from '@/src/components/shared/MaintenanceBanner'
 import { LogExpenseNavigation } from '@/src/features/log-expense/LogExpenseNavigation'
@@ -455,6 +456,8 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
           <Stack.Screen name="modals/recurring-income" options={{ presentation: 'modal' }} />
           <Stack.Screen name="modals/account" options={{ presentation: 'modal' }} />
           <Stack.Screen name="modals/new-budget" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="modals/join-budget" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="budget-members" options={{ presentation: 'card', animation: 'slide_from_right' }} />
           <Stack.Screen name="modals/bill-scan" options={{ presentation: 'modal' }} />
           <Stack.Screen name="modals/duplicates" options={{ presentation: 'modal' }} />
           <Stack.Screen name="modals/statement" options={{ presentation: 'modal' }} />
@@ -492,6 +495,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
       {splashUp ? null : <MaintenanceBanner />}
       {showSplash ? <View style={StyleSheet.absoluteFill}><BirdLandingSplash /></View> : null}
       <AlertHost />
+      {signedIn ? <BudgetAccessWatcher /> : null}
       {/* Same gate as the (tabs) Stack.Protected block above: fires the same
           budgets/expenses queries those screens already fetch, so it must only
           run once they're reachable — not on every cold boot regardless of
