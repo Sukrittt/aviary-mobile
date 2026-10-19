@@ -59,7 +59,8 @@ async function drain(): Promise<void> {
           if (generation !== sessionGeneration()) return
           await pending.setSubmitted(entry.payload.client_id, true, owner)
           if (generation !== sessionGeneration()) return
-          const result = await postExpensePayload(current.payload, generation).catch(async (err) => {
+          // The budget it was logged in, not whichever is active now.
+          const result = await postExpensePayload(current.payload, generation, current.spaceId ?? owner).catch(async (err) => {
             // A definitive rejection proves this attempt did not create a row,
             // but cannot disprove a commit from an earlier ambiguous attempt.
             if (current.submitted === false && generation === sessionGeneration() &&

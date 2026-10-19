@@ -263,3 +263,23 @@ it('coalesces a successful batch into one completion signal', async () => {
     expect(listener).toHaveBeenCalledWith({ owner: 'user_1', generation: 1 })
   } finally { unsubscribe() }
 })
+
+describe('budget routing', () => {
+  it('posts each queued expense to the budget stamped at enqueue time', async () => {
+    ;(pending.list as jest.Mock).mockResolvedValue([{ ...entry('c1'), spaceId: 'sp_home' }])
+    ;(postExpensePayload as jest.Mock).mockResolvedValue({ id: 'row-1', timestamp: 'ts' })
+
+    await flush()
+
+    expect(postExpensePayload).toHaveBeenCalledWith(expect.objectContaining({ client_id: 'c1' }), 1, 'sp_home')
+  })
+
+  it('posts an entry queued before budgets existed to the personal budget, whatever is active now', async () => {
+    ;(pending.list as jest.Mock).mockResolvedValue([entry('c1')])
+    ;(postExpensePayload as jest.Mock).mockResolvedValue({ id: 'row-1', timestamp: 'ts' })
+
+    await flush()
+
+    expect(postExpensePayload).toHaveBeenCalledWith(expect.objectContaining({ client_id: 'c1' }), 1, 'user_1')
+  })
+})
