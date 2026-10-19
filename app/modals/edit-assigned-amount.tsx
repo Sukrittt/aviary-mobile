@@ -270,7 +270,7 @@ function EditAmountBody({
           disabled={saving || success}
           name={name}
           icon={iconKey}
-          tint={tintOf(name)}
+          tint={tintOf(isCreditCardPayment ? name : category)}
           spent={spent}
           currentAssigned={baseAssigned}
           hideAmounts={hideAmounts}
