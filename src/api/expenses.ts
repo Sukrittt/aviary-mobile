@@ -2,6 +2,7 @@ import { ExpenseWriteError } from '@/src/lib/expenseConflict'
 import * as Crypto from 'expo-crypto'
 import { apiFetch, HttpError } from './client'
 import { nowLocal } from '@/src/lib/date'
+import { budgetHeaders } from '@/src/lib/activeBudget'
 import type { CsvResponse, ExpenseRow } from '@/src/types'
 
 export async function getExpenses(): Promise<ExpenseRow[]> {
@@ -107,10 +108,11 @@ export function mintExpensePayload(row: NewExpenseRow): ExpensePayload {
  * from a list loaded before a rename is mapped forward server-side, so it can
  * differ from what was posted.
  */
-export async function postExpensePayload(payload: ExpensePayload, expectedGeneration?: number): Promise<{ id?: string; timestamp?: string; version?: number; category?: string }> {
+export async function postExpensePayload(payload: ExpensePayload, expectedGeneration?: number, spaceId?: string): Promise<{ id?: string; timestamp?: string; version?: number; category?: string }> {
   const resp = await apiFetch('/api/expenses', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    // A pinned budget (the offline queue's) wins over whichever is active now.
+    headers: { 'Content-Type': 'application/json', ...budgetHeaders(spaceId) },
     body: JSON.stringify(payload),
   }, expectedGeneration)
   if (!resp.ok) throw new HttpError(resp.status, `Failed to add expense: ${resp.status}`)

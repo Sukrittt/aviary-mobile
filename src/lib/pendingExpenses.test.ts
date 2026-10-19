@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import * as accessMode from '@/src/api/accessMode'
 import * as pending from './pendingExpenses'
+import { setActiveBudget } from './activeBudget'
 import type { ExpensePayload } from '@/src/api/expenses'
 
 // The real (mocked, see jest.setup.js) AsyncStorage — no per-file mock needed.
@@ -187,4 +188,21 @@ it('clearAll empties the pending, failed and receipt keys for that owner only', 
   const keys = await AsyncStorage.getAllKeys()
   expect(keys.filter((k) => k.endsWith(':user_a'))).toEqual([])
   expect(await pending.list('user_b')).toHaveLength(1)
+})
+
+describe('budget stamping', () => {
+  afterEach(() => setActiveBudget(null))
+
+  it('stamps the budget that was active when the expense was logged', async () => {
+    setActiveBudget('sp_home')
+    await pending.enqueue(payload('c1'))
+    // A switch before the queue flushes must not move the expense.
+    setActiveBudget('sp_trip')
+    expect((await pending.list())[0].spaceId).toBe('sp_home')
+  })
+
+  it('stamps the personal budget, by its owner id, when no budget is active', async () => {
+    await pending.enqueue(payload('c1'))
+    expect((await pending.list())[0].spaceId).toBe('user_a')
+  })
 })

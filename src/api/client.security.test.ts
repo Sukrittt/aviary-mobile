@@ -2,6 +2,7 @@ import { apiFetch } from './client'
 import { getValidToken, sessionGeneration } from './accessMode'
 import { track } from '@/src/lib/analytics'
 import { setOnline } from '@/src/lib/netStatus'
+import { setActiveBudget } from '@/src/lib/activeBudget'
 jest.mock('./accessMode', () => ({
   getValidToken: jest.fn(), sessionGeneration: jest.fn(() => 1),
   SessionChangedError: class extends Error {}, currentAccessToken: jest.fn(), clearAccess: jest.fn(),
@@ -94,4 +95,34 @@ it('sends a public request without a token, so it never waits on a refresh', asy
   expect(init.headers).toEqual({})
   expect(init.anonymous).toBeUndefined()
   fetch.mockRestore()
+})
+describe('the active budget header', () => {
+  afterEach(() => setActiveBudget(null))
+  const sent = (fetch: jest.SpyInstance) => (fetch.mock.calls[0][1] as RequestInit).headers as Record<string, string>
+
+  it('sends no budget header for the personal budget, exactly like before budgets', async () => {
+    ;(getValidToken as jest.Mock).mockResolvedValue('t')
+    const fetch = jest.spyOn(global, 'fetch').mockResolvedValueOnce(new Response('{}'))
+    await apiFetch('/api/expenses')
+    expect(sent(fetch)).not.toHaveProperty('x-aviary-budget')
+    fetch.mockRestore()
+  })
+
+  it('names the active budget on every request', async () => {
+    setActiveBudget('sp_home')
+    ;(getValidToken as jest.Mock).mockResolvedValue('t')
+    const fetch = jest.spyOn(global, 'fetch').mockResolvedValueOnce(new Response('{}'))
+    await apiFetch('/api/expenses')
+    expect(sent(fetch)['x-aviary-budget']).toBe('sp_home')
+    fetch.mockRestore()
+  })
+
+  it('lets a caller pin a different budget, as the offline queue does', async () => {
+    setActiveBudget('sp_trip')
+    ;(getValidToken as jest.Mock).mockResolvedValue('t')
+    const fetch = jest.spyOn(global, 'fetch').mockResolvedValueOnce(new Response('{}'))
+    await apiFetch('/api/expenses', { headers: { 'x-aviary-budget': 'sp_home' } })
+    expect(sent(fetch)['x-aviary-budget']).toBe('sp_home')
+    fetch.mockRestore()
+  })
 })
