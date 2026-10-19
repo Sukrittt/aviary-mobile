@@ -1,5 +1,5 @@
-import { act, fireEvent } from '@testing-library/react-native'
-import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
+import { act, fireEvent, waitFor } from '@testing-library/react-native'
+import { createTestQueryClient, renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import type { Forecast } from '@/src/api/forecast'
 import { ForecastCard } from './ForecastCard'
 import { ForecastLine } from '../home/ForecastLine'
@@ -59,4 +59,14 @@ it('stays off while Insights is hidden', async () => {
   const { toJSON } = renderWithProviders(<ForecastLine />)
   await act(async () => { await new Promise((r) => setTimeout(r, 0)) })
   expect(toJSON()).toBeNull()
+})
+
+it('drops a forecast it already loaded once Insights is hidden', async () => {
+  const queryClient = createTestQueryClient()
+  const { findByText, queryByText } = renderWithProviders(<ForecastLine />, { queryClient })
+  expect(await findByText('Food runs out around 30 Oct')).toBeTruthy()
+  mockUser = { hiddenFeatures: ['insights'] }
+  // Any refetch re-renders; the forecast's own cache is still there.
+  await act(() => queryClient.invalidateQueries({ queryKey: ['budgets'] }))
+  await waitFor(() => expect(queryByText('Food runs out around 30 Oct')).toBeNull())
 })
