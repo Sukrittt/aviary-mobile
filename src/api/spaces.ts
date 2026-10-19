@@ -126,6 +126,11 @@ export async function deleteBudget(id: string, confirmName: string): Promise<voi
   await send(spacePath(id), { method: 'DELETE', ...json({ confirmName }) })
 }
 
+/** Hands the budget (and paying for it) to a member. The old owner stays in it as a member. */
+export async function transferBudget(id: string, to: string): Promise<void> {
+  await send(`${spacePath(id)}/transfer`, { method: 'POST', ...json({ to }) })
+}
+
 export async function restoreBudget(id: string): Promise<void> {
   await send(`${spacePath(id)}/restore`, { method: 'POST' })
 }

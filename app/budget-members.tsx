@@ -19,6 +19,7 @@ import {
   deleteBudget,
   getBudgetMembers,
   removeMember,
+  transferBudget,
   setNotifyOthers,
   updateBudget,
   type BudgetInvite,
@@ -44,7 +45,7 @@ export function inviteMessage(name: string, invite: BudgetInvite): string {
   return `Join our ${name} budget on Aviary: ${invite.url} · Code ${invite.code}`
 }
 
-type Confirm = { kind: 'leave' } | { kind: 'remove'; member: BudgetMember } | { kind: 'delete' } | { kind: 'rename' }
+type Confirm = { kind: 'leave' } | { kind: 'pick-owner' } | { kind: 'transfer'; member: BudgetMember } | { kind: 'remove'; member: BudgetMember } | { kind: 'delete' } | { kind: 'rename' }
 
 /**
  * One budget's people. The owner invites (share sheet plus a big code),
@@ -69,7 +70,7 @@ export default function BudgetMembersScreen() {
   const [freshInvite, setFreshInvite] = useState<BudgetInvite | null>(null)
   const [confirm, setConfirm] = useState<Confirm | null>(null)
   const [typed, setTyped] = useState('')
-  const [renamed, setRenamed] = useState(false)
+  const [saved, setSaved] = useState(false)
   const [notify, setNotify] = useState<boolean | null>(null)
   const notifyOn = notify ?? q.data?.notifyOthers ?? false
 
@@ -140,21 +141,30 @@ export default function BudgetMembersScreen() {
   const rename = useMutation({
     mutationFn: () => updateBudget(id, { name: typed.trim() }),
     onSuccess: () => {
-      setRenamed(true)
+      setSaved(true)
       void queryClient.invalidateQueries({ queryKey: budgetsKey })
+    },
+    onError: oops,
+  })
+
+  const transfer = useMutation({
+    mutationFn: (userId: string) => transferBudget(id, userId),
+    onSuccess: () => {
+      setSaved(true)
+      refresh()
     },
     onError: oops,
   })
 
   // The shared success beat on Save, then the sheet goes.
   useEffect(() => {
-    if (!renamed) return
+    if (!saved) return
     const timer = setTimeout(() => {
-      setRenamed(false)
+      setSaved(false)
       setConfirm(null)
     }, 1100)
     return () => clearTimeout(timer)
-  }, [renamed])
+  }, [saved])
 
   const invites = q.data?.invites ?? []
   const full = members.length >= MAX_MEMBERS
@@ -265,6 +275,12 @@ export default function BudgetMembersScreen() {
           </View>
         ) : null}
 
+        {owner && budget?.personal ? (
+          <Text style={[styles.note, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>Your personal budget stays yours.</Text>
+        ) : owner && budget && members.length >= 2 ? (
+          button('Make someone else the owner', () => openSheet({ kind: 'pick-owner' }), tokens.text, { testID: 'transfer-owner' })
+        ) : null}
+
         {owner
           ? budget && !budget.personal
             ? button('Delete budget', () => openSheet({ kind: 'delete' }), tokens.coral, { testID: 'delete-budget' })
@@ -292,17 +308,48 @@ export default function BudgetMembersScreen() {
             <TextInput value={typed} onChangeText={setTyped} placeholder={name} placeholderTextColor={tokens.text3} accessibilityLabel="Budget name to confirm" autoCorrect={false} style={[styles.input, { backgroundColor: tokens.inputBg, borderColor: tokens.border, color: tokens.text, fontFamily: fontFamily.bodyMedium }]} />
             <SheetButtons tokens={tokens} confirm="Delete budget" cancel="Keep it" busy={destroy.isPending} disabled={typed.trim() !== budget?.name} onConfirm={() => destroy.mutate()} onCancel={() => setConfirm(null)} />
           </>
+        ) : confirm?.kind === 'pick-owner' ? (
+          <>
+            <Text style={[styles.sheetTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Who takes over?</Text>
+            {members
+              .filter((m) => m.userId !== uid)
+              .map((m) => (
+                <Pressable key={m.userId} onPress={() => setConfirm({ kind: 'transfer', member: m })} accessibilityRole="button" accessibilityLabel={`Make ${m.name ?? 'them'} the owner`} style={styles.memberRow}>
+                  <Avatar name={m.name} avatarUrl={m.avatarUrl} size={36} />
+                  <Text numberOfLines={1} style={[styles.memberName, { flex: 1, color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>{m.name ?? 'Someone'}</Text>
+                </Pressable>
+              ))}
+          </>
+        ) : confirm?.kind === 'transfer' ? (
+          <>
+            <Text style={[styles.sheetTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>{`Make ${firstName(confirm.member.name) ?? 'them'} the owner of ${name}?`}</Text>
+            <Text style={[styles.sheetBody, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>{`${firstName(confirm.member.name) ? `${firstName(confirm.member.name)}'s` : 'Their'} plan covers ${name} from now on, and only they can invite, remove or delete. You stay in it.`}</Text>
+            <View style={styles.sheetButtons}>
+              <Pressable onPress={() => setConfirm(null)} disabled={saved} accessibilityRole="button" style={[styles.sheetButton, { backgroundColor: tokens.pillBg }]}>
+                <Text style={[styles.inviteText, { color: tokens.text2, fontFamily: fontFamily.bodyBold }]}>Not now</Text>
+              </Pressable>
+              <Pressable
+                testID="confirm-transfer"
+                onPress={() => !transfer.isPending && transfer.mutate(confirm.member.userId)}
+                disabled={transfer.isPending || saved}
+                accessibilityRole="button"
+                style={[styles.sheetButton, { backgroundColor: saved ? tokens.successBg : tokens.accent, opacity: transfer.isPending ? 0.5 : 1 }]}
+              >
+                {saved ? <CheckIcon color={tokens.onSuccess} /> : <Text style={[styles.inviteText, { color: tokens.onAccent, fontFamily: fontFamily.bodyBold }]}>{transfer.isPending ? 'One sec…' : 'Make them owner'}</Text>}
+              </Pressable>
+            </View>
+          </>
         ) : confirm?.kind === 'rename' ? (
           <>
             <Text style={[styles.sheetTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Rename budget</Text>
             <TextInput value={typed} onChangeText={setTyped} maxLength={40} autoFocus accessibilityLabel="Budget name" style={[styles.input, { backgroundColor: tokens.inputBg, borderColor: tokens.border, color: tokens.text, fontFamily: fontFamily.bodyMedium }]} />
             <Pressable
               onPress={() => !rename.isPending && rename.mutate()}
-              disabled={!typed.trim() || rename.isPending || renamed}
+              disabled={!typed.trim() || rename.isPending || saved}
               accessibilityRole="button"
-              style={[styles.sheetConfirm, { backgroundColor: renamed ? tokens.successBg : tokens.accent, opacity: !typed.trim() || rename.isPending ? 0.5 : 1 }]}
+              style={[styles.sheetConfirm, { backgroundColor: saved ? tokens.successBg : tokens.accent, opacity: !typed.trim() || rename.isPending ? 0.5 : 1 }]}
             >
-              {renamed ? <CheckIcon color={tokens.onSuccess} /> : <Text style={[styles.inviteText, { color: tokens.onAccent, fontFamily: fontFamily.bodyBold }]}>{rename.isPending ? 'Saving…' : 'Save'}</Text>}
+              {saved ? <CheckIcon color={tokens.onSuccess} /> : <Text style={[styles.inviteText, { color: tokens.onAccent, fontFamily: fontFamily.bodyBold }]}>{rename.isPending ? 'Saving…' : 'Save'}</Text>}
             </Pressable>
           </>
         ) : null}
