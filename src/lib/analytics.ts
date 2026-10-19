@@ -72,6 +72,9 @@ export type AppEvent =
   | 'expense_deleted'
   // `from` is 'log' (the log screen).
   | 'expense_photo_added'
+  // The log screen held a save past 10s. `stage` is what it waited on:
+  // 'token_refresh', 'request' or 'navigation'. `mode` is 'add' or 'edit'.
+  | 'save_stuck'
   // Activity's List / Feed switch. `view` is the one switched to.
   | 'activity_view_changed'
   | 'ai_category_suggested'

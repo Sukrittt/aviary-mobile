@@ -124,6 +124,9 @@ export async function initAccessMode(): Promise<AccessMode | null> {
 // concurrent refreshes would race, with the loser's rotated token already dead.
 let refreshing: Promise<string | null> | null = null
 
+/** A token refresh is in flight, which every apiFetch waits on before its request. */
+export const isRefreshingToken = () => refreshing !== null
+
 /**
  * After a refresh fails without WorkOS rejecting the token (a timeout, no
  * network, a 5xx), requests fail fast for this long instead of each starting
