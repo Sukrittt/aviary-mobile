@@ -202,15 +202,16 @@ export function formatMoney(value: number, code: string = DEFAULT_CURRENCY): str
   const sign = value < 0 && !(whole === '0' && fraction === '00') ? '-' : ''
   return `${sign}${currencyPrefix(code)}${groupDigits(whole, code)}${fraction === '00' ? '' : `.${fraction}`}`
 }
-/** Chart labels: 1.5k, 12.5L (INR) or 1.3M, with the sign ahead of the symbol like formatMoney. */
+/** Chart labels: 1.5k, 12.5L, 1.2Cr (INR) or 1.3M, 2.1B, with the sign ahead of the symbol like formatMoney. */
 function formatCompact(value: number, code: string): string {
   const abs = Math.abs(value)
-  if (abs < 1000) return formatMoney(Math.round(value), code)
-  const [step, unit] = resolveCurrency(code) === 'INR' ? [1e5, 'L'] : [1e6, 'M']
-  // Pick the unit after rounding so 999,950 reads 10L, not 1000k.
-  const thousands = Number((abs / 1000).toFixed(abs >= 10000 ? 0 : 1))
-  const amount = thousands * 1000 >= step ? `${Number((abs / step).toFixed(1))}${unit}` : `${thousands}k`
-  return `${value < 0 ? '-' : ''}${currencyPrefix(code)}${amount}`
+  if (Math.round(abs) < 1000) return formatMoney(Math.sign(value) * Math.round(abs), code)
+  const units: [number, string][] = resolveCurrency(code) === 'INR' ? [[1e3, 'k'], [1e5, 'L'], [1e7, 'Cr']] : [[1e3, 'k'], [1e6, 'M'], [1e9, 'B']]
+  const rounded = (i: number) => Number((abs / units[i][0]).toFixed(i === 0 && abs >= 1e4 ? 0 : 1))
+  // Pick the unit after rounding so 999,950 reads 10L, not 1000k, and 99,99,500 reads 1Cr, not 100L.
+  let i = 0
+  while (i < units.length - 1 && rounded(i) * units[i][0] >= units[i + 1][0]) i++
+  return `${value < 0 ? '-' : ''}${currencyPrefix(code)}${rounded(i)}${units[i][1]}`
 }
 export function formatMoneyInput(raw: string, code: string = DEFAULT_CURRENCY): string {
   const [whole, fraction] = raw.split('.')
