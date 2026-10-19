@@ -134,7 +134,7 @@ export function ColorSwatches({ value, onChange, disabled }: {
             style={[styles.swatch, { backgroundColor: bg, borderColor: on ? ink : 'transparent' }]}
           >
             <View style={[styles.swatchDot, { backgroundColor: ink }]}>
-              {on && <Check size={14} weight="bold" color={bg} />}
+              {on && <Check size={14} weight="bold" color={tokens.cardSolid} />}
             </View>
           </Pressable>
         )
