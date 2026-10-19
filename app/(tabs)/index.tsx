@@ -59,6 +59,7 @@ import { useFeatureNudge } from '@/src/hooks/useFeatureNudge'
 import { firstBanner } from '@/src/lib/homeBanner'
 import { Alert } from '@/src/components/ui/AlertHost'
 import { isHidden } from '@/src/lib/features'
+import { ForecastLine } from '@/src/components/home/ForecastLine'
 import { GetStartedCard } from '@/src/components/home/GetStartedCard'
 import { ImportBanner } from '@/src/components/home/ImportBanner'
 import { paydayLabel, startingBalanceHref, upcomingMonthlyPay } from '@/src/lib/upcomingPay'
@@ -431,6 +432,8 @@ function HomeScreen() {
             one-time heads-up rather than growing into one. */}
         {/* Outside firstBanner: it only ever shows for someone who just imported. */}
         <ImportBanner />
+
+        <ForecastLine />
 
         {banner === 'update' && androidUpdate && (
           <Card style={styles.rolloverCard} elevated={false}>

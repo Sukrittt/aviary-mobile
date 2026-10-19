@@ -47,6 +47,7 @@ import {
 } from "@/src/lib/monthly";
 import { FORCE_EMPTY_STATE_PREVIEW, emptyForPreview } from "@/src/lib/emptyStatePreview";
 import { tap } from "@/src/lib/haptics";
+import { ForecastCard } from "@/src/components/insights/ForecastCard";
 
 const TREND_MONTHS = 12;
 const HEATMAP_WEEKS = 12;
@@ -546,6 +547,7 @@ export default function InsightsScreen() {
       }
       contentContainerStyle={{ gap: space.lg }}
     >
+      {insightMonth === month && <ForecastCard />}
       <Card elevated={false} style={{ backgroundColor: tokens.card, marginTop: space.sm }}>
         <View
           style={{
