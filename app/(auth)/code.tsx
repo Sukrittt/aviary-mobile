@@ -115,6 +115,7 @@ export default function CodeScreen() {
   // screen is left (back button, or the change-email success redirect) can't
   // set state on a gone component.
   const cancelledRef = useRef(false)
+  const signInRef = useRef<(() => Promise<void>) | null>(null)
   useEffect(() => () => {
     cancelledRef.current = true
   }, [])
@@ -127,6 +128,7 @@ export default function CodeScreen() {
       if (cancelledRef.current) return
       setPending(false)
       if (ok) {
+        if (typeof ok === 'function') signInRef.current = ok
         if (!isChangeEmail) track('sign_in_completed', { method: 'email' })
         Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {})
         setDone(true)
@@ -147,12 +149,16 @@ export default function CodeScreen() {
   }
 
   // A plain sign-in needs no navigation: persisting the session flips the root
-  // layout's guards and the signed-in screens replace this one. Only the
-  // change-email flow, which starts and ends signed in, has somewhere to go.
+  // layout's guards and the signed-in screens replace this one. It waits out
+  // the success animation first, or the guards swap the screen before it plays.
+  // Only the change-email flow, which starts and ends signed in, has somewhere to go.
   useEffect(() => {
-    if (!done || !isChangeEmail) return
-    void qc.invalidateQueries({ queryKey: userKey })
-    const timer = setTimeout(() => router.replace('/account/security'), 1100)
+    if (!done) return
+    if (isChangeEmail) void qc.invalidateQueries({ queryKey: userKey })
+    const timer = setTimeout(() => {
+      if (isChangeEmail) router.replace('/account/security')
+      else void signInRef.current?.()
+    }, 1100)
     return () => clearTimeout(timer)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [done])
