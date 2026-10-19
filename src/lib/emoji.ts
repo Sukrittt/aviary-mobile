@@ -17,7 +17,8 @@ export function splitEmoji(raw: string): { icon: string; text: string } {
 
 type TintTokens = Pick<ThemeTokens,
   'mint' | 'mintSoft' | 'violet' | 'violetSoft' | 'blue' | 'blueSoft' |
-  'accentInk' | 'accentSoft' | 'warnInk' | 'warnSoft' | 'coral' | 'coralSoft'>
+  'accentInk' | 'accentSoft' | 'warnInk' | 'warnSoft' | 'coral' | 'coralSoft' |
+  'pink' | 'pinkSoft' | 'indigo' | 'indigoSoft' | 'brown' | 'brownSoft' | 'slate' | 'slateSoft'>
 
 // A soft tint and the icon colour that sits on it, by the key a category or
 // group stores when the user picks a colour (Web's src/lib/categoryColors.ts).
@@ -28,10 +29,18 @@ const TINTS = {
   accent: (t: TintTokens) => ({ bg: t.accentSoft, ink: t.accentInk }),
   warn: (t: TintTokens) => ({ bg: t.warnSoft, ink: t.warnInk }),
   coral: (t: TintTokens) => ({ bg: t.coralSoft, ink: t.coral }),
+  pink: (t: TintTokens) => ({ bg: t.pinkSoft, ink: t.pink }),
+  indigo: (t: TintTokens) => ({ bg: t.indigoSoft, ink: t.indigo }),
+  brown: (t: TintTokens) => ({ bg: t.brownSoft, ink: t.brown }),
+  slate: (t: TintTokens) => ({ bg: t.slateSoft, ink: t.slate }),
 }
 export type CategoryColor = keyof typeof TINTS
+/** Picker order, by hue (Web's src/lib/categoryColors.ts). */
+export const CATEGORY_COLORS: CategoryColor[] = [
+  'coral', 'accent', 'warn', 'mint', 'blue', 'indigo', 'violet', 'pink', 'brown', 'slate',
+]
 /** Hash order: changing it recolours every category without a picked colour. */
-export const CATEGORY_COLORS = Object.keys(TINTS) as CategoryColor[]
+const HASH_COLORS: CategoryColor[] = ['mint', 'violet', 'blue', 'accent', 'warn', 'coral']
 
 export function isCategoryColor(value: unknown): value is CategoryColor {
   return typeof value === 'string' && Object.hasOwn(TINTS, value)
@@ -47,7 +56,7 @@ export function categoryColor(name: string, color?: string): CategoryColor {
   const text = splitEmoji(name).text
   let hash = 0
   for (let i = 0; i < text.length; i++) hash = (hash * 31 + text.charCodeAt(i)) >>> 0
-  return CATEGORY_COLORS[hash % CATEGORY_COLORS.length]
+  return HASH_COLORS[hash % HASH_COLORS.length]
 }
 
 export function categoryTint(name: string, tokens: TintTokens, color?: string): { bg: string; ink: string } {

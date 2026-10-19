@@ -4,7 +4,7 @@ import * as Haptics from 'expo-haptics'
 import Reanimated, { useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from 'react-native-reanimated'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
-import { Check, MagnifyingGlass, PencilSimple } from './icons'
+import { MagnifyingGlass, PencilSimple } from './icons'
 import { CATEGORY_ICON_COMPONENTS } from './CategoryIcon'
 import { BottomSheet } from './Modal'
 import { PopOnChange } from './PopOnChange'
@@ -112,10 +112,11 @@ export function CategoryIconPicker({ value, onChange, tint, disabled, children }
 }
 
 const COLOR_LABELS: Record<CategoryColor, string> = {
-  mint: 'Green', violet: 'Purple', blue: 'Blue', accent: 'Orange', warn: 'Yellow', coral: 'Red',
+  mint: 'Green', violet: 'Purple', blue: 'Teal', accent: 'Orange', warn: 'Yellow', coral: 'Red',
+  pink: 'Pink', indigo: 'Indigo', brown: 'Brown', slate: 'Slate',
 }
 
-/** A row of the six tints, for picking a category's or group's colour. */
+/** The tints, for picking a category's or group's colour. */
 export function ColorSwatches({ value, onChange, disabled }: {
   value: CategoryColor
   onChange: (color: CategoryColor) => void
@@ -146,8 +147,9 @@ export function ColorSwatches({ value, onChange, disabled }: {
 const PICK_SPRING = { mass: 0.6, damping: 8, stiffness: 300 }
 
 /**
- * One tint. A fresh pick springs back, ripples one ring out and pops its tick
- * in. Once, not a loop: a pulse that keeps going reads as "look at me".
+ * One tint, a solid dot; the picked one wears a ring. A fresh pick springs back
+ * and ripples one ring out. Once, not a loop: a pulse that keeps going reads as
+ * "look at me".
  */
 function Swatch({ color, on, live, disabled, onPress }: {
   color: CategoryColor
@@ -157,29 +159,19 @@ function Swatch({ color, on, live, disabled, onPress }: {
   onPress: () => void
 }) {
   const { tokens } = useTheme()
-  const { bg, ink } = colorTint(color, tokens)
+  const { ink } = colorTint(color, tokens)
   const scale = useSharedValue(1)
-  const tick = useSharedValue(on ? 1 : 0)
   // 0 → 1 spreads the ring out and fades it; it rests at 1, invisible.
   const ripple = useSharedValue(1)
 
   useEffect(() => {
-    if (!on) {
-      tick.value = 0
-      return
-    }
-    if (!live) return
+    if (!on || !live) return
     scale.value = withSequence(withTiming(0.85, { duration: 80 }), withSpring(1, PICK_SPRING))
-    tick.value = 0
-    tick.value = withSpring(1, PICK_SPRING)
     ripple.value = 0
     ripple.value = withTiming(1, { duration: 600 })
-  }, [on, live, scale, tick, ripple])
+  }, [on, live, scale, ripple])
 
   const swatchStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }))
-  const tickStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: tick.value }, { rotate: `${(1 - tick.value) * -30}deg` }],
-  }))
   const rippleStyle = useAnimatedStyle(() => ({
     opacity: 0.6 * (1 - ripple.value),
     transform: [{ scale: 1 + 0.6 * ripple.value }],
@@ -192,27 +184,23 @@ function Swatch({ color, on, live, disabled, onPress }: {
       accessibilityRole="radio"
       accessibilityLabel={COLOR_LABELS[color]}
       accessibilityState={{ selected: on }}
-      hitSlop={4}
+      hitSlop={8}
+      style={styles.swatchCell}
     >
-      <Reanimated.View style={[styles.swatch, { backgroundColor: bg, borderColor: on ? ink : 'transparent' }, swatchStyle]}>
+      <Reanimated.View style={[styles.swatch, { borderColor: on ? ink : 'transparent' }, swatchStyle]}>
         <Reanimated.View pointerEvents="none" style={[styles.ripple, { borderColor: ink }, rippleStyle]} />
-        <View style={[styles.swatchDot, { backgroundColor: ink }]}>
-          {on && (
-            <Reanimated.View style={tickStyle}>
-              <Check size={14} weight="bold" color={tokens.cardSolid} />
-            </Reanimated.View>
-          )}
-        </View>
+        <View style={[styles.swatchDot, { backgroundColor: ink }]} />
       </Reanimated.View>
     </Pressable>
   )
 }
 
 const styles = StyleSheet.create({
-  swatches: { flexDirection: 'row', justifyContent: 'space-between' },
-  swatch: { width: 44, height: 44, borderRadius: 22, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
-  swatchDot: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  ripple: { position: 'absolute', top: -2, left: -2, right: -2, bottom: -2, borderRadius: 22, borderWidth: 2 },
+  swatches: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 12 },
+  swatchCell: { width: '20%', alignItems: 'center' },
+  swatch: { width: 32, height: 32, borderRadius: 16, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  swatchDot: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  ripple: { position: 'absolute', top: -2, left: -2, right: -2, bottom: -2, borderRadius: 16, borderWidth: 2 },
   tileWrap: { flexShrink: 0 },
   row: { flexDirection: 'row', gap: 10, alignItems: 'stretch' },
   tile: { flex: 1, width: 52, minHeight: 56, borderRadius: 16, borderWidth: 1, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },

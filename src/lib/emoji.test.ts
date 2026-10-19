@@ -24,6 +24,7 @@ describe('categoryTint', () => {
   const tokens = {
     mint: 'm', mintSoft: 'ms', violet: 'v', violetSoft: 'vs', blue: 'b', blueSoft: 'bs',
     accentInk: 'a', accentSoft: 'as', warnInk: 'w', warnSoft: 'ws', coral: 'c', coralSoft: 'cs',
+    pink: 'p', pinkSoft: 'ps', indigo: 'i', indigoSoft: 'is', brown: 'br', brownSoft: 'brs', slate: 's', slateSoft: 'ss',
   }
 
   it('gives the same name the same tint', () => {
