@@ -170,8 +170,8 @@ export function CategoryPickerSheet({
                       ]}
                       onPress={() => pick(c.name)}
                     >
-                      <View style={[styles.iconTile, { backgroundColor: categoryTint(c.name, tokens).bg }]}>
-                        <CategoryIcon name={c.name} icon={c.icon} group={group.name} size={16} color={categoryTint(c.name, tokens).ink} />
+                      <View style={[styles.iconTile, { backgroundColor: categoryTint(c.name, tokens, c.color).bg }]}>
+                        <CategoryIcon name={c.name} icon={c.icon} group={group.name} size={16} color={categoryTint(c.name, tokens, c.color).ink} />
                       </View>
                       <Text style={[styles.optionText, { color: tokens.text, fontFamily: fontFamily.bodyMedium }]}>
                         {splitEmoji(c.name).text}

@@ -1,3 +1,4 @@
+import { useCategoryTint } from '@/src/hooks/useCategories'
 import { useEffect, useRef, useState } from 'react'
 import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
 import Animated, { Easing, interpolate, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated'
@@ -10,7 +11,7 @@ import { useCurrency } from '@/src/context/CurrencyContext'
 import { usePrivacy } from '@/src/context/PrivacyContext'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
-import { categoryTint, splitEmoji } from '@/src/lib/emoji'
+import { splitEmoji } from '@/src/lib/emoji'
 import { formatTime, parseLocalDate, toLocalDateString } from '@/src/lib/date'
 import type { CategoryRow, ExpenseRow } from '@/src/types'
 import type { PhosphorIcon } from '@/src/components/shared/icons'
@@ -40,11 +41,12 @@ export function TransactionDetail({ txn, from, photoUri, category, account, onCl
   onDelete: (txn: ExpenseRow) => void
 }) {
   const { tokens, space, radius } = useTheme()
+  const tintOf = useCategoryTint()
   const { hideAmounts } = usePrivacy()
   const { formatCurrency } = useCurrency()
   const insets = useSafeAreaInsets()
   const { width: screenW, height: screenH } = useWindowDimensions()
-  const tint = categoryTint(txn.category, tokens)
+  const tint = tintOf(txn.category)
   const [viewing, setViewing] = useState(false)
   const progress = useSharedValue(0)
   const closing = useRef(false)

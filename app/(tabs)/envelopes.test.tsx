@@ -10,18 +10,20 @@ const mockCategories = mockGroups.flatMap((group, i) =>
   Array.from({ length: i % 3 + 1 }, (_, n) => ({ name: `${group} category ${n}`, group })),
 )
 const mockMove = jest.fn()
+const mockUpdateGroup = jest.fn()
+const mockUpdateCategory = jest.fn()
 const mockAnimations: ((finished: boolean) => void)[] = []
 const mockFrameCallbacks = new Set<() => void>()
 const mockSprings: unknown[] = []
 jest.mock('@/src/hooks/useGroups', () => ({
-  useGroups: () => ({ data: mockGroups }), useGroupIcons: () => new Map(),
+  useGroups: () => ({ data: mockGroups }), useGroupIcons: () => new Map(), useGroupColors: () => new Map(),
   useMoveGroup: () => ({ mutate: mockMove }),
-  useAddGroup: () => ({}), useUpdateGroup: () => ({}), useDeleteGroup: () => ({}),
+  useAddGroup: () => ({}), useUpdateGroup: () => ({ mutateAsync: mockUpdateGroup }), useDeleteGroup: () => ({}),
 }))
 jest.mock('@/src/hooks/useCategories', () => ({
   useCategories: () => ({ data: mockCategories }),
   useMoveCategory: () => ({}), useAddCategory: () => ({}),
-  useUpdateCategory: () => ({}), useDeleteCategory: () => ({}),
+  useUpdateCategory: () => ({ mutateAsync: mockUpdateCategory }), useDeleteCategory: () => ({}),
 }))
 jest.mock('@/src/hooks/useCollapsedGroups', () => ({
   useCollapsedGroups: () => jest.requireActual('react').useState(new Set(['Savings'])),
@@ -30,7 +32,7 @@ jest.mock('@/src/theme/ThemeProvider', () => ({ useTheme: () => ({ tokens: jest.
 jest.mock('@/src/hooks/useRefresh', () => ({ useRefresh: () => ({ refreshing: false, onRefresh: jest.fn() }) }))
 jest.mock('@/src/lib/netStatus', () => ({ useOnline: () => true }))
 jest.mock('@/src/components/ui/Screen', () => ({ Screen: ({ children }: any) => children, useNavPadding: () => 0 }))
-jest.mock('@/src/components/shared/Modal', () => ({ BottomSheet: () => null }))
+jest.mock('@/src/components/shared/Modal', () => ({ BottomSheet: ({ visible, children }: any) => (visible ? children : null) }))
 jest.mock('react-native-gesture-handler', () => ({
   GestureDetector: ({ children }: any) => children,
   Gesture: { Pan: () => {
@@ -306,4 +308,28 @@ it('warns that a group delete sends its categories to Archive', () => {
   expect(groupDeleteNote(0)).toBe('You can restore it from Archive for 7 days.')
   expect(groupDeleteNote(1)).toBe('Its 1 category goes to Archive too. You can restore them for 7 days.')
   expect(groupDeleteNote(3)).toBe('Its 3 categories go to Archive too. You can restore them for 7 days.')
+})
+
+it('edits a group: same tile colour as the list, and saves a picked colour', async () => {
+  mockUpdateGroup.mockReset().mockResolvedValue(undefined)
+  const screen = render(<EnvelopesScreen />)
+  fireEvent.press(screen.getByLabelText('Options for House'))
+  fireEvent.press(screen.getByText('Edit'))
+  expect(screen.getByText('Edit group')).toBeTruthy()
+  // An unpicked group wears the accent on the list, so the sheet starts there too.
+  expect(screen.getByLabelText('Orange').props.accessibilityState.selected).toBe(true)
+  fireEvent.press(screen.getByLabelText('Red'))
+  await act(async () => { fireEvent.press(screen.getByText('Save')) })
+  expect(mockUpdateGroup).toHaveBeenCalledWith({ name: 'House', color: 'coral' })
+})
+
+it("saves a category's picked colour", async () => {
+  mockUpdateCategory.mockReset().mockResolvedValue(undefined)
+  const screen = render(<EnvelopesScreen />)
+  fireEvent.press(screen.getByText('House category 0'))
+  fireEvent.press(screen.getByText('Edit'))
+  expect(screen.getByText('Edit category')).toBeTruthy()
+  fireEvent.press(screen.getByLabelText('Blue'))
+  await act(async () => { fireEvent.press(screen.getByText('Save')) })
+  expect(mockUpdateCategory).toHaveBeenCalledWith({ name: 'House category 0', updates: { color: 'blue' } })
 })
