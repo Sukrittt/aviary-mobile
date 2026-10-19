@@ -183,6 +183,7 @@ export default function RecurringSuggestionsScreen() {
             }
             onPress={() => scan.mutate(months)}
             disabled={busy || query.isLoading}
+            size="small"
             style={styles.scanButton}
           />
 
