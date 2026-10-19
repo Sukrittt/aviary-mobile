@@ -77,7 +77,7 @@ function currencyNames(codes: string[]): string[] {
  * What we left out, in up to two sentences: the bookkeeping that isn't
  * spending, then the rows we couldn't use. Empty when nothing was skipped.
  */
-export function skippedCopy(review: Pick<ImportReview, 'skipped' | 'otherCurrencies' | 'droppedOverCap'>): string[] {
+export function skippedCopy(review: Pick<ImportReview, 'skipped' | 'otherCurrencies'>): string[] {
   const s = review.skipped
   const bookkeeping = [
     s.transfer && plural(s.transfer, 'transfer between your accounts', 'transfers between your accounts'),
@@ -95,7 +95,6 @@ export function skippedCopy(review: Pick<ImportReview, 'skipped' | 'otherCurrenc
   const leftOut = (s.transfer ?? 0) + (s.opening_balance ?? 0) + (s.fill ?? 0)
   if (bookkeeping.length) out.push(`We left out ${listOf(bookkeeping)}. ${leftOut === 1 ? 'It isn’t' : 'They aren’t'} spending.`)
   if (unusable.length) out.push(`We ${bookkeeping.length ? 'also ' : ''}skipped ${listOf(unusable)}.`)
-  if (review.droppedOverCap) out.push(`Your file has more than 20,000 rows, so we kept the newest and left out ${plural(review.droppedOverCap, 'older one', 'older ones')}.`)
   return out
 }
 

@@ -20,7 +20,6 @@ export interface ImportReview {
   skipped: Partial<Record<SkipReason, number>>
   /** The codes behind `skipped.other_currency`, most rows first. */
   otherCurrencies: string[]
-  droppedOverCap: number
   samples: { date: string; item: string; amount: number; kind: 'expense' | 'income' }[]
   groups: string[]
   categories: { source: string; name: string; group: string; monthly: number }[]

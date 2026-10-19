@@ -29,7 +29,6 @@ const review: ImportReview = {
   counts: { expense: 7, income: 2, from: '2026-09-01', to: '2026-10-05' },
   skipped: { transfer: 2, opening_balance: 1, other_currency: 1 },
   otherCurrencies: ['USD'],
-  droppedOverCap: 0,
   samples: [
     { date: '2026-10-05', item: 'Split dinner part 2', amount: 20, kind: 'expense' },
     { date: '2026-10-01', item: 'Payroll', amount: 3000, kind: 'income' },
