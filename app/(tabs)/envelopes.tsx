@@ -36,6 +36,7 @@ import { categoryColor, categoryTint, colorTint, groupColor, isCategoryColor, sp
 import { categoryIconKey, groupIconKey, type CategoryIconKey } from '@/src/lib/categoryIcons'
 import { CategoryIcon } from '@/src/components/shared/CategoryIcon'
 import { CategoryIconPicker, ColorSwatches } from '@/src/components/shared/CategoryIconPicker'
+import { PopOnChange } from '@/src/components/shared/PopOnChange'
 import { EnvelopesSkeleton } from '@/src/components/shared/TabSkeleton'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { BottomSheet } from '@/src/components/shared/Modal'
@@ -243,9 +244,9 @@ function DraggableCategoryList({
             ]}
           >
             <Pressable style={styles.catRowMain} onPress={() => onMenu(cat.name)}>
-              <View style={[styles.catIconChip, { backgroundColor: categoryTint(cat.name, tokens, cat.color).bg }]}>
+              <PopOnChange value={`${cat.color}|${cat.icon}`} style={[styles.catIconChip, { backgroundColor: categoryTint(cat.name, tokens, cat.color).bg }]}>
                 <CategoryIcon name={cat.name} icon={cat.icon} group={group} size={14} color={categoryTint(cat.name, tokens, cat.color).ink} />
-              </View>
+              </PopOnChange>
               <Text
                 style={[styles.catName, { color: tokens.text, fontFamily: fontFamily.bodyBold }]}
                 numberOfLines={1}
@@ -940,9 +941,12 @@ function EnvelopesScreen() {
                       <Pressable onPress={() => toggleGroup(key)} hitSlop={8} style={styles.chevronBtn}>
                         <GroupChevron collapsed={collapsed} color={tokens.text3} />
                       </Pressable>
-                      <View style={[styles.avatarChip, { backgroundColor: colorTint(groupColor(groupColors.get(name)), tokens).bg }]}>
+                      <PopOnChange
+                        value={`${groupColors.get(name)}|${groupIcons.get(name)}`}
+                        style={[styles.avatarChip, { backgroundColor: colorTint(groupColor(groupColors.get(name)), tokens).bg }]}
+                      >
                         <CategoryIcon kind="group" name={name} icon={groupIcons.get(name)} size={18} color={colorTint(groupColor(groupColors.get(name)), tokens).ink} />
-                      </View>
+                      </PopOnChange>
                       <View style={styles.groupHeaderLeft}>
                         <Text
                           style={[styles.groupName, { color: tokens.text, fontFamily: fontFamily.bodyExtraBold }]}

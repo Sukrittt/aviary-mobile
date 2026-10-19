@@ -1,6 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react-native'
 import { Text } from 'react-native'
-import { CategoryIconPicker, iconLabel } from './CategoryIconPicker'
+import * as Haptics from 'expo-haptics'
+import { CategoryIconPicker, ColorSwatches, iconLabel } from './CategoryIconPicker'
 
 jest.mock('@/src/theme/ThemeProvider', () => ({ useTheme: () => ({ tokens: jest.requireActual('@/src/theme/tokens').darkTokens }) }))
 
@@ -28,4 +29,16 @@ it('says so when nothing matches', () => {
   fireEvent.press(screen.getByLabelText('Icon: House. Change icon'))
   fireEvent.changeText(screen.getByLabelText('Search icons'), 'zzzz')
   expect(screen.getByText("No icons match that. Try another word.")).toBeTruthy()
+})
+
+it('ticks once for a new colour and stays quiet re-tapping the picked one', () => {
+  const selection = jest.spyOn(Haptics, 'selectionAsync').mockResolvedValue()
+  const onChange = jest.fn()
+  render(<ColorSwatches value="mint" onChange={onChange} />)
+
+  fireEvent.press(screen.getByLabelText('Green'))
+  expect(selection).not.toHaveBeenCalled()
+  fireEvent.press(screen.getByLabelText('Red'))
+  expect(selection).toHaveBeenCalledTimes(1)
+  expect(onChange).toHaveBeenLastCalledWith('coral')
 })
