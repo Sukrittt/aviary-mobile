@@ -1,0 +1,52 @@
+import { fireEvent } from '@testing-library/react-native'
+import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
+import { GapSheet } from './GapSheet'
+
+const mockPush = jest.fn()
+jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }), useIsFocused: () => true }))
+jest.mock('@/src/lib/date', () => ({ ...jest.requireActual('@/src/lib/date'), todayLocal: () => '2026-10-19' }))
+let mockSeen: boolean | null = false
+const mockSetSeen = jest.fn()
+jest.mock('@/src/hooks/useDismissedRolloverBanner', () => ({ useDismissedRolloverBanner: (key: string) => [mockSeen, (v: boolean) => mockSetSeen(key, v)] }))
+let mockUser: object | undefined = { hiddenFeatures: [] }
+jest.mock('@/src/hooks/useUser', () => ({ useUser: () => ({ data: mockUser }) }))
+
+beforeEach(() => {
+  jest.clearAllMocks()
+  mockSeen = false
+  mockUser = { hiddenFeatures: [] }
+})
+
+const AWAY = { Food: '2026-10-15', Travel: '2026-10-01' }
+
+it('offers three calm ways back after two days away', () => {
+  const screen = renderWithProviders(<GapSheet lastSpent={AWAY} />)
+  expect(screen.getByText('Pick up where you left off')).toBeTruthy()
+  expect(screen.getByText('Type what you spent')).toBeTruthy()
+  expect(screen.getByText('Upload a statement or screenshot')).toBeTruthy()
+  expect(screen.getByText('Start fresh')).toBeTruthy()
+})
+
+it('stays hidden after yesterday, or once this gap was answered', () => {
+  expect(renderWithProviders(<GapSheet lastSpent={{ Food: '2026-10-18' }} />).queryByText('Pick up where you left off')).toBeNull()
+  mockSeen = true
+  expect(renderWithProviders(<GapSheet lastSpent={AWAY} />).queryByText('Pick up where you left off')).toBeNull()
+})
+
+it('remembers the answer against the last expense date and routes each option', () => {
+  const screen = renderWithProviders(<GapSheet lastSpent={AWAY} />)
+  fireEvent.press(screen.getByText('Type what you spent'))
+  expect(mockSetSeen).toHaveBeenCalledWith('gap-2026-10-15', true)
+  expect(mockPush).toHaveBeenCalledWith({ pathname: '/modals/money-brain', params: { capture: '1' } })
+  fireEvent.press(screen.getByText('Upload a statement or screenshot'))
+  expect(mockPush).toHaveBeenCalledWith('/modals/statement')
+  fireEvent.press(screen.getByText('Start fresh'))
+  expect(mockPush).toHaveBeenCalledWith({ pathname: '/modals/fresh-start', params: { since: '2026-10-15' } })
+})
+
+it('types into log-expense when Ask Aviary is off', () => {
+  mockUser = { hiddenFeatures: ['askAviary'] }
+  const screen = renderWithProviders(<GapSheet lastSpent={AWAY} />)
+  fireEvent.press(screen.getByText('Type what you spent'))
+  expect(mockPush).toHaveBeenCalledWith('/modals/log-expense')
+})

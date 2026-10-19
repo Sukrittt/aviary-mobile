@@ -38,7 +38,7 @@ export function onAiAllowanceExceeded(fn: () => void): () => void {
 export async function rejectIfAllowanceExceeded(
   resp: Response,
   notify: boolean,
-  feature: 'brief' | 'chat' | 'scan' = 'chat',
+  feature: 'brief' | 'chat' | 'scan' | 'statement' = 'chat',
 ): Promise<void> {
   if (resp.status !== 429) return
   const body = await resp.clone().json().catch(() => null)

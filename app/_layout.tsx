@@ -451,6 +451,8 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
           <Stack.Screen name="modals/account" options={{ presentation: 'modal' }} />
           <Stack.Screen name="modals/bill-scan" options={{ presentation: 'modal' }} />
           <Stack.Screen name="modals/duplicates" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="modals/statement" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="modals/fresh-start" options={{ presentation: 'modal' }} />
           <Stack.Screen name="modals/balance-check" options={{ presentation: 'modal' }} />
           <Stack.Screen name="modals/money-brain" options={{ presentation: 'card', animation: 'slide_from_right' }} />
           <Stack.Screen name="modals/widget-preview" options={{ presentation: 'card', animation: 'slide_from_right' }} />
