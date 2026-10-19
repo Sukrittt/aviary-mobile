@@ -19,9 +19,15 @@ import { budgetsKey, useBudgetSpaces } from '@/src/hooks/useBudgetSpaces'
 import { switchBudget } from '@/src/lib/budgetSwitch'
 import { currentUserId } from '@/src/api/accessMode'
 import { BudgetLimitNote } from '@/src/components/budgets/BudgetLimitNote'
+import { ImportFlow } from '@/src/components/onboarding/ImportFlow'
 
 const tick = () => Haptics.selectionAsync().catch(() => {})
 const buzzError = () => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {})
+
+const STARTS = [
+  { id: 'fresh', title: 'Start fresh', detail: 'Name it, pick a currency and you’re in.' },
+  { id: 'import', title: 'Bring in history from another app', detail: 'Your categories and past spends, from YNAB, Wallet and more.' },
+] as const
 
 export const BUDGET_EMOJI = ['🏠', '💑', '👪', '✈️', '🏖️', '🎉', '🚗', '🐾', '🎓', '💼', '🛒', '🎁']
 
@@ -43,9 +49,13 @@ export default function NewBudgetModal() {
   const [copy, setCopy] = useState(true)
   const [pickingCurrency, setPickingCurrency] = useState(false)
   const [saved, setSaved] = useState<string | null>(null)
+  const [start, setStart] = useState<'fresh' | 'import'>('fresh')
+  const [importing, setImporting] = useState(false)
+  const importMode = start === 'import'
 
   const create = useMutation({
-    mutationFn: () => createBudget({ name: name.trim(), emoji, currencyCode: currency, copyCategories: copy }),
+    // An import budget starts empty and un-set-up: the import fills it and sets its currency.
+    mutationFn: () => createBudget({ name: name.trim(), emoji, currencyCode: currency, copyCategories: !importMode && copy, ...(importMode && { import: true }) }),
     onSuccess: (budget) => {
       void queryClient.invalidateQueries({ queryKey: budgetsKey })
       setSaved(budget.id)
@@ -57,11 +67,16 @@ export default function NewBudgetModal() {
     },
   })
 
-  // The shared success beat, then straight into the new budget.
+  // The shared success beat, then straight into the new budget (or its import, once it's the open one).
   useEffect(() => {
     if (!saved) return
-    const timer = setTimeout(() => {
+    const timer = setTimeout(async () => {
       const uid = currentUserId()
+      if (importMode) {
+        if (uid) await switchBudget(queryClient, uid, saved)
+        setImporting(true)
+        return
+      }
       if (uid) void switchBudget(queryClient, uid, saved)
       router.back()
     }, 1100)
@@ -72,6 +87,27 @@ export default function NewBudgetModal() {
   const canSubmit = name.trim() !== '' && name.trim().length <= 40 && !atLimit
   const busy = create.isPending
   const info = currencyInfo(currency)
+  // Done, already set up, or "Start fresh instead": the new budget is open, so Home is where it lives.
+  const home = () => {
+    void queryClient.invalidateQueries()
+    router.dismissTo('/(tabs)')
+  }
+
+  if (importing) {
+    return (
+      <View style={[styles.container, { backgroundColor: tokens.bg }]}>
+        <View style={[styles.header, { paddingTop: insets.top + 8, borderBottomColor: tokens.border }]}>
+          <Text numberOfLines={1} style={[styles.headerTitle, { flex: 1, color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>{`${emoji} ${name.trim()}`}</Text>
+          <Pressable onPress={home} hitSlop={12} accessibilityRole="button">
+            <Text style={[styles.headerAction, { color: tokens.accentInk, fontFamily: fontFamily.bodySemiBold, width: undefined }]}>Start fresh instead</Text>
+          </Pressable>
+        </View>
+        <View style={[styles.importBody, { paddingBottom: insets.bottom + 20 }]}>
+          <ImportFlow skipAsk onFresh={home} onDone={home} onAlreadySetUp={home} />
+        </View>
+      </View>
+    )
+  }
 
   return (
     <KeyboardAvoidingView style={[styles.container, { backgroundColor: tokens.bg }]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -127,20 +163,47 @@ export default function NewBudgetModal() {
               </View>
             </View>
 
-            <View style={styles.field}>
-              <Text style={[styles.fieldLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>Currency</Text>
-              <Pressable
-                onPress={() => setPickingCurrency(true)}
-                accessibilityRole="button"
-                accessibilityLabel={`Currency, ${info.name}`}
-                style={[styles.row, { backgroundColor: tokens.inputBg, borderColor: tokens.border }]}
-              >
-                <Text style={[styles.rowText, { color: tokens.text, fontFamily: fontFamily.bodyMedium }]}>{`${info.name} · ${info.code}`}</Text>
-                <CaretRight size={16} color={tokens.text3} />
-              </Pressable>
+            <View style={styles.field} accessibilityRole="radiogroup">
+              <Text style={[styles.fieldLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>How it starts</Text>
+              {STARTS.map((c) => {
+                const on = start === c.id
+                return (
+                  <Pressable
+                    key={c.id}
+                    onPress={() => {
+                      if (!on) tick()
+                      setStart(c.id)
+                    }}
+                    accessibilityRole="radio"
+                    accessibilityState={{ checked: on }}
+                    accessibilityLabel={c.title}
+                    style={[styles.row, { backgroundColor: on ? tokens.accentSoft : tokens.inputBg, borderColor: on ? tokens.accent : tokens.border }]}
+                  >
+                    <View style={{ flex: 1, gap: 2 }}>
+                      <Text style={[styles.rowText, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>{c.title}</Text>
+                      <Text style={[styles.hint, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>{c.detail}</Text>
+                    </View>
+                  </Pressable>
+                )
+              })}
             </View>
 
-            {active ? (
+            {importMode ? null : (
+              <View style={styles.field}>
+                <Text style={[styles.fieldLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>Currency</Text>
+                <Pressable
+                  onPress={() => setPickingCurrency(true)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Currency, ${info.name}`}
+                  style={[styles.row, { backgroundColor: tokens.inputBg, borderColor: tokens.border }]}
+                >
+                  <Text style={[styles.rowText, { color: tokens.text, fontFamily: fontFamily.bodyMedium }]}>{`${info.name} · ${info.code}`}</Text>
+                  <CaretRight size={16} color={tokens.text3} />
+                </Pressable>
+              </View>
+            )}
+
+            {active && !importMode ? (
               <View style={[styles.row, { backgroundColor: tokens.inputBg, borderColor: tokens.border }]}>
                 <View style={{ flex: 1, gap: 2 }}>
                   <Text style={[styles.rowText, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>{`Copy categories from ${active.name}`}</Text>
@@ -208,4 +271,5 @@ const styles = StyleSheet.create({
   confirmButton: { borderRadius: 14, paddingVertical: 15, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
   confirmText: { fontSize: 16 },
   sheetTitle: { fontSize: 18, marginBottom: 12 },
+  importBody: { flex: 1, paddingHorizontal: 22, paddingTop: 16 },
 })
