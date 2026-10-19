@@ -270,56 +270,58 @@ function Upload({ app, onPreview, onAlreadySetUp }: { app: AppChoice; onPreview:
 
   return (
     <Animated.View key="upload" entering={FadeIn.duration(220)} style={styles.fill}>
-      <Title>Pick your export</Title>
-      <Blurb>{app.id === 'other' ? app.name : `From ${app.name}`}</Blurb>
-      <View style={styles.steps}>
-        {app.how.map((line, i) => (
-          <Animated.View key={line} entering={FadeInDown.delay(80 + i * 70).duration(260)} style={styles.stepRow}>
-            <View style={[styles.stepNum, { backgroundColor: tokens.accentSoft }]}>
-              <Text style={[styles.stepNumText, { color: tokens.accentInk, fontFamily: fontFamily.bodyExtraBold }]}>{i + 1}</Text>
-            </View>
-            <Text style={[styles.stepText, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>{line}</Text>
-          </Animated.View>
-        ))}
-      </View>
-      {(app.note || app.help) && (
-        <Animated.View entering={FadeInDown.delay(80 + app.how.length * 70).duration(260)} style={styles.howExtra}>
-          {app.note && <Text style={[styles.howNote, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>{app.note}</Text>}
-          {app.help && (
-            <Pressable accessibilityRole="link" onPress={() => Linking.openURL(app.help!)} hitSlop={8}>
-              <Text style={[styles.howHelp, { color: tokens.accentInk, fontFamily: fontFamily.bodySemiBold }]}>{`Still stuck? See ${app.name}’s own guide`}</Text>
-            </Pressable>
-          )}
-        </Animated.View>
-      )}
-      {/* The box rises in after the steps, as the next thing to read. */}
-      <Animated.View entering={FadeInDown.delay(80 + app.how.length * 70).duration(260)}>
-        <Press
-          accessibilityLabel="Choose your export file"
-          accessibilityState={{ busy, disabled: busy }}
-          disabled={busy}
-          onPress={choose}
-          style={[styles.drop, { borderColor: busy ? tokens.accent : tokens.borderStrong, backgroundColor: busy ? tokens.accentSoft : tokens.inputBg }]}
-        >
-          {busy ? (
-            <LoadingCaption phrases={READING} ordered />
-          ) : (
-            <>
-              <View style={[styles.dropIcon, { backgroundColor: tokens.accentSoft }]}>
-                <FileText size={22} color={tokens.accentInk} weight="bold" />
+      {/* Steps, note and drop box scroll on short phones so the button below stays in reach. */}
+      <ScrollView style={styles.fill} contentContainerStyle={styles.uploadBody} showsVerticalScrollIndicator={false}>
+        <Title>Pick your export</Title>
+        <Blurb>{app.id === 'other' ? app.name : `From ${app.name}`}</Blurb>
+        <View style={styles.steps}>
+          {app.how.map((line, i) => (
+            <Animated.View key={line} entering={FadeInDown.delay(80 + i * 70).duration(260)} style={styles.stepRow}>
+              <View style={[styles.stepNum, { backgroundColor: tokens.accentSoft }]}>
+                <Text style={[styles.stepNumText, { color: tokens.accentInk, fontFamily: fontFamily.bodyExtraBold }]}>{i + 1}</Text>
               </View>
-              <Text style={[styles.dropTitle, { color: tokens.text, fontFamily: fontFamily.bodyBold }]}>Choose a file</Text>
-              <Text style={[styles.dropHint, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>{app.file} · up to 4 MB</Text>
-            </>
-          )}
-        </Press>
-      </Animated.View>
-      {error !== '' && (
-        <Animated.Text entering={FadeIn.duration(180)} accessibilityRole="alert" style={[styles.error, { color: tokens.coral, fontFamily: fontFamily.bodySemiBold }]}>
-          {error}
-        </Animated.Text>
-      )}
-      <View style={styles.fill} />
+              <Text style={[styles.stepText, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>{line}</Text>
+            </Animated.View>
+          ))}
+        </View>
+        {(app.note || app.help) && (
+          <Animated.View entering={FadeInDown.delay(80 + app.how.length * 70).duration(260)} style={styles.howExtra}>
+            {app.note && <Text style={[styles.howNote, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>{app.note}</Text>}
+            {app.help && (
+              <Pressable accessibilityRole="link" onPress={() => Linking.openURL(app.help!)} hitSlop={8}>
+                <Text style={[styles.howHelp, { color: tokens.accentInk, fontFamily: fontFamily.bodySemiBold }]}>{`Still stuck? See ${app.name}’s own guide`}</Text>
+              </Pressable>
+            )}
+          </Animated.View>
+        )}
+        {/* The box rises in after the steps, as the next thing to read. */}
+        <Animated.View entering={FadeInDown.delay(80 + app.how.length * 70).duration(260)}>
+          <Press
+            accessibilityLabel="Choose your export file"
+            accessibilityState={{ busy, disabled: busy }}
+            disabled={busy}
+            onPress={choose}
+            style={[styles.drop, { borderColor: busy ? tokens.accent : tokens.borderStrong, backgroundColor: busy ? tokens.accentSoft : tokens.inputBg }]}
+          >
+            {busy ? (
+              <LoadingCaption phrases={READING} ordered />
+            ) : (
+              <>
+                <View style={[styles.dropIcon, { backgroundColor: tokens.accentSoft }]}>
+                  <FileText size={22} color={tokens.accentInk} weight="bold" />
+                </View>
+                <Text style={[styles.dropTitle, { color: tokens.text, fontFamily: fontFamily.bodyBold }]}>Choose a file</Text>
+                <Text style={[styles.dropHint, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>{app.file} · up to 4 MB</Text>
+              </>
+            )}
+          </Press>
+        </Animated.View>
+        {error !== '' && (
+          <Animated.Text entering={FadeIn.duration(180)} accessibilityRole="alert" style={[styles.error, { color: tokens.coral, fontFamily: fontFamily.bodySemiBold }]}>
+            {error}
+          </Animated.Text>
+        )}
+      </ScrollView>
       {/* The same action within the thumb's reach, where every other step keeps its button. */}
       <Animated.View entering={FadeInDown.delay(160 + app.how.length * 70).duration(260)}>
         <Press
@@ -944,6 +946,7 @@ const styles = StyleSheet.create({
   stepText: { flex: 1, fontSize: 14, lineHeight: 21, paddingTop: 1 },
   // Indented under the step text, past the number column.
   howExtra: { gap: 8, marginTop: 12, paddingLeft: 36 },
+  uploadBody: { paddingBottom: 16 },
   howNote: { fontSize: 13, lineHeight: 19 },
   howHelp: { fontSize: 13, lineHeight: 19, textDecorationLine: 'underline' },
   found: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 14, paddingVertical: 4, paddingHorizontal: 10, borderRadius: 100, maxWidth: '100%' },
