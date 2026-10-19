@@ -205,7 +205,7 @@ export function formatMoney(value: number, code: string = DEFAULT_CURRENCY): str
 /** Chart labels: 1.5k, 12.5L, 1.2Cr (INR) or 1.3M, 2.1B, with the sign ahead of the symbol like formatMoney. */
 function formatCompact(value: number, code: string): string {
   const abs = Math.abs(value)
-  if (Math.round(abs) < 1000) return formatMoney(Math.round(value), code)
+  if (Math.round(abs) < 1000) return formatMoney(Math.sign(value) * Math.round(abs), code)
   const units: [number, string][] = resolveCurrency(code) === 'INR' ? [[1e3, 'k'], [1e5, 'L'], [1e7, 'Cr']] : [[1e3, 'k'], [1e6, 'M'], [1e9, 'B']]
   const rounded = (i: number) => Number((abs / units[i][0]).toFixed(i === 0 && abs >= 1e4 ? 0 : 1))
   // Pick the unit after rounding so 999,950 reads 10L, not 1000k, and 99,99,500 reads 1Cr, not 100L.

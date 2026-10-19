@@ -65,6 +65,9 @@ describe('display currency', () => {
   it('puts the sign before the symbol on chart labels', () => {
     const inr = createCurrencyFormat('INR')
     expect(inr.formatCompact(-500)).toBe('-₹500')
+    expect(inr.formatCompact(12.5)).toBe('₹13')
+    expect(inr.formatCompact(-12.5)).toBe('-₹13')
+    expect(inr.formatCompact(-999.6)).toBe('-₹1k')
     expect(inr.formatCompact(-1500)).toBe('-₹1.5k')
     expect(inr.formatCompact(-12_50_000)).toBe('-₹12.5L')
     expect(inr.formatCompact(-99_99_500)).toBe('-₹1Cr')
