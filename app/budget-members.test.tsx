@@ -1,14 +1,15 @@
 import { Share } from 'react-native'
-import { fireEvent, waitFor } from '@testing-library/react-native'
+import { act, fireEvent, waitFor } from '@testing-library/react-native'
 import { renderWithProviders, createTestQueryClient } from '@/src/test-utils/renderWithProviders'
 import BudgetMembersScreen from './budget-members'
 import { budgetsKey } from '@/src/hooks/useBudgetSpaces'
-import { cancelInvite, createInvite, deleteBudget, getBudgetMembers, getBudgets, removeMember, setNotifyOthers } from '@/src/api/spaces'
+import { cancelInvite, createInvite, deleteBudget, transferBudget, getBudgetMembers, getBudgets, removeMember, setNotifyOthers } from '@/src/api/spaces'
 import { switchBudget } from '@/src/lib/budgetSwitch'
 import { setActiveBudget } from '@/src/lib/activeBudget'
 
 const mockBack = jest.fn()
-jest.mock('expo-router', () => ({ useRouter: () => ({ push: jest.fn(), back: mockBack }), useLocalSearchParams: () => ({ id: 'sp_home' }) }))
+jest.mock('expo-router', () => ({ useRouter: () => ({ push: jest.fn(), back: mockBack }), useLocalSearchParams: () => ({ id: mockId }) }))
+let mockId = 'sp_home'
 let mockUid = 'u2'
 jest.mock('@/src/api/accessMode', () => ({ currentUserId: () => mockUid, accessMode: { subscribeLogout: () => () => {}, subscribe: () => () => {} } }))
 jest.mock('@/src/lib/budgetSwitch', () => ({ switchBudget: jest.fn(async () => {}) }))
@@ -21,6 +22,7 @@ jest.mock('@/src/api/spaces', () => ({
   removeMember: jest.fn(async () => {}),
   setNotifyOthers: jest.fn(async () => {}),
   deleteBudget: jest.fn(async () => {}),
+  transferBudget: jest.fn(async () => {}),
   updateBudget: jest.fn(async () => ({})),
 }))
 
@@ -42,6 +44,7 @@ function setup(role: 'owner' | 'member') {
 let share: jest.SpyInstance
 beforeEach(() => {
   jest.clearAllMocks()
+  mockId = 'sp_home'
   share = jest.spyOn(Share, 'share').mockResolvedValue({ action: 'sharedAction' })
   setActiveBudget(null)
 })
@@ -82,6 +85,34 @@ describe('as the owner', () => {
     fireEvent.changeText(utils.getByLabelText('Budget name to confirm'), 'Home')
     fireEvent.press(utils.getAllByText('Delete budget').at(-1)!)
     await waitFor(() => expect(deleteBudget).toHaveBeenCalledWith('sp_home', 'Home'))
+  })
+})
+
+describe('handing over', () => {
+  it('makes a member the owner after saying what changes, then refreshes the list', async () => {
+    jest.useFakeTimers()
+    const utils = setup('owner')
+    fireEvent.press(await utils.findByTestId('transfer-owner'))
+    fireEvent.press(utils.getByLabelText('Make Rahul Verma the owner'))
+    expect(utils.getByText('Make Rahul the owner of Home?')).toBeTruthy()
+    expect(utils.getByText("Rahul's plan covers Home from now on, and only they can invite, remove or delete. You stay in it.")).toBeTruthy()
+    fireEvent.press(utils.getByTestId('confirm-transfer'))
+    await waitFor(() => expect(transferBudget).toHaveBeenCalledWith('sp_home', 'u1'))
+    await waitFor(() => expect(getBudgets).toHaveBeenCalled())
+    await act(async () => { jest.advanceTimersByTime(1200) })
+    expect(utils.queryByText('Make Rahul the owner of Home?')).toBeNull()
+    jest.useRealTimers()
+  })
+
+  it('keeps the personal budget out of it', () => {
+    mockUid = 'u1'
+    ;(getBudgetMembers as jest.Mock).mockResolvedValue({ members: [], role: 'owner', notifyOthers: false })
+    const queryClient = createTestQueryClient()
+    queryClient.setQueryData(budgetsKey, { budgets: [personal], count: 1, limit: 5, activeId: 'u1' })
+    mockId = 'u1'
+    const utils = renderWithProviders(<BudgetMembersScreen />, { queryClient })
+    expect(utils.getByText('Your personal budget stays yours.')).toBeTruthy()
+    expect(utils.queryByTestId('transfer-owner')).toBeNull()
   })
 })
 

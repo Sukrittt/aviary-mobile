@@ -7,7 +7,15 @@ import { switchBudget } from '@/src/lib/budgetSwitch'
 import { Alert } from '@/src/components/ui/AlertHost'
 
 const mockBack = jest.fn()
-jest.mock('expo-router', () => ({ useRouter: () => ({ push: jest.fn(), back: mockBack }) }))
+const mockDismissTo = jest.fn()
+jest.mock('expo-router', () => ({ useRouter: () => ({ push: jest.fn(), back: mockBack, dismissTo: mockDismissTo }) }))
+let mockImportProps: { skipAsk?: boolean; onDone: () => void; onFresh: () => void } | null = null
+jest.mock('@/src/components/onboarding/ImportFlow', () => ({
+  ImportFlow: (props: NonNullable<typeof mockImportProps>) => {
+    mockImportProps = props
+    return null
+  },
+}))
 jest.mock('@/src/api/accessMode', () => ({ currentUserId: () => 'u1', accessMode: { subscribeLogout: () => () => {}, subscribe: () => () => {} } }))
 jest.mock('@/src/lib/budgetSwitch', () => ({ switchBudget: jest.fn(async () => {}) }))
 jest.mock('@/src/api/spaces', () => ({
@@ -62,4 +70,38 @@ it('says so kindly when the server says the limit was hit meanwhile', async () =
   fireEvent.changeText(utils.getByLabelText('Budget name'), 'Home')
   fireEvent.press(utils.getByText('Create budget'))
   await waitFor(() => expect(alert).toHaveBeenCalledWith("You're at your budget limit", expect.stringContaining('Contact us')))
+})
+
+describe('bringing in history', () => {
+  beforeEach(() => {
+    mockImportProps = null
+  })
+
+  async function toImport() {
+    const utils = setup()
+    fireEvent.changeText(utils.getByLabelText('Budget name'), 'Home')
+    fireEvent.press(utils.getByLabelText('Bring in history from another app'))
+    // The import brings its own categories and currency.
+    expect(utils.queryByLabelText('Copy categories from Personal')).toBeNull()
+    fireEvent.press(utils.getByText('Create budget'))
+    await waitFor(() => expect(createBudget).toHaveBeenCalledWith({ name: 'Home', emoji: '🏠', currencyCode: 'INR', copyCategories: false, import: true }))
+    await act(async () => { jest.advanceTimersByTime(1200) })
+    return utils
+  }
+
+  it('opens the new budget, then runs the import in it and lands Home', async () => {
+    const utils = await toImport()
+    expect(switchBudget).toHaveBeenCalledWith(expect.anything(), 'u1', 'sp_new')
+    expect(mockBack).not.toHaveBeenCalled()
+    expect(mockImportProps?.skipAsk).toBe(true)
+    act(() => mockImportProps!.onDone())
+    expect(mockDismissTo).toHaveBeenCalledWith('/(tabs)')
+    expect(utils.getByText('Start fresh instead')).toBeTruthy()
+  })
+
+  it('"Start fresh instead" leaves the empty budget open and goes Home', async () => {
+    const utils = await toImport()
+    fireEvent.press(utils.getByText('Start fresh instead'))
+    expect(mockDismissTo).toHaveBeenCalledWith('/(tabs)')
+  })
 })

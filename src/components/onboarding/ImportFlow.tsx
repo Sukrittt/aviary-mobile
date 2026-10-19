@@ -114,15 +114,18 @@ export interface ImportDone {
 
 // onAlreadySetUp: the server refused because setup was finished on another
 // device. There's nothing to fix here, so the screen hands the user on.
-export function ImportFlow({ onFresh, onDone, onAlreadySetUp }: { onFresh: () => void; onDone: (done: ImportDone) => void; onAlreadySetUp: () => void }) {
+// skipAsk: the "How do you want to start?" question was already answered (a new
+// budget's own choice), so it opens on the app list and Back from there is onFresh.
+export function ImportFlow({ onFresh, onDone, onAlreadySetUp, skipAsk = false }: { onFresh: () => void; onDone: (done: ImportDone) => void; onAlreadySetUp: () => void; skipAsk?: boolean }) {
   const { tokens } = useTheme()
-  const [stage, setStage] = useState<Stage>('ask')
+  const stages = skipAsk ? STAGES.slice(1) : STAGES
+  const [stage, setStage] = useState<Stage>(stages[0])
   const [app, setApp] = useState<AppChoice | null>(null)
   const [review, setReview] = useState<ImportReview | null>(null)
   const [start, setStart] = useState<StartChoice>('fresh')
-  const at = STAGES.indexOf(stage)
+  const at = stages.indexOf(stage)
 
-  const back = () => setStage((s) => (s === 'review' ? 'upload' : s === 'upload' ? 'pick' : 'ask'))
+  const back = () => (skipAsk && stage === 'pick' ? onFresh() : setStage((s) => (s === 'review' ? 'upload' : s === 'upload' ? 'pick' : 'ask')))
 
   const pick = (a: AppChoice) => {
     Haptics.selectionAsync().catch(() => {})
@@ -143,8 +146,8 @@ export function ImportFlow({ onFresh, onDone, onAlreadySetUp }: { onFresh: () =>
         >
           <ArrowLeft size={16} color={tokens.text} />
         </Pressable>
-        <View style={styles.dots} accessibilityLabel={`Step ${at + 1} of ${STAGES.length}`}>
-          {STAGES.map((s, i) => (
+        <View style={styles.dots} accessibilityLabel={`Step ${at + 1} of ${stages.length}`}>
+          {stages.map((s, i) => (
             <StepDot key={s} active={i <= at} activeColor={tokens.accent} inactiveColor={tokens.borderStrong} onPress={() => {}} />
           ))}
         </View>

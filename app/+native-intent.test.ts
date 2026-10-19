@@ -27,3 +27,20 @@ describe('invite links', () => {
     expect(takePendingJoinCode()).toBeNull()
   })
 })
+
+describe('https App Links', () => {
+  const { takePendingJoinCode } = jest.requireActual('@/src/lib/pendingJoin')
+
+  it('opens the join sheet for a verified useaviary.com link, full or path-only', () => {
+    expect(redirectSystemPath({ path: 'https://www.useaviary.com/join/qw12er?utm=x', initial: false })).toBeNull()
+    expect(takePendingJoinCode()).toBe('QW12ER')
+    // expo-router hands a live App Link over as just its path.
+    expect(redirectSystemPath({ path: '/join/QW12ER', initial: false })).toBeNull()
+    expect(takePendingJoinCode()).toBe('QW12ER')
+  })
+
+  it('leaves other site paths alone', () => {
+    expect(redirectSystemPath({ path: '/joinery', initial: false })).toBe('/joinery')
+    expect(takePendingJoinCode()).toBeNull()
+  })
+})
