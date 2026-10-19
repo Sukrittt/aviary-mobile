@@ -1,9 +1,9 @@
 import { Tabs } from 'expo-router/js-tabs'
-import { useNavigation, usePathname } from 'expo-router'
+import { useNavigation, useNavigationContainerRef, usePathname } from 'expo-router'
 import { useEffect, useLayoutEffect, useState } from 'react'
 import { StyleSheet, View } from 'react-native'
 
-import { FloatingNav, NavBackdrop, activeRouteFor, nextNavCover, type NavCover } from '@/src/components/nav/FloatingNav'
+import { FloatingNav, NAV_ROUTES, NavBackdrop, activeRouteFor, nextNavCover, tabsState, type NavCover } from '@/src/components/nav/FloatingNav'
 import { tabsNavCover } from '@/src/components/nav/TabBar'
 import { LOG_EXPENSE_PATH } from '@/src/features/log-expense/SubmitContext'
 import { useTheme } from '@/src/theme/ThemeProvider'
@@ -70,6 +70,21 @@ export default function TabsLayout() {
   useHabitNudges()
   useWeekRecapGate()
   useChangelogGate()
+
+  // Tabs mount lazily, so the first tap on each one mounted the whole screen
+  // and only then started its fetch: a skeleton for a second or two. Mount
+  // the others (and start their queries) right after the landing tab, so a
+  // switch only ever shows a screen that's already there.
+  const navigationRef = useNavigationContainerRef()
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const tabs = tabsState(navigationRef.getRootState())
+      if (!tabs) return
+      const focused = tabs.routes[tabs.index ?? 0]?.name
+      for (const r of NAV_ROUTES) if (r.name !== focused) navigationRef.dispatch({ type: 'PRELOAD', payload: { name: r.name }, target: tabs.key })
+    }, 0)
+    return () => clearTimeout(timer)
+  }, [navigationRef])
 
   return (
     <View style={{ flex: 1 }}>

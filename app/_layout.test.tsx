@@ -75,6 +75,7 @@ jest.mock('expo-router', () => {
     useSegments: () => mockSegments,
     usePathname: () => mockPathname,
     useGlobalSearchParams: () => mockGlobalParams,
+    useNavigationContainerRef: () => ({ getRootState: () => undefined, dispatch: jest.fn() }),
   }
 })
 

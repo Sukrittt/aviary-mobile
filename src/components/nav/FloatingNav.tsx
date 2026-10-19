@@ -50,6 +50,20 @@ export const NAV_HREF: Record<NavRoute, '/' | '/activity' | '/envelopes' | '/mor
   more: '/more',
 }
 
+type NavStateTree = { key?: string; index?: number; routes: { name: string; state?: NavStateTree }[] }
+
+/**
+ * The (tabs) navigator's state, for dispatching to it directly by its key.
+ * expo-router nests it under its own root stack, so it's searched for.
+ */
+export function tabsState(state: NavStateTree | undefined): NavStateTree | undefined {
+  for (const route of state?.routes ?? []) {
+    const tabs = route.name === '(tabs)' ? route.state : tabsState(route.state)
+    if (tabs?.key) return tabs
+  }
+  return undefined
+}
+
 /** Which circle to light up for a pathname. Null on any screen outside the tabs. */
 export function activeRouteFor(pathname: string): NavRoute | null {
   if (pathname === '/' || pathname === '/index') return 'index'
@@ -110,8 +124,8 @@ const NAV_BOTTOM_GAP = 10
 // Fade above the backdrop so scrolled content dissolves into it instead of
 // being cut off at a hard edge.
 const BACKDROP_FADE = 24
-/** How long the highlight takes to slide between tabs. The overlay navigates once it has landed. */
-export const NAV_SLIDE_MS = 110
+/** How long the highlight takes to slide between tabs. */
+const NAV_SLIDE_MS = 110
 /** The highlight's slide: quick and flat, no bounce, so the landing tap follows the press tap closely. */
 const SLIDE = { duration: NAV_SLIDE_MS, easing: Easing.out(Easing.cubic) }
 

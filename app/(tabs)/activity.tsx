@@ -5,7 +5,7 @@ import { AccountChips, accountName } from "@/src/components/shared/AccountChips"
 import { incomesForPage, periodEnd } from "@/src/lib/incomeActivity";
 import { ExpenseWriteError } from '@/src/lib/expenseConflict';
 import { useCurrency } from '@/src/context/CurrencyContext'
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -99,7 +99,7 @@ function keyOf(t: ExpenseRow): string {
   return t.id || `t-${t.timestamp}-${t.item}`;
 }
 
-export default function ActivityScreen() {
+function ActivityScreen() {
   const { formatCurrency } = useCurrency()
 
   const { tokens, scheme, space } = useTheme();
@@ -1335,3 +1335,7 @@ const styles = StyleSheet.create({
   sheetOption: { paddingVertical: 14, alignItems: "center" },
   sheetOptionText: { fontSize: 16 },
 });
+
+// memo: expo-router re-renders a tab's screen on every focus change with a
+// fresh props object, and a full ActivityScreen render held up each tab switch.
+export default memo(ActivityScreen);

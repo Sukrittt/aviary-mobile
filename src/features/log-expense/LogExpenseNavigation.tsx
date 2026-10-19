@@ -1,11 +1,11 @@
-import { FloatingNav, NAV_HREF, NAV_SLIDE_MS, navStateFor, type NavRoute } from '@/src/components/nav/FloatingNav'
+import { FloatingNav, NAV_HREF, navStateFor, tabsState, type NavRoute } from '@/src/components/nav/FloatingNav'
 import { TabBar } from '@/src/components/nav/TabBar'
 import { QuickAddMenu, type QuickAddItem } from '@/src/components/nav/QuickAddMenu'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { INCOME_FLOOD } from '@/src/theme/tokens'
-import { usePathname, useRouter } from 'expo-router'
+import { useNavigationContainerRef, usePathname, useRouter } from 'expo-router'
 import { HandCoins, Plus, Scan } from '@/src/components/shared/icons'
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { useCachedUser } from '@/src/hooks/useUser'
 import { isHidden } from '@/src/lib/features'
 import { QUICK_INCOME_PATH } from './IncomeFloodButton'
@@ -20,6 +20,7 @@ import { LOG_EXPENSE_PATH, useLogExpenseSubmitState } from './SubmitContext'
  */
 export function LogExpenseNavigation() {
   const router = useRouter()
+  const navigationRef = useNavigationContainerRef()
   const pathname = usePathname()
   const { active, addActive, visible } = navStateFor(pathname, pathname === LOG_EXPENSE_PATH)
   const submitState = useLogExpenseSubmitState()
@@ -42,19 +43,16 @@ export function LogExpenseNavigation() {
   // whole render. Dropped as soon as the pathname moves on.
   const [pendingTab, setPendingTab] = useState<{ from: string; tab: NavRoute } | null>(null)
   if (pendingTab !== null && pendingTab.from !== pathname) setPendingTab(null)
-  const navTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-  // Anything else that moves the route during the slide (back gesture, +)
-  // wins: the pending tab switch is dropped rather than landing late.
-  useEffect(() => () => clearTimeout(navTimer.current), [pathname])
   const selectTab = (name: NavRoute) => {
     // Log-expense swaps itself out with replace and its nav morphs in place, so it keeps the old path.
     if (addActive) return router.replace(NAV_HREF[name])
     setPendingTab({ from: pathname, tab: name })
-    // Navigate once the highlight has landed. Mounting a heavy tab blocks the
-    // UI thread on Android too, so navigating any sooner froze the slide
-    // halfway. A second quick tap replaces the first.
-    clearTimeout(navTimer.current)
-    navTimer.current = setTimeout(() => router.navigate(NAV_HREF[name]), NAV_SLIDE_MS)
+    // Straight to the tab by route name, on touch-down. router.navigate(href)
+    // parsed the path and handed the tab fresh params, which re-rendered the
+    // whole screen being shown: a few hundred ms before the switch painted.
+    const tabs = tabsState(navigationRef.getRootState())
+    if (tabs) navigationRef.dispatch({ type: 'JUMP_TO', payload: { name }, target: tabs.key })
+    else router.navigate(NAV_HREF[name])
   }
   const menuItems: QuickAddItem[] = [
     { label: 'Log expense', icon: Plus, tint: tokens.accent, onPress: () => router.push(LOG_EXPENSE_PATH) },

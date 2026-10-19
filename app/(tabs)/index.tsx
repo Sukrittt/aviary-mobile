@@ -1,8 +1,9 @@
 import { useCurrency } from '@/src/context/CurrencyContext'
+import { todayLocal } from '@/src/lib/date'
 import { currencyUnit } from '@/src/lib/currencies'
 import { useRecurringIncomes } from '@/src/hooks/useIncomes'
 import { useAccounts } from '@/src/hooks/useAccounts'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { View, Text, Pressable, RefreshControl, StyleSheet, Linking, Platform } from 'react-native'
 import { useQuery } from '@tanstack/react-query'
 import { useRouter, useNavigation, useFocusEffect } from 'expo-router'
@@ -68,7 +69,7 @@ import { FORCE_EMPTY_STATE_PREVIEW, emptyForPreview } from '@/src/lib/emptyState
  * which envelopes are in trouble. The trend chart, heatmap and subscriptions
  * moved to /insights — six modules on one scroll left nothing room to be large.
  */
-export default function HomeScreen() {
+function HomeScreen() {
   const { formatCurrency, currencyCode } = useCurrency()
 
   const { tokens, space, type, radius } = useTheme()
@@ -173,10 +174,13 @@ export default function HomeScreen() {
   const [displayedReadyToAssign, setDisplayedReadyToAssign] = useState(envelopeState.readyToAssign)
   const [, setFocusTick] = useState(0)
   const rtaPending = displayedReadyToAssign !== envelopeState.readyToAssign
+  // The month and days left are read off the clock on render, so a day that
+  // turned over while Home sat behind another tab needs a render too.
+  const renderedDay = todayLocal()
   useFocusEffect(
     useCallback(() => {
-      if (rtaPending) setFocusTick((n) => n + 1)
-    }, [rtaPending]),
+      if (rtaPending || todayLocal() !== renderedDay) setFocusTick((n) => n + 1)
+    }, [rtaPending, renderedDay]),
   )
   // Adjusting state during render (not in an effect) so the sync happens in
   // the same commit as the value that triggered it, with no extra render.
@@ -635,3 +639,7 @@ const styles = StyleSheet.create({
   emptyEnvelopesBody: { flex: 1, justifyContent: 'center' },
   insightsLink: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: 14 },
 })
+
+// memo: expo-router re-renders a tab's screen on every focus change with a
+// fresh props object, and a full HomeScreen render held up each tab switch.
+export default memo(HomeScreen)

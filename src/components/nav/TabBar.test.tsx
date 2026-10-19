@@ -19,6 +19,7 @@ let mockPathname = '/'
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: mockPush, replace: mockReplace, navigate: mockNavigate, back: mockBack }),
   usePathname: () => mockPathname,
+  useNavigationContainerRef: () => ({ getRootState: () => undefined, dispatch: jest.fn() }),
 }))
 
 beforeEach(() => {
