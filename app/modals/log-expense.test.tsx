@@ -5,12 +5,13 @@ import { act, fireEvent, waitFor } from '@testing-library/react-native'
 import { createTestQueryClient, renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { userKey } from '@/src/hooks/useUser'
 import { accountsKey } from '@/src/hooks/useAccounts'
+import { posthog } from '@/src/lib/analytics'
 import { deleteExpensePhoto, getExpensePhotoUrl, getRecentExpenses, postExpensePayload, updateExpense, uploadExpensePhoto } from '@/src/api/expenses'
 import { setOnline } from '@/src/lib/netStatus'
 import { addCategory, getCategories } from '@/src/api/categories'
 import { getGroups } from '@/src/api/groups'
 import { getCategoryMap, suggestCategoryLLM } from '@/src/api/categoryMap'
-import LogExpenseScreen from './log-expense'
+import LogExpenseScreen, { SAVE_STUCK_MS } from './log-expense'
 import { clearLogExpenseDraft, getLogExpenseDraft } from '@/src/features/log-expense/draft'
 import { MIN_SPIN_MS, SETTLE_MS } from '@/src/features/log-expense/AutoCategoryPill'
 import { todayLocal } from '@/src/lib/date'
@@ -874,6 +875,34 @@ describe('photo', () => {
     expect(uploadExpensePhoto).toHaveBeenCalledWith('srv1', 'QUJD', 'image/jpeg')
     expect((postExpensePayload as jest.Mock).mock.invocationCallOrder[0]).toBeLessThan((uploadExpensePhoto as jest.Mock).mock.invocationCallOrder[0])
     expect(mockReplace).toHaveBeenCalledWith(expect.objectContaining({ pathname: '/modals/expense-added' }))
+  })
+
+  it('moves on to the success screen without waiting for the photo upload', async () => {
+    ;(postExpensePayload as jest.Mock).mockResolvedValue({ id: 'srv1', timestamp: '2026-09-04T01:24:00' })
+    ;(uploadExpensePhoto as jest.Mock).mockReturnValue(new Promise(() => {}))
+    const utils = setup()
+    await fillValidForm(utils)
+    await openMore(utils)
+    await pickFromLibrary(utils)
+    await submitAndSettle()
+
+    expect(uploadExpensePhoto).toHaveBeenCalledWith('srv1', 'QUJD', 'image/jpeg')
+    expect(mockReplace).toHaveBeenCalledWith(expect.objectContaining({ pathname: '/modals/expense-added' }))
+  })
+
+  it('reports a save that holds the screen past 10s, with the stage it waits on', async () => {
+    ;(postExpensePayload as jest.Mock).mockReturnValue(new Promise(() => {}))
+    const utils = setup()
+    await fillValidForm(utils)
+    await openMore(utils)
+    await pickFromLibrary(utils)
+    await submitAndSettle()
+    expect(posthog.capture).not.toHaveBeenCalledWith('save_stuck', expect.anything())
+
+    await act(async () => {
+      jest.advanceTimersByTime(SAVE_STUCK_MS)
+    })
+    expect(posthog.capture).toHaveBeenCalledWith('save_stuck', { stage: 'request', mode: 'add' })
   })
 
   it('keeps the expense saved and says so kindly when the upload fails', async () => {

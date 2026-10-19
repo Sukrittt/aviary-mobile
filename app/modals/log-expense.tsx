@@ -72,6 +72,7 @@ View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { track } from "@/src/lib/analytics";
+import { isRefreshingToken } from "@/src/api/accessMode";
 import { tap } from "@/src/lib/haptics";
 
 function str(v: string | string[] | undefined): string {
@@ -104,6 +105,9 @@ function suggestCategory(
   }
   return best;
 }
+
+// How long a save may hold the screen before it's reported as stuck.
+export const SAVE_STUCK_MS = 10_000;
 
 // Shortest description worth an AI call; "ba" is half a word, not an expense.
 const MIN_LLM_CHARS = 3;
@@ -390,8 +394,22 @@ export default function LogExpenseScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [logSuccess]);
 
-  // Runs once the expense itself is saved. A photo failure never undoes that
-  // save; it only gets a friendly heads-up. Not queued offline in v1, so a
+  // A save that holds this screen past SAVE_STUCK_MS reports where it's
+  // waiting, so the next hang shows up in PostHog with its stage instead of
+  // as a quiet gap between events (2026-10-19). Unmounting cancels it.
+  const stuckStage = useRef<() => string>(() => "request");
+  stuckStage.current = () => (logSuccess ? "navigation" : isRefreshingToken() ? "token_refresh" : "request");
+  const holding = saving || logSuccess;
+  useEffect(() => {
+    if (!holding) return;
+    const timer = setTimeout(() => track("save_stuck", { stage: stuckStage.current(), mode: isEdit ? "edit" : "add" }), SAVE_STUCK_MS);
+    return () => clearTimeout(timer);
+  }, [holding, isEdit]);
+
+  // Runs once the expense itself is saved, in the background: the screen
+  // moves on without waiting, since an upload on a slow connection can take
+  // up to its 60s timeout. A photo failure never undoes that save; it only
+  // gets a friendly heads-up, even from the next screen. Not queued offline in v1, so a
   // create that landed in the pending queue (no server id yet) skips it.
   const syncPhoto = useCallback(async (id: string | undefined, queued: boolean) => {
     if (!photo && !(hasSavedPhoto && photoRemoved)) return;
@@ -419,8 +437,8 @@ export default function LogExpenseScreen() {
     }
     if (isEdit) {
       const updates = expenseChanges(base, { ...editedDraft, item: savedItem });
-      const finishEdit = async () => { await syncPhoto(origId, false); setLogSuccess(true); };
-      if (!Object.keys(updates).length) { void finishEdit(); return; }
+      const finishEdit = () => { void syncPhoto(origId, false); setLogSuccess(true); };
+      if (!Object.keys(updates).length) { finishEdit(); return; }
       updateMutate(
         {
           id: origId,
@@ -431,7 +449,7 @@ export default function LogExpenseScreen() {
           updates,
         },
         {
-          onSuccess: () => void finishEdit(),
+          onSuccess: finishEdit,
           onError: (err) => {
             if (err instanceof ExpenseWriteError) {
               if (err.status === 409 && err.current) {
@@ -473,10 +491,10 @@ export default function LogExpenseScreen() {
           // `timestamp` come back from the POST so Undo can address the row.
           // The replace itself is deferred: stash it and flip logSuccess so
           // the nav circle's save animation plays first (see the effect above).
-          onSuccess: async (res) => {
+          onSuccess: (res) => {
             clearLogExpenseDraft();
             noteManualLog();
-            await syncPhoto(res.id, res.pending);
+            void syncPhoto(res.id, res.pending);
             pendingAddNavRef.current = {
               pathname: "/modals/expense-added",
               params: expenseSuccessParams(res, {
