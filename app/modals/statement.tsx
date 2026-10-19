@@ -1,17 +1,22 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import * as ImagePicker from 'expo-image-picker'
-import { CaretDown, CheckCircle, Circle, FileText, ImageSquare, X } from '@/src/components/shared/icons'
+import { CaretDown, Check, FileText, ImageSquare, X } from '@/src/components/shared/icons'
+import Animated, { FadeIn } from 'react-native-reanimated'
 import { CategoryPickerSheet } from '@/src/components/shared/CategoryPickerSheet'
+import { CategoryIcon } from '@/src/components/shared/CategoryIcon'
+import { SelectCheck, SelectTint } from '@/src/components/shared/SelectCheck'
+import { ConfettiPiece } from '@/src/components/onboarding/SetupDone'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { Icon } from '@/src/components/shared/Icon'
 import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { useAddExpense } from '@/src/hooks/useExpenses'
+import { useCategories, useCategoryTint } from '@/src/hooks/useCategories'
 import { readStatement, StatementFailure, type StatementItem, type StatementProposal } from '@/src/api/statement'
-import { creditsLine, statementExpense } from '@/src/features/fill-gap/gap'
+import { byDay, caughtUp, creditsLine, daySpan, statementExpense, type CaughtUp } from '@/src/features/fill-gap/gap'
 import { downscaleImage } from '@/src/lib/downscaleImage'
 import { canPickFiles, pickFile } from '@/src/lib/filePicker'
 import { formatDateShort } from '@/src/lib/format'
@@ -31,6 +36,8 @@ const UNREADABLE = "Couldn't read that one. Try a CSV or Excel statement, or a s
 const SKIP_LABEL = { logged: 'Looks logged already', before_last: 'Before your last log' } as const
 /** Same beat as every other in-place success (CLAUDE.md). */
 const SUCCESS_MS = 1100
+/** Categories the done screen lists before folding the rest into "and N more". Same as Web. */
+const DONE_CATEGORIES = 4
 
 type RowState = { checked: boolean; category: string }
 
@@ -41,7 +48,10 @@ type RowState = { checked: boolean; category: string }
  * propose-then-confirm as chat capture. Rows that look logged already, or are
  * older than your last log, start unticked; credits are only counted. Each
  * row logs through the normal add-expense path with a hashed client_id, so
- * the same file twice adds nothing. Twin of Web's StatementModal.
+ * the same file twice adds nothing. The review reads like the Activity it's
+ * about to become, and it ends on "You're caught up": what got filled in and
+ * where the money went, so the last thing you see is that it worked. Twin of
+ * Web's StatementModal.
  */
 export default function StatementScreen() {
   const { tokens, space, radius, type } = useTheme()
@@ -49,21 +59,23 @@ export default function StatementScreen() {
   const insets = useSafeAreaInsets()
   const router = useRouter()
   const addExpense = useAddExpense()
-  const [phase, setPhase] = useState<'pick' | 'reading' | 'review'>('pick')
+  const [phase, setPhase] = useState<'pick' | 'reading' | 'review' | 'done'>('pick')
   const [proposal, setProposal] = useState<StatementProposal | null>(null)
   const [rows, setRows] = useState<Record<string, RowState>>({})
   const [error, setError] = useState('')
   const [saving, setSaving] = useState<'idle' | 'saving' | 'success'>('idle')
   const [pickingFor, setPickingFor] = useState<string | null>(null)
-  const logged = useRef(new Set<string>())
+  const [progress, setProgress] = useState(0)
+  const [done, setDone] = useState<CaughtUp | null>(null)
+  const logged = useRef(new Map<string, string | null>())
   const online = useOnline()
 
-  // Cleared on unmount, so a screen already dismissed during the tick can't pop the one underneath.
+  // The tick holds, then the caught-up screen. Cleared on unmount, so a screen already closed can't flip.
   useEffect(() => {
     if (saving !== 'success') return
-    const timer = setTimeout(() => router.back(), SUCCESS_MS)
+    const timer = setTimeout(() => setPhase('done'), SUCCESS_MS)
     return () => clearTimeout(timer)
-  }, [saving, router])
+  }, [saving])
 
   async function read(input: Parameters<typeof readStatement>[0], kind: 'screenshots' | 'file') {
     setError('')
@@ -141,12 +153,15 @@ export default function StatementScreen() {
     setSaving('saving')
     setError('')
     let failed = 0
+    setProgress(0)
     // One at a time, oldest first, so Activity keeps the statement's order.
-    for (const item of toLog) {
+    for (const [n, item] of toLog.entries()) {
+      setProgress(n + 1)
       if (logged.current.has(item.id)) continue
       try {
-        await addExpense.mutateAsync(statementExpense(item, rows[item.id].category))
-        logged.current.add(item.id)
+        const saved = await addExpense.mutateAsync(statementExpense(item, rows[item.id].category))
+        // null: the server already had it, so it's handled but not new.
+        logged.current.set(item.id, saved?.duplicate ? null : rows[item.id].category)
       } catch {
         failed++
       }
@@ -157,6 +172,8 @@ export default function StatementScreen() {
       return
     }
     track('statement_logged', { rows: toLog.length, unchecked: proposal.items.length - toLog.length })
+    // Everything newly saved here, with the category it was saved under, including rows an earlier failed try saved and you've since unticked.
+    setDone(caughtUp(proposal.items.filter((i) => logged.current.get(i.id) != null).map((i) => ({ amount: i.amount, date: i.date, category: logged.current.get(i.id) ?? '' }))))
     setSaving('success')
   }
 
@@ -167,11 +184,16 @@ export default function StatementScreen() {
   const total = checked.reduce((sum, i) => sum + i.amount, 0)
   const credits = proposal ? creditsLine(proposal.credits) : null
   const picking = items.find((i) => i.id === pickingFor)
+  const days = useMemo(() => byDay(proposal?.items ?? []), [proposal])
+  const dates = items.map((i) => i.date).sort()
+  const allOn = items.length > 0 && checked.length === items.length
+  const setChecked = (ids: string[], on: boolean) =>
+    setRows((prev) => ({ ...prev, ...Object.fromEntries(ids.map((id) => [id, { ...prev[id], checked: on }])) }))
   const caption = { color: tokens.text2, fontFamily: fontFamily.bodyMedium, fontSize: type.caption }
 
   return (
     <View style={[styles.screen, { backgroundColor: tokens.bg }]}>
-      <View style={[styles.header, { paddingTop: insets.top + space.sm, paddingHorizontal: space.lg, gap: space.md, borderBottomColor: tokens.border }]}>
+      {phase !== 'done' && <View style={[styles.header, { paddingTop: insets.top + space.sm, paddingHorizontal: space.lg, gap: space.md, borderBottomColor: tokens.border }]}>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Close"
@@ -185,7 +207,7 @@ export default function StatementScreen() {
         <Text style={{ flex: 1, color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: type.body }}>
           {phase === 'review' ? 'Check these, then log' : 'Add from statement or screenshot'}
         </Text>
-      </View>
+      </View>}
 
       {phase === 'pick' && (
         <View style={{ padding: space.lg, gap: space.md }}>
@@ -207,17 +229,32 @@ export default function StatementScreen() {
 
       {phase === 'review' && (
         <>
-          <ScrollView contentContainerStyle={{ paddingHorizontal: space.lg, paddingVertical: space.sm }}>
-            {items.map((item, i) => (
-              <ReviewRow
-                key={item.id}
-                item={item}
-                row={rows[item.id]}
-                first={i === 0}
-                busy={busy}
-                onToggle={() => setRows((prev) => ({ ...prev, [item.id]: { ...prev[item.id], checked: !prev[item.id].checked } }))}
-                onPickCategory={() => setPickingFor(item.id)}
-              />
+          <ScrollView contentContainerStyle={{ paddingHorizontal: space.lg, paddingBottom: space.lg }}>
+            <View style={[styles.summary, { paddingVertical: space.md }]}>
+              <Text style={{ ...caption, fontFamily: fontFamily.bodySemiBold }}>
+                {items.length} {items.length === 1 ? 'payment' : 'payments'} · {daySpan(dates[0], dates[dates.length - 1])}
+              </Text>
+              <Pressable accessibilityRole="button" onPress={() => setChecked(items.map((i) => i.id), !allOn)} disabled={busy} hitSlop={10}>
+                <Text style={{ color: tokens.accentInk, fontFamily: fontFamily.bodySemiBold, fontSize: type.caption }}>{allOn ? 'Untick all' : 'Tick all'}</Text>
+              </Pressable>
+            </View>
+            {days.map((day) => (
+              <View key={day.date} style={{ marginBottom: space.md }}>
+                <View style={[styles.dayHead, { borderBottomColor: tokens.borderStrong, paddingHorizontal: space.xs }]}>
+                  <Text style={{ color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: 14 }}>{formatDateShort(day.date)}</Text>
+                  <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodySemiBold, fontSize: 13 }}>{formatMoney(day.rows.reduce((sum, i) => sum + i.amount, 0))}</Text>
+                </View>
+                {day.rows.map((item) => (
+                  <ReviewRow
+                    key={item.id}
+                    item={item}
+                    row={rows[item.id]}
+                    busy={busy}
+                    onToggle={() => setChecked([item.id], !rows[item.id].checked)}
+                    onPickCategory={() => setPickingFor(item.id)}
+                  />
+                ))}
+              </View>
             ))}
           </ScrollView>
           <View style={[styles.footer, { padding: space.lg, paddingBottom: insets.bottom + space.md, gap: space.sm, borderTopColor: tokens.border }]}>
@@ -241,7 +278,9 @@ export default function StatementScreen() {
                 <CheckIcon color={tokens.onSuccess} />
               ) : (
                 <Text style={{ color: tokens.onAccent, fontFamily: fontFamily.bodyBold, fontSize: type.body }}>
-                  {saving === 'saving' ? 'Logging…' : checked.length ? `Log ${checked.length} · ${formatMoney(total)}` : 'Tick what to add'}
+                  {saving === 'saving'
+                    ? checked.length > 1 ? `Logging ${progress} of ${checked.length}…` : 'Logging…'
+                    : checked.length ? `Log ${checked.length} · ${formatMoney(total)}` : 'Tick what to add'}
                 </Text>
               )}
             </Pressable>
@@ -249,12 +288,17 @@ export default function StatementScreen() {
         </>
       )}
 
+      {phase === 'done' && done && (
+        <StatementDone done={done} onDone={() => router.back()} onActivity={() => router.dismissTo('/(tabs)/activity')} />
+      )}
+
       <CategoryPickerSheet
         visible={picking !== undefined}
         onClose={() => setPickingFor(null)}
         value={picking ? rows[picking.id].category : ''}
         onSelect={(category) => {
-          if (picking) setRows((prev) => ({ ...prev, [picking.id]: { ...prev[picking.id], category } }))
+          // Choosing a category for a row means you want it: tick it too.
+          if (picking) setRows((prev) => ({ ...prev, [picking.id]: { ...prev[picking.id], category, checked: category ? true : prev[picking.id].checked } }))
           setPickingFor(null)
         }}
         title="Category"
@@ -282,48 +326,159 @@ function PickButton({ icon, label, hint, onPress, disabled }: { icon: typeof Ima
   )
 }
 
-function ReviewRow({ item, row, first, busy, onToggle, onPickCategory }: {
+/** Reads like the Activity row it's about to become: Activity's select tick and wash, the category's tinted icon, name, amount. */
+function ReviewRow({ item, row, busy, onToggle, onPickCategory }: {
   item: StatementItem
   row: RowState
-  first: boolean
   busy: boolean
   onToggle: () => void
   onPickCategory: () => void
 }) {
   const { tokens, space, radius, type } = useTheme()
   const { formatMoney } = useCurrency()
+  const tintOf = useCategoryTint()
+  const categories = useCategories().data ?? []
+  const category = categories.find((c) => c.name === row.category)
+  const tint = row.category ? tintOf(row.category) : { bg: tokens.inputBg, ink: tokens.text3 }
   const dim = !row.checked
+  const missing = row.checked && !row.category
   return (
-    <View style={[styles.row, { gap: space.sm, borderTopColor: tokens.border, borderTopWidth: first ? 0 : StyleSheet.hairlineWidth }]}>
-      <Pressable
-        accessibilityRole="checkbox"
-        accessibilityState={{ checked: row.checked }}
-        accessibilityLabel={`Add ${item.item}, ${formatMoney(item.amount)}`}
-        onPress={onToggle}
-        disabled={busy}
-        hitSlop={10}
-      >
-        <Icon icon={row.checked ? CheckCircle : Circle} size={22} color={row.checked ? tokens.accentInk : tokens.text3} />
-      </Pressable>
-      <View style={{ flex: 1, minWidth: 0, gap: 3 }}>
-        <Text numberOfLines={1} style={{ color: dim ? tokens.text3 : tokens.text, fontFamily: fontFamily.bodyBold, fontSize: type.body }}>{item.item}</Text>
-        <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodyMedium, fontSize: type.micro }}>
-          {formatDateShort(item.date)}
-          {item.suggestSkip ? ` · ${SKIP_LABEL[item.suggestSkip]}` : ''}
-        </Text>
-        <Pressable
-          onPress={onPickCategory}
-          disabled={busy}
-          accessibilityLabel={row.category ? `Category: ${row.category}. Change it` : `Pick a category for ${item.item}`}
-          style={[styles.chip, { backgroundColor: row.category || dim ? tokens.inputBg : tokens.warnSoft, borderRadius: radius.full }]}
-        >
-          <Text numberOfLines={1} style={{ flexShrink: 1, color: row.category || dim ? tokens.text2 : tokens.warnInk, fontFamily: fontFamily.bodySemiBold, fontSize: type.micro }}>
-            {row.category ? splitEmoji(row.category).text : 'Pick a category'}
-          </Text>
-          <Icon icon={CaretDown} size={12} color={tokens.text3} />
-        </Pressable>
+    <Pressable
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked: row.checked, disabled: busy }}
+      accessibilityLabel={`Add ${item.item}, ${formatMoney(item.amount)}`}
+      onPress={() => {
+        tap()
+        onToggle()
+      }}
+      disabled={busy}
+      style={[styles.row, { gap: space.md, paddingHorizontal: space.sm, borderRadius: radius.lg }]}
+    >
+      <SelectTint selected={row.checked} style={{ borderRadius: radius.lg }} />
+      <SelectCheck selecting selected={row.checked} gap={space.md} />
+      <View style={[styles.avatar, { backgroundColor: tint.bg, opacity: dim ? 0.55 : 1 }]}>
+        <CategoryIcon name={row.category} icon={category?.icon} group={category?.group} size={16} color={tint.ink} />
       </View>
-      <Text style={{ color: dim ? tokens.text3 : tokens.text, fontFamily: fontFamily.bodyBold, fontSize: type.body }}>{formatMoney(item.amount)}</Text>
+      <View style={{ flex: 1, minWidth: 0, gap: 5 }}>
+        <Text numberOfLines={1} style={{ color: dim ? tokens.text3 : tokens.text, fontFamily: fontFamily.bodySemiBold, fontSize: 15 }}>{item.item}</Text>
+        <View style={styles.meta}>
+          <Pressable
+            onPress={onPickCategory}
+            disabled={busy}
+            hitSlop={6}
+            accessibilityRole="button"
+            accessibilityLabel={row.category ? `Category for ${item.item}: ${splitEmoji(row.category).text}. Change it` : `Pick a category for ${item.item}`}
+            style={[
+              styles.chip,
+              {
+                backgroundColor: missing ? tokens.warnSoft : tokens.inputBg,
+                borderColor: missing ? tokens.warnInk : tokens.borderStrong,
+                borderRadius: radius.full,
+              },
+            ]}
+          >
+            <Text numberOfLines={1} style={{ flexShrink: 1, color: missing ? tokens.warnInk : tokens.text, fontFamily: fontFamily.bodySemiBold, fontSize: type.micro }}>
+              {row.category ? splitEmoji(row.category).text : 'Pick a category'}
+            </Text>
+            <Icon icon={CaretDown} size={11} color={missing ? tokens.warnInk : tokens.text3} />
+          </Pressable>
+          {item.suggestSkip ? (
+            <Text numberOfLines={1} style={{ flexShrink: 1, color: tokens.text2, fontFamily: fontFamily.bodyMedium, fontSize: type.micro }}>
+              {SKIP_LABEL[item.suggestSkip]}
+            </Text>
+          ) : null}
+        </View>
+      </View>
+      <Text style={{ color: dim ? tokens.text3 : tokens.text, fontFamily: fontFamily.bodySemiBold, fontSize: 15 }}>{formatMoney(item.amount)}</Text>
+    </Pressable>
+  )
+}
+
+/** The end of the flow: what got filled in and where it went. SetupDone's celebration, calmer. */
+function StatementDone({ done, onDone, onActivity }: { done: CaughtUp; onDone: () => void; onActivity: () => void }) {
+  const { tokens, space, radius } = useTheme()
+  const { formatMoney } = useCurrency()
+  const insets = useSafeAreaInsets()
+  const tintOf = useCategoryTint()
+  const categories = useCategories().data ?? []
+  const confetti = useMemo(() => Array.from({ length: 18 }, (_, i) => i), [])
+  // "and 1 more" would take the room the row itself needs, so fold only when it saves two or more.
+  const shown = done.categories.length > DONE_CATEGORIES + 1 ? done.categories.slice(0, DONE_CATEGORIES) : done.categories
+  const more = done.categories.length - shown.length
+
+  return (
+    <View style={{ flex: 1, paddingTop: insets.top + space.xl, paddingHorizontal: space.lg, paddingBottom: insets.bottom + space.md }}>
+      <View style={styles.confetti} pointerEvents="none">
+        {confetti.map((i) => (
+          <ConfettiPiece key={i} index={i} tokens={tokens} />
+        ))}
+      </View>
+      <Animated.View entering={FadeIn.duration(350)} style={[styles.badge, { backgroundColor: tokens.mintSoft }]}>
+        <Check size={30} color={tokens.mint} weight="bold" />
+      </Animated.View>
+      <Animated.Text accessibilityRole="header" entering={FadeIn.delay(80).duration(350)} style={[styles.doneTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
+        You&apos;re caught up.
+      </Animated.Text>
+      <Animated.Text entering={FadeIn.delay(140).duration(350)} style={[styles.doneCopy, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
+        {done.count > 0
+          ? `${daySpan(done.from, done.to)} is filled in. Your categories now match what you actually spent.`
+          : 'Those were already in your budget, so nothing doubled up.'}
+      </Animated.Text>
+
+      {done.count > 0 && (
+        <>
+
+      <Animated.View
+        entering={FadeIn.delay(200).duration(350)}
+        style={[styles.doneCard, { marginTop: space.lg, padding: space.md, backgroundColor: tokens.card, borderColor: tokens.border, borderRadius: radius.lg }]}
+      >
+        <View style={[styles.doneTotal, { borderBottomColor: tokens.border, paddingBottom: space.md }]}>
+          <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodySemiBold, fontSize: 13 }}>
+            {done.count} {done.count === 1 ? 'payment' : 'payments'} added
+          </Text>
+          <Text style={{ color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: 22 }}>{formatMoney(done.total)}</Text>
+        </View>
+        {shown.map((c) => {
+          const row = categories.find((r) => r.name === c.name)
+          const tint = tintOf(c.name)
+          return (
+            <View key={c.name} style={[styles.doneRow, { gap: space.md, marginTop: space.md }]}>
+              <View style={[styles.avatar, { backgroundColor: tint.bg }]}>
+                <CategoryIcon name={c.name} icon={row?.icon} group={row?.group} size={16} color={tint.ink} />
+              </View>
+              <Text numberOfLines={1} style={{ flex: 1, color: tokens.text, fontFamily: fontFamily.bodyMedium, fontSize: 15 }}>{splitEmoji(c.name).text}</Text>
+              <Text style={{ color: tokens.text, fontFamily: fontFamily.bodySemiBold, fontSize: 15 }}>{formatMoney(c.total)}</Text>
+            </View>
+          )
+        })}
+        {more > 0 && (
+          <Text style={{ color: tokens.text3, fontFamily: fontFamily.bodyMedium, fontSize: 12, marginTop: space.md, marginLeft: 44 }}>
+            and {more} more {more === 1 ? 'category' : 'categories'}
+          </Text>
+        )}
+      </Animated.View>
+      <Animated.Text entering={FadeIn.delay(240).duration(350)} style={{ color: tokens.text3, fontFamily: fontFamily.bodyMedium, fontSize: 12, marginTop: space.md }}>
+        Upload the same file again and nothing doubles up.
+      </Animated.Text>
+        </>
+      )}
+
+      <View style={{ flex: 1 }} />
+      <Animated.View entering={FadeIn.delay(260).duration(350)} style={{ gap: space.sm }}>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => {
+            tap()
+            onDone()
+          }}
+          style={[styles.primary, { backgroundColor: tokens.accent, borderRadius: radius.full }]}
+        >
+          <Text style={{ color: tokens.onAccent, fontFamily: fontFamily.bodyBold, fontSize: 15 }}>Done</Text>
+        </Pressable>
+        <Pressable accessibilityRole="button" onPress={onActivity} style={[styles.primary, { borderRadius: radius.full }]}>
+          <Text style={{ color: tokens.accentInk, fontFamily: fontFamily.bodySemiBold, fontSize: 15 }}>See them in Activity</Text>
+        </Pressable>
+      </Animated.View>
     </View>
   )
 }
@@ -334,8 +489,19 @@ const styles = StyleSheet.create({
   headerBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   pick: { flexDirection: 'row', alignItems: 'center', borderWidth: 1 },
-  row: { flexDirection: 'row', alignItems: 'flex-start', paddingVertical: 12 },
-  chip: { flexDirection: 'row', alignItems: 'center', gap: 3, alignSelf: 'flex-start', maxWidth: '100%', paddingLeft: 8, paddingRight: 6, paddingVertical: 2 },
+  summary: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  dayHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', paddingBottom: 8, marginBottom: 4, borderBottomWidth: StyleSheet.hairlineWidth },
+  row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, overflow: 'hidden' },
+  avatar: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  meta: { flexDirection: 'row', alignItems: 'center', gap: 8, minWidth: 0 },
+  chip: { flexDirection: 'row', alignItems: 'center', gap: 4, flexShrink: 0, maxWidth: '70%', paddingLeft: 9, paddingRight: 7, paddingVertical: 3, borderWidth: 1 },
+  confetti: { position: 'absolute', top: 0, left: 0, right: 0, height: 340, overflow: 'hidden' },
+  badge: { width: 60, height: 60, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  doneTitle: { fontSize: 30, lineHeight: 36, marginTop: 14, letterSpacing: -0.3 },
+  doneCopy: { fontSize: 15, lineHeight: 22, marginTop: 8, maxWidth: 320 },
+  doneCard: { borderWidth: 1 },
+  doneTotal: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', borderBottomWidth: StyleSheet.hairlineWidth },
+  doneRow: { flexDirection: 'row', alignItems: 'center' },
   footer: { borderTopWidth: StyleSheet.hairlineWidth },
   primary: { height: 48, alignItems: 'center', justifyContent: 'center' },
 })

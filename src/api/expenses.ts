@@ -108,7 +108,7 @@ export function mintExpensePayload(row: NewExpenseRow): ExpensePayload {
  * from a list loaded before a rename is mapped forward server-side, so it can
  * differ from what was posted.
  */
-export async function postExpensePayload(payload: ExpensePayload, expectedGeneration?: number, spaceId?: string): Promise<{ id?: string; timestamp?: string; version?: number; category?: string }> {
+export async function postExpensePayload(payload: ExpensePayload, expectedGeneration?: number, spaceId?: string): Promise<{ id?: string; timestamp?: string; version?: number; category?: string; duplicate?: boolean }> {
   const resp = await apiFetch('/api/expenses', {
     method: 'POST',
     // A pinned budget (the offline queue's) wins over whichever is active now.
@@ -116,8 +116,9 @@ export async function postExpensePayload(payload: ExpensePayload, expectedGenera
     body: JSON.stringify(payload),
   }, expectedGeneration)
   if (!resp.ok) throw new HttpError(resp.status, `Failed to add expense: ${resp.status}`)
-  const data: { id?: string; timestamp?: string; version?: number; category?: string } = await resp.json().catch(() => ({}))
-  return { id: data.id, timestamp: data.timestamp, version: data.version, category: data.category }
+  const data: { id?: string; timestamp?: string; version?: number; category?: string; duplicate?: boolean } = await resp.json().catch(() => ({}))
+  // `duplicate`: the server already had this client_id and added nothing.
+  return { id: data.id, timestamp: data.timestamp, version: data.version, category: data.category, duplicate: data.duplicate === true }
 }
 
 /**
@@ -126,7 +127,7 @@ export async function postExpensePayload(payload: ExpensePayload, expectedGenera
  * its own payload via `mintExpensePayload` up front so it has something to
  * enqueue if the POST itself never happens.
  */
-export async function addExpense(row: NewExpenseRow): Promise<{ id?: string; timestamp?: string; version?: number; category?: string }> {
+export async function addExpense(row: NewExpenseRow): Promise<{ id?: string; timestamp?: string; version?: number; category?: string; duplicate?: boolean }> {
   return postExpensePayload(mintExpensePayload(row))
 }
 

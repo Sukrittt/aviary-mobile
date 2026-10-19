@@ -21,7 +21,8 @@ jest.mock('@/src/components/shared/CategoryPickerSheet', () => {
 let mockOnline = true
 jest.mock('@/src/lib/netStatus', () => ({ ...jest.requireActual('@/src/lib/netStatus'), useOnline: () => mockOnline }))
 const mockBack = jest.fn()
-jest.mock('expo-router', () => ({ useRouter: () => ({ back: mockBack, push: jest.fn() }) }))
+const mockDismissTo = jest.fn()
+jest.mock('expo-router', () => ({ useRouter: () => ({ back: mockBack, push: jest.fn(), dismissTo: mockDismissTo }) }))
 
 const PROPOSAL = {
   id: 'p1',
@@ -69,6 +70,96 @@ it('logs only ticked rows, each with its hashed client_id', async () => {
   await waitFor(() => expect(mockMutate).toHaveBeenCalledTimes(2))
   expect(mockMutate.mock.calls.map((c) => c[0].client_id)).toEqual(['statement:a', 'statement:c'])
   expect(mockMutate.mock.calls[1][0]).toMatchObject({ source: 'statement', category: 'Food', date: '2026-10-12' })
+})
+
+it('ticks every row at once, and unticks them again', async () => {
+  const screen = await openReview()
+  expect(screen.getByText('3 payments · 12 to 17 Oct')).toBeTruthy()
+  fireEvent.press(screen.getByText('Tick all'))
+  expect(screen.getByLabelText(/Add Rapido/).props.accessibilityState).toMatchObject({ checked: true })
+  fireEvent.press(screen.getByText('Untick all'))
+  expect(screen.getByText('Tick what to add')).toBeTruthy()
+})
+
+it('picking a category ticks the row it belongs to', async () => {
+  const screen = await openReview()
+  fireEvent.press(screen.getByLabelText('Pick a category for Chai'))
+  fireEvent.press(screen.getByText('pick-food'))
+  expect(screen.getByLabelText(/Add Chai/).props.accessibilityState).toMatchObject({ checked: true })
+  expect(screen.getByText(/^Log 2 · /)).toBeTruthy()
+})
+
+it('ends on what got filled in, then closes or goes to Activity', async () => {
+  jest.useFakeTimers()
+  try {
+    const screen = await openReview()
+    fireEvent.press(screen.getByLabelText(/Add Rapido/))
+    fireEvent.press(screen.getByText(/^Log 2 · /))
+    await waitFor(() => expect(mockMutate).toHaveBeenCalledTimes(2))
+    await waitFor(() => jest.advanceTimersByTime(1100))
+    expect(await screen.findByText("You're caught up.")).toBeTruthy()
+    expect(screen.getByText(/17 Oct is filled in/)).toBeTruthy()
+    expect(screen.getByText('2 payments added')).toBeTruthy()
+    expect(mockBack).not.toHaveBeenCalled()
+    fireEvent.press(screen.getByText('See them in Activity'))
+    expect(mockDismissTo).toHaveBeenCalledWith('/(tabs)/activity')
+    fireEvent.press(screen.getByText('Done'))
+    expect(mockBack).toHaveBeenCalled()
+  } finally {
+    jest.useRealTimers()
+  }
+})
+
+it('counts a row an earlier failed try already saved, even once it is unticked', async () => {
+  jest.useFakeTimers()
+  try {
+    const screen = await openReview()
+    fireEvent.press(screen.getByLabelText(/Add Rapido/))
+    mockMutate.mockResolvedValueOnce({}).mockRejectedValueOnce(new Error('503'))
+    fireEvent.press(screen.getByText(/^Log 2 · /))
+    expect(await screen.findByText("Couldn't log 1. Check your connection and try again.")).toBeTruthy()
+    fireEvent.press(screen.getByLabelText(/Add Swiggy/))
+    fireEvent.press(screen.getByText(/^Log 1 · /))
+    await waitFor(() => expect(mockMutate).toHaveBeenCalledTimes(3))
+    await waitFor(() => jest.advanceTimersByTime(1100))
+    expect(await screen.findByText("You're caught up.")).toBeTruthy()
+    expect(screen.getByText('2 payments added')).toBeTruthy()
+    expect(mockMutate.mock.calls[2][0].client_id).toBe('statement:b')
+  } finally {
+    jest.useRealTimers()
+  }
+})
+
+async function logAndFinish(screen: Awaited<ReturnType<typeof openReview>>, label: RegExp, calls: number) {
+  fireEvent.press(screen.getByText(label))
+  await waitFor(() => expect(mockMutate).toHaveBeenCalledTimes(calls))
+  await waitFor(() => jest.advanceTimersByTime(1100))
+}
+
+it("doesn't count a row the server already had as added", async () => {
+  jest.useFakeTimers()
+  try {
+    const screen = await openReview()
+    fireEvent.press(screen.getByLabelText(/Add Rapido/))
+    mockMutate.mockResolvedValueOnce({}).mockResolvedValueOnce({ duplicate: true })
+    await logAndFinish(screen, /^Log 2 · /, 2)
+    expect(await screen.findByText('1 payment added')).toBeTruthy()
+  } finally {
+    jest.useRealTimers()
+  }
+})
+
+it('says so when everything ticked was already there', async () => {
+  jest.useFakeTimers()
+  try {
+    const screen = await openReview()
+    mockMutate.mockResolvedValueOnce({ duplicate: true })
+    await logAndFinish(screen, /^Log 1 · /, 1)
+    expect(await screen.findByText('Those were already in your budget, so nothing doubled up.')).toBeTruthy()
+    expect(screen.queryByText(/added/)).toBeNull()
+  } finally {
+    jest.useRealTimers()
+  }
 })
 
 it('turns away a file that is not a statement, and words a locked pdf', async () => {

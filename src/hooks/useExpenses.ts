@@ -136,7 +136,7 @@ export function prefetchExpensesPage(qc: QueryClient, params: ExpensesPageParams
 }
 
 /** `category` is the server's, which can differ from the one posted if it was renamed. Absent offline. */
-export type AddExpenseResult = { id?: string; timestamp?: string; version?: number; category?: string; clientId: string; pending: boolean }
+export type AddExpenseResult = { id?: string; timestamp?: string; version?: number; category?: string; clientId: string; pending: boolean; duplicate?: boolean }
 
 /**
  * `instant`: don't hold the caller past SLOW_SAVE_MS. A POST still in flight by
@@ -179,7 +179,7 @@ export function useAddExpense() {
           return { timestamp: payload.timestamp, clientId: payload.client_id, pending: true }
         }
         if (generation !== sessionGeneration()) throw new SessionChangedError()
-        return { id: result.id, timestamp: result.timestamp, version: result.version, category: result.category, clientId: payload.client_id, pending: false }
+        return { id: result.id, timestamp: result.timestamp, version: result.version, category: result.category, clientId: payload.client_id, pending: false, duplicate: result.duplicate }
       } catch (err) {
         // A real rejection (bad request, auth) must still fail loudly — only a
         // transport failure (offline) gets queued for later.
