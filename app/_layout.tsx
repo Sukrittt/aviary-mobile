@@ -1,7 +1,7 @@
 import { useObserve,wrapRoot } from '@/src/lib/observe'
 import { readCurrencyPreference } from '@/src/lib/currencyPreference'
 import { CurrencyProvider } from '@/src/context/CurrencyProvider'
-import { accessMode,clearAccess,initAccessMode } from '@/src/api/accessMode'
+import { accessMode,clearAccess,currentUserId,initAccessMode } from '@/src/api/accessMode'
 import { getUser, syncTimezone, type UserProfile } from '@/src/api/account'
 import { onOnboarded } from '@/src/api/onboardingSignal'
 import { BirdLandingSplash } from '@/src/components/splash/BirdLandingSplash'
@@ -33,7 +33,8 @@ import { accessAllowed } from '@/src/lib/billingStatus'
 import { onAiAllowanceExceeded } from '@/src/lib/aiAllowance'
 import { QueryClient, focusManager, useIsRestoring } from '@tanstack/react-query'
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client'
-import { PERSIST_MAX_AGE, persistOptions, queryPersister } from '@/src/lib/queryPersist'
+import { PERSIST_MAX_AGE, persistOptions, queryPersister, removeAllQuerySnapshots } from '@/src/lib/queryPersist'
+import { clearActiveBudget, forgetActiveBudgetUnlessOwnedBy, restoreActiveBudget } from '@/src/lib/activeBudget'
 import { setAudioModeAsync } from 'expo-audio'
 import { Stack,useGlobalSearchParams,usePathname,useRouter,useSegments,type ErrorBoundaryProps,type Href } from 'expo-router'
 import * as SplashScreen from 'expo-splash-screen'
@@ -124,8 +125,9 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
     // session. That's the same user as the cache restored from disk (logout
     // wipes both), so that one notification must not clear it.
     let restoringSession = true
-    initAccessMode().then((restored) => {
+    Promise.all([initAccessMode(), restoreActiveBudget()]).then(([restored]) => {
       restoringSession = false
+      forgetActiveBudgetUnlessOwnedBy(currentUserId())
       setHasSession(restored !== null)
       setAuthReady(true)
       // Hydrate the offline category picker instantly from disk. React Query revalidates in the background once online (staleTime
@@ -145,7 +147,10 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
       // keyed without a user id, so switching identity (guest <-> real,
       // or a different account) must drop it all or the new identity sees
       // the previous one's data until staleTime happens to expire.
-      if (!restoringSession) queryClient.clear()
+      if (!restoringSession) {
+        forgetActiveBudgetUnlessOwnedBy(currentUserId())
+        queryClient.clear()
+      }
       clearLogExpenseDraft()
       // Fire-and-forget: registration failures must never block app usage.
       if (m === 'real') registerForPushNotificationsAsync()
@@ -163,7 +168,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
       // account can sync them when it signs back in. lockWidgets also repaints
       // the home-screen widgets: WidgetSync is gone by now, so without it they
       // kept the old account's numbers until Android's 30-minute tick.
-      await Promise.allSettled([queryPersister.removeClient(), lockWidgets(preferenceRef.current), clearCategoryCache(), clearGroupCache(), unregisterDevicePushToken(token), cancelHabitNudges()])
+      await Promise.allSettled([clearActiveBudget(), removeAllQuerySnapshots(), lockWidgets(preferenceRef.current), clearCategoryCache(), clearGroupCache(), unregisterDevicePushToken(token), cancelHabitNudges()])
     })
     return () => {
       unsubscribe()
@@ -449,6 +454,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
           <Stack.Screen name="modals/recurring-expense" options={{ presentation: 'modal' }} />
           <Stack.Screen name="modals/recurring-income" options={{ presentation: 'modal' }} />
           <Stack.Screen name="modals/account" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="modals/new-budget" options={{ presentation: 'modal' }} />
           <Stack.Screen name="modals/bill-scan" options={{ presentation: 'modal' }} />
           <Stack.Screen name="modals/duplicates" options={{ presentation: 'modal' }} />
           <Stack.Screen name="modals/statement" options={{ presentation: 'modal' }} />

@@ -4,6 +4,7 @@ import { defaultShouldDehydrateQuery, type Query } from '@tanstack/react-query'
 import * as Application from 'expo-application'
 import * as Updates from 'expo-updates'
 import { readEncrypted, writeEncrypted } from './encryptedStorage'
+import { budgetKeySuffix, restoreActiveBudget } from './activeBudget'
 
 // What a cold start paints from before the network answers. Screens still
 // refetch in the background (each hook's staleTime), so this is a fast first
@@ -21,6 +22,7 @@ const PERSISTED = new Set([
   'recurring-expenses',
   'category-map',
   'balance-check',
+  'spaces',
 ])
 
 export const PERSIST_MAX_AGE = 24 * 60 * 60_000
@@ -42,14 +44,28 @@ export function shouldPersistQuery(query: Query): boolean {
 
 // Expenses, budgets and holdings are financial data: sealed like the other
 // offline caches (see encryptedStorage). An unreadable snapshot reads as none.
+//
+// Query keys carry no budget, so each budget gets its own snapshot
+// (`rq-cache:<spaceId>`, plain `rq-cache` for the personal one) and a switch
+// swaps them (lib/budgetSwitch.ts). Reads wait for the last used budget so a
+// cold start restores the right one.
 export const queryPersister = createAsyncStoragePersister({
   key: 'rq-cache',
   storage: {
-    getItem: (key) => readEncrypted<string>(key).catch(() => null),
-    setItem: (key, value) => writeEncrypted(key, value),
-    removeItem: (key) => AsyncStorage.removeItem(key),
+    getItem: async (key) => {
+      await restoreActiveBudget()
+      return readEncrypted<string>(`${key}${budgetKeySuffix()}`).catch(() => null)
+    },
+    setItem: (key, value) => writeEncrypted(`${key}${budgetKeySuffix()}`, value),
+    removeItem: (key) => AsyncStorage.removeItem(`${key}${budgetKeySuffix()}`),
   },
 })
+
+/** Sign-out: every budget's snapshot goes, not just the active one's. */
+export async function removeAllQuerySnapshots(): Promise<void> {
+  const keys = (await AsyncStorage.getAllKeys()).filter((k) => k === 'rq-cache' || k.startsWith('rq-cache:'))
+  await AsyncStorage.multiRemove(keys)
+}
 
 export const persistOptions = {
   persister: queryPersister,

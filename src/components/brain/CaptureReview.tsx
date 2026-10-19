@@ -31,6 +31,7 @@ import { unusualAmount } from '@/src/lib/unusualAmount'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { tap } from '@/src/lib/haptics'
+import { useBudgetSpaces } from '@/src/hooks/useBudgetSpaces'
 
 /** Same beat as every other in-place success in the app (CLAUDE.md): let the check draw, then settle. */
 const SUCCESS_MS = 1100
@@ -81,6 +82,7 @@ function spendsLabel(n: number): string {
  * proposal, so logging a card twice can't double it.
  */
 export function CaptureReview({ proposal, onSettled, origin = CAPTURE_ORIGIN, loggedSummary = true }: Props) {
+  const { multi: multiBudget, active: activeBudget } = useBudgetSpaces()
   const { tokens, space, radius, type } = useTheme()
   const { formatMoney, currencyPrefix } = useCurrency()
   const expensesQ = useRecentExpenses()
@@ -323,6 +325,12 @@ export function CaptureReview({ proposal, onSettled, origin = CAPTURE_ORIGIN, lo
           </Reanimated.View>
         )
       })}
+
+      {multiBudget && activeBudget && (
+        <Text testID="capture-budget" style={{ color: tokens.text3, fontFamily: fontFamily.bodySemiBold, fontSize: type.micro }}>
+          {`Logs to ${activeBudget.emoji} ${activeBudget.name}`}
+        </Text>
+      )}
 
       {hint && phase === 'idle' && (
         <Text style={{ color: tokens.warnInk, fontFamily: fontFamily.bodyMedium, fontSize: type.caption }}>{hint}</Text>

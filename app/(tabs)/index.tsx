@@ -51,6 +51,8 @@ import { OfflineScreen } from '@/src/components/shared/OfflineScreen'
 import { ErrorScreen } from '@/src/components/shared/ErrorScreen'
 import { useOnline } from '@/src/lib/netStatus'
 import { BirdLandingMark, type BirdLandingMarkHandle } from '@/src/components/splash/BirdLandingMark'
+import { BudgetChip } from '@/src/components/budgets/BudgetChip'
+import { useBudgetSpaces } from '@/src/hooks/useBudgetSpaces'
 import { getSystemStatus } from '@/src/api/systemStatus'
 import { isVersionNewer } from '@/src/lib/version'
 import appJson from '@/app.json'
@@ -120,6 +122,8 @@ function HomeScreen() {
   useAccounts()
   const monthlySchedules = (schedulesQ.data ?? []).filter((r) => r.frequency === 'monthly' && r.status === 'active')
   const birdMarkRef = useRef<BirdLandingMarkHandle>(null)
+  // With 2+ budgets the bird mark becomes the budget switcher. One budget: unchanged.
+  const { multi: multiBudget } = useBudgetSpaces()
 
   const budgets = emptyForPreview(budgetsQ.data ?? EMPTY)
   const expenses = emptyForPreview(expensesQ.data ?? EMPTY)
@@ -313,7 +317,7 @@ function HomeScreen() {
   return (
     <>
       <Screen
-        title={
+        title={multiBudget ? <BudgetChip /> : (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Aviary app icon"
@@ -324,7 +328,7 @@ function HomeScreen() {
           >
             <BirdLandingMark ref={birdMarkRef} size={40} color={tokens.accent} autoplay={false} perched />
           </Pressable>
-        }
+        )}
         center={
           <View style={styles.headerMonth}>
             <Text style={{ color: tokens.accentInk, fontSize: type.bodyLg, fontFamily: fontFamily.displaySemiBold }}>{`${monthAbbrev(month)} ${month.slice(0, 4)}`}</Text>

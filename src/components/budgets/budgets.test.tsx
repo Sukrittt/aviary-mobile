@@ -1,0 +1,95 @@
+import { fireEvent, waitFor } from '@testing-library/react-native'
+import { renderWithProviders, createTestQueryClient } from '@/src/test-utils/renderWithProviders'
+import { BudgetSwitcherSheet } from './BudgetSwitcherSheet'
+import { BudgetChip } from './BudgetChip'
+import { MoveExpenseSheet } from './MoveExpenseSheet'
+import { budgetsKey } from '@/src/hooks/useBudgetSpaces'
+import { switchBudget } from '@/src/lib/budgetSwitch'
+import { getBudgetCategories, moveExpense, type Budget, type BudgetList } from '@/src/api/spaces'
+import type { ExpenseRow } from '@/src/types'
+
+const mockPush = jest.fn()
+jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush, back: jest.fn() }) }))
+jest.mock('@/src/api/accessMode', () => ({ currentUserId: () => 'u1', accessMode: { subscribeLogout: () => () => {}, subscribe: () => () => {} } }))
+jest.mock('@/src/lib/budgetSwitch', () => ({ switchBudget: jest.fn(async () => {}) }))
+jest.mock('@/src/api/spaces', () => ({
+  getBudgets: jest.fn(),
+  getBudgetCategories: jest.fn(async () => [{ name: 'Groceries', group: 'Needs' }, { name: 'Rent', group: 'Needs' }]),
+  moveExpense: jest.fn(async () => ({ version: 3 })),
+}))
+
+const personal: Budget = { id: 'u1', name: 'Personal', emoji: '🐦', role: 'owner', ownerId: 'u1', currencyCode: 'INR', personal: true, members: [] }
+const home: Budget = {
+  id: 'sp_home', name: 'Home', emoji: '🏠', role: 'owner', ownerId: 'u1', currencyCode: 'INR', personal: false,
+  members: [
+    { userId: 'u1', name: 'Priya', avatarUrl: null, role: 'owner', joinedAt: null },
+    { userId: 'u2', name: 'Rahul', avatarUrl: null, role: 'member', joinedAt: null },
+  ],
+}
+
+function withBudgets(list: Partial<BudgetList>) {
+  const queryClient = createTestQueryClient()
+  queryClient.setQueryData(budgetsKey, { budgets: [personal], count: 1, limit: 5, activeId: 'u1', ...list })
+  return queryClient
+}
+
+beforeEach(() => jest.clearAllMocks())
+
+describe('BudgetChip', () => {
+  it('names the open budget and opens the switcher', () => {
+    const utils = renderWithProviders(<BudgetChip />, { queryClient: withBudgets({ budgets: [personal, home], count: 2 }) })
+    expect(utils.getByTestId('budget-chip')).toHaveTextContent('🐦Personal')
+    fireEvent.press(utils.getByTestId('budget-chip'))
+    expect(utils.getByText('Budgets')).toBeTruthy()
+  })
+})
+
+describe('BudgetSwitcherSheet', () => {
+  it('lists every budget, ticks the open one, and badges the ones you own and share', () => {
+    const utils = renderWithProviders(<BudgetSwitcherSheet visible onClose={() => {}} />, { queryClient: withBudgets({ budgets: [personal, home], count: 2 }) })
+    expect(utils.getByTestId('budget-row-u1').props.accessibilityState).toEqual({ checked: true })
+    expect(utils.getByTestId('budget-row-sp_home').props.accessibilityState).toEqual({ checked: false })
+    // Only the shared one: a solo budget is obviously yours.
+    expect(utils.getAllByText('Owner')).toHaveLength(1)
+  })
+
+  it('switches to the budget you tap', () => {
+    const onClose = jest.fn()
+    const utils = renderWithProviders(<BudgetSwitcherSheet visible onClose={onClose} />, { queryClient: withBudgets({ budgets: [personal, home], count: 2 }) })
+    fireEvent.press(utils.getByTestId('budget-row-sp_home'))
+    expect(switchBudget).toHaveBeenCalledWith(expect.anything(), 'u1', 'sp_home')
+    expect(onClose).toHaveBeenCalled()
+  })
+
+  it('offers "New budget" below the limit', () => {
+    const utils = renderWithProviders(<BudgetSwitcherSheet visible onClose={() => {}} />, { queryClient: withBudgets({}) })
+    fireEvent.press(utils.getByTestId('new-budget'))
+    expect(mockPush).toHaveBeenCalledWith('/modals/new-budget')
+  })
+
+  it('says "5 of 5 budgets" at the limit, and where to ask for more', () => {
+    const utils = renderWithProviders(<BudgetSwitcherSheet visible onClose={() => {}} />, { queryClient: withBudgets({ budgets: [personal, home], count: 5, limit: 5 }) })
+    expect(utils.queryByTestId('new-budget')).toBeNull()
+    expect(utils.getByText('5 of 5 budgets')).toBeTruthy()
+    fireEvent.press(utils.getByText('Contact us'))
+    expect(mockPush).toHaveBeenCalledWith('/account/feedback')
+  })
+})
+
+describe('MoveExpenseSheet', () => {
+  const expense = { id: 'e1', version: 2, item: 'Milk', category: 'Groceries' } as ExpenseRow
+
+  it('moves the expense to the budget and category picked, preselecting the same category', async () => {
+    const utils = renderWithProviders(<MoveExpenseSheet expense={expense} onClose={() => {}} />, { queryClient: withBudgets({ budgets: [personal, home], count: 2 }) })
+    fireEvent.press(utils.getByTestId('move-budget-sp_home'))
+    await waitFor(() => expect(getBudgetCategories).toHaveBeenCalledWith('sp_home'))
+    await waitFor(() => expect(utils.getByText('Groceries').parent?.parent?.props.accessibilityState).toEqual({ checked: true }))
+    fireEvent.press(utils.getByTestId('move-confirm'))
+    await waitFor(() => expect(moveExpense).toHaveBeenCalledWith({ id: 'e1', version: 2, to: 'sp_home', category: 'Groceries' }))
+  })
+
+  it('never offers the budget it is already in', () => {
+    const utils = renderWithProviders(<MoveExpenseSheet expense={expense} onClose={() => {}} />, { queryClient: withBudgets({ budgets: [personal, home], count: 2 }) })
+    expect(utils.queryByTestId('move-budget-u1')).toBeNull()
+  })
+})

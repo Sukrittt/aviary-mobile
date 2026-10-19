@@ -1,3 +1,5 @@
+import { MoveExpenseSheet } from "@/src/components/budgets/MoveExpenseSheet";
+import { useBudgetSpaces } from "@/src/hooks/useBudgetSpaces";
 import { ExpenseNoticeScreen } from '@/src/features/log-expense/ExpenseNoticeScreen';
 import { useIncomes } from "@/src/hooks/useIncomes";
 import { liveAccounts, useAccounts } from "@/src/hooks/useAccounts";
@@ -174,6 +176,9 @@ function ActivityScreen() {
   // Row supports swipe-left (delete) / swipe-right (edit) via SwipeableRow;
   // tap still opens this Edit/Delete action sheet as a non-swipe fallback.
   const [sheetTxn, setSheetTxn] = useState<ExpenseRow | null>(null);
+  // "Move to another budget", offered only with 2+ budgets.
+  const [moveTxn, setMoveTxn] = useState<ExpenseRow | null>(null);
+  const { multi: multiBudget } = useBudgetSpaces();
   const [deleteTxn, setDeleteTxn] = useState<ExpenseRow | null>(null);
   // Set once the confirm sheet's Delete is tapped; drives the row's collapse
   // animation in DeletingRow. The actual mutate() call is deferred until that
@@ -917,6 +922,8 @@ function ActivityScreen() {
         </>
         )}
 
+        <MoveExpenseSheet expense={moveTxn} onClose={() => setMoveTxn(null)} />
+
         <BottomSheet
           visible={sheetTxn !== null}
           onClose={() => setSheetTxn(null)}
@@ -935,6 +942,16 @@ function ActivityScreen() {
             color={tokens.text}
             onPress={() => sheetTxn && openEdit(sheetTxn)}
           />
+          {multiBudget && sheetTxn?.id ? (
+            <SheetOption
+              label="Move to another budget"
+              color={tokens.text}
+              onPress={() => {
+                setMoveTxn(sheetTxn);
+                setSheetTxn(null);
+              }}
+            />
+          ) : null}
           <SheetOption
             label="Delete"
             color={tokens.coral}
