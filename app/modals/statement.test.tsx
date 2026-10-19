@@ -130,6 +130,38 @@ it('counts a row an earlier failed try already saved, even once it is unticked',
   }
 })
 
+async function logAndFinish(screen: Awaited<ReturnType<typeof openReview>>, label: RegExp, calls: number) {
+  fireEvent.press(screen.getByText(label))
+  await waitFor(() => expect(mockMutate).toHaveBeenCalledTimes(calls))
+  await waitFor(() => jest.advanceTimersByTime(1100))
+}
+
+it("doesn't count a row the server already had as added", async () => {
+  jest.useFakeTimers()
+  try {
+    const screen = await openReview()
+    fireEvent.press(screen.getByLabelText(/Add Rapido/))
+    mockMutate.mockResolvedValueOnce({}).mockResolvedValueOnce({ duplicate: true })
+    await logAndFinish(screen, /^Log 2 · /, 2)
+    expect(await screen.findByText('1 payment added')).toBeTruthy()
+  } finally {
+    jest.useRealTimers()
+  }
+})
+
+it('says so when everything ticked was already there', async () => {
+  jest.useFakeTimers()
+  try {
+    const screen = await openReview()
+    mockMutate.mockResolvedValueOnce({ duplicate: true })
+    await logAndFinish(screen, /^Log 1 · /, 1)
+    expect(await screen.findByText('Those were already in your budget, so nothing doubled up.')).toBeTruthy()
+    expect(screen.queryByText(/added/)).toBeNull()
+  } finally {
+    jest.useRealTimers()
+  }
+})
+
 it('turns away a file that is not a statement, and words a locked pdf', async () => {
   mockPickFile.mockResolvedValueOnce({ uri: 'file:///x.docx', name: 'x.docx' })
   const screen = renderWithProviders(<StatementScreen />)

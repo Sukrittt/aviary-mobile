@@ -67,7 +67,7 @@ export default function StatementScreen() {
   const [pickingFor, setPickingFor] = useState<string | null>(null)
   const [progress, setProgress] = useState(0)
   const [done, setDone] = useState<CaughtUp | null>(null)
-  const logged = useRef(new Map<string, string>())
+  const logged = useRef(new Map<string, string | null>())
   const online = useOnline()
 
   // The tick holds, then the caught-up screen. Cleared on unmount, so a screen already closed can't flip.
@@ -159,8 +159,9 @@ export default function StatementScreen() {
       setProgress(n + 1)
       if (logged.current.has(item.id)) continue
       try {
-        await addExpense.mutateAsync(statementExpense(item, rows[item.id].category))
-        logged.current.set(item.id, rows[item.id].category)
+        const saved = await addExpense.mutateAsync(statementExpense(item, rows[item.id].category))
+        // null: the server already had it, so it's handled but not new.
+        logged.current.set(item.id, saved?.duplicate ? null : rows[item.id].category)
       } catch {
         failed++
       }
@@ -171,8 +172,8 @@ export default function StatementScreen() {
       return
     }
     track('statement_logged', { rows: toLog.length, unchecked: proposal.items.length - toLog.length })
-    // Everything saved here, with the category it was saved under, including rows an earlier failed try saved and you've since unticked.
-    setDone(caughtUp(proposal.items.filter((i) => logged.current.has(i.id)).map((i) => ({ amount: i.amount, date: i.date, category: logged.current.get(i.id) ?? '' }))))
+    // Everything newly saved here, with the category it was saved under, including rows an earlier failed try saved and you've since unticked.
+    setDone(caughtUp(proposal.items.filter((i) => logged.current.get(i.id) != null).map((i) => ({ amount: i.amount, date: i.date, category: logged.current.get(i.id) ?? '' }))))
     setSaving('success')
   }
 
@@ -419,8 +420,13 @@ function StatementDone({ done, onDone, onActivity }: { done: CaughtUp; onDone: (
         You&apos;re caught up.
       </Animated.Text>
       <Animated.Text entering={FadeIn.delay(140).duration(350)} style={[styles.doneCopy, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
-        {daySpan(done.from, done.to)} is filled in. Your categories now match what you actually spent.
+        {done.count > 0
+          ? `${daySpan(done.from, done.to)} is filled in. Your categories now match what you actually spent.`
+          : 'Those were already in your budget, so nothing doubled up.'}
       </Animated.Text>
+
+      {done.count > 0 && (
+        <>
 
       <Animated.View
         entering={FadeIn.delay(200).duration(350)}
@@ -454,6 +460,8 @@ function StatementDone({ done, onDone, onActivity }: { done: CaughtUp; onDone: (
       <Animated.Text entering={FadeIn.delay(240).duration(350)} style={{ color: tokens.text3, fontFamily: fontFamily.bodyMedium, fontSize: 12, marginTop: space.md }}>
         Upload the same file again and nothing doubles up.
       </Animated.Text>
+        </>
+      )}
 
       <View style={{ flex: 1 }} />
       <Animated.View entering={FadeIn.delay(260).duration(350)} style={{ gap: space.sm }}>
