@@ -1,7 +1,7 @@
 import { QueryClient, type InfiniteData } from '@tanstack/react-query'
-import type { ExpensesPage, RecentExpenses } from '@/src/api/expenses'
+import type { ExpensePayload, ExpensesPage, RecentExpenses } from '@/src/api/expenses'
 import type { ExpenseRow } from '@/src/types'
-import { insertExpense, removeExpense, restoreExpenses, snapshotExpenses } from './optimisticExpenses'
+import { insertExpense, removeExpense, restoreExpenses, snapshotExpenses, withQueued } from './optimisticExpenses'
 
 const row = (over: Partial<ExpenseRow>): ExpenseRow => ({
   timestamp: '2026-10-10T10:00:00', date: '2026-10-10', item: 'Coffee', amount_inr: '100', category: 'Food',
@@ -104,4 +104,34 @@ it('restoreExpenses leaves a list changed since (a pending add) for the refetch 
   expect(qc.getQueryData<ExpenseRow[]>(['expenses'])!.map((r) => r.id)).toEqual(['z', 'b'])
   // Lists the add didn't touch still roll back.
   expect(qc.getQueryData<ExpensesPage>(['expenses', 'page', { page: 1, limit: 20 }])!.rows.map((r) => r.id)).toEqual(['a', 'b'])
+})
+
+describe('withQueued', () => {
+  const payload = (over: Partial<ExpensePayload>): ExpensePayload => ({
+    item: 'Coffee', amount_inr: '50', category: 'Food', date: '2026-10-10', timestamp: '2026-10-10T10:00:00', client_id: 'c1', ...over,
+  })
+
+  it('keeps a queued create in a refetched list the server copy lacks, newest first', () => {
+    const server = [row({ id: 'a', timestamp: '2026-10-09T09:00:00', date: '2026-10-09' })]
+    const rows = withQueued(server, [payload({}), payload({ client_id: 'c2', timestamp: '2026-10-10T11:00:00', item: 'Tea' })])
+    expect(rows.map((r) => r.item)).toEqual(['Tea', 'Coffee', 'Coffee'])
+    expect(rows[1]).toMatchObject({ amount_inr: '50', category: 'Food', date: '2026-10-10', source: 'manual', payment_method: 'bank' })
+  })
+
+  it('skips a queued create the server already has, and one before the window', () => {
+    const server = [row({ id: 'a', timestamp: '2026-10-10T10:00:00', amount_inr: '50' })]
+    expect(withQueued(server, [payload({})])).toBe(server)
+    expect(withQueued([], [payload({ date: '2026-06-01', timestamp: '2026-06-01T10:00:00' })], '2026-07-01')).toEqual([])
+  })
+})
+
+describe('insertExpense after a refetch already merged it', () => {
+  it('does not add the row twice', () => {
+    const qc = seeded()
+    const r = row({ timestamp: '2026-10-10T10:00:00', amount_inr: '250' })
+    insertExpense(qc, r)
+    insertExpense(qc, r)
+    expect(qc.getQueryData<ExpenseRow[]>(['expenses'])).toHaveLength(3)
+    expect(qc.getQueryData<RecentExpenses>(recentKey)!.rows).toHaveLength(3)
+  })
 })
