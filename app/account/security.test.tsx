@@ -75,3 +75,18 @@ it('asks what happens to each shared budget before the final confirm', async () 
   fireEvent.press(buttons[buttons.length - 1])
   await waitFor(() => expect(deleteAccount).toHaveBeenCalledWith('a@b.co', { sp_home: 'u1' }))
 })
+
+it('offers a shared personal budget too, so its data can go to the person sharing it', async () => {
+  ;(deleteAccount as jest.Mock).mockResolvedValue(undefined)
+  ;(getSharedBudgets as jest.Mock).mockResolvedValue([
+    { id: 'me', name: 'Personal', emoji: '🐦', personal: true, members: [{ userId: 'u1', name: 'Rahul Verma' }] },
+  ])
+  const utils = renderWithProviders(<SecurityScreen />)
+  fireEvent.press(utils.getAllByText('Delete account')[1])
+  expect(await utils.findByLabelText('Personal: Hand it to Rahul')).toBeTruthy()
+  fireEvent.press(utils.getByText('Next'))
+  fireEvent.changeText(utils.getByPlaceholderText('a@b.co'), 'a@b.co')
+  const buttons = utils.getAllByText('Delete account')
+  fireEvent.press(buttons[buttons.length - 1])
+  await waitFor(() => expect(deleteAccount).toHaveBeenCalledWith('a@b.co', { me: 'u1' }))
+})

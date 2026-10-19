@@ -144,9 +144,10 @@ export default function SecurityScreen() {
       const me = currentUserId()
       shared = (await getSharedBudgets())
         .map((b) => ({ ...b, members: b.members.filter((m) => m.userId !== me) }))
-        .filter((b) => !b.personal && b.members.length > 0)
+        // The personal budget is offered too: if someone shares it, its data can go to them.
+        .filter((b) => b.members.length > 0)
     } catch {
-      Alert.alert('Could not delete account', 'Check your connection and try again.')
+      Alert.alert("Couldn't delete your account", 'Check your connection and try again.')
       return
     } finally {
       setCheckingBudgets(false)
@@ -171,7 +172,7 @@ export default function SecurityScreen() {
     } catch {
       setDeleting(false)
       setConfirmingDelete(false)
-      Alert.alert('Could not delete account', 'Check your connection and try again.')
+      Alert.alert("Couldn't delete your account", 'Check your connection and try again.')
     }
   }
 
