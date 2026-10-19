@@ -162,6 +162,7 @@ export function ImportFlow({ onFresh, onDone, onAlreadySetUp }: { onFresh: () =>
             ))}
           </View>
           <Continue onPress={() => (start === 'fresh' ? onFresh() : setStage('pick'))} />
+          <Text style={[styles.note, styles.center, styles.askTrust, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>Change phones, lose nothing. Export free, always.</Text>
         </Animated.View>
       )}
 
@@ -931,6 +932,7 @@ const styles = StyleSheet.create({
   radio: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
   radioDot: { width: 10, height: 10, borderRadius: 5 },
   askCta: { marginTop: 20 },
+  askTrust: { marginTop: 16 },
   choiceTitle: { fontSize: 16 },
   choiceDetail: { fontSize: 13, lineHeight: 18, marginTop: 3 },
   textAction: { alignSelf: 'center', paddingVertical: 12, paddingHorizontal: 8 },
