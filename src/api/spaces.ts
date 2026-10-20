@@ -4,7 +4,8 @@ import type { CategoryRow } from '@/src/types'
 
 // "Spaces" on the wire, "budgets" on screen: `budgets` already means the
 // monthly assignment rows. Mirrors Web's lib/spaces.ts BudgetSummary.
-export type BudgetMember = { userId: string; name: string | null; avatarUrl: string | null; role: 'owner' | 'member'; joinedAt: string | null }
+/** `lapsed`, owner's view only: their plan isn't active, so the budget would lock if handed to them. */
+export type BudgetMember = { userId: string; name: string | null; avatarUrl: string | null; role: 'owner' | 'member'; joinedAt: string | null; lapsed?: boolean }
 export type Budget = {
   id: string
   name: string

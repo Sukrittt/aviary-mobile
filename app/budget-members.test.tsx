@@ -111,6 +111,19 @@ describe('handing over', () => {
     expect(utils.getAllByText('Joined 1 Oct 2026').length).toBe(1)
   })
 
+  it('warns before handing the budget to someone without a plan', async () => {
+    // Billing follows the owner, so this would lock the budget for everyone.
+    mockUid = 'u2'
+    ;(getBudgetMembers as jest.Mock).mockResolvedValue({ members: [members[0], { ...members[1], lapsed: true }], role: 'owner', notifyOthers: false })
+    const queryClient = createTestQueryClient()
+    queryClient.setQueryData(budgetsKey, { budgets: [personal, { ...home, role: 'owner' }], count: 2, limit: 5, activeId: 'u1' })
+    const utils = renderWithProviders(<BudgetMembersScreen />, { queryClient })
+    fireEvent.press(await utils.findByTestId('transfer-owner'))
+    expect(utils.getByText('Not subscribed')).toBeTruthy()
+    fireEvent.press(utils.getByLabelText('Make Rahul Verma the owner'))
+    expect(utils.getByText(/Rahul isn't subscribed, so Home goes read-only for everyone/)).toBeTruthy()
+  })
+
   it('makes a member the owner after saying what changes, then refreshes the list', async () => {
     jest.useFakeTimers()
     const utils = setup('owner')

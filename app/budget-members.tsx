@@ -331,6 +331,7 @@ export default function BudgetMembersScreen() {
                   <View style={{ flex: 1, gap: 2 }}>
                     <Text numberOfLines={1} style={[styles.memberName, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>{m.name ?? 'Someone'}</Text>
                     {!m.name && <Text style={[styles.meta, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>{joinedLabel(m.joinedAt)}</Text>}
+                    {m.lapsed ? <Text style={[styles.meta, { color: tokens.warnInk, fontFamily: fontFamily.bodySemiBold }]}>Not subscribed</Text> : null}
                   </View>
                 </Pressable>
               ))}
@@ -338,7 +339,11 @@ export default function BudgetMembersScreen() {
         ) : confirm?.kind === 'transfer' ? (
           <>
             <Text style={[styles.sheetTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>{`Make ${firstName(confirm.member.name) ?? 'them'} the owner of ${name}?`}</Text>
-            <Text style={[styles.sheetBody, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>{`${firstName(confirm.member.name) ? `${firstName(confirm.member.name)}'s` : 'Their'} plan covers ${name} from now on, and only they can invite, remove or delete. You stay in it.`}</Text>
+            <Text style={[styles.sheetBody, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
+              {confirm.member.lapsed
+                ? `${firstName(confirm.member.name) ?? 'They'} isn't subscribed, so ${name} goes read-only for everyone, you included, until they are. Only they can invite, remove or delete. You stay in it.`
+                : `${firstName(confirm.member.name) ? `${firstName(confirm.member.name)}'s` : 'Their'} plan covers ${name} from now on, and only they can invite, remove or delete. You stay in it.`}
+            </Text>
             <View style={styles.sheetButtons}>
               <Pressable onPress={() => setConfirm(null)} disabled={saved} accessibilityRole="button" style={[styles.sheetButton, { backgroundColor: tokens.pillBg }]}>
                 <Text style={[styles.inviteText, { color: tokens.text2, fontFamily: fontFamily.bodyBold }]}>Not now</Text>
