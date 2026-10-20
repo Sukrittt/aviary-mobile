@@ -15,6 +15,10 @@ import { track } from '@/src/lib/analytics'
 import { tap } from '@/src/lib/haptics'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
+import { withReadOnlyGate } from '@/src/components/budgets/ReadOnlyNotice'
+import { BudgetReadOnlyError } from '@/src/api/client'
+import { useBudgetSpaces } from '@/src/hooks/useBudgetSpaces'
+import { READ_ONLY_TITLE, readOnlyCopy } from '@/src/lib/budgetMembership'
 
 /** Same beat as every other in-place success (CLAUDE.md). */
 const SUCCESS_MS = 1100
@@ -27,11 +31,12 @@ const SUCCESS_MS = 1100
  * "Split across categories" is there for whoever remembers roughly where it
  * went: a rough amount per category, one expense each.
  */
-export default function FreshStartScreen() {
+function FreshStartScreen() {
   const { since } = useLocalSearchParams<{ since?: string }>()
   const { tokens, space, radius, type } = useTheme()
   const { currencyPrefix } = useCurrency()
   const insets = useSafeAreaInsets()
+  const { active } = useBudgetSpaces()
   const router = useRouter()
   const addExpense = useAddExpense()
   const [amount, setAmount] = useState('')
@@ -64,9 +69,9 @@ export default function FreshStartScreen() {
       for (const expense of expenses) await addExpense.mutateAsync(expense)
       track('fresh_start_logged', { categories: expenses.length })
       setPhase('success')
-    } catch {
+    } catch (err) {
       setPhase('idle')
-      setError('Check your connection and try again.')
+      setError(err instanceof BudgetReadOnlyError ? `${READ_ONLY_TITLE}. ${readOnlyCopy(active)}` : 'Check your connection and try again.')
     }
   }
 
@@ -225,3 +230,5 @@ const styles = StyleSheet.create({
   splitAmount: { flexDirection: 'row', alignItems: 'center', width: 120 },
   remove: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
 })
+
+export default withReadOnlyGate(FreshStartScreen)

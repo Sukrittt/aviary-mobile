@@ -3,6 +3,8 @@ import { useMemo, useRef, useState } from 'react'
 import { View, Text, Pressable, ScrollView, RefreshControl, StyleSheet } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
+import { useReadOnly } from '@/src/components/budgets/ReadOnlyNotice'
+import { ReadOnlyBanner } from '@/src/components/budgets/ReadOnlyBanner'
 import { ArrowLeft, ArrowRight, Plus, Trash } from '@/src/components/shared/icons'
 import { Toast } from '@/src/components/ui/Toast'
 import { getArchive, restoreArchivedItem } from '@/src/api/account'
@@ -118,6 +120,7 @@ export default function InvestmentsScreen() {
   const holdingsQuery = useHoldings()
   const eventsQuery = useHoldingEvents()
   const deleteHolding = useDeleteHolding()
+  const { readOnly, blocked } = useReadOnly()
   const qc = useQueryClient()
   const [undoToast, setUndoToast] = useState({ n: 0, name: '' })
   // pendingDelete stays set after its request goes, so this says whether it was sent.
@@ -195,6 +198,7 @@ export default function InvestmentsScreen() {
     if (!sheetHolding) return
     const name = sheetHolding.name
     setSheetHolding(null)
+    if (blocked()) return
     // A delete still mid-collapse is sent now, or swapping the target would cancel it.
     if (pendingDelete && pendingDelete !== name && sentDeleteRef.current !== pendingDelete) runDelete(pendingDelete)
     setPendingDelete(name)
@@ -246,12 +250,15 @@ export default function InvestmentsScreen() {
         <Text style={[styles.headerTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
           Investments
         </Text>
-        <Pressable onPress={() => router.push('/modals/add-holding')} hitSlop={12} style={styles.headerActionRow}>
-          <Icon icon={Plus} size={16} color={tokens.accent} />
-          <Text style={[styles.headerAction, { color: tokens.accent, fontFamily: fontFamily.bodySemiBold }]}>
-            Add
-          </Text>
-        </Pressable>
+        {/* Keeps the title centered once Add drops out. */}
+        {readOnly ? <View style={{ width: 36 }} /> : (
+          <Pressable onPress={() => router.push('/modals/add-holding')} hitSlop={12} style={styles.headerActionRow}>
+            <Icon icon={Plus} size={16} color={tokens.accent} />
+            <Text style={[styles.headerAction, { color: tokens.accent, fontFamily: fontFamily.bodySemiBold }]}>
+              Add
+            </Text>
+          </Pressable>
+        )}
       </View>
 
       {isLoading ? (
@@ -265,6 +272,7 @@ export default function InvestmentsScreen() {
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={tokens.accent} colors={[tokens.accent]} />
           }
         >
+          <ReadOnlyBanner />
           {errorMessage && (
             <Text style={[styles.errorText, { color: tokens.coral, fontFamily: fontFamily.bodyMedium }]}>
               {errorMessage}
@@ -319,7 +327,7 @@ export default function InvestmentsScreen() {
                 subject="holdings"
                 title="Room to grow"
                 description="No holdings yet. Add one to get started."
-                action={{ label: 'Add a holding', onPress: () => router.push('/modals/add-holding') }}
+                action={readOnly ? undefined : { label: 'Add a holding', onPress: () => router.push('/modals/add-holding') }}
               />
             </View>
           ) : (

@@ -25,6 +25,7 @@ import { CategoryPickerSheet } from '@/src/components/shared/CategoryPickerSheet
 import { splitEmoji } from '@/src/lib/emoji'
 import { CategoryIcon } from '@/src/components/shared/CategoryIcon'
 import { todayLocal } from '@/src/lib/date'
+import { withReadOnlyGate } from '@/src/components/budgets/ReadOnlyNotice'
 
 // House spring, reused from Modal.tsx's SHEET_TRANSITION — animates fields
 // sliding into place when a DatePicker above them opens/closes instead of snapping.
@@ -42,7 +43,7 @@ function str(v: string | string[] | undefined): string {
 }
 
 // Route-param driven, same as subscription.tsx: {id} → edit mode, no params → add.
-export default function RecurringExpenseModal() {
+function RecurringExpenseModal() {
   const { currencySymbol } = useCurrency()
 
   const { tokens } = useTheme()
@@ -470,3 +471,5 @@ const styles = StyleSheet.create({
   sheetSaveButton: { flex: 1, minHeight: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center' },
   sheetSaveText: { fontSize: 14 },
 })
+
+export default withReadOnlyGate(RecurringExpenseModal)

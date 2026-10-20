@@ -125,7 +125,9 @@ function HomeScreen() {
   const monthlySchedules = (schedulesQ.data ?? []).filter((r) => r.frequency === 'monthly' && r.status === 'active')
   const birdMarkRef = useRef<BirdLandingMarkHandle>(null)
   // With 2+ budgets the bird mark becomes the budget switcher. One budget: unchanged.
-  const { multi: multiBudget } = useBudgetSpaces()
+  const { multi: multiBudget, active: activeBudget } = useBudgetSpaces()
+  // Read-only budget: no setup checklist or gap prompt, both lead only to writes.
+  const readOnly = !!activeBudget?.readOnly
 
   const budgets = emptyForPreview(budgetsQ.data ?? EMPTY)
   const expenses = emptyForPreview(expensesQ.data ?? EMPTY)
@@ -515,7 +517,7 @@ function HomeScreen() {
           </Reanimated.View>
         )}
 
-        {showGetStarted && (
+        {showGetStarted && !readOnly && (
           <Reanimated.View
             entering={FadeInDown.duration(420).springify().damping(22).stiffness(200)}
             exiting={FadeOut.duration(200)}
@@ -601,7 +603,7 @@ function HomeScreen() {
           </Pressable>
         </View>}
       </Screen>
-      <GapSheet lastSpent={lastSpent} />
+      {!readOnly && <GapSheet lastSpent={lastSpent} />}
       {/* No room for a pencil on the hero, so tapping it opens this. With RTA
           often at 0, the title is the only place Home shows income. */}
       <BottomSheet visible={incomeSheetOpen} onClose={() => setIncomeSheetOpen(false)}>

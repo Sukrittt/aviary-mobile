@@ -15,6 +15,7 @@ import { formatDateTime } from '@/src/lib/format'
 import type { ExpenseRow } from '@/src/types'
 import type { DuplicatePair } from '@/src/api/expenses'
 import { track } from '@/src/lib/analytics'
+import { withReadOnlyGate } from '@/src/components/budgets/ReadOnlyNotice'
 
 /**
  * Opened from Activity's "possible duplicates" chip. Steps through the pairs
@@ -24,7 +25,7 @@ import { track } from '@/src/lib/analytics'
  * Answered pairs are hidden locally, so a refetch that lands late can't show
  * one again.
  */
-export default function DuplicatesModal() {
+function DuplicatesModal() {
   const { tokens, space, radius, type } = useTheme()
   const { formatCurrency } = useCurrency()
   const { hideAmounts } = usePrivacy()
@@ -227,3 +228,5 @@ const styles = StyleSheet.create({
   actions: { marginTop: 'auto' },
   primary: { paddingVertical: 15, alignItems: 'center', justifyContent: 'center' },
 })
+
+export default withReadOnlyGate(DuplicatesModal)

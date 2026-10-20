@@ -14,7 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import * as Haptics from 'expo-haptics'
 import Reanimated from 'react-native-reanimated'
 import { useBounce } from '@/src/hooks/useBounce'
-import { ArrowLeft, ArrowRight, ArrowUp, Check, Clock, Plus, X } from '@/src/components/shared/icons'
+import { ArrowLeft, ArrowRight, ArrowUp, Check, Clock, Lock, Plus, X } from '@/src/components/shared/icons'
 import { Alert } from '@/src/components/ui/AlertHost'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { usePrivacy } from '@/src/context/PrivacyContext'
@@ -50,6 +50,9 @@ import { getSystemStatus } from '@/src/api/systemStatus'
 import { AiAllowanceScreen, AiUnavailableScreen } from '@/src/components/shared/AiUnavailableScreen'
 import { FORCE_EMPTY_STATE_PREVIEW } from '@/src/lib/emptyStatePreview'
 import { tap } from '@/src/lib/haptics'
+import { useReadOnly } from '@/src/components/budgets/ReadOnlyNotice'
+import { useBudgetSpaces } from '@/src/hooks/useBudgetSpaces'
+import { readOnlyCopy } from '@/src/lib/budgetMembership'
 
 // Reveal cascade for the first paint of loaded brief content — see Heatmap.tsx
 // for the same shared-value-driven pattern and why `entering` isn't used here.
@@ -148,6 +151,9 @@ export default function MoneyBrainModal() {
   const insets = useSafeAreaInsets()
   const { hideAmounts } = usePrivacy()
   const online = useOnline()
+  // Chat spends the owner's AI allowance and capture logs spends, so a read-only budget takes neither.
+  const { readOnly } = useReadOnly()
+  const { active } = useBudgetSpaces()
 
   const budgetsQ = useBudgets()
   const expensesQ = useRecentExpenses()
@@ -239,7 +245,7 @@ export default function MoneyBrainModal() {
    */
   function send(text: string, source: 'chip' | 'typed') {
     const trimmed = text.trim()
-    if (!trimmed || sending) return
+    if (!trimmed || sending || readOnly) return
 
     // After the guard, so this counts questions that actually went out rather
     // than empty taps on the send button. The question text itself stays out:
@@ -503,13 +509,13 @@ export default function MoneyBrainModal() {
               description="An amount and a word is enough. You'll check the list before anything's logged."
               style={{ paddingVertical: 0 }}
             />
-            <View style={styles.exampleRow}>
+            {!readOnly && <View style={styles.exampleRow}>
               {CAPTURE_EXAMPLES.map((example, i) => (
                 <PopIn key={example} play delay={MOUNT_START_DELAY_MS + BLOCK_STAGGER_MS + i * ITEM_STAGGER_MS}>
                   <ExampleChip label={example} onPress={() => setInput(example)} />
                 </PopIn>
               ))}
-            </View>
+            </View>}
           </View>
         )}
 
@@ -564,7 +570,7 @@ export default function MoneyBrainModal() {
           </View>
         )}
 
-        {!captureMode && brief && brief.questions.length > 0 && (
+        {!captureMode && !readOnly && brief && brief.questions.length > 0 && (
           <View style={{ gap: 8 }}>
             <Text style={[styles.sectionLabel, { color: tokens.text3 }]}>ASK ANYTHING</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipRow}>
@@ -654,6 +660,15 @@ export default function MoneyBrainModal() {
         )}
       </ScrollView>
 
+      {readOnly ? (
+        <View testID="ask-aviary-paused" style={[styles.inputRow, { alignItems: 'flex-start',  borderTopColor: tokens.border, paddingBottom: insets.bottom + 12 }]}>
+          <Lock size={16} color={tokens.warnInk} weight="fill" style={{ marginTop: 2 }} />
+          <Text style={[styles.pausedText, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
+            <Text style={{ color: tokens.text, fontFamily: fontFamily.bodySemiBold }}>Ask Aviary is paused. </Text>
+            {readOnlyCopy(active)}
+          </Text>
+        </View>
+      ) : (
       <View style={[styles.inputRow, { borderTopColor: tokens.border, paddingBottom: insets.bottom + 12 }]}>
         <TextInput
           value={input}
@@ -670,12 +685,14 @@ export default function MoneyBrainModal() {
         />
         <SendButton disabled={sending || input.trim() === ''} onPress={() => send(input, 'typed')} />
       </View>
+      )}
     </KeyboardAvoidingView>
   )
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  pausedText: { flex: 1, fontSize: 13, lineHeight: 18 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

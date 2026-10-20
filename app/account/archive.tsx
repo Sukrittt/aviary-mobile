@@ -19,6 +19,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import { ArrowLeft, ArrowCounterClockwise, X, Receipt, Wallet, Tag, FolderOpen, Repeat, TrendUp, CaretLeft, CaretRight, type PhosphorIcon } from "@/src/components/shared/icons";
 import { Alert } from "@/src/components/ui/AlertHost";
+import { useReadOnly } from "@/src/components/budgets/ReadOnlyNotice";
 import { OfflineScreen } from "@/src/components/shared/OfflineScreen";
 import { useOnline } from "@/src/lib/netStatus";
 import { useTheme } from "@/src/theme/ThemeProvider";
@@ -133,6 +134,7 @@ export default function ArchiveScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const qc = useQueryClient();
+  const { blocked } = useReadOnly();
   const scrollRef = useRef<ScrollView>(null);
   const { refreshing, onRefresh } = useRefresh();
   const archiveQuery = useQuery({ queryKey: archiveKey, queryFn: getArchive });
@@ -220,6 +222,7 @@ export default function ArchiveScreen() {
   };
 
   const handleRestore = async (item: ArchivedItem) => {
+    if (blocked()) return;
     setPending((prev) => new Map(prev).set(item.id, "restore"));
     try {
       await restoreArchivedItem(item.collection, item.id);
@@ -368,13 +371,13 @@ export default function ArchiveScreen() {
               background={tokens.accentSoft}
               accessibilityLabel="Restore selected"
               onPress={() => {
-                if (!restoringAll && selectedItems.length) setConfirmRestore(selectedItems);
+                if (!restoringAll && selectedItems.length && !blocked()) setConfirmRestore(selectedItems);
               }}
             />
           </>
         ) : items.length > 0 ? (
           <Pressable
-            onPress={() => setConfirmRestore(sorted)}
+            onPress={() => !blocked() && setConfirmRestore(sorted)}
             disabled={restoringAll}
             style={[
               styles.restoreAllButton,
@@ -711,7 +714,7 @@ export default function ArchiveScreen() {
                   {selecting ? null : (
                   <>
                   <Pressable
-                    onPress={() => setPurgeTarget(item)}
+                    onPress={() => !blocked() && setPurgeTarget(item)}
                     disabled={isPending || isSuccess}
                     style={[styles.purgeButton, { borderColor: tokens.border }]}
                   >

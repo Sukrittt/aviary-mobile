@@ -20,6 +20,7 @@ import { track } from '@/src/lib/analytics'
 import { pushAmountKey } from '@/src/lib/calcAmount'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
+import { withReadOnlyGate } from '@/src/components/budgets/ReadOnlyNotice'
 
 /** Same beat as every other in-place success in the app (CLAUDE.md): let the check draw, then close. */
 const SUCCESS_MS = 1100
@@ -65,7 +66,7 @@ function parseAmount(text: string): number {
  * they didn't log come back as estimates on the money brain's review card.
  * No AI anywhere: the server does arithmetic on the user's own history.
  */
-export default function BalanceCheckModal() {
+function BalanceCheckModal() {
   const { tokens, space, radius, type } = useTheme()
   const insets = useSafeAreaInsets()
   const router = useRouter()
@@ -654,3 +655,5 @@ const styles = StyleSheet.create({
   accountRow: { flexDirection: 'row', alignItems: 'center', borderWidth: 1.5 },
   accountName: { flex: 1, paddingVertical: 10 },
 })
+
+export default withReadOnlyGate(BalanceCheckModal)

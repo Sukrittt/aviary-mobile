@@ -37,12 +37,13 @@ import {
 } from "react-native";
 import Reanimated, { FadeIn } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { withReadOnlyGate } from "@/src/components/budgets/ReadOnlyNotice";
 
 /** Opened from the Ready to Assign options sheet on Home. The user types the RTA
  * they actually have, and the difference lands in this month's income extra:
  * the monthly income stays as is, so next month doesn't inherit a one-off
  * correction. Same layout as edit-assigned-amount.tsx. */
-export default function EditReadyToAssignModal() {
+function EditReadyToAssignModal() {
   const { tokens } = useTheme();
   const budgetsQ = useBudgets();
   const expensesQ = useRecentExpenses();
@@ -430,3 +431,5 @@ const styles = StyleSheet.create({
   amountWrap: { alignItems: "center", paddingVertical: 8 },
   confirmButton: { paddingVertical: 15, alignItems: "center", justifyContent: "center" },
 });
+
+export default withReadOnlyGate(EditReadyToAssignModal);

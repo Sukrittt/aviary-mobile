@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useNavigation } from "expo-router";
 import { INCOME_FLOOD } from "@/src/theme/tokens";
 import { IncomeForm } from "./add-income";
+import { withReadOnlyGate } from "@/src/components/budgets/ReadOnlyNotice";
 
 const EASE = Easing.bezier(0.4, 0, 0.2, 1);
 
@@ -13,7 +14,7 @@ const EASE = Easing.bezier(0.4, 0, 0.2, 1);
  * income button; the + circle by default, for the nav's quick-add menu) until
  * it covers everything, and the form fades in on top. Any way out (X, a save,
  * back) first shrinks the disc back to where it came from. */
-export default function QuickIncomeModal() {
+function QuickIncomeModal() {
   const { ox, oy } = useLocalSearchParams<{ ox?: string; oy?: string }>();
   const navigation = useNavigation();
   const reduceMotion = useReducedMotion();
@@ -67,3 +68,5 @@ export default function QuickIncomeModal() {
 const styles = StyleSheet.create({
   disc: { position: "absolute", backgroundColor: INCOME_FLOOD },
 });
+
+export default withReadOnlyGate(QuickIncomeModal);

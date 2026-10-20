@@ -2,6 +2,7 @@ import { fireEvent, waitFor } from '@testing-library/react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import InvestmentsScreen from './investments'
 import type { HoldingEventRow, HoldingRow } from '@/src/types'
+import { Alert } from '@/src/components/ui/AlertHost'
 
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: jest.fn(), back: jest.fn(), replace: jest.fn(), navigate: jest.fn() }),
@@ -39,7 +40,13 @@ const TWO_EVENTS = [
   { holding_name: 'Gold', previous_value: '100', new_value: '150', timestamp: ago(10) },
 ] as HoldingEventRow[]
 let mockEvents = TWO_EVENTS
-beforeEach(() => { mockEvents = TWO_EVENTS })
+beforeEach(() => { mockEvents = TWO_EVENTS; mockReadOnly = false })
+let mockReadOnly = false
+jest.mock('@/src/hooks/useBudgetSpaces', () => ({
+  ...jest.requireActual('@/src/hooks/useBudgetSpaces'),
+  useBudgetSpaces: () => ({ active: mockReadOnly ? { id: 'b1', name: 'Home', ownerId: 'o', readOnly: true, members: [{ userId: 'o', name: 'Priya Shah', role: 'owner' }] } : null }),
+}))
+
 jest.mock('@/src/hooks/useHoldingEvents', () => ({
   useHoldingEvents: () => ({ data: mockEvents, isLoading: false }),
 }))
@@ -74,4 +81,16 @@ it('deletes a holding without a confirm, and Undo restores the one just archived
   expect(screen.queryByText(/cannot be undone/)).toBeNull()
   fireEvent.press(await screen.findByText('Undo'))
   await waitFor(() => expect(mockRestore).toHaveBeenCalledWith('holdings', 'new'))
+})
+
+it('hides Add and says why instead of deleting in a read-only budget', () => {
+  mockReadOnly = true
+  const alert = jest.spyOn(Alert, 'alert')
+  const screen = renderWithProviders(<InvestmentsScreen />)
+  expect(screen.getByTestId('read-only-banner')).toBeTruthy()
+  expect(screen.queryByText('Add')).toBeNull()
+  fireEvent.press(screen.getAllByText('Gold')[1])
+  fireEvent.press(screen.getByText('Delete'))
+  expect(alert).toHaveBeenCalledWith('This budget is read-only', expect.stringMatching(/^Priya's plan has lapsed/), expect.anything(), { sticky: true })
+  expect(screen.queryByText('Undo')).toBeNull()
 })

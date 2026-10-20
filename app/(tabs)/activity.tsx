@@ -1,5 +1,7 @@
 import { MoveExpenseSheet } from "@/src/components/budgets/MoveExpenseSheet";
 import { useBudgetSpaces } from "@/src/hooks/useBudgetSpaces";
+import { ReadOnlyBanner } from "@/src/components/budgets/ReadOnlyBanner";
+import { useReadOnly } from "@/src/components/budgets/ReadOnlyNotice";
 import { Avatar } from "@/src/components/budgets/MemberAvatars";
 import { firstName, loggedBy, onlyMine } from "@/src/lib/budgetMembership";
 import { currentUserId } from "@/src/api/accessMode";
@@ -192,6 +194,7 @@ function ActivityScreen() {
   // List view's tapped row, opened into the same detail page as a feed card.
   const [detail, setDetail] = useState<{ txn: ExpenseRow; rect: CardRect } | null>(null);
   const { multi: multiBudget, active: activeBudget } = useBudgetSpaces();
+  const { readOnly, blocked } = useReadOnly();
   // Who logged what: only in a budget with 2+ people. One person, no change.
   const shared = (activeBudget?.members.length ?? 0) > 1;
   const [mineOnly, setMineOnly] = useState(false);
@@ -437,6 +440,7 @@ function ActivityScreen() {
 
   function confirmDelete(t: ExpenseRow) {
     setSheetTxn(null);
+    if (blocked()) return;
     // One row collapses at a time. A delete still mid-collapse is sent now,
     // or swapping the target would quietly cancel it.
     if (pendingDelete && keyOf(pendingDelete) !== keyOf(t) && sentDeleteRef.current !== keyOf(pendingDelete)) runDelete(pendingDelete);
@@ -574,7 +578,7 @@ function ActivityScreen() {
       description={hasActiveFilters || search.trim() ? "No transactions for this filter." : "Log your first expense. We'll keep the little details here."}
       action={hasActiveFilters || search.trim()
         ? { label: "Clear filters", onPress: () => { clearAllFilters(); setSearch(""); } }
-        : { label: "Log an expense", onPress: () => router.push("/modals/log-expense") }}
+        : readOnly ? undefined : { label: "Log an expense", onPress: () => router.push("/modals/log-expense") }}
     />
   );
   // Search and filters, shared by both views.
@@ -617,6 +621,7 @@ function ActivityScreen() {
 
   const controls = (
     <>
+      {readOnly && <View style={styles.readOnly}><ReadOnlyBanner /></View>}
       {failedRow}
       <View style={styles.searchRow}>
         <TextInput
@@ -736,7 +741,7 @@ function ActivityScreen() {
                 color={tokens.coral}
                 accessibilityLabel="Delete selected"
                 onPress={() => {
-                  if (!selectionLocked && selectedTxns.length) setConfirmBulk(true);
+                  if (!selectionLocked && selectedTxns.length && !blocked()) setConfirmBulk(true);
                 }}
               />
               <IconButton
@@ -1064,8 +1069,8 @@ function ActivityScreen() {
               label="Move to another budget"
               color={tokens.text}
               onPress={() => {
-                setMoveTxn(sheetTxn);
                 setSheetTxn(null);
+                if (!blocked()) setMoveTxn(sheetTxn);
               }}
             />
           ) : null}
@@ -1329,6 +1334,7 @@ function mergeByDate(expenses: ExpenseRow[], incomes: IncomeRow[]): ListItem[] {
 const styles = StyleSheet.create({
   accountFilter: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 14, marginTop: 4 },
   scrollContent: { gap: 4 },
+  readOnly: { marginBottom: 8 },
   scrollContentGrow: { flexGrow: 1 },
   searchRow: {
     flexDirection: "row",

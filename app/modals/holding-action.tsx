@@ -10,6 +10,7 @@ import { fontFamily } from '@/src/theme/fonts'
 
 import { useHoldings, usePerformHoldingAction } from '@/src/hooks/useHoldings'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
+import { withReadOnlyGate } from '@/src/components/budgets/ReadOnlyNotice'
 
 type ActionType = 'market_update' | 'contribution' | 'withdrawal'
 
@@ -29,7 +30,7 @@ const isActionType = (v: unknown): v is ActionType =>
 // Route-param driven per the plan's primary approach: investments.tsx passes
 // {name, action} when a row's action sheet option is tapped. (Not the
 // pick-inside-the-modal alternative — the sheet already picks the action.)
-export default function HoldingActionModal() {
+function HoldingActionModal() {
   const { formatCurrency, currencySymbol } = useCurrency()
 
   const { tokens } = useTheme()
@@ -159,3 +160,5 @@ const styles = StyleSheet.create({
   confirmButton: { marginTop: 20, borderRadius: 14, paddingVertical: 15, alignItems: 'center', justifyContent: 'center' },
   confirmText: { fontSize: 16 },
 })
+
+export default withReadOnlyGate(HoldingActionModal)
