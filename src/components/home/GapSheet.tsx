@@ -81,15 +81,16 @@ function OpenGapSheet({ since, onSeen }: { since: string; onSeen: (option: strin
         onPress={() => choose('upload', () => router.push('/modals/statement'))}
         style={[styles.hero, { padding: space.lg, backgroundColor: tokens.modalBg, borderColor: tokens.borderStrong, borderRadius: radius.lg }]}
       >
-        <View style={[styles.chip, { backgroundColor: tokens.mintSoft }]}>
-          <Text style={{ color: tokens.mint, fontFamily: fontFamily.bodySemiBold, fontSize: type.micro }}>Easiest</Text>
-        </View>
         <View style={[styles.option, { gap: space.md }]}>
           {/* App tones, not the landing's pastels: accent for the option that leads, neutral for the rest. */}
           <View style={[styles.tile, { width: 48, height: 48, borderRadius: radius.md, backgroundColor: tokens.accentSoft }]}>
             <Icon icon={UploadSimple} size={24} color={tokens.accentInk} />
           </View>
           <View style={{ flex: 1 }}>
+            {/* Over the title, not pinned to the corner: a corner badge sat on top of the title once it ran wide. */}
+            <View style={[styles.chip, { backgroundColor: tokens.mintSoft }]}>
+              <Text style={{ color: tokens.mint, fontFamily: fontFamily.bodySemiBold, fontSize: type.micro }}>Easiest</Text>
+            </View>
             <Text style={[label, { fontSize: type.bodyLg }]}>Upload a screenshot or statement</Text>
             <Text style={hint}>Your UPI or bank app remembers what you don&apos;t.</Text>
           </View>
@@ -136,7 +137,7 @@ function OpenGapSheet({ since, onSeen }: { since: string; onSeen: (option: strin
 const styles = StyleSheet.create({
   option: { flexDirection: 'row', alignItems: 'center' },
   hero: { borderWidth: 1.5 },
-  chip: { position: 'absolute', top: 12, right: 12, paddingHorizontal: 9, paddingVertical: 3, borderRadius: 999 },
+  chip: { alignSelf: 'flex-start', marginBottom: 6, paddingHorizontal: 9, paddingVertical: 3, borderRadius: 999 },
   tile: { alignItems: 'center', justifyContent: 'center' },
   steps: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, borderTopWidth: StyleSheet.hairlineWidth },
   step: { flexDirection: 'row', alignItems: 'center', gap: 5 },
