@@ -8,7 +8,7 @@ import { OfflineScreen } from '@/src/components/shared/OfflineScreen'
 import { ScreenHeader } from '@/src/components/shared/ScreenHeader'
 import { Alert } from '@/src/components/ui/AlertHost'
 import { usePrivacyProof,useRestoreAccount,useSessions,useUpdateUser,useUser } from '@/src/hooks/useUser'
-import { daysUntil } from '@/src/lib/format'
+import { daysUntil, formatDateShort } from '@/src/lib/format'
 import { useOnline } from '@/src/lib/netStatus'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
@@ -21,6 +21,10 @@ import { useRefresh } from '@/src/hooks/useRefresh'
 import { useBillingStatus } from '@/src/hooks/useBillingStatus'
 import { flushAnalytics, track } from '@/src/lib/analytics'
 import { isWebPlan } from '@/src/lib/billingStatus'
+
+/** Who a budget goes to. Unnamed members are told apart by the join date the member list shows. */
+const handOffName = (m: SharedBudget['members'][number]) =>
+  firstName(m.name) ?? (m.joinedAt ? `whoever joined ${formatDateShort(m.joinedAt.slice(0, 10))} ${m.joinedAt.slice(0, 4)}` : 'them')
 
 function sessionLabel(userAgent: string | null, authMethod: string): string {
   if (userAgent) return userAgent
@@ -411,7 +415,7 @@ export default function SecurityScreen() {
             {sharedBudgets.map((b) => (
               <View key={b.id} style={[styles.card, styles.handOffCard, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
                 <Text style={[styles.rowLabel, { color: tokens.text, fontFamily: fontFamily.bodyBold }]} numberOfLines={1}>{`${b.emoji} ${b.name}`.trim()}</Text>
-                {[...b.members.map((m) => ({ id: m.userId as string | null, label: `Hand it to ${firstName(m.name) ?? 'them'}` })), { id: null, label: 'Close it' }].map((o) => {
+                {[...b.members.map((m) => ({ id: m.userId as string | null, label: `Hand it to ${handOffName(m)}` })), { id: null, label: 'Close it' }].map((o) => {
                   const on = handOff[b.id] === o.id
                   return (
                     <Pressable
