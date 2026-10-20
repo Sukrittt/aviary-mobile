@@ -52,11 +52,24 @@ it('cleans what you type, previews the invite, joins, opens it and shows the int
   jest.useRealTimers()
   await waitFor(() => expect(switchBudget).toHaveBeenCalledWith(expect.anything(), 'u1', 'sp_home'))
   expect(await utils.findByText('You and Priya share this budget')).toBeTruthy()
+  expect(utils.getByText("Everything anyone logs lands here, and you'll see who added what.")).toBeTruthy()
   fireEvent.press(utils.getByText('Next'))
   expect(utils.getByText('Switch budgets from here')).toBeTruthy()
   fireEvent.press(utils.getByText('Got it'))
   expect(mockBack).toHaveBeenCalled()
   expect(await AsyncStorage.getItem('aviary-budget-intro:sp_home')).toBe('1')
+})
+
+it('calls an owner with no name "the owner", not "them"', async () => {
+  ;(previewJoin as jest.Mock).mockResolvedValue({ ...ok, inviter: null })
+  const utils = setup()
+  fireEvent.changeText(utils.getByLabelText('Invite code'), 'AB12CD')
+  jest.useFakeTimers()
+  fireEvent.press(await utils.findByText('Join Home'))
+  await waitFor(() => expect(joinBudget).toHaveBeenCalled())
+  await act(async () => { jest.advanceTimersByTime(1200) })
+  jest.useRealTimers()
+  expect(await utils.findByText('You and the owner share this budget')).toBeTruthy()
 })
 
 it('opens a link with the code already in', async () => {
