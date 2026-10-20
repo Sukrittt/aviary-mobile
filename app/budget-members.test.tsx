@@ -117,6 +117,19 @@ describe('handing over', () => {
 })
 
 describe('as a member', () => {
+  it('calls you "You" when your account has no name, not "Someone (you)"', async () => {
+    setActiveBudget('sp_home')
+    mockUid = 'u1'
+    const unnamed = members.map((x) => ({ ...x, name: null }))
+    ;(getBudgetMembers as jest.Mock).mockResolvedValue({ members: unnamed, role: 'member', notifyOthers: false })
+    const queryClient = createTestQueryClient()
+    queryClient.setQueryData(budgetsKey, { budgets: [personal, { ...home, role: 'member', members: unnamed }], count: 2, limit: 5, activeId: 'u1' })
+    const utils = renderWithProviders(<BudgetMembersScreen />, { queryClient })
+    expect(await utils.findByText('You')).toBeTruthy()
+    expect(utils.queryByText('Someone (you)')).toBeNull()
+    expect(utils.getByText('Someone')).toBeTruthy()
+  })
+
   it("can't invite or remove, and leaves into another budget", async () => {
     setActiveBudget('sp_home')
     const utils = setup('member')

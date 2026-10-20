@@ -41,6 +41,15 @@ export function accessAllowed(status: BillingStatus | undefined, now: number = D
 }
 
 /**
+ * No trial on the server means setup never finished. Not for a member of a
+ * budget someone else pays for: they joined from an invite and skip setup, so
+ * they never get a trial of their own.
+ */
+export function needsSetup(status: BillingStatus | undefined): boolean {
+  return status?.mode === 'setup_incomplete' && !status.allowed && !status.covered
+}
+
+/**
  * Whether billing is worth mentioning at all. With both server flags off
  * and nobody paid, there's no plan to show or trial to count down.
  */

@@ -1,5 +1,5 @@
 import type { BillingStatus } from '@/src/api/billing'
-import { accessAllowed, billingVisible, isWebPlan, lockedCopy, planSummary, trialReminderBucket, yearlySavingsPercent, planPeriod, daysUntilLabel } from './billingStatus'
+import { accessAllowed, needsSetup, billingVisible, isWebPlan, lockedCopy, planSummary, trialReminderBucket, yearlySavingsPercent, planPeriod, daysUntilLabel } from './billingStatus'
 
 const NOW = Date.parse('2026-10-01T00:00:00Z')
 const DAY = 86_400_000
@@ -149,5 +149,20 @@ describe('accessAllowed in a budget someone else pays for', () => {
   it("stays open when the owner's plan covers it, whatever this person's own plan says", () => {
     expect(accessAllowed({ allowed: false, enforced: true, mode: 'expired', covered: true } as never)).toBe(true)
     expect(accessAllowed({ allowed: false, enforced: true, mode: 'expired', covered: false } as never)).toBe(false)
+  })
+})
+
+describe('needsSetup', () => {
+  it('sends an account with no trial back to setup', () => {
+    expect(needsSetup(status({ mode: 'setup_incomplete', allowed: false }))).toBe(true)
+  })
+
+  it("not a member whose budget someone else pays for: they joined from an invite and skip setup", () => {
+    expect(needsSetup(status({ mode: 'setup_incomplete', allowed: false, covered: true }))).toBe(false)
+  })
+
+  it('not while the status is unknown, or once there is a plan', () => {
+    expect(needsSetup(undefined)).toBe(false)
+    expect(needsSetup(status())).toBe(false)
   })
 })

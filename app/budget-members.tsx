@@ -208,7 +208,7 @@ export default function BudgetMembersScreen() {
               <View key={m.userId} style={styles.memberRow} testID={`member-${m.userId}`}>
                 <Avatar name={m.name} avatarUrl={m.avatarUrl} size={36} />
                 <View style={{ flex: 1, gap: 2 }}>
-                  <Text numberOfLines={1} style={[styles.memberName, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>{`${m.name ?? 'Someone'}${you ? ' (you)' : ''}`}</Text>
+                  <Text numberOfLines={1} style={[styles.memberName, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>{you ? (m.name ? `${m.name} (you)` : 'You') : m.name ?? 'Someone'}</Text>
                   <Text style={[styles.meta, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>{`${isOwner ? 'Owner' : 'Member'} · ${joinedLabel(m.joinedAt)}`}</Text>
                 </View>
                 {owner && !you ? (
