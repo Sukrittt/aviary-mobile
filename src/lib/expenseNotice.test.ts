@@ -96,3 +96,8 @@ describe('expenseNotice', () => {
     })
   })
 })
+
+it('names a read-only budget on a 402, not the connection', () => {
+  expect(expenseNotice(402, 'edit').title).toBe('This budget is read-only')
+  expect(expenseNotice(402, 'delete').message).toMatch(/nothing can be deleted until they renew/)
+})
