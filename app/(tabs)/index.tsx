@@ -39,6 +39,7 @@ import { useRefresh } from '@/src/hooks/useRefresh'
 import { useCollapsedGroups } from '@/src/hooks/useCollapsedGroups'
 import { useDismissedRolloverBanner } from '@/src/hooks/useDismissedRolloverBanner'
 import { useBillingStatus } from '@/src/hooks/useBillingStatus'
+import { GraceBanner } from '@/src/components/shared/MaintenanceBanner'
 import { trialReminderBucket, trialRemainingLabel } from '@/src/lib/billingStatus'
 import { BALANCE_CHECK_ENABLED, BalanceCheckCard } from '@/src/components/balance/BalanceCheckCard'
 import { EnvelopeGroup } from '@/src/components/envelope/EnvelopeGroup'
@@ -626,6 +627,7 @@ function HomeScreen() {
           </Pressable>
         ))}
       </BottomSheet>
+      <GraceBanner status={billing} />
     </>
   )
 }
