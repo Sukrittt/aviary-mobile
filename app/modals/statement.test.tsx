@@ -167,6 +167,8 @@ it('saves four at a time, a day in order, and counts every row to the end', asyn
     await waitFor(() => expect(sent()).toEqual(['statement:0', 'statement:2', 'statement:3', 'statement:4']))
     expect(mockMutate.mock.calls[0][0]).toMatchObject({ deferRefresh: true })
     expect(screen.getByText('Logging 0 of 6…')).toBeTruthy()
+    // Onboarding's saving button: busy, so a second press can't log twice.
+    expect(screen.getByRole('button', { busy: true })).toBeTruthy()
     // The 1st's second row only goes once its first one lands.
     await act(async () => answers[0]())
     await waitFor(() => expect(sent()).toEqual(['statement:0', 'statement:2', 'statement:3', 'statement:4', 'statement:1']))

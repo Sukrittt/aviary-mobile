@@ -5,7 +5,7 @@ import { useRouter } from 'expo-router'
 import { useQueryClient } from '@tanstack/react-query'
 import * as ImagePicker from 'expo-image-picker'
 import { CaretDown, CaretRight, Check, CheckCircle, FileText, Images, Sparkle, X } from '@/src/components/shared/icons'
-import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated'
+import Animated, { FadeIn, FadeInDown, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated'
 import { CategoryPickerSheet } from '@/src/components/shared/CategoryPickerSheet'
 import { CategoryIcon } from '@/src/components/shared/CategoryIcon'
 import { SelectCheck, SelectTint } from '@/src/components/shared/SelectCheck'
@@ -14,6 +14,7 @@ import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { EmptyState } from '@/src/components/shared/EmptyState'
 import { Icon } from '@/src/components/shared/Icon'
 import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
+import { LoadingPhrase } from '@/src/components/shared/LoadingPhrase'
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { useAddExpense } from '@/src/hooks/useExpenses'
 import { invalidateExpenseCreateQueries } from '@/src/lib/expenseQueries'
@@ -225,6 +226,12 @@ export default function StatementScreen() {
   const setChecked = (ids: string[], on: boolean) =>
     setRows((prev) => ({ ...prev, ...Object.fromEntries(ids.map((id) => [id, { ...prev[id], checked: on }])) }))
   const caption = { color: tokens.text2, fontFamily: fontFamily.bodyMedium, fontSize: type.caption }
+  // Onboarding's saving button: it greys out and fills left to right as rows land.
+  const saveFill = useSharedValue(0)
+  const saveFillStyle = useAnimatedStyle(() => ({ width: `${saveFill.value * 100}%` }))
+  useEffect(() => {
+    saveFill.value = saving === 'saving' && checked.length ? withTiming(progress / checked.length, { duration: 350 }) : 0
+  }, [saving, progress, checked.length, saveFill])
 
   return (
     <View style={[styles.screen, { backgroundColor: tokens.bg }]}>
@@ -338,22 +345,30 @@ export default function StatementScreen() {
               accessibilityRole="button"
               onPress={log}
               disabled={busy || checked.length === 0 || missing}
+              accessibilityState={{ disabled: busy || checked.length === 0 || missing, busy: saving === 'saving' }}
               style={[
                 styles.primary,
                 {
-                  backgroundColor: saving === 'success' ? tokens.successBg : tokens.accent,
+                  backgroundColor: saving === 'success' ? tokens.successBg : saving === 'saving' ? tokens.inputBg : tokens.accent,
                   borderRadius: radius.full,
-                  opacity: saving === 'saving' || (saving === 'idle' && (checked.length === 0 || missing)) ? 0.5 : 1,
+                  opacity: saving === 'idle' && (checked.length === 0 || missing) ? 0.5 : 1,
                 },
               ]}
             >
               {saving === 'success' ? (
                 <CheckIcon color={tokens.onSuccess} />
+              ) : saving === 'saving' ? (
+                <>
+                  <Animated.View pointerEvents="none" style={[styles.saveFill, saveFillStyle]} />
+                  <LoadingPhrase
+                    phrases={[checked.length > 1 ? `Logging ${progress} of ${checked.length}…` : 'Logging…']}
+                    color={tokens.text3}
+                    style={{ fontFamily: fontFamily.bodyBold, fontSize: type.body, textAlign: 'center' }}
+                  />
+                </>
               ) : (
                 <Text style={{ color: tokens.onAccent, fontFamily: fontFamily.bodyBold, fontSize: type.body }}>
-                  {saving === 'saving'
-                    ? checked.length > 1 ? `Logging ${progress} of ${checked.length}…` : 'Logging…'
-                    : checked.length ? `Log ${checked.length} · ${formatMoney(total)}` : 'Tick what to add'}
+                  {checked.length ? `Log ${checked.length} · ${formatMoney(total)}` : 'Tick what to add'}
                 </Text>
               )}
             </Pressable>
@@ -614,5 +629,6 @@ const styles = StyleSheet.create({
   doneTotal: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', borderBottomWidth: StyleSheet.hairlineWidth },
   doneRow: { flexDirection: 'row', alignItems: 'center' },
   footer: { borderTopWidth: StyleSheet.hairlineWidth },
-  primary: { height: 48, alignItems: 'center', justifyContent: 'center' },
+  primary: { height: 48, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  saveFill: { position: 'absolute', left: 0, top: 0, bottom: 0, backgroundColor: 'rgba(255, 255, 255, 0.22)' },
 })
