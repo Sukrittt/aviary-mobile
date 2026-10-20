@@ -3,6 +3,10 @@ import { activeBudgetId, saveActiveBudget } from './activeBudget'
 import { PERSIST_MAX_AGE, persistOptions, queryPersister } from './queryPersist'
 import { readCategoryCache } from './categoryCache'
 import { readGroupCache } from './groupCache'
+import { onOnlineTransition } from './netStatus'
+
+// A switch made offline can't fetch the budget it opened: try again when the network's back.
+let refetchWhenOnline: (() => void) | null = null
 
 /**
  * Opens another budget. Query keys carry no budget, so this swaps the whole
@@ -42,4 +46,10 @@ export async function switchBudget(queryClient: QueryClient, uid: string, spaceI
   if (categories && queryClient.getQueryData(['categories']) === undefined) queryClient.setQueryData(['categories'], categories)
   if (groups && queryClient.getQueryData(['groups']) === undefined) queryClient.setQueryData(['groups'], groups)
   void queryClient.invalidateQueries()
+  refetchWhenOnline?.()
+  refetchWhenOnline = onOnlineTransition(() => {
+    refetchWhenOnline?.()
+    refetchWhenOnline = null
+    void queryClient.invalidateQueries()
+  })
 }
