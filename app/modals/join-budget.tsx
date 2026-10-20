@@ -13,6 +13,8 @@ import { switchBudget } from '@/src/lib/budgetSwitch'
 import { signalOnboarded } from '@/src/api/onboardingSignal'
 import { currentUserId } from '@/src/api/accessMode'
 import { MAX_MEMBERS } from '@/src/lib/budgetMembership'
+import { BudgetIcon } from '@/src/components/budgets/BudgetIcon'
+import { HandPointing } from '@/src/components/shared/icons'
 
 const CODE_LENGTH = 6
 const introKey = (spaceId: string) => `aviary-budget-intro:${spaceId}`
@@ -113,15 +115,15 @@ export default function JoinBudgetModal() {
 
   if (intro !== null && budget) {
     const cards = [
-      { emoji: budget.emoji, title: `You and ${invite?.inviter ?? 'the owner'} share this budget`, body: "Everything anyone logs lands here, and you'll see who added what." },
-      { emoji: '👆', title: 'Switch budgets from here', body: 'Tap the budget name at the top of Home to hop between your budgets.' },
+      { icon: <BudgetIcon budget={budget} size={40} color={tokens.accentInk} />, title: `You and ${invite?.inviter ?? 'the owner'} share this budget`, body: "Everything anyone logs lands here, and you'll see who added what." },
+      { icon: <HandPointing size={40} color={tokens.accentInk} />, title: 'Switch budgets from here', body: 'Tap the budget name at the top of Home to hop between your budgets.' },
     ]
     const card = cards[intro]
     return (
       <View style={[styles.container, { backgroundColor: tokens.bg }]}>
         {header}
         <View style={[styles.body, styles.introBody]} testID={`budget-intro-${intro}`}>
-          <Text style={styles.introEmoji}>{card.emoji}</Text>
+          {card.icon}
           <Text style={[styles.introTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>{card.title}</Text>
           <Text style={[styles.introText, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>{card.body}</Text>
           <Text style={[styles.hint, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>{`${intro + 1} of ${cards.length}`}</Text>
@@ -171,7 +173,7 @@ export default function JoinBudgetModal() {
           </View>
         ) : budget ? (
           <View style={[styles.card, { backgroundColor: tokens.pillBg }]}>
-            <Text style={styles.cardEmoji}>{budget.emoji}</Text>
+            <BudgetIcon budget={budget} size={32} color={tokens.text} />
             <Text style={[styles.cardTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
               {alreadyIn ? `You're already in ${budget.name}` : `Join ${budget.name} budget?`}
             </Text>
@@ -219,13 +221,11 @@ const styles = StyleSheet.create({
   codeInput: { borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 14, fontSize: 28, letterSpacing: 6, textAlign: 'center' },
   note: { fontSize: 13, lineHeight: 18, textAlign: 'center' },
   card: { borderRadius: 16, padding: 16, gap: 8, alignItems: 'center' },
-  cardEmoji: { fontSize: 36 },
   cardTitle: { fontSize: 18, textAlign: 'center' },
   cardText: { fontSize: 14, lineHeight: 20, textAlign: 'center' },
   confirmButton: { borderRadius: 14, paddingVertical: 15, paddingHorizontal: 24, alignItems: 'center', justifyContent: 'center', marginTop: 8, alignSelf: 'stretch' },
   confirmText: { fontSize: 16 },
   introBody: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },
-  introEmoji: { fontSize: 48 },
   introTitle: { fontSize: 22, textAlign: 'center' },
   introText: { fontSize: 15, lineHeight: 22, textAlign: 'center' },
   hint: { fontSize: 12 },

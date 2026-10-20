@@ -21,6 +21,7 @@ import { useRefresh } from '@/src/hooks/useRefresh'
 import { useBillingStatus } from '@/src/hooks/useBillingStatus'
 import { flushAnalytics, track } from '@/src/lib/analytics'
 import { isWebPlan } from '@/src/lib/billingStatus'
+import { BudgetIcon } from '@/src/components/budgets/BudgetIcon'
 
 /** Who a budget goes to. Unnamed members are told apart by the join date the member list shows. */
 const handOffName = (m: SharedBudget['members'][number]) =>
@@ -414,7 +415,10 @@ export default function SecurityScreen() {
             </Text>
             {sharedBudgets.map((b) => (
               <View key={b.id} style={[styles.card, styles.handOffCard, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
-                <Text style={[styles.rowLabel, { color: tokens.text, fontFamily: fontFamily.bodyBold }]} numberOfLines={1}>{`${b.emoji} ${b.name}`.trim()}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <BudgetIcon budget={b} size={18} color={tokens.text} />
+                  <Text style={[styles.rowLabel, { flexShrink: 1, color: tokens.text, fontFamily: fontFamily.bodyBold }]} numberOfLines={1}>{b.name}</Text>
+                </View>
                 {[...b.members.map((m) => ({ id: m.userId as string | null, label: `Hand it to ${handOffName(m)}` })), { id: null, label: 'Close it' }].map((o) => {
                   const on = handOff[b.id] === o.id
                   return (

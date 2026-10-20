@@ -36,7 +36,7 @@ const HOUR_MS = 60 * 60 * 1000;
 export function WidgetSync() {
   const { currencyCode } = useCurrency()
   const { multi, active } = useBudgetSpaces()
-  const budgetName = multi && active ? `${active.emoji} ${active.name}` : undefined
+  const budgetName = multi && active ? active.name : undefined
   const { preference } = useTheme();
   const budgetsQ = useBudgets();
   const expensesQ = useRecentExpenses();

@@ -32,6 +32,7 @@ import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { tap } from '@/src/lib/haptics'
 import { useBudgetSpaces } from '@/src/hooks/useBudgetSpaces'
+import { BudgetIcon } from '@/src/components/budgets/BudgetIcon'
 
 /** Same beat as every other in-place success in the app (CLAUDE.md): let the check draw, then settle. */
 const SUCCESS_MS = 1100
@@ -327,9 +328,11 @@ export function CaptureReview({ proposal, onSettled, origin = CAPTURE_ORIGIN, lo
       })}
 
       {multiBudget && activeBudget && (
-        <Text testID="capture-budget" style={{ color: tokens.text3, fontFamily: fontFamily.bodySemiBold, fontSize: type.micro }}>
-          {`Logs to ${activeBudget.emoji} ${activeBudget.name}`}
-        </Text>
+        <View testID="capture-budget" style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+          <Text style={{ color: tokens.text3, fontFamily: fontFamily.bodySemiBold, fontSize: type.micro }}>Logs to</Text>
+          <BudgetIcon budget={activeBudget} size={type.micro} color={tokens.text3} />
+          <Text style={{ color: tokens.text3, fontFamily: fontFamily.bodySemiBold, fontSize: type.micro }}>{activeBudget.name}</Text>
+        </View>
       )}
 
       {hint && phase === 'idle' && (

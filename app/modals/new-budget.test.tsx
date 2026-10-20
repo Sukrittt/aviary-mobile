@@ -41,9 +41,9 @@ afterEach(() => jest.useRealTimers())
 it('creates the budget with a copy of the current categories, then opens it', async () => {
   const utils = setup()
   fireEvent.changeText(utils.getByLabelText('Budget name'), '  Goa trip ')
-  fireEvent.press(utils.getByLabelText('✈️'))
+  fireEvent.press(utils.getByLabelText('Airplane'))
   fireEvent.press(utils.getByText('Create budget'))
-  await waitFor(() => expect(createBudget).toHaveBeenCalledWith({ name: 'Goa trip', emoji: '✈️', currencyCode: 'INR', copyCategories: true }))
+  await waitFor(() => expect(createBudget).toHaveBeenCalledWith({ name: 'Goa trip', icon: 'Airplane', currencyCode: 'INR', copyCategories: true }))
   await act(async () => { jest.advanceTimersByTime(1200) })
   expect(switchBudget).toHaveBeenCalledWith(expect.anything(), 'u1', 'sp_new')
   expect(mockBack).toHaveBeenCalled()
@@ -84,7 +84,7 @@ describe('bringing in history', () => {
     // The import brings its own categories and currency.
     expect(utils.queryByLabelText('Copy categories from Personal')).toBeNull()
     fireEvent.press(utils.getByText('Create budget'))
-    await waitFor(() => expect(createBudget).toHaveBeenCalledWith({ name: 'Home', emoji: '🏠', currencyCode: 'INR', copyCategories: false, import: true }))
+    await waitFor(() => expect(createBudget).toHaveBeenCalledWith({ name: 'Home', icon: 'House', currencyCode: 'INR', copyCategories: false, import: true }))
     await act(async () => { jest.advanceTimersByTime(1200) })
     return utils
   }

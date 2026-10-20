@@ -20,6 +20,9 @@ import { switchBudget } from '@/src/lib/budgetSwitch'
 import { currentUserId } from '@/src/api/accessMode'
 import { BudgetLimitNote } from '@/src/components/budgets/BudgetLimitNote'
 import { ImportFlow } from '@/src/components/onboarding/ImportFlow'
+import { CATEGORY_ICON_COMPONENTS } from '@/src/components/shared/CategoryIcon'
+import { iconLabel } from '@/src/components/shared/CategoryIconPicker'
+import { BUDGET_ICONS } from '@/src/lib/budgetIcons'
 
 const tick = () => Haptics.selectionAsync().catch(() => {})
 const buzzError = () => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {})
@@ -29,10 +32,8 @@ const STARTS = [
   { id: 'import', title: 'Bring in history from another app', detail: 'Your categories and past spends, from YNAB, Wallet and more.' },
 ] as const
 
-export const BUDGET_EMOJI = ['🏠', '💑', '👪', '✈️', '🏖️', '🎉', '🚗', '🐾', '🎓', '💼', '🛒', '🎁']
-
 /**
- * A short setup for a second (or fifth) budget: name and emoji, currency,
+ * A short setup for a second (or fifth) budget: name and icon, currency,
  * and whether to start from the current budget's categories. Not the full
  * onboarding: a person making their second budget already knows the ropes.
  */
@@ -44,7 +45,7 @@ export default function NewBudgetModal() {
   const { currencyCode } = useCurrency()
   const { active, atLimit, count, limit } = useBudgetSpaces()
   const [name, setName] = useState('')
-  const [emoji, setEmoji] = useState(BUDGET_EMOJI[0])
+  const [icon, setIcon] = useState(BUDGET_ICONS[0])
   const [currency, setCurrency] = useState<string>(currencyCode)
   const [copy, setCopy] = useState(true)
   const [pickingCurrency, setPickingCurrency] = useState(false)
@@ -52,10 +53,11 @@ export default function NewBudgetModal() {
   const [start, setStart] = useState<'fresh' | 'import'>('fresh')
   const [importing, setImporting] = useState(false)
   const importMode = start === 'import'
+  const Icon = CATEGORY_ICON_COMPONENTS[icon]
 
   const create = useMutation({
     // An import budget starts empty and un-set-up: the import fills it and sets its currency.
-    mutationFn: () => createBudget({ name: name.trim(), emoji, currencyCode: currency, copyCategories: !importMode && copy, ...(importMode && { import: true }) }),
+    mutationFn: () => createBudget({ name: name.trim(), icon, currencyCode: currency, copyCategories: !importMode && copy, ...(importMode && { import: true }) }),
     onSuccess: (budget) => {
       void queryClient.invalidateQueries({ queryKey: budgetsKey })
       setSaved(budget.id)
@@ -97,7 +99,10 @@ export default function NewBudgetModal() {
     return (
       <View style={[styles.container, { backgroundColor: tokens.bg }]}>
         <View style={[styles.header, { paddingTop: insets.top + 8, borderBottomColor: tokens.border }]}>
-          <Text numberOfLines={1} style={[styles.headerTitle, { flex: 1, color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>{`${emoji} ${name.trim()}`}</Text>
+          <View style={styles.titleRow}>
+            <Icon size={20} color={tokens.text} />
+            <Text numberOfLines={1} style={[styles.headerTitle, { flexShrink: 1, color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>{name.trim()}</Text>
+          </View>
           <Pressable onPress={home} hitSlop={12} accessibilityRole="button">
             <Text style={[styles.headerAction, { color: tokens.accentInk, fontFamily: fontFamily.bodySemiBold, width: undefined }]}>Start fresh instead</Text>
           </Pressable>
@@ -128,7 +133,7 @@ export default function NewBudgetModal() {
               <Text style={[styles.fieldLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>Name</Text>
               <View style={styles.nameRow}>
                 <View style={[styles.swatch, { backgroundColor: tokens.inputBg, borderColor: tokens.border }]}>
-                  <Text style={styles.swatchEmoji}>{emoji}</Text>
+                  <Icon size={22} color={tokens.text} />
                 </View>
                 <TextInput
                   value={name}
@@ -141,22 +146,23 @@ export default function NewBudgetModal() {
                   style={[styles.input, { flex: 1, backgroundColor: tokens.inputBg, borderColor: tokens.border, color: tokens.text, fontFamily: fontFamily.bodyMedium }]}
                 />
               </View>
-              <View style={styles.emojiRow}>
-                {BUDGET_EMOJI.map((e) => {
-                  const selected = e === emoji
+              <View style={styles.iconRow}>
+                {BUDGET_ICONS.map((key) => {
+                  const selected = key === icon
+                  const Cell = CATEGORY_ICON_COMPONENTS[key]
                   return (
                     <Pressable
-                      key={e}
+                      key={key}
                       onPress={() => {
                         if (!selected) tick()
-                        setEmoji(e)
+                        setIcon(key)
                       }}
                       accessibilityRole="radio"
-                      accessibilityLabel={e}
+                      accessibilityLabel={iconLabel(key)}
                       accessibilityState={{ checked: selected }}
-                      style={[styles.emojiCell, { backgroundColor: selected ? tokens.accentSoft : tokens.pillBg, borderColor: selected ? tokens.accent : 'transparent' }]}
+                      style={[styles.iconCell, { backgroundColor: selected ? tokens.accentSoft : tokens.pillBg, borderColor: selected ? tokens.accent : 'transparent' }]}
                     >
-                      <Text style={styles.emoji}>{e}</Text>
+                      <Cell size={22} color={selected ? tokens.accentInk : tokens.text2} />
                     </Pressable>
                   )
                 })}
@@ -260,11 +266,10 @@ const styles = StyleSheet.create({
   fieldLabel: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5 },
   nameRow: { flexDirection: 'row', gap: 10, alignItems: 'stretch' },
   swatch: { width: 48, borderWidth: 1, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  swatchEmoji: { fontSize: 22 },
+  titleRow: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 },
   input: { borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 14, fontSize: 15 },
-  emojiRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
-  emojiCell: { width: 44, height: 44, borderRadius: 12, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
-  emoji: { fontSize: 22 },
+  iconRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
+  iconCell: { width: 44, height: 44, borderRadius: 12, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 14 },
   rowText: { fontSize: 15, flex: 1 },
   hint: { fontSize: 12, lineHeight: 16 },

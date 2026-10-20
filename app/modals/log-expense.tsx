@@ -75,6 +75,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { track } from "@/src/lib/analytics";
 import { isRefreshingToken } from "@/src/api/accessMode";
 import { tap } from "@/src/lib/haptics";
+import { BudgetIcon } from '@/src/components/budgets/BudgetIcon'
 
 function str(v: string | string[] | undefined): string {
   return typeof v === "string" ? v : "";
@@ -614,9 +615,11 @@ export default function LogExpenseScreen() {
 
       {multiBudget && activeBudget && (
         // With 2+ budgets, always say which one this lands in.
-        <Text testID="log-budget" numberOfLines={1} style={{ color: onAccentDim, fontFamily: fontFamily.bodySemiBold, fontSize: type.micro, textAlign: "center", paddingHorizontal: space.lg }}>
-          {`${isEdit ? "In" : "Logging to"} ${activeBudget.emoji} ${activeBudget.name}`}
-        </Text>
+        <View testID="log-budget" style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4, paddingHorizontal: space.lg }}>
+          <Text style={{ color: onAccentDim, fontFamily: fontFamily.bodySemiBold, fontSize: type.micro }}>{isEdit ? "In" : "Logging to"}</Text>
+          <BudgetIcon budget={activeBudget} size={type.micro} color={onAccentDim} />
+          <Text numberOfLines={1} style={{ flexShrink: 1, color: onAccentDim, fontFamily: fontFamily.bodySemiBold, fontSize: type.micro }}>{activeBudget.name}</Text>
+        </View>
       )}
 
       {showCapture && captureTip.reason && nudge === 0 && unusualNudge === 0 && (
