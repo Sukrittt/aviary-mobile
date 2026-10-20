@@ -7,6 +7,7 @@ import MoneyBrainModal from './money-brain'
 
 const mockPush = jest.fn()
 const mockDismissTo = jest.fn()
+const mockBack = jest.fn()
 let mockParams: Record<string, string> = {}
 const mockStreamChat = jest.fn()
 const mockUpdateProposalStatus = jest.fn().mockResolvedValue(null)
@@ -14,7 +15,7 @@ let mockBrief: Record<string, unknown> = {}
 let mockSessions: unknown = undefined
 
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: mockPush, back: jest.fn(), dismissTo: mockDismissTo }),
+  useRouter: () => ({ push: mockPush, back: mockBack, dismissTo: mockDismissTo }),
   useLocalSearchParams: () => mockParams,
 }))
 jest.mock('@/src/hooks/useBudgets', () => ({ useBudgets: () => ({ data: [] }) }))
@@ -86,6 +87,14 @@ it('opens as a focused composer in capture mode, without the brief', async () =>
   fireEvent.press(utils.getByText('dinner 1200 split 6'))
   expect(utils.getByPlaceholderText('What did you spend?').props.value).toBe('dinner 1200 split 6')
   expect(mockStreamChat).not.toHaveBeenCalled()
+})
+
+it('closes capture mode from the cross in the header', async () => {
+  mockParams = { capture: '1' }
+  const utils = renderWithProviders(<MoneyBrainModal />)
+
+  fireEvent.press(await utils.findByLabelText('Close'))
+  expect(mockBack).toHaveBeenCalled()
 })
 
 it("holds the brief's shape with skeletons while it loads, not a rotating caption", async () => {

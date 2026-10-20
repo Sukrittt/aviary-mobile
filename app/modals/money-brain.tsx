@@ -14,7 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import * as Haptics from 'expo-haptics'
 import Reanimated from 'react-native-reanimated'
 import { useBounce } from '@/src/hooks/useBounce'
-import { ArrowLeft, ArrowRight, ArrowUp, Check, Clock, Plus } from '@/src/components/shared/icons'
+import { ArrowLeft, ArrowRight, ArrowUp, Check, Clock, Plus, X } from '@/src/components/shared/icons'
 import { Alert } from '@/src/components/ui/AlertHost'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { usePrivacy } from '@/src/context/PrivacyContext'
@@ -454,6 +454,17 @@ export default function MoneyBrainModal() {
             </Text>
           </View>
         </View>
+        {captureMode && (
+          <Pressable
+            onPress={() => router.back()}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="Close"
+            style={[styles.closeButton, { backgroundColor: tokens.inputBg, borderColor: tokens.border }]}
+          >
+            <Icon icon={X} size={16} color={tokens.text2} weight="bold" />
+          </Pressable>
+        )}
         {!captureMode && (
         <View style={[styles.headerActions, { backgroundColor: tokens.inputBg, borderColor: tokens.border }]}>
           <Pressable onPress={() => setView('history')} hitSlop={6} style={styles.pillButton}>
@@ -677,6 +688,7 @@ const styles = StyleSheet.create({
   pillButton: { flexDirection: 'row', alignItems: 'center', gap: 5, height: 32, paddingHorizontal: 10, borderRadius: 100 },
   pillButtonPrimary: { paddingHorizontal: 12 },
   pillText: { fontSize: 12 },
+  closeButton: { width: 36, height: 36, borderRadius: 100, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   newPill: { flexDirection: 'row', alignItems: 'center', gap: 6, height: 36, paddingHorizontal: 14, borderRadius: 100 },
   newPillText: { fontSize: 12 },
   iconButton: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
