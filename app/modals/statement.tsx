@@ -4,13 +4,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import { useQueryClient } from '@tanstack/react-query'
 import * as ImagePicker from 'expo-image-picker'
-import { CaretDown, Check, FileText, ImageSquare, X } from '@/src/components/shared/icons'
-import Animated, { FadeIn } from 'react-native-reanimated'
+import { CaretDown, CaretRight, Check, CheckCircle, FileText, Images, Sparkle, X } from '@/src/components/shared/icons'
+import Animated, { FadeIn, FadeInDown } from 'react-native-reanimated'
 import { CategoryPickerSheet } from '@/src/components/shared/CategoryPickerSheet'
 import { CategoryIcon } from '@/src/components/shared/CategoryIcon'
 import { SelectCheck, SelectTint } from '@/src/components/shared/SelectCheck'
 import { ConfettiPiece } from '@/src/components/onboarding/SetupDone'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
+import { EmptyState } from '@/src/components/shared/EmptyState'
 import { Icon } from '@/src/components/shared/Icon'
 import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
 import { useCurrency } from '@/src/context/CurrencyContext'
@@ -35,6 +36,7 @@ const SCREENSHOT_ENCODING = { maxEdge: 1600, quality: 0.6 }
 const MAX_FILE_BYTES = 4 * 1024 * 1024
 const STATEMENT_FILE = /\.(csv|tsv|txt|xlsx|pdf)$/i
 const UNREADABLE = "Couldn't read that one. Try a CSV or Excel statement, or a screenshot of your payments."
+const UNREADABLE_TITLE = 'Hard to read, that one'
 const SKIP_LABEL = { logged: 'Looks logged already', before_last: 'Before your last log' } as const
 /** Same beat as every other in-place success (CLAUDE.md). */
 const SUCCESS_MS = 1100
@@ -64,10 +66,11 @@ export default function StatementScreen() {
   const router = useRouter()
   const addExpense = useAddExpense()
   const qc = useQueryClient()
-  const [phase, setPhase] = useState<'pick' | 'reading' | 'review' | 'done'>('pick')
+  const [phase, setPhase] = useState<'pick' | 'reading' | 'review' | 'error' | 'done'>('pick')
   const [proposal, setProposal] = useState<StatementProposal | null>(null)
   const [rows, setRows] = useState<Record<string, RowState>>({})
   const [error, setError] = useState('')
+  const [failure, setFailure] = useState({ title: '', message: '' })
   const [saving, setSaving] = useState<'idle' | 'saving' | 'success'>('idle')
   const [pickingFor, setPickingFor] = useState<string | null>(null)
   const [progress, setProgress] = useState(0)
@@ -87,14 +90,19 @@ export default function StatementScreen() {
     setPhase('reading')
     try {
       const result = await readStatement(input)
-      if (result.items.length === 0) throw new StatementFailure(result.credits ? "Only money coming in there, so there's nothing to add." : UNREADABLE)
+      if (result.items.length === 0) {
+        throw result.credits
+          ? new StatementFailure("Only money coming in there, so there's nothing to add.", 'Nothing going out')
+          : new StatementFailure(UNREADABLE, UNREADABLE_TITLE)
+      }
       setProposal(result)
       setRows(Object.fromEntries(result.items.map((i) => [i.id, { checked: !i.suggestSkip, category: i.category }])))
       setPhase('review')
       track('statement_read', { kind, rows: result.items.length, credits: result.credits })
     } catch (err) {
-      setError(err instanceof StatementFailure ? err.message : UNREADABLE)
-      setPhase('pick')
+      // The mascot, a title and a way back, like Web: a failed read is the whole screen's news, not a line under the buttons.
+      setFailure(err instanceof StatementFailure ? { title: err.title, message: err.message } : { title: UNREADABLE_TITLE, message: UNREADABLE })
+      setPhase('error')
     }
   }
 
@@ -231,13 +239,49 @@ export default function StatementScreen() {
       </View>}
 
       {phase === 'pick' && (
-        <View style={{ padding: space.lg, gap: space.md }}>
-          <Text style={{ color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: type.title }}>Fill in the days you missed</Text>
-          <Text style={caption}>Your UPI or bank app already has them. We&apos;ll read the payments, you pick what to add. Nothing&apos;s logged until you say so.</Text>
-          {!online && <Text style={{ ...caption, color: tokens.warnInk }}>You&apos;re offline. Uploads need a connection.</Text>}
-          <PickButton icon={ImageSquare} label="Choose screenshots" hint="Up to 5 from your UPI or bank app" onPress={pickScreenshots} disabled={!online} />
-          {canPickFiles && <PickButton icon={FileText} label="Choose a statement" hint="CSV, Excel or PDF from net banking" onPress={pickStatement} disabled={!online} />}
-          {error !== '' && <Text accessibilityRole="alert" style={{ color: tokens.coral, fontFamily: fontFamily.bodyMedium, fontSize: type.caption }}>{error}</Text>}
+        <View style={{ flex: 1 }}>
+          <ScrollView contentContainerStyle={{ padding: space.lg, gap: space.md }}>
+            <Animated.Text accessibilityRole="header" entering={reveal(0)} style={{ color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: type.title }}>
+              Fill in the days you missed
+            </Animated.Text>
+            <Animated.Text entering={reveal(1)} style={caption}>Your UPI or bank app already has them. Bring them here and pick what to add.</Animated.Text>
+            <Animated.View entering={reveal(2)} style={[styles.steps, { marginTop: space.sm, backgroundColor: tokens.card, borderColor: tokens.border, borderRadius: radius.lg }]}>
+              {STEPS.map((step, i) => (
+                <Animated.View
+                  key={step.label}
+                  entering={reveal(3 + i)}
+                  style={[styles.step, { gap: space.md, padding: space.md, borderTopColor: tokens.border, borderTopWidth: i ? StyleSheet.hairlineWidth : 0 }]}
+                >
+                  <View style={[styles.tile, { backgroundColor: i ? tokens.inputBg : tokens.accentSoft }]}>
+                    <Icon icon={step.icon} size={18} color={i ? tokens.text2 : tokens.accentInk} />
+                  </View>
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Text style={{ color: tokens.text, fontFamily: fontFamily.bodySemiBold, fontSize: type.body }}>{step.label}</Text>
+                    <Text style={caption}>{step.hint}</Text>
+                  </View>
+                </Animated.View>
+              ))}
+            </Animated.View>
+          </ScrollView>
+          {/* The thumb zone: both ways in sit at the bottom, big enough to hit one-handed. */}
+          <View style={{ paddingHorizontal: space.lg, paddingTop: space.sm, paddingBottom: insets.bottom + space.md, gap: space.sm }}>
+            {!online && <Text style={{ ...caption, color: tokens.warnInk }}>You&apos;re offline. Uploads need a connection.</Text>}
+            {error !== '' && <Text accessibilityRole="alert" style={{ ...caption, color: tokens.coral }}>{error}</Text>}
+            <Animated.View entering={reveal(6)}>
+              <PickButton primary icon={Images} label="Choose screenshots" hint="Up to 5 from your UPI or bank app" onPress={pickScreenshots} disabled={!online} />
+            </Animated.View>
+            {canPickFiles && (
+              <Animated.View entering={reveal(7)}>
+                <PickButton icon={FileText} label="Choose a statement" hint="CSV, Excel or PDF from net banking" onPress={pickStatement} disabled={!online} />
+              </Animated.View>
+            )}
+          </View>
+        </View>
+      )}
+
+      {phase === 'error' && (
+        <View accessibilityRole="alert" style={[styles.center, { padding: space.lg, paddingBottom: insets.bottom + space.lg }]}>
+          <EmptyState mood="searching" title={failure.title} description={failure.message} action={{ label: 'Try again', onPress: () => setPhase('pick') }} />
         </View>
       )}
 
@@ -329,20 +373,45 @@ export default function StatementScreen() {
   )
 }
 
-function PickButton({ icon, label, hint, onPress, disabled }: { icon: typeof ImageSquare; label: string; hint: string; onPress: () => void; disabled?: boolean }) {
+/** Staggered rise for the picker, one beat per step. Reanimated drops it under the system's reduce-motion setting. */
+const reveal = (step: number) => FadeInDown.delay(60 + step * 70).duration(380).springify().damping(20).stiffness(180)
+
+const STEPS = [
+  { icon: Images, label: 'Screenshot or download', hint: 'Your UPI app history, or a statement from net banking.' },
+  { icon: Sparkle, label: 'We read the payments', hint: "Money going out only. Anything you've logged starts unticked." },
+  { icon: CheckCircle, label: 'You pick what to add', hint: "Nothing's logged until you say so." },
+] as const
+
+function PickButton({ icon, label, hint, onPress, disabled, primary }: { icon: typeof Images; label: string; hint: string; onPress: () => void; disabled?: boolean; primary?: boolean }) {
   const { tokens, space, radius, type } = useTheme()
+  const ink = primary ? tokens.onAccent : tokens.text
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityHint={hint}
       onPress={onPress}
       disabled={disabled}
-      style={[styles.pick, { gap: space.md, padding: space.md, backgroundColor: tokens.card, borderColor: tokens.border, borderRadius: radius.lg, opacity: disabled ? 0.5 : 1 }]}
+      style={({ pressed }) => [
+        styles.pick,
+        {
+          gap: space.md,
+          paddingHorizontal: space.md,
+          backgroundColor: primary ? tokens.accent : tokens.card,
+          borderColor: primary ? tokens.accent : tokens.borderStrong,
+          borderRadius: radius.lg,
+          opacity: disabled ? 0.5 : 1,
+          transform: [{ scale: pressed ? 0.98 : 1 }],
+        },
+      ]}
     >
-      <Icon icon={icon} size={20} color={tokens.accentInk} />
-      <View style={{ flex: 1 }}>
-        <Text style={{ color: tokens.text, fontFamily: fontFamily.bodySemiBold, fontSize: type.body }}>{label}</Text>
-        <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodyMedium, fontSize: type.caption }}>{hint}</Text>
+      <View style={[styles.tile, styles.pickTile, { backgroundColor: primary ? 'rgba(255, 255, 255, 0.2)' : tokens.accentSoft }]}>
+        <Icon icon={icon} size={22} color={primary ? tokens.onAccent : tokens.accentInk} />
       </View>
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text style={{ color: ink, fontFamily: fontFamily.bodySemiBold, fontSize: type.body }}>{label}</Text>
+        <Text style={{ color: ink, opacity: primary ? 0.85 : 0.7, fontFamily: fontFamily.bodyMedium, fontSize: type.caption }}>{hint}</Text>
+      </View>
+      <CaretRight size={18} color={ink} />
     </Pressable>
   )
 }
@@ -509,7 +578,11 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', paddingBottom: 12, borderBottomWidth: StyleSheet.hairlineWidth },
   headerBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  pick: { flexDirection: 'row', alignItems: 'center', borderWidth: 1 },
+  pick: { flexDirection: 'row', alignItems: 'center', minHeight: 76, borderWidth: 1 },
+  pickTile: { width: 44, height: 44, borderRadius: 14 },
+  tile: { width: 36, height: 36, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
+  steps: { borderWidth: 1, overflow: 'hidden' },
+  step: { flexDirection: 'row', alignItems: 'center' },
   summary: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   dayHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', paddingBottom: 8, marginBottom: 4, borderBottomWidth: StyleSheet.hairlineWidth },
   row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, overflow: 'hidden' },

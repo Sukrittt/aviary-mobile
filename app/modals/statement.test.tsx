@@ -205,9 +205,13 @@ it('turns away a file that is not a statement, and words a locked pdf', async ()
   expect(mockRead).not.toHaveBeenCalled()
 
   const { StatementFailure } = jest.requireActual('@/src/api/statement')
-  mockRead.mockRejectedValueOnce(new StatementFailure('That PDF has a password. Download the statement as Excel or CSV from net banking and upload that instead.'))
+  mockRead.mockRejectedValueOnce(new StatementFailure('That PDF has a password. Download the statement as Excel or CSV from net banking and upload that instead.', 'That PDF is locked'))
   fireEvent.press(screen.getByText('Choose a statement'))
   expect(await screen.findByText(/That PDF has a password/)).toBeTruthy()
+  expect(screen.getByText('That PDF is locked')).toBeTruthy()
+  // Try again goes back to the picker.
+  fireEvent.press(screen.getByText('Try again'))
+  expect(screen.getByText('Choose a statement')).toBeTruthy()
 })
 
 it('says uploads need a connection when offline, and picks nothing', () => {

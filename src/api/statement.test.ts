@@ -12,6 +12,13 @@ it('words a statement in another currency', async () => {
   await expect(readStatement(images)).rejects.toThrow("These payments are in a different currency from your budget, so nothing was added. Try a statement or screenshot from the account you budget in.")
 })
 
+it('titles a known failure, and falls back to a plain title otherwise', async () => {
+  answer(422, { error: 'pdf_locked' })
+  await expect(readStatement(images)).rejects.toMatchObject({ title: 'That PDF is locked' })
+  answer(500, { error: 'Mongo exploded' })
+  await expect(readStatement(images)).rejects.toMatchObject({ title: "That didn't go through" })
+})
+
 it('falls back to generic copy for a code it does not know, never the raw text', async () => {
   answer(500, { error: 'Mongo exploded' })
   await expect(readStatement(images)).rejects.toThrow('Check your connection and try again.')
