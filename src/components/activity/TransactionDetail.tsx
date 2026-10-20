@@ -4,7 +4,7 @@ import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowD
 import Animated, { Easing, interpolate, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import * as Haptics from 'expo-haptics'
-import { Bank, CalendarBlank, Clock, PencilSimple, Tag, Trash, X } from '@/src/components/shared/icons'
+import { Bank, CalendarBlank, Clock, PencilSimple, Tag, Trash, User, X } from '@/src/components/shared/icons'
 import { CategoryIcon } from '@/src/components/shared/CategoryIcon'
 import { Button } from '@/src/components/ui/Button'
 import { useCurrency } from '@/src/context/CurrencyContext'
@@ -28,13 +28,15 @@ const CLOSE_MS = 260
  * them. Closing shrinks it back into the card. Delete closes first and hands
  * off, so the card's collapse plays where the user can see it.
  */
-export function TransactionDetail({ txn, from, photoUri, category, account, onClosed, onEdit, onDelete }: {
+export function TransactionDetail({ txn, from, photoUri, category, account, addedBy, onClosed, onEdit, onDelete }: {
   txn: ExpenseRow
   from: CardRect
   photoUri: string | null
   category?: CategoryRow
   /** The account's name, '' when the expense has none. */
   account: string
+  /** Who logged it, in a shared budget: "you" or their first name. */
+  addedBy?: string
   /** The page is gone; drop it. */
   onClosed: () => void
   onEdit: (txn: ExpenseRow) => void
@@ -109,6 +111,7 @@ export function TransactionDetail({ txn, from, photoUri, category, account, onCl
         }]
       : []),
     { icon: Bank, label: 'Account', value: account || 'Not set' },
+    ...(addedBy ? [{ icon: User, label: 'Added by', value: addedBy }] : []),
   ]
 
   return (
