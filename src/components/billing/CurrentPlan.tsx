@@ -28,7 +28,7 @@ export function CurrentPlan({ status, packages }: { status: BillingStatus; packa
     { label: 'Plan', value: `${period === 'yearly' ? 'Yearly' : 'Monthly'}${pkg ? ` · ${pkg.product.priceString}` : ''}` },
     {
       label: 'Status',
-      value: grace ? 'Payment issue' : cancelled ? 'Cancelled' : scheduled ? 'Free trial' : 'Active',
+      value: grace ? 'Payment issue' : cancelled ? 'Cancelled' : scheduled ? '30 days on us' : 'Active',
       tone: grace ? tokens.coral : cancelled ? tokens.text2 : tokens.mint,
     },
     {
@@ -54,7 +54,7 @@ export function CurrentPlan({ status, packages }: { status: BillingStatus; packa
                 ? "You've still got everything until then. Pick a plan again anytime."
                 : "You've still got everything until then. Resubscribe anytime from Google Play."
               : scheduled
-                ? "Thanks for backing Aviary. Your free trial carries on, and you won't be charged until it ends."
+                ? "Thanks for backing Aviary. Your 30 days on us carry on, and you won't be charged until they end."
                 : 'Thanks for backing Aviary.'}
         </Text>
       </View>

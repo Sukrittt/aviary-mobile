@@ -18,7 +18,7 @@ beforeEach(() => {
 it('sends the user to Home after acknowledging the trial notice', () => {
   const { getByText } = renderWithProviders(<TrialNoticeScreen />)
 
-  expect(getByText("You're on the trial plan")).toBeTruthy()
+  expect(getByText("Your first 30 days, on us")).toBeTruthy()
   // Billing is live for everyone, even before the status loads.
   expect(getByText("Everything's free for 30 days. No card needed, nothing to cancel.")).toBeTruthy()
   expect(getByText('What happens when it ends')).toBeTruthy()
