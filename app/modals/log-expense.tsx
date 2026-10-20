@@ -815,7 +815,7 @@ export default function LogExpenseScreen() {
                   onPress: () =>
                     Alert.alert("Discard this expense?", "It never reached your account, so it's gone for good.", [
                       { text: "Keep it", style: "cancel" },
-                      { text: "Discard", style: "destructive", onPress: () => void discardFailed(failedClientId).then(() => router.back()) },
+                      { text: "Discard", style: "destructive", onPress: () => void discardFailed(failedClientId).then(() => router.back(), () => Alert.alert("Couldn't discard this expense", "Try again in a moment.")) },
                     ]),
                 },
               ].map((b) => (
