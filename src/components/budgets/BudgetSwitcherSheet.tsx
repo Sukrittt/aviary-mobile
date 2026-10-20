@@ -7,6 +7,7 @@ import { BottomSheet } from '@/src/components/shared/Modal'
 import { Check, GearSix, Lock, Plus, UserPlus } from '@/src/components/shared/icons'
 import { Button } from '@/src/components/ui/Button'
 import { budgetsKey, useBudgetList, useBudgetSpaces } from '@/src/hooks/useBudgetSpaces'
+import { useBillingStatus } from '@/src/hooks/useBillingStatus'
 import { restoreBudget } from '@/src/api/spaces'
 import { Alert } from '@/src/components/ui/AlertHost'
 import { switchBudget } from '@/src/lib/budgetSwitch'
@@ -28,6 +29,9 @@ export function BudgetSwitcherSheet({ visible, onClose, onSwitch }: { visible: b
   const queryClient = useQueryClient()
   const { budgets, active, atLimit, count, limit } = useBudgetSpaces()
   const restorable = (useBudgetList().data?.deleted ?? []).filter((d) => d.canRestore)
+  // Their own plan lapsed: every budget they own is shut, only the ones others pay for open.
+  const { data: billing } = useBillingStatus()
+  const ownLocked = !!billing && billing.enforced && !billing.allowed
 
   const restore = (id: string) => {
     tap()
@@ -75,7 +79,7 @@ export function BudgetSwitcherSheet({ visible, onClose, onSwitch }: { visible: b
               <BudgetIcon budget={b} size={24} color={tokens.text} />
               <View style={styles.rowMain}>
                 <Text numberOfLines={1} style={[styles.name, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>{b.name}</Text>
-                {shared || b.readOnly ? (
+                {shared || b.readOnly || (ownLocked && b.role === 'owner') ? (
                   <View style={styles.meta}>
                     {shared ? <MemberAvatars members={b.members} size={20} /> : null}
                     {shared && b.role === 'owner' ? (
@@ -87,6 +91,12 @@ export function BudgetSwitcherSheet({ visible, onClose, onSwitch }: { visible: b
                       <View style={[styles.badge, styles.readOnly, { backgroundColor: tokens.warnSoft }]}>
                         <Lock size={11} color={tokens.warnInk} weight="fill" />
                         <Text style={[styles.badgeText, { color: tokens.warnInk, fontFamily: fontFamily.bodySemiBold }]}>Read-only</Text>
+                      </View>
+                    ) : null}
+                    {ownLocked && b.role === 'owner' ? (
+                      <View style={[styles.badge, styles.readOnly, { backgroundColor: tokens.warnSoft }]}>
+                        <Lock size={11} color={tokens.warnInk} weight="fill" />
+                        <Text style={[styles.badgeText, { color: tokens.warnInk, fontFamily: fontFamily.bodySemiBold }]}>Locked</Text>
                       </View>
                     ) : null}
                   </View>

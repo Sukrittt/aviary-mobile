@@ -144,6 +144,36 @@ export default function PlanScreen() {
               </View>
             )}
 
+            {locked && shared.length > 0 ? (
+              <View style={{ gap: 8 }}>
+                <Text style={[styles.sectionLabel, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>Budgets shared with you</Text>
+                <View style={[styles.card, styles.list, styles.coveredCard, { backgroundColor: tokens.card, borderColor: tokens.accent }]}>
+                  {shared.map((b, i) => {
+                    const owner = firstName(ownerOf(b)?.name)
+                    return (
+                      <View key={b.id}>
+                        {i > 0 ? <View style={[styles.divider, { backgroundColor: tokens.border }]} /> : null}
+                        <Pressable onPress={() => openShared(b.id)} accessibilityRole="button" accessibilityLabel={`Open ${b.name}`} style={styles.row}>
+                          <View style={[styles.coveredTile, { backgroundColor: tokens.accentSoft }]}>
+                            <BudgetIcon budget={b} size={18} color={tokens.accentInk} />
+                          </View>
+                          <View style={{ flex: 1, marginLeft: 12, gap: 2 }}>
+                            <Text style={[styles.rowLabel, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>{b.name}</Text>
+                            <Text style={[styles.cardMeta, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>
+                              {owner ? `${owner} pays for this one` : 'Paid for by its owner'}, so it stays open to you.
+                            </Text>
+                          </View>
+                          <View style={[styles.coveredOpen, { backgroundColor: tokens.accent }]}>
+                            <Text style={[styles.badgeText, { color: tokens.onAccent, fontFamily: fontFamily.bodySemiBold }]}>Open</Text>
+                          </View>
+                        </Pressable>
+                      </View>
+                    )
+                  })}
+                </View>
+              </View>
+            ) : null}
+
             {inlinePlans ? (
               packagesQuery.data?.length ? (
                 <PlanPicker
@@ -173,32 +203,6 @@ export default function PlanScreen() {
                 </>
               ) : null}
             </View>
-
-            {locked && shared.length > 0 ? (
-              <View style={{ gap: 8 }}>
-                <Text style={[styles.sectionLabel, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>Budgets shared with you</Text>
-                <View style={[styles.card, styles.list, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
-                  {shared.map((b, i) => {
-                    const owner = firstName(ownerOf(b)?.name)
-                    return (
-                      <View key={b.id}>
-                        {i > 0 ? <View style={[styles.divider, { backgroundColor: tokens.border }]} /> : null}
-                        <Pressable onPress={() => openShared(b.id)} accessibilityRole="button" accessibilityLabel={`Open ${b.name}`} style={styles.row}>
-                          <BudgetIcon budget={b} size={16} color={tokens.text} />
-                          <View style={{ flex: 1, marginLeft: 12, gap: 2 }}>
-                            <Text style={[styles.rowLabel, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>{b.name}</Text>
-                            <Text style={[styles.cardMeta, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>
-                              {owner ? `${owner} pays for this one` : 'Paid for by its owner'}, so it stays open to you
-                            </Text>
-                          </View>
-                          <Icon icon={CaretRight} size={16} color={tokens.text3} />
-                        </Pressable>
-                      </View>
-                    )
-                  })}
-                </View>
-              </View>
-            ) : null}
 
             {locked ? (
               <View style={[styles.card, styles.list, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
@@ -265,4 +269,8 @@ const styles = StyleSheet.create({
   planRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 12 },
   footnote: { fontSize: 12, lineHeight: 17, paddingHorizontal: 4 },
   sectionLabel: { fontSize: 12, letterSpacing: 0.6, textTransform: 'uppercase', paddingHorizontal: 4 },
+  coveredCard: { borderWidth: 1.5 },
+  coveredTile: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  coveredOpen: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, marginLeft: 8 },
+  badgeText: { fontSize: 12 },
 })

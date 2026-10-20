@@ -14,6 +14,8 @@ const mockPush = jest.fn()
 jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush, back: jest.fn() }) }))
 jest.mock('@/src/api/accessMode', () => ({ currentUserId: () => 'u1', accessMode: { subscribeLogout: () => () => {}, subscribe: () => () => {} } }))
 jest.mock('@/src/lib/budgetSwitch', () => ({ switchBudget: jest.fn(async () => {}) }))
+let mockBilling: { allowed: boolean; enforced: boolean } | undefined
+jest.mock('@/src/hooks/useBillingStatus', () => ({ useBillingStatus: () => ({ data: mockBilling }) }))
 jest.mock('@/src/api/spaces', () => ({
   getBudgets: jest.fn(),
   getBudgetCategories: jest.fn(async () => [{ name: 'Groceries', group: 'Needs' }, { name: 'Rent', group: 'Needs' }]),
@@ -36,7 +38,10 @@ function withBudgets(list: Partial<BudgetList>) {
   return queryClient
 }
 
-beforeEach(() => jest.clearAllMocks())
+beforeEach(() => {
+  jest.clearAllMocks()
+  mockBilling = undefined
+})
 
 describe('BudgetChip', () => {
   it('names the open budget and opens the switcher', () => {
@@ -114,6 +119,19 @@ describe('BudgetSwitcherSheet', () => {
   it('tags a read-only budget', () => {
     const utils = renderWithProviders(<BudgetSwitcherSheet visible onClose={() => {}} />, { queryClient: withBudgets({ budgets: [personal, { ...home, role: 'member', readOnly: true }], count: 2 }) })
     expect(utils.getByText('Read-only')).toBeTruthy()
+  })
+
+  it('tags own budgets Locked once the own plan lapsed', () => {
+    // Inside a budget someone else pays for, their own budgets are shut: say so
+    // before they tap one and land on the lock screen.
+    mockBilling = { allowed: false, enforced: true }
+    const studio = { ...home, id: 's2', name: 'Studio', role: 'member' as const, ownerId: 'u2' }
+    const utils = renderWithProviders(<BudgetSwitcherSheet visible onClose={() => {}} />, { queryClient: withBudgets({ budgets: [personal, home, studio], count: 3 }) })
+    expect(utils.getAllByText('Locked')).toHaveLength(2)
+    utils.unmount()
+    mockBilling = { allowed: true, enforced: true }
+    const fine = renderWithProviders(<BudgetSwitcherSheet visible onClose={() => {}} />, { queryClient: withBudgets({ budgets: [personal, home, studio], count: 3 }) })
+    expect(fine.queryByText('Locked')).toBeNull()
   })
 
   it('switches to the budget you tap, then tells the opener', async () => {
