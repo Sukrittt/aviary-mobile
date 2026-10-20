@@ -329,7 +329,7 @@ it("saves a category's picked colour", async () => {
   fireEvent.press(screen.getByText('House category 0'))
   fireEvent.press(screen.getByText('Edit'))
   expect(screen.getByText('Edit category')).toBeTruthy()
-  fireEvent.press(screen.getByLabelText('Blue'))
+  fireEvent.press(screen.getByLabelText('Teal'))
   await act(async () => { fireEvent.press(screen.getByText('Save')) })
   expect(mockUpdateCategory).toHaveBeenCalledWith({ name: 'House category 0', updates: { color: 'blue' } })
 })
