@@ -523,7 +523,7 @@ describe('HomeScreen · one banner at a time', () => {
   it('shows the trial reminder over the rollover banner at 3 days left', async () => {
     mockBilling = trial(3)
     const { findByText, queryByText } = renderHome()
-    expect(await findByText(/Free trial · 3 days left/)).toBeTruthy()
+    expect(await findByText(/30 days on us · 3 days left/)).toBeTruthy()
     expect(queryByText(/went to savings last month/)).toBeNull()
   })
 
@@ -531,7 +531,7 @@ describe('HomeScreen · one banner at a time', () => {
     mockBilling = trial(7)
     const { findByText, queryByText } = renderHome()
     expect(await findByText(/went to savings last month/)).toBeTruthy()
-    expect(queryByText(/Free trial/)).toBeNull()
+    expect(queryByText(/30 days on us/)).toBeNull()
   })
 
   it('lets Nice dismiss the rollover banner', async () => {

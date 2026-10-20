@@ -26,10 +26,10 @@ const status = (over: Partial<BillingStatus> = {}): BillingStatus => ({
 it('shows a web plan bought mid-trial as a free trial with its first charge date', () => {
   const { getByText, queryByText } = renderWithProviders(<CurrentPlan status={status({ renewalState: 'scheduled' })} packages={[]} />)
 
-  expect(getByText('Free trial')).toBeTruthy()
+  expect(getByText('30 days on us')).toBeTruthy()
   expect(getByText('First charge')).toBeTruthy()
   expect(getByText(new RegExp(formatDate(firstCharge)))).toBeTruthy()
-  expect(getByText(/you won't be charged until it ends/)).toBeTruthy()
+  expect(getByText(/you won't be charged until they end/)).toBeTruthy()
   expect(queryByText('Next renewal')).toBeNull()
 })
 

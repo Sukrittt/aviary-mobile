@@ -75,11 +75,11 @@ export function trialRemainingLabel(daysRemaining: number): string {
 export function planSummary(status: BillingStatus): string {
   switch (status.mode) {
     case 'trial':
-      return `Free trial · ${trialRemainingLabel(status.trialDaysRemaining)}`
+      return `30 days on us · ${trialRemainingLabel(status.trialDaysRemaining)}`
     case 'paid':
       if (status.renewalState === 'grace') return isWebPlan(status) ? 'Payment issue · retrying' : 'Payment issue · fix in Google Play'
       // Subscribed on the web mid-trial: nothing's charged until the trial ends.
-      if (status.renewalState === 'scheduled') return `Free trial · first charge ${formatDate(status.paidExpiresAt)}`
+      if (status.renewalState === 'scheduled') return `30 days on us · first charge ${formatDate(status.paidExpiresAt)}`
       return status.autoRenew ? `Renews ${formatDate(status.paidExpiresAt)}` : `Ends ${formatDate(status.paidExpiresAt)}`
     case 'expired':
       return status.trialEndsAt && !status.productId ? 'Trial ended' : 'Subscription ended'
@@ -112,7 +112,7 @@ export function lockedCopy(status: BillingStatus | undefined): { title: string; 
       return {
         // Keyed on "never bought", not mode: a trial that ran out while the app
         // was offline is still reported as mode 'trial' by the cached status.
-        title: status?.trialEndsAt && !status.productId ? 'Your free trial has ended' : 'Your subscription has ended',
+        title: status?.trialEndsAt && !status.productId ? 'Your 30 days on us are up' : 'Your subscription has ended',
         body: 'Everything you logged is still here. Pick a plan to carry on.',
       }
   }

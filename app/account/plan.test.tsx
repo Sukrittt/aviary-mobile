@@ -53,7 +53,7 @@ it('shows the trial countdown without the lock-screen exits', () => {
   mockStatus = base
   const { getByText, queryByText } = renderWithProviders(<PlanScreen />)
 
-  expect(getByText('Free trial · 12 days left')).toBeTruthy()
+  expect(getByText('30 days on us · 12 days left')).toBeTruthy()
   expect(queryByText(/Export it free/)).toBeNull()
 })
 
@@ -62,7 +62,7 @@ it('gives an expired account every exit the plan promises', () => {
   mockStatus = { ...base, mode: 'expired', allowed: false, trialDaysRemaining: 0 }
   const { getByText } = renderWithProviders(<PlanScreen />)
 
-  expect(getByText('Your free trial has ended')).toBeTruthy()
+  expect(getByText('Your 30 days on us are up')).toBeTruthy()
   expect(getByText('Restore purchases')).toBeTruthy()
   expect(getByText('Sign out')).toBeTruthy()
 
