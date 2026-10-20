@@ -242,7 +242,8 @@ function ActivityScreen() {
   }, [customRange, period, selectedDate]);
   const categoryFilterLabel = selectedCategory ? splitEmoji(selectedCategory).text : null;
   const accountFilterLabel = selectedAccount ? accountName(accountsQ.data, selectedAccount) || "Account" : null;
-  const hasActiveFilters = Boolean(timeFilterLabel || categoryFilterLabel || accountFilterLabel);
+  const mineFilterOn = shared && !feedView && mineOnly;
+  const hasActiveFilters = Boolean(timeFilterLabel || categoryFilterLabel || accountFilterLabel || mineFilterOn);
   const importing = useImportInProgress();
 
   const clearTimeFilter = useCallback(() => {
@@ -255,6 +256,7 @@ function ActivityScreen() {
     clearTimeFilter();
     setSelectedCategory("");
     setSelectedAccount("");
+    setMineOnly(false);
   }, [clearTimeFilter]);
   // Currently swiped-open row's close/reset fns + key — snapped shut on blur so the
   // edit/delete panel is never left revealed when the user returns to this tab. Blur uses
@@ -645,13 +647,6 @@ function ActivityScreen() {
           onPress={() => setCategorySheetOpen(true)}
         />
       </View>
-      {shared && !feedView ? (
-        <View style={styles.whoRow}>
-          <Chip label="Everyone" selected={!mineOnly} onPress={() => setMineOnly(false)} />
-          <Chip label="Mine" selected={mineOnly} onPress={() => setMineOnly(true)} />
-        </View>
-      ) : null}
-
       {hasActiveFilters ? (
         <Reanimated.View
           entering={FadeIn.duration(150)}
@@ -709,6 +704,13 @@ function ActivityScreen() {
                 label={accountFilterLabel}
                 accessibilityLabel="Remove account filter"
                 onRemove={() => setSelectedAccount("")}
+              />
+            ) : null}
+            {mineFilterOn ? (
+              <AppliedFilterChip
+                label="Mine"
+                accessibilityLabel="Remove Mine filter"
+                onRemove={() => setMineOnly(false)}
               />
             ) : null}
           </Reanimated.View>
@@ -1207,6 +1209,12 @@ function ActivityScreen() {
               />
             </View>
           )}
+          {shared && !feedView && (
+            <View style={[styles.accountFilter, styles.whoRow, { borderTopColor: tokens.border }]}>
+              <Chip label="Everyone" selected={!mineOnly} onPress={() => setMineOnly(false)} />
+              <Chip label="Mine" selected={mineOnly} onPress={() => setMineOnly(true)} />
+            </View>
+          )}
         </BottomSheet>
 
         <CategoryPickerSheet
@@ -1447,7 +1455,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     paddingTop: 4,
   },
-  whoRow: { flexDirection: "row", gap: 8, marginTop: 10 },
+  whoRow: { flexDirection: "row", gap: 8 },
   addedBy: { fontSize: 12, marginTop: -4, marginBottom: 8 },
   sheetTitle: {
     fontSize: 12,

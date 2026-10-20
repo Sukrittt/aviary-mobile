@@ -589,10 +589,13 @@ describe('who logged what', () => {
     const screen = renderWithProviders(<ActivityScreen />)
     expect(screen.getByLabelText('Added by Priya')).toBeTruthy()
     expect(screen.getByLabelText('Added by Rahul')).toBeTruthy()
+    // Everyone/Mine lives in the filter sheet, not on the page.
+    expect(screen.queryByText('Mine')).toBeNull()
+    fireEvent.press(screen.getByLabelText('Filter transactions'))
     fireEvent.press(screen.getByText('Mine'))
     expect(screen.queryByText('Item 1')).toBeNull()
     expect(screen.getByText('Item 2')).toBeTruthy()
-    fireEvent.press(screen.getByText('Everyone'))
+    fireEvent.press(screen.getByLabelText('Remove Mine filter'))
     expect(screen.getByText('Item 1')).toBeTruthy()
   })
 
