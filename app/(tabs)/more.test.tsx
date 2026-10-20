@@ -323,6 +323,7 @@ describe('More tab · Scan a bill sheet', () => {
 
 describe('More tab · feature shortcuts', () => {
   it.each([
+    ['Add from statement', '/modals/statement'],
     ['Recurring expenses', '/account/recurring'],
     ['Archive', '/account/archive'],
     ['Subscriptions', '/subscriptions'],

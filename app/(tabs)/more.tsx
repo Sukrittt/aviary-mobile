@@ -7,7 +7,7 @@ import { useQuery } from '@tanstack/react-query'
 import { requestPinWidget } from 'react-native-android-widget'
 import * as ImagePicker from 'expo-image-picker'
 import * as Haptics from 'expo-haptics'
-import { Gift, Brain, Wallet, Bank, TrendUp, Lock, Database, Archive, Repeat, CreditCard, ChatCircle, SquaresFour, CaretRight, Scan, Camera, Images, FileText, Receipt, ChartLine, ClockCounterClockwise, Plus, UserPlus, type PhosphorIcon } from '@/src/components/shared/icons'
+import { Gift, Brain, Wallet, Bank, TrendUp, Lock, Database, Archive, Repeat, CreditCard, ChatCircle, SquaresFour, CaretRight, Scan, Camera, Images, FileText, Receipt, ChartLine, ClockCounterClockwise, Plus, UserPlus, UploadSimple, type PhosphorIcon } from '@/src/components/shared/icons'
 import { Screen } from '@/src/components/ui/Screen'
 import { Alert } from '@/src/components/ui/AlertHost'
 import { useTheme } from '@/src/theme/ThemeProvider'
@@ -238,6 +238,14 @@ function MoreScreen() {
           <View style={styles.section}>
             <Text style={[styles.sectionLabel, { color: tokens.text3, fontFamily: fontFamily.bodyBold }]}>BUDGET</Text>
             <View style={styles.featureGrid}>
+              <FeatureCard
+                icon={UploadSimple}
+                label="Add from statement"
+                blurb="Catch up from a screenshot or file"
+                iconBg={tokens.blueSoft}
+                iconColor={tokens.blue}
+                onPress={() => router.push('/modals/statement')}
+              />
               {!isHidden(user, 'income') && <FeatureCard
                 icon={Wallet}
                 label="Income"

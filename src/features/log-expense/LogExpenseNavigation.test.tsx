@@ -40,6 +40,13 @@ it('long-pressing + opens the quick-add menu', () => {
   expect(queryByLabelText('Add income')).toBeNull()
 })
 
+it('opens the statement import from the quick-add menu', () => {
+  const { getByRole, getByLabelText } = renderNav()
+  fireEvent(getByRole('button', { name: 'Log expense' }), 'longPress')
+  fireEvent.press(getByLabelText('Add from statement'))
+  expect(mockPush).toHaveBeenCalledWith('/modals/statement')
+})
+
 it('sends scan a bill through the photo picker on More', () => {
   const { getByRole, getByLabelText } = renderNav()
   fireEvent(getByRole('button', { name: 'Log expense' }), 'longPress')
