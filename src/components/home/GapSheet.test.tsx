@@ -1,4 +1,5 @@
-import { fireEvent, within } from '@testing-library/react-native'
+import { useEffect, useState } from 'react'
+import { act, fireEvent, within } from '@testing-library/react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { GapSheet } from './GapSheet'
 
@@ -18,6 +19,15 @@ beforeEach(() => {
 })
 
 const AWAY = { Food: '2026-10-15', Travel: '2026-10-01' }
+
+// rerender() would drop renderWithProviders' ThemeProvider, so Home's lastSpent changes through state instead.
+const control: { set?: (next: Record<string, string>) => void } = {}
+function Home() {
+  const [lastSpent, setLastSpent] = useState<Record<string, string>>(AWAY)
+  useEffect(() => { control.set = setLastSpent }, [])
+  return <GapSheet lastSpent={lastSpent} />
+}
+const homeRefreshes = (next: Record<string, string>) => act(() => control.set!({ ...next }))
 
 it('offers three calm ways back after two days away, upload first', () => {
   const screen = renderWithProviders(<GapSheet lastSpent={AWAY} />)
@@ -52,4 +62,23 @@ it('types into log-expense when Ask Aviary is off', () => {
   expect(screen.getByText('Add what you remember, one at a time.')).toBeTruthy()
   fireEvent.press(screen.getByText('Type what you remember'))
   expect(mockPush).toHaveBeenCalledWith('/modals/log-expense')
+})
+
+it('is back after leaving an option without logging, so another can be picked', () => {
+  const screen = renderWithProviders(<Home />)
+  fireEvent.press(screen.getByText('Type what you remember'))
+  mockSeen = true
+  homeRefreshes(AWAY)
+  expect(screen.getByText('Pick up where you left off')).toBeTruthy()
+  // Logging something moves the gap on.
+  homeRefreshes({ ...AWAY, Food: '2026-10-19' })
+  expect(screen.queryByText('Pick up where you left off')).toBeNull()
+})
+
+it('stays closed after Not now', () => {
+  const screen = renderWithProviders(<Home />)
+  fireEvent.press(screen.getByText('Not now'))
+  mockSeen = true
+  homeRefreshes(AWAY)
+  expect(screen.queryByText('Pick up where you left off')).toBeNull()
 })

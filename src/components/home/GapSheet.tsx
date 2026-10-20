@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { useIsFocused, useRouter } from 'expo-router'
 import { ArrowClockwise, CaretRight, ChatText, UploadSimple } from '@/src/components/shared/icons'
@@ -22,12 +23,24 @@ const TILE_INK = '#22201c'
  * days old, three calm ways to catch up, upload first. Once per gap: any answer, Not now
  * or a swipe away is remembered against the last expense's date, so it only
  * comes back after something newer is logged and another gap opens.
+ * The one exception is going back: leave an option without logging anything
+ * (back gesture or its close) and the sheet is here again to pick another.
  */
 export function GapSheet({ lastSpent }: { lastSpent: Record<string, string> | undefined }) {
   const since = lastSpent ? gapToFill(lastSpent, todayLocal(), null) : null
   const [seen, setSeen] = useDismissedRolloverBanner(`gap-${since ?? 'none'}`)
-  if (!since || seen !== false) return null
-  return <OpenGapSheet since={since} onSeen={() => setSeen(true)} />
+  // The gap an option was opened for. Once anything's logged the gap moves on and this stops matching.
+  const [picked, setPicked] = useState<string | null>(null)
+  if (!since || (seen !== false && picked !== since)) return null
+  return (
+    <OpenGapSheet
+      since={since}
+      onSeen={(option) => {
+        setSeen(true)
+        setPicked(option === 'later' || option === 'dismiss' ? null : since)
+      }}
+    />
+  )
 }
 
 /**
@@ -35,7 +48,7 @@ export function GapSheet({ lastSpent }: { lastSpent: Record<string, string> | un
  * while another screen is on top of Home) never re-renders Home's tree on an
  * ordinary tab switch.
  */
-function OpenGapSheet({ since, onSeen }: { since: string; onSeen: () => void }) {
+function OpenGapSheet({ since, onSeen }: { since: string; onSeen: (option: string) => void }) {
   const focused = useIsFocused()
   const { tokens, space, radius, type } = useTheme()
   const router = useRouter()
@@ -43,7 +56,7 @@ function OpenGapSheet({ since, onSeen }: { since: string; onSeen: () => void }) 
 
   function choose(option: string, go?: () => void) {
     track('gap_sheet_choice', { option })
-    onSeen()
+    onSeen(option)
     go?.()
   }
 
