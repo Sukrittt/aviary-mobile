@@ -14,10 +14,6 @@ import { track } from '@/src/lib/analytics'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 
-/** The landing page's toned tiles. Fixed in both schemes, with dark ink on top, like INCOME_FLOOD. */
-const TILE = { upload: '#a5d8ee', type: '#b7e7a2', fresh: '#f8cb7b' } as const
-const TILE_INK = '#22201c'
-
 /**
  * Home's "Pick up where you left off": when the last expense is two or more
  * days old, three calm ways to catch up, upload first. Once per gap: any answer, Not now
@@ -89,8 +85,9 @@ function OpenGapSheet({ since, onSeen }: { since: string; onSeen: (option: strin
           <Text style={{ color: tokens.mint, fontFamily: fontFamily.bodySemiBold, fontSize: type.micro }}>Easiest</Text>
         </View>
         <View style={[styles.option, { gap: space.md }]}>
-          <View style={[styles.tile, { width: 48, height: 48, borderRadius: radius.md, backgroundColor: TILE.upload }]}>
-            <Icon icon={UploadSimple} size={24} color={TILE_INK} />
+          {/* App tones, not the landing's pastels: accent for the option that leads, neutral for the rest. */}
+          <View style={[styles.tile, { width: 48, height: 48, borderRadius: radius.md, backgroundColor: tokens.accentSoft }]}>
+            <Icon icon={UploadSimple} size={24} color={tokens.accentInk} />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={[label, { fontSize: type.bodyLg }]}>Upload a screenshot or statement</Text>
@@ -118,8 +115,8 @@ function OpenGapSheet({ since, onSeen }: { since: string; onSeen: (option: strin
             onPress={() => choose(o.key, o.go)}
             style={[styles.option, { gap: space.md, padding: space.md, backgroundColor: tokens.inputBg, borderRadius: radius.lg }]}
           >
-            <View style={[styles.tile, { width: 36, height: 36, borderRadius: 11, backgroundColor: TILE[o.key] }]}>
-              <Icon icon={o.icon} size={18} color={TILE_INK} />
+            <View style={[styles.tile, { width: 36, height: 36, borderRadius: 11, backgroundColor: tokens.modalBg }]}>
+              <Icon icon={o.icon} size={18} color={tokens.text2} />
             </View>
             <View style={{ flex: 1 }}>
               <Text style={label}>{o.label}</Text>
