@@ -72,6 +72,20 @@ it('useAddExpense invalidates both the expenses and ai-brief queries on success'
   expect(invalidateSpy).toHaveBeenCalledWith({ queryKey: ['category-map'] })
 })
 
+it('useAddExpense leaves the refetch to a batch caller that defers it, and never sends the flag', async () => {
+  ;(postExpensePayload as jest.Mock).mockResolvedValue({ id: 'row-1', timestamp: '2026-01-01T10:00:00+05:30' })
+  ;(mintExpensePayload as jest.Mock).mockClear()
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { gcTime: Infinity } } })
+  const invalidateSpy = jest.spyOn(queryClient, 'invalidateQueries')
+  const { result } = renderHook(() => useAddExpense(), { wrapper: wrapper(queryClient) })
+
+  result.current.mutate({ item: 'Coffee', amount_inr: '150', category: 'Food', deferRefresh: true })
+
+  await waitFor(() => expect(result.current.isSuccess).toBe(true))
+  expect(invalidateSpy).not.toHaveBeenCalled()
+  expect(mintExpensePayload).toHaveBeenCalledWith({ item: 'Coffee', amount_inr: '150', category: 'Food' })
+})
+
 describe('useAddExpense offline (offline sync §5/§7)', () => {
   beforeEach(() => {
     jest.clearAllMocks()
