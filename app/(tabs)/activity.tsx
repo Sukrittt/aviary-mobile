@@ -738,6 +738,12 @@ function ActivityScreen() {
             </>
           ) : (
             <>
+              {/* Quiet on purpose: the queue drains itself, this only says it's on it. */}
+              {unsynced.pending > 0 && (
+                <Text style={[styles.syncing, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>
+                  Syncing {unsynced.pending}…
+                </Text>
+              )}
               {duplicateCount > 0 && (
                 <Chip
                   selected
@@ -1381,6 +1387,7 @@ const styles = StyleSheet.create({
   },
   rowTint: { borderRadius: 14 },
   failedRow: { borderRadius: 14, paddingHorizontal: 14 },
+  syncing: { fontSize: 12, alignSelf: "center" },
   icon: {
     width: 40,
     height: 40,

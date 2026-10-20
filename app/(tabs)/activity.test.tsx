@@ -602,3 +602,24 @@ describe('expenses that failed to sync', () => {
     expect(screen.queryByText(/couldn't be saved/)).toBeNull()
   })
 })
+
+describe('sync status while online', () => {
+  beforeEach(async () => {
+    await AsyncStorage.clear()
+    mockUseExpensesPage.mockReturnValue({ data: pageResult({}), isLoading: false, error: null })
+  })
+
+  it('shows how many are still syncing, and drops it once the queue drains', async () => {
+    const queued = (id: string) => ({ client_id: id, item: 'Chai', amount_inr: '20', category: 'Food', date: '2026-06-01', timestamp: '2026-06-01T10:00:00' })
+    await pending.enqueue(queued('c1'), 'u1', false, 'u1')
+    await pending.enqueue(queued('c2'), 'u1', false, 'u1')
+    const screen = renderWithProviders(<ActivityScreen />)
+    expect(await screen.findByText('Syncing 2…')).toBeTruthy()
+
+    await act(async () => {
+      await pending.remove('c1', 'u1')
+      await pending.remove('c2', 'u1')
+    })
+    await waitFor(() => expect(screen.queryByText(/Syncing/)).toBeNull())
+  })
+})
