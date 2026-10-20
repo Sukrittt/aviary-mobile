@@ -11,6 +11,7 @@ import { getBudgetCategories, moveExpense, type Budget } from '@/src/api/spaces'
 import { useBudgetSpaces } from '@/src/hooks/useBudgetSpaces'
 import { tap } from '@/src/lib/haptics'
 import type { ExpenseRow } from '@/src/types'
+import { BudgetIcon } from './BudgetIcon'
 
 /**
  * "Move to another budget", for an expense logged in the wrong one. Pick the
@@ -83,7 +84,7 @@ export function MoveExpenseSheet({ expense, onClose, onMoved }: { expense: Expen
               accessibilityState={{ checked: selected }}
               style={[styles.row, { backgroundColor: selected ? tokens.accentSoft : tokens.pillBg, borderColor: selected ? tokens.accent : 'transparent' }]}
             >
-              <Text style={styles.emoji}>{b.emoji}</Text>
+              <BudgetIcon budget={b} size={22} color={tokens.text} />
               <Text style={[styles.name, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>{b.name}</Text>
               {selected ? <Check size={18} color={tokens.accentInk} weight="bold" /> : null}
             </Pressable>
@@ -142,7 +143,6 @@ const styles = StyleSheet.create({
   label: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 18, marginBottom: 8 },
   list: { gap: 8 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 14, borderWidth: 1.5, paddingHorizontal: 14, paddingVertical: 12 },
-  emoji: { fontSize: 22 },
   name: { fontSize: 15, flex: 1 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: { borderRadius: 18, paddingHorizontal: 14, paddingVertical: 8 },

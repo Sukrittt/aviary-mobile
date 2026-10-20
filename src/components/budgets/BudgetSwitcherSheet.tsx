@@ -13,6 +13,7 @@ import { currentUserId } from '@/src/api/accessMode'
 import { tap } from '@/src/lib/haptics'
 import { MemberAvatars } from './MemberAvatars'
 import { BudgetLimitNote } from './BudgetLimitNote'
+import { BudgetIcon } from './BudgetIcon'
 
 /**
  * Every budget this person can open, the open one ticked, plus "New budget"
@@ -65,7 +66,7 @@ export function BudgetSwitcherSheet({ visible, onClose }: { visible: boolean; on
               accessibilityLabel={`${b.name}${b.role === 'owner' && shared ? ', you own it' : ''}`}
               style={[styles.row, { backgroundColor: selected ? tokens.accentSoft : tokens.pillBg, borderColor: selected ? tokens.accent : 'transparent' }]}
             >
-              <Text style={styles.emoji}>{b.emoji}</Text>
+              <BudgetIcon budget={b} size={24} color={tokens.text} />
               <View style={styles.rowMain}>
                 <Text numberOfLines={1} style={[styles.name, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>{b.name}</Text>
                 {shared ? (
@@ -90,7 +91,7 @@ export function BudgetSwitcherSheet({ visible, onClose }: { visible: boolean; on
 
       {restorable.map((d) => (
         <View key={d.id} style={[styles.row, styles.deleted, { borderColor: tokens.border }]}>
-          <Text style={[styles.emoji, { opacity: 0.5 }]}>{d.emoji}</Text>
+          <BudgetIcon budget={d} size={24} color={tokens.text3} />
           <Text numberOfLines={1} style={[styles.name, styles.rowMain, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>{`${d.name} · Deleted`}</Text>
           <Pressable onPress={() => restore(d.id)} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Restore ${d.name}`}>
             <Text style={[styles.name, { color: tokens.accentInk, fontFamily: fontFamily.bodySemiBold }]}>Restore</Text>
@@ -122,7 +123,6 @@ const styles = StyleSheet.create({
   title: { fontSize: 18, marginBottom: 14 },
   list: { gap: 8 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 14, borderWidth: 1.5, paddingHorizontal: 14, paddingVertical: 12 },
-  emoji: { fontSize: 24 },
   deleted: { marginTop: 8, borderStyle: 'dashed', borderWidth: 1 },
   rowMain: { flex: 1, gap: 4 },
   name: { fontSize: 15 },

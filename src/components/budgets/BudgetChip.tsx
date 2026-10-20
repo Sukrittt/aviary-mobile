@@ -6,6 +6,7 @@ import { CaretDown } from '@/src/components/shared/icons'
 import { useBudgetSpaces } from '@/src/hooks/useBudgetSpaces'
 import { tap } from '@/src/lib/haptics'
 import { BudgetSwitcherSheet } from './BudgetSwitcherSheet'
+import { BudgetIcon } from './BudgetIcon'
 
 /** The home header's budget name, with 2+ budgets in place of the bird mark. Opens the switcher. */
 export function BudgetChip() {
@@ -27,7 +28,7 @@ export function BudgetChip() {
         accessibilityHint="Switch budgets"
         style={[styles.chip, { backgroundColor: tokens.accentSoft }]}
       >
-        <Text style={styles.emoji}>{active.emoji}</Text>
+        <BudgetIcon budget={active} size={16} color={tokens.accentInk} />
         <Text numberOfLines={1} style={[styles.name, { color: tokens.accentInk, fontFamily: fontFamily.bodySemiBold }]}>{active.name}</Text>
         <CaretDown size={14} color={tokens.accentInk} weight="bold" />
       </Pressable>
@@ -38,6 +39,5 @@ export function BudgetChip() {
 
 const styles = StyleSheet.create({
   chip: { flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 18, paddingHorizontal: 12, paddingVertical: 8, maxWidth: 150 },
-  emoji: { fontSize: 16 },
   name: { fontSize: 14, flexShrink: 1 },
 })

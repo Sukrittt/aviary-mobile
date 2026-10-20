@@ -103,7 +103,7 @@ export async function syncTimezone(user: UserProfile): Promise<void> {
 }
 
 /** Shared budgets you own that have other people in them: deleting your account has to hand each one on or close it. */
-export type SharedBudget = { id: string; name: string; emoji: string; personal: boolean; members: { userId: string; name: string | null; joinedAt?: string | null }[] }
+export type SharedBudget = { id: string; name: string; emoji: string; icon?: string; personal: boolean; members: { userId: string; name: string | null; joinedAt?: string | null }[] }
 
 export async function getSharedBudgets(): Promise<SharedBudget[]> {
   const resp = await apiFetch('/api/user/shared-budgets')

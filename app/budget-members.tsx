@@ -34,6 +34,7 @@ import { switchBudget } from '@/src/lib/budgetSwitch'
 import { fallbackBudgetId, firstName, joinedOn, MAX_MEMBERS } from '@/src/lib/budgetMembership'
 import { formatDateShort } from '@/src/lib/format'
 import { toLocalDateString } from '@/src/lib/date'
+import { BudgetIcon } from '@/src/components/budgets/BudgetIcon'
 
 const oops = () => Alert.alert("Couldn't do that", 'Check your connection and try again.')
 
@@ -187,7 +188,10 @@ export default function BudgetMembersScreen() {
         <Pressable onPress={() => router.back()} hitSlop={12} accessibilityLabel="Back" style={[styles.backButton, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
           <Icon icon={ArrowLeft} size={20} color={tokens.text} />
         </Pressable>
-        <Text numberOfLines={1} style={[styles.headerTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>{`${budget?.emoji ?? ''} ${name}`.trim()}</Text>
+        <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          {budget ? <BudgetIcon budget={budget} size={20} color={tokens.text} /> : null}
+          <Text numberOfLines={1} style={[styles.headerTitle, { flexShrink: 1, color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>{name}</Text>
+        </View>
         {owner ? (
           <Pressable onPress={() => openSheet({ kind: 'rename' })} hitSlop={8} accessibilityRole="button">
             <Text style={[styles.link, { color: tokens.accentInk, fontFamily: fontFamily.bodySemiBold }]}>Rename</Text>

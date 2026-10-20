@@ -9,6 +9,8 @@ export type Budget = {
   id: string
   name: string
   emoji: string
+  /** Category icon catalog key; budgetIconKey falls back to `emoji` without it. */
+  icon?: string
   role: 'owner' | 'member'
   ownerId: string
   currencyCode: string
@@ -17,7 +19,7 @@ export type Budget = {
   /** A shared budget whose owner's plan lapsed: reads work, writes answer 402 BUDGET_READ_ONLY. */
   readOnly?: boolean
 }
-export type DeletedBudget = { id: string; name: string; emoji: string; deletedAt: string; deletedBy: string | null; canRestore: boolean }
+export type DeletedBudget = { id: string; name: string; emoji: string; icon?: string; deletedAt: string; deletedBy: string | null; canRestore: boolean }
 export type BudgetList = { budgets: Budget[]; deleted?: DeletedBudget[]; count: number; limit: number; activeId: string | null }
 
 export async function getBudgets(): Promise<BudgetList> {
@@ -31,7 +33,7 @@ export async function getBudgets(): Promise<BudgetList> {
 export class BudgetLimitError extends Error {}
 
 /** `import`: an empty budget, not set up, for the history import to fill. */
-export async function createBudget(input: { name: string; emoji: string; currencyCode: string; copyCategories: boolean; import?: boolean }): Promise<Budget> {
+export async function createBudget(input: { name: string; icon: string; currencyCode: string; copyCategories: boolean; import?: boolean }): Promise<Budget> {
   const resp = await apiFetch('/api/spaces', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -42,7 +44,7 @@ export async function createBudget(input: { name: string; emoji: string; currenc
   return resp.json()
 }
 
-export async function updateBudget(id: string, patch: { name?: string; emoji?: string }): Promise<Budget> {
+export async function updateBudget(id: string, patch: { name?: string; icon?: string }): Promise<Budget> {
   const resp = await apiFetch(`/api/spaces/${encodeURIComponent(id)}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
@@ -138,7 +140,7 @@ export async function restoreBudget(id: string): Promise<void> {
 
 export type JoinPreview = {
   status: 'ok' | 'expired' | 'cancelled' | 'accepted' | 'not_found'
-  budget?: { id: string; name: string; emoji: string }
+  budget?: { id: string; name: string; emoji: string; icon?: string }
   /** First name. */
   inviter?: string | null
   members?: number

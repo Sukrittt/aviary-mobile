@@ -1,7 +1,7 @@
 import { ExpenseWriteError } from '@/src/lib/expenseConflict'
 import type { ExpenseRow } from '@/src/types'
 import { Alert, Modal } from 'react-native'
-import { act, fireEvent, waitFor } from '@testing-library/react-native'
+import { act, fireEvent, waitFor, within } from '@testing-library/react-native'
 import { createTestQueryClient, renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { userKey } from '@/src/hooks/useUser'
 import { accountsKey } from '@/src/hooks/useAccounts'
@@ -1032,6 +1032,8 @@ describe('which budget it logs to', () => {
   it('names the budget with 2+, so nothing lands in the wrong one', async () => {
     mockBudgetList = { budgets: [personal, { ...personal, id: 'sp_home', name: 'Home', emoji: '🏠', personal: false }], count: 2, limit: 5, activeId: 'u1' }
     const utils = setup()
-    await waitFor(() => expect(utils.getByTestId('log-budget')).toHaveTextContent('Logging to 🐦 Personal'))
+    await waitFor(() => expect(within(utils.getByTestId('log-budget')).getByText('Logging to')).toBeTruthy())
+    expect(within(utils.getByTestId('log-budget')).getByText('Personal')).toBeTruthy()
+    expect(utils.getByTestId('budget-icon-Bird')).toBeTruthy()
   })
 })

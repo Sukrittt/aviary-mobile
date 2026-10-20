@@ -39,7 +39,10 @@ beforeEach(() => jest.clearAllMocks())
 describe('BudgetChip', () => {
   it('names the open budget and opens the switcher', () => {
     const utils = renderWithProviders(<BudgetChip />, { queryClient: withBudgets({ budgets: [personal, home], count: 2 }) })
-    expect(utils.getByTestId('budget-chip')).toHaveTextContent('🐦Personal')
+    expect(utils.getByTestId('budget-chip')).toHaveTextContent('Personal')
+    // Our icon, not the emoji the budget was made with.
+    expect(utils.getByTestId('budget-icon-Bird')).toBeTruthy()
+    expect(utils.queryByText('🐦')).toBeNull()
     fireEvent.press(utils.getByTestId('budget-chip'))
     expect(utils.getByText('Budgets')).toBeTruthy()
   })
@@ -52,6 +55,8 @@ describe('BudgetSwitcherSheet', () => {
     expect(utils.getByTestId('budget-row-sp_home').props.accessibilityState).toEqual({ checked: false })
     // Only the shared one: a solo budget is obviously yours.
     expect(utils.getAllByText('Owner')).toHaveLength(1)
+    expect(utils.getByTestId('budget-icon-House')).toBeTruthy()
+    expect(utils.queryByText('🏠')).toBeNull()
   })
 
   it('switches to the budget you tap', () => {
@@ -81,6 +86,7 @@ describe('BudgetSwitcherSheet', () => {
     const deleted = [{ id: 'sp_trip', name: 'Goa', emoji: '✈️', deletedAt: '', deletedBy: 'Priya', canRestore: true }]
     const utils = renderWithProviders(<BudgetSwitcherSheet visible onClose={() => {}} />, { queryClient: withBudgets({ deleted }) })
     expect(utils.getByText('Goa · Deleted')).toBeTruthy()
+    expect(utils.getByTestId('budget-icon-Airplane')).toBeTruthy()
     fireEvent.press(utils.getByLabelText('Restore Goa'))
     expect(restoreBudget).toHaveBeenCalledWith('sp_trip')
   })
