@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import * as Haptics from 'expo-haptics'
+import Animated, { useAnimatedStyle, useReducedMotion, useSharedValue, withSequence, withSpring, withTiming } from 'react-native-reanimated'
 import { Alert } from '@/src/components/ui/AlertHost'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
@@ -138,7 +139,7 @@ export default function NewBudgetModal() {
                 <TextInput
                   value={name}
                   onChangeText={setName}
-                  placeholder="e.g. Home, or Goa trip"
+                  placeholder={currency === 'INR' ? 'Home, Goa trip, Studio…' : 'Home, Beach trip, Studio…'}
                   placeholderTextColor={tokens.text3}
                   maxLength={40}
                   accessibilityLabel="Budget name"
@@ -147,25 +148,17 @@ export default function NewBudgetModal() {
                 />
               </View>
               <View style={styles.iconRow}>
-                {BUDGET_ICONS.map((key) => {
-                  const selected = key === icon
-                  const Cell = CATEGORY_ICON_COMPONENTS[key]
-                  return (
-                    <Pressable
-                      key={key}
-                      onPress={() => {
-                        if (!selected) tick()
-                        setIcon(key)
-                      }}
-                      accessibilityRole="radio"
-                      accessibilityLabel={iconLabel(key)}
-                      accessibilityState={{ checked: selected }}
-                      style={[styles.iconCell, { backgroundColor: selected ? tokens.accentSoft : tokens.pillBg, borderColor: selected ? tokens.accent : 'transparent' }]}
-                    >
-                      <Cell size={22} color={selected ? tokens.accentInk : tokens.text2} />
-                    </Pressable>
-                  )
-                })}
+                {BUDGET_ICONS.map((key) => (
+                  <IconCell
+                    key={key}
+                    iconKey={key}
+                    selected={key === icon}
+                    onPick={() => {
+                      if (key !== icon) tick()
+                      setIcon(key)
+                    }}
+                  />
+                ))}
               </View>
             </View>
 
@@ -246,6 +239,37 @@ export default function NewBudgetModal() {
         />
       </BottomSheet>
     </KeyboardAvoidingView>
+  )
+}
+
+/** One icon in the picker: squishes on press, and a pick gets a little bounce. */
+function IconCell({ iconKey, selected, onPick }: { iconKey: (typeof BUDGET_ICONS)[number]; selected: boolean; onPick: () => void }) {
+  const { tokens } = useTheme()
+  const reduceMotion = useReducedMotion()
+  const scale = useSharedValue(1)
+  const style = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }))
+  const Cell = CATEGORY_ICON_COMPONENTS[iconKey]
+  return (
+    <Animated.View style={style}>
+      <Pressable
+        onPressIn={() => {
+          if (!reduceMotion) scale.value = withTiming(0.95, { duration: 90 })
+        }}
+        onPressOut={() => {
+          if (!reduceMotion) scale.value = withSpring(1, { mass: 0.6, damping: 12, stiffness: 260 })
+        }}
+        onPress={() => {
+          if (!selected && !reduceMotion) scale.value = withSequence(withTiming(1.12, { duration: 110 }), withSpring(1, { mass: 0.6, damping: 7, stiffness: 240 }))
+          onPick()
+        }}
+        accessibilityRole="radio"
+        accessibilityLabel={iconLabel(iconKey)}
+        accessibilityState={{ checked: selected }}
+        style={[styles.iconCell, { backgroundColor: selected ? tokens.accentSoft : tokens.pillBg, borderColor: selected ? tokens.accent : 'transparent' }]}
+      >
+        <Cell size={22} color={selected ? tokens.accentInk : tokens.text2} />
+      </Pressable>
+    </Animated.View>
   )
 }
 

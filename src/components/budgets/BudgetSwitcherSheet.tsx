@@ -4,7 +4,8 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { BottomSheet } from '@/src/components/shared/Modal'
-import { Check, DotsThreeVertical, Plus, UserPlus } from '@/src/components/shared/icons'
+import { Check, GearSix, Lock, Plus, UserPlus } from '@/src/components/shared/icons'
+import { Button } from '@/src/components/ui/Button'
 import { budgetsKey, useBudgetList, useBudgetSpaces } from '@/src/hooks/useBudgetSpaces'
 import { restoreBudget } from '@/src/api/spaces'
 import { Alert } from '@/src/components/ui/AlertHost'
@@ -16,11 +17,12 @@ import { BudgetLimitNote } from './BudgetLimitNote'
 import { BudgetIcon } from './BudgetIcon'
 
 /**
- * Every budget this person can open, the open one ticked, plus "New budget"
- * and "Join with a code". Each row's dots (or a long press) open its members.
+ * Every budget this person can open in one grouped card, the open one tinted
+ * and ticked, plus "New budget" and "Join with a code". Each row's gear (or a
+ * long press) opens its members. `onSwitch` runs after a switch to another one.
  * Opened from the home header's budget chip, or More → Budgets.
  */
-export function BudgetSwitcherSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+export function BudgetSwitcherSheet({ visible, onClose, onSwitch }: { visible: boolean; onClose: () => void; onSwitch?: (id: string) => void }) {
   const { tokens } = useTheme()
   const router = useRouter()
   const queryClient = useQueryClient()
@@ -38,7 +40,7 @@ export function BudgetSwitcherSheet({ visible, onClose }: { visible: boolean; on
     tap()
     onClose()
     const uid = currentUserId()
-    if (uid && id !== active?.id) void switchBudget(queryClient, uid, id)
+    if (uid && id !== active?.id) void switchBudget(queryClient, uid, id).then(() => onSwitch?.(id))
   }
 
   const go = (href: string) => {
@@ -50,9 +52,9 @@ export function BudgetSwitcherSheet({ visible, onClose }: { visible: boolean; on
 
   return (
     <BottomSheet visible={visible} onClose={onClose}>
-      <Text style={[styles.title, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Budgets</Text>
-      <View style={styles.list}>
-        {budgets.map((b) => {
+      <Text style={[styles.title, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Your budgets</Text>
+      <View style={[styles.list, { backgroundColor: tokens.pillBg }]}>
+        {budgets.map((b, i) => {
           const selected = b.id === active?.id
           const shared = b.members.length > 1
           return (
@@ -64,17 +66,27 @@ export function BudgetSwitcherSheet({ visible, onClose }: { visible: boolean; on
               accessibilityRole="radio"
               accessibilityState={{ checked: selected }}
               accessibilityLabel={`${b.name}${b.role === 'owner' && shared ? ', you own it' : ''}`}
-              style={[styles.row, { backgroundColor: selected ? tokens.accentSoft : tokens.pillBg, borderColor: selected ? tokens.accent : 'transparent' }]}
+              style={({ pressed }) => [
+                styles.row,
+                i > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: tokens.border },
+                { backgroundColor: selected ? tokens.accentSoft : pressed ? tokens.border : 'transparent' },
+              ]}
             >
               <BudgetIcon budget={b} size={24} color={tokens.text} />
               <View style={styles.rowMain}>
                 <Text numberOfLines={1} style={[styles.name, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>{b.name}</Text>
-                {shared ? (
+                {shared || b.readOnly ? (
                   <View style={styles.meta}>
-                    <MemberAvatars members={b.members} size={20} />
-                    {b.role === 'owner' ? (
+                    {shared ? <MemberAvatars members={b.members} size={20} /> : null}
+                    {shared && b.role === 'owner' ? (
                       <View style={[styles.badge, { backgroundColor: tokens.bg }]}>
                         <Text style={[styles.badgeText, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>Owner</Text>
+                      </View>
+                    ) : null}
+                    {b.readOnly ? (
+                      <View style={[styles.badge, styles.readOnly, { backgroundColor: tokens.warnSoft }]}>
+                        <Lock size={11} color={tokens.warnInk} weight="fill" />
+                        <Text style={[styles.badgeText, { color: tokens.warnInk, fontFamily: fontFamily.bodySemiBold }]}>Read-only</Text>
                       </View>
                     ) : null}
                   </View>
@@ -82,7 +94,7 @@ export function BudgetSwitcherSheet({ visible, onClose }: { visible: boolean; on
               </View>
               {selected ? <Check size={18} color={tokens.accentInk} weight="bold" /> : null}
               <Pressable testID={`budget-settings-${b.id}`} onPress={() => members(b.id)} hitSlop={10} accessibilityRole="button" accessibilityLabel={`${b.name} members and settings`}>
-                <DotsThreeVertical size={20} color={tokens.text2} weight="bold" />
+                <GearSix size={20} color={tokens.text2} />
               </Pressable>
             </Pressable>
           )
@@ -103,33 +115,33 @@ export function BudgetSwitcherSheet({ visible, onClose }: { visible: boolean; on
         <View style={{ marginTop: 12 }}>
           <BudgetLimitNote count={count} limit={limit} onContact={onClose} />
         </View>
-      ) : (
-        <View style={styles.actions}>
-          <Pressable testID="new-budget" onPress={() => go('/modals/new-budget')} accessibilityRole="button" style={[styles.action, { borderColor: tokens.border }]}>
-            <Plus size={18} color={tokens.accentInk} weight="bold" />
-            <Text style={[styles.actionText, { color: tokens.accentInk, fontFamily: fontFamily.bodySemiBold }]}>New budget</Text>
-          </Pressable>
-          <Pressable testID="join-budget" onPress={() => go('/modals/join-budget')} accessibilityRole="button" style={[styles.action, { borderColor: tokens.border }]}>
-            <UserPlus size={18} color={tokens.accentInk} weight="bold" />
-            <Text style={[styles.actionText, { color: tokens.accentInk, fontFamily: fontFamily.bodySemiBold }]}>Join with a code</Text>
-          </Pressable>
+      ) : null}
+      {/* At the limit, New budget drops out and Join takes the row. */}
+      <View style={styles.actions}>
+        {atLimit ? null : (
+          <View style={styles.action}>
+            <Button testID="new-budget" label="New budget" icon={Plus} size="small" onPress={() => go('/modals/new-budget')} />
+          </View>
+        )}
+        <View style={styles.action}>
+          <Button testID="join-budget" label="Join with a code" icon={UserPlus} size="small" variant="secondary" onPress={() => go('/modals/join-budget')} />
         </View>
-      )}
+      </View>
     </BottomSheet>
   )
 }
 
 const styles = StyleSheet.create({
   title: { fontSize: 18, marginBottom: 14 },
-  list: { gap: 8 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 14, borderWidth: 1.5, paddingHorizontal: 14, paddingVertical: 12 },
-  deleted: { marginTop: 8, borderStyle: 'dashed', borderWidth: 1 },
+  list: { borderRadius: 16, overflow: 'hidden' },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 12 },
+  deleted: { marginTop: 8, borderRadius: 14, borderStyle: 'dashed', borderWidth: 1 },
   rowMain: { flex: 1, gap: 4 },
   name: { fontSize: 15 },
   meta: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   badge: { borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2 },
   badgeText: { fontSize: 12 },
+  readOnly: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   actions: { flexDirection: 'row', gap: 8, marginTop: 12 },
-  action: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1, borderStyle: 'dashed', borderRadius: 14, paddingVertical: 14 },
-  actionText: { fontSize: 15 },
+  action: { flex: 1 },
 })

@@ -3,7 +3,7 @@ import { Pressable, Text, StyleSheet, View } from 'react-native'
 import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming } from 'react-native-reanimated'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
-import { CaretDown } from '@/src/components/shared/icons'
+import { CaretDown, Lock } from '@/src/components/shared/icons'
 import { useBudgetSpaces } from '@/src/hooks/useBudgetSpaces'
 import { tap } from '@/src/lib/haptics'
 import { BudgetSwitcherSheet } from './BudgetSwitcherSheet'
@@ -62,7 +62,7 @@ export function BudgetChip() {
         }}
         hitSlop={8}
         accessibilityRole="button"
-        accessibilityLabel={`${active.name} budget`}
+        accessibilityLabel={`${active.name} budget${active.readOnly ? ', read-only' : ''}`}
         accessibilityHint="Switch budgets"
         style={[styles.chip, { backgroundColor: tokens.accentSoft }]}
       >
@@ -80,6 +80,12 @@ export function BudgetChip() {
           </View>
         </Animated.View>
       </Pressable>
+      {active.readOnly ? (
+        // Stays after the name folds away; on its corner so the folded chip keeps its size.
+        <View testID="budget-chip-read-only" pointerEvents="none" style={[styles.lock, { backgroundColor: tokens.warnSoft, borderColor: tokens.bg }]}>
+          <Lock size={10} color={tokens.warnInk} weight="fill" />
+        </View>
+      ) : null}
       <BudgetSwitcherSheet visible={open} onClose={() => setOpen(false)} />
     </View>
   )
@@ -94,4 +100,5 @@ const styles = StyleSheet.create({
   nameClip: { height: 18, overflow: 'hidden' },
   nameRow: { position: 'absolute', left: 0, top: 0, height: 18, flexDirection: 'row', alignItems: 'center', gap: 6, paddingLeft: 6 },
   name: { fontSize: 14, maxWidth: 104 },
+  lock: { position: 'absolute', top: -4, right: -4, width: 18, height: 18, borderRadius: 9, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
 })

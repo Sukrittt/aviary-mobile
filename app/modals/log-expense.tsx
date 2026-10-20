@@ -82,6 +82,8 @@ import { insertExpense, queuedRow } from "@/src/lib/optimisticExpenses";
 import { activeBudgetId } from "@/src/lib/activeBudget";
 import { useQueryClient } from "@tanstack/react-query";
 import { BudgetIcon } from '@/src/components/budgets/BudgetIcon'
+import { BudgetSwitcherSheet } from '@/src/components/budgets/BudgetSwitcherSheet'
+import { withReadOnlyGate } from '@/src/components/budgets/ReadOnlyNotice'
 
 function str(v: string | string[] | undefined): string {
   return typeof v === "string" ? v : "";
@@ -136,7 +138,9 @@ const CAPTURE_TIP_COPY: Record<CaptureTipReason, { title: string; body: string }
   gap: { title: "Been a couple of days?", body: "Type whatever you remember in Ask Aviary, like “taxi 240, lunch 150”." },
 };
 
-export default function LogExpenseScreen() {
+export default withReadOnlyGate(LogExpenseScreen);
+
+function LogExpenseScreen() {
   const { formatAmountInput, formatMoney } = useCurrency()
 
   const { tokens, space, radius, type, motion } = useTheme();
@@ -152,6 +156,7 @@ export default function LogExpenseScreen() {
   // Opened from Activity's "couldn't be saved" row: this entry is in the failed queue.
   const failedClientId = str(params.failedClientId) || undefined;
   const { multi: multiBudget, active: activeBudget } = useBudgetSpaces();
+  const [budgetSheet, setBudgetSheet] = useState(false);
   const cachedUser = useCachedUser();
   const feedOn = useFeedOn().on;
   const showIncome = !isEdit && !isHidden(cachedUser, "income");
@@ -640,12 +645,33 @@ export default function LogExpenseScreen() {
       </View>
 
       {multiBudget && activeBudget && (
-        // With 2+ budgets, always say which one this lands in.
-        <View testID="log-budget" style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4, paddingHorizontal: space.lg }}>
-          <Text style={{ color: onAccentDim, fontFamily: fontFamily.bodySemiBold, fontSize: type.micro }}>{isEdit ? "In" : "Logging to"}</Text>
-          <BudgetIcon budget={activeBudget} size={type.micro} color={onAccentDim} />
-          <Text numberOfLines={1} style={{ flexShrink: 1, color: onAccentDim, fontFamily: fontFamily.bodySemiBold, fontSize: type.micro }}>{activeBudget.name}</Text>
+        // With 2+ budgets, always say which one this lands in. A new expense
+        // can switch budgets from here: the form stays, the category and
+        // account (which belong to the old budget) clear.
+        <View style={{ alignItems: "center", paddingHorizontal: space.lg }}>
+          <Pressable
+            testID="log-budget"
+            disabled={isEdit}
+            onPress={() => { tap(); setBudgetSheet(true); }}
+            hitSlop={8}
+            accessibilityRole={isEdit ? undefined : "button"}
+            accessibilityLabel={`${isEdit ? "In" : "Logging to"} ${activeBudget.name}`}
+            accessibilityHint={isEdit ? undefined : "Switch budgets"}
+            style={{ flexDirection: "row", alignItems: "center", gap: 4, maxWidth: "100%", paddingHorizontal: isEdit ? 0 : 10, paddingVertical: isEdit ? 0 : 4, borderRadius: radius.full, backgroundColor: isEdit ? "transparent" : fieldBg }}
+          >
+            <Text style={{ color: onAccentDim, fontFamily: fontFamily.bodySemiBold, fontSize: type.micro }}>{isEdit ? "In" : "Logging to"}</Text>
+            <BudgetIcon budget={activeBudget} size={type.micro} color={isEdit ? onAccentDim : "#ffffff"} />
+            <Text numberOfLines={1} style={{ flexShrink: 1, color: isEdit ? onAccentDim : "#ffffff", fontFamily: fontFamily.bodySemiBold, fontSize: type.micro }}>{activeBudget.name}</Text>
+            {!isEdit && <CaretDown size={type.micro} color="#ffffff" weight="bold" />}
+          </Pressable>
         </View>
+      )}
+      {!isEdit && (
+        <BudgetSwitcherSheet
+          visible={budgetSheet}
+          onClose={() => setBudgetSheet(false)}
+          onSwitch={() => { setCategory(""); setCategoryTouched(false); setAutoPicked(false); setAccountPick(null); }}
+        />
       )}
 
       {showCapture && captureTip.reason && nudge === 0 && unusualNudge === 0 && (

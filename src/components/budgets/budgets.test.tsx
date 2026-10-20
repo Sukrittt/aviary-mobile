@@ -46,7 +46,7 @@ describe('BudgetChip', () => {
     expect(utils.getByTestId('budget-icon-Bird')).toBeTruthy()
     expect(utils.queryByText('🐦')).toBeNull()
     fireEvent.press(utils.getByTestId('budget-chip'))
-    expect(utils.getByText('Budgets')).toBeTruthy()
+    expect(utils.getByText('Your budgets')).toBeTruthy()
   })
 })
 
@@ -111,6 +111,18 @@ describe('BudgetSwitcherSheet', () => {
     expect(utils.queryByText('🏠')).toBeNull()
   })
 
+  it('tags a read-only budget', () => {
+    const utils = renderWithProviders(<BudgetSwitcherSheet visible onClose={() => {}} />, { queryClient: withBudgets({ budgets: [personal, { ...home, role: 'member', readOnly: true }], count: 2 }) })
+    expect(utils.getByText('Read-only')).toBeTruthy()
+  })
+
+  it('switches to the budget you tap, then tells the opener', async () => {
+    const onSwitch = jest.fn()
+    const utils = renderWithProviders(<BudgetSwitcherSheet visible onClose={() => {}} onSwitch={onSwitch} />, { queryClient: withBudgets({ budgets: [personal, home], count: 2 }) })
+    fireEvent.press(utils.getByTestId('budget-row-sp_home'))
+    await waitFor(() => expect(onSwitch).toHaveBeenCalledWith('sp_home'))
+  })
+
   it('switches to the budget you tap', () => {
     const onClose = jest.fn()
     const utils = renderWithProviders(<BudgetSwitcherSheet visible onClose={onClose} />, { queryClient: withBudgets({ budgets: [personal, home], count: 2 }) })
@@ -147,6 +159,8 @@ describe('BudgetSwitcherSheet', () => {
     const utils = renderWithProviders(<BudgetSwitcherSheet visible onClose={() => {}} />, { queryClient: withBudgets({ budgets: [personal, home], count: 5, limit: 5 }) })
     expect(utils.queryByTestId('new-budget')).toBeNull()
     expect(utils.getByText('5 of 5 budgets')).toBeTruthy()
+    // Join still works at the limit: it doesn't add one of yours.
+    expect(utils.getByTestId('join-budget')).toBeTruthy()
     fireEvent.press(utils.getByText('Contact us'))
     expect(mockPush).toHaveBeenCalledWith('/account/feedback')
   })

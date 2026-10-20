@@ -105,3 +105,11 @@ describe('bringing in history', () => {
     expect(mockDismissTo).toHaveBeenCalledWith('/(tabs)')
   })
 })
+
+it('suggests Goa only for a rupee budget', () => {
+  const utils = setup()
+  expect(utils.getByLabelText('Budget name').props.placeholder).toBe('Home, Goa trip, Studio…')
+  fireEvent.press(utils.getByLabelText(/^Currency, /))
+  fireEvent.press(utils.getByText(/USD/))
+  expect(utils.getByLabelText('Budget name').props.placeholder).toBe('Home, Beach trip, Studio…')
+})

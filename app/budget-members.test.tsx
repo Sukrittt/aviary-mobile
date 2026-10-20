@@ -68,6 +68,16 @@ describe('as the owner', () => {
     await waitFor(() => expect(cancelInvite).toHaveBeenCalledWith('sp_home', 'OLD111'))
   })
 
+  it('drops a cancelled invite at once, and brings it back if the cancel fails', async () => {
+    const utils = setup('owner')
+    let fail: (e: Error) => void = () => {}
+    ;(cancelInvite as jest.Mock).mockImplementationOnce(() => new Promise((_, reject) => { fail = reject }))
+    fireEvent.press(await utils.findByLabelText('Cancel OLD111'))
+    await waitFor(() => expect(utils.queryByLabelText('Cancel OLD111')).toBeNull())
+    await act(async () => fail(new Error('offline')))
+    expect(await utils.findByLabelText('Cancel OLD111')).toBeTruthy()
+  })
+
   it('removes someone after saying what happens', async () => {
     const utils = setup('owner')
     fireEvent.press(await utils.findByLabelText('Remove Rahul Verma'))
