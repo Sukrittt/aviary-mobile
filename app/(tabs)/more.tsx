@@ -315,8 +315,8 @@ function MoreScreen() {
                 icon={Scan}
                 label="Scan a bill"
                 blurb="Split a cart or receipt"
-                iconBg={tokens.mintSoft}
-                iconColor={tokens.mint}
+                iconBg={tokens.blueSoft}
+                iconColor={tokens.blue}
                 onPress={openScanPicker}
               />}
               {!isHidden(user, 'subscriptions') && <FeatureCard

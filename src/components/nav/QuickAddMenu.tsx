@@ -14,7 +14,8 @@ const RISE = new Keyframe({
   100: { opacity: 1, transform: [{ translateY: 0 }, { scale: 1 }], easing: Easing.out(Easing.cubic) },
 }).duration(160)
 
-export type QuickAddItem = { label: string; icon: PhosphorIcon; tint: string; onPress: () => void }
+/** `tint` colors the glyph, `tintSoft` the chip behind it: the same soft-chip pair as More's feature cards. */
+export type QuickAddItem = { label: string; icon: PhosphorIcon; tint: string; tintSoft: string; onPress: () => void }
 
 /**
  * The add slot's long-press menu: a small card that grows up out of the +
@@ -37,7 +38,7 @@ export function QuickAddMenu({ items, onClose }: { items: QuickAddItem[]; onClos
             { backgroundColor: tokens.cardSolid, borderRadius: radius.md, padding: 4 },
           ]}
         >
-          {items.map(({ label, icon: Icon, tint, onPress }) => (
+          {items.map(({ label, icon: Icon, tint, tintSoft, onPress }) => (
             <Pressable
               key={label}
               accessibilityRole="menuitem"
@@ -53,8 +54,8 @@ export function QuickAddMenu({ items, onClose }: { items: QuickAddItem[]; onClos
                 pressed && { backgroundColor: tokens.inputBg },
               ]}
             >
-              <View style={[styles.icon, { backgroundColor: tint }]}>
-                <Icon size={14} color="#ffffff" />
+              <View style={[styles.icon, { backgroundColor: tintSoft }]}>
+                <Icon size={16} color={tint} />
               </View>
               <Text style={{ color: tokens.text, fontFamily: fontFamily.bodySemiBold, fontSize: type.caption }}>{label}</Text>
             </Pressable>
@@ -70,5 +71,5 @@ const styles = StyleSheet.create({
   // Grows from its bottom-right corner, where the + disc sits.
   card: { minWidth: 150, transformOrigin: 'bottom right' },
   row: { flexDirection: 'row', alignItems: 'center' },
-  icon: { width: 26, height: 26, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
+  icon: { width: 28, height: 28, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
 })

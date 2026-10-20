@@ -2,7 +2,6 @@ import { FloatingNav, NAV_HREF, navStateFor, tabsState, type NavRoute } from '@/
 import { TabBar } from '@/src/components/nav/TabBar'
 import { QuickAddMenu, type QuickAddItem } from '@/src/components/nav/QuickAddMenu'
 import { useTheme } from '@/src/theme/ThemeProvider'
-import { INCOME_FLOOD } from '@/src/theme/tokens'
 import { useNavigationContainerRef, usePathname, useRouter } from 'expo-router'
 import { HandCoins, Plus, Scan, UploadSimple } from '@/src/components/shared/icons'
 import { useState } from 'react'
@@ -55,10 +54,10 @@ export function LogExpenseNavigation() {
     else router.navigate(NAV_HREF[name])
   }
   const menuItems: QuickAddItem[] = [
-    { label: 'Log expense', icon: Plus, tint: tokens.accent, onPress: () => router.push(LOG_EXPENSE_PATH) },
-    { label: 'Add from statement', icon: UploadSimple, tint: tokens.violet, onPress: () => router.push('/modals/statement') },
-    ...(isHidden(user, 'billScan') ? [] : [{ label: 'Scan a bill', icon: Scan, tint: tokens.blue, onPress: () => router.navigate({ pathname: '/more', params: { scan: '1' } }) }]),
-    ...(isHidden(user, 'income') ? [] : [{ label: 'Add income', icon: HandCoins, tint: INCOME_FLOOD, onPress: () => router.push(QUICK_INCOME_PATH) }]),
+    { label: 'Log expense', icon: Plus, tint: tokens.accent, tintSoft: tokens.accentSoft, onPress: () => router.push(LOG_EXPENSE_PATH) },
+    { label: 'Add from statement', icon: UploadSimple, tint: tokens.violet, tintSoft: tokens.violetSoft, onPress: () => router.push('/modals/statement') },
+    ...(isHidden(user, 'billScan') ? [] : [{ label: 'Scan a bill', icon: Scan, tint: tokens.blue, tintSoft: tokens.blueSoft, onPress: () => router.navigate({ pathname: '/more', params: { scan: '1' } }) }]),
+    ...(isHidden(user, 'income') ? [] : [{ label: 'Add income', icon: HandCoins, tint: tokens.mint, tintSoft: tokens.mintSoft, onPress: () => router.push(QUICK_INCOME_PATH) }]),
   ]
 
   return (
