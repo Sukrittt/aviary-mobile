@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
+import { useQueryClient } from '@tanstack/react-query'
 import * as ImagePicker from 'expo-image-picker'
 import { CaretDown, Check, FileText, ImageSquare, X } from '@/src/components/shared/icons'
 import Animated, { FadeIn } from 'react-native-reanimated'
@@ -14,6 +15,7 @@ import { Icon } from '@/src/components/shared/Icon'
 import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { useAddExpense } from '@/src/hooks/useExpenses'
+import { invalidateExpenseCreateQueries } from '@/src/lib/expenseQueries'
 import { useCategories, useCategoryTint } from '@/src/hooks/useCategories'
 import { readStatement, StatementFailure, type StatementItem, type StatementProposal } from '@/src/api/statement'
 import { byDay, caughtUp, creditsLine, daySpan, statementExpense, type CaughtUp } from '@/src/features/fill-gap/gap'
@@ -38,6 +40,8 @@ const SKIP_LABEL = { logged: 'Looks logged already', before_last: 'Before your l
 const SUCCESS_MS = 1100
 /** Categories the done screen lists before folding the rest into "and N more". Same as Web. */
 const DONE_CATEGORIES = 4
+/** Saves in flight at once while logging. Each is a full round trip (about 2.5s), so one at a time crawled. */
+const SAVE_CONCURRENCY = 4
 
 type RowState = { checked: boolean; category: string }
 
@@ -59,6 +63,7 @@ export default function StatementScreen() {
   const insets = useSafeAreaInsets()
   const router = useRouter()
   const addExpense = useAddExpense()
+  const qc = useQueryClient()
   const [phase, setPhase] = useState<'pick' | 'reading' | 'review' | 'done'>('pick')
   const [proposal, setProposal] = useState<StatementProposal | null>(null)
   const [rows, setRows] = useState<Record<string, RowState>>({})
@@ -153,19 +158,35 @@ export default function StatementScreen() {
     setSaving('saving')
     setError('')
     let failed = 0
+    let finished = 0
+    let synced = false
     setProgress(0)
-    // One at a time, oldest first, so Activity keeps the statement's order.
-    for (const [n, item] of toLog.entries()) {
-      setProgress(n + 1)
-      if (logged.current.has(item.id)) continue
-      try {
-        const saved = await addExpense.mutateAsync(statementExpense(item, rows[item.id].category))
-        // null: the server already had it, so it's handled but not new.
-        logged.current.set(item.id, saved?.duplicate ? null : rows[item.id].category)
-      } catch {
-        failed++
+    // A few at a time, each day in its own lane: a day's rows save one after another, oldest
+    // first, so Activity keeps the statement's order within the day (the timestamp is minted
+    // when each save starts). Different days never share a spot in Activity, so they can overlap.
+    // ponytail: one busy day still saves serially; stagger timestamps if that's ever the bottleneck.
+    const lanes = new Map<string, StatementItem[]>()
+    for (const item of toLog) lanes.set(item.date, [...(lanes.get(item.date) ?? []), item])
+    const queue = [...lanes.values()]
+    async function save(item: StatementItem) {
+      if (!logged.current.has(item.id)) {
+        try {
+          // Refetched once at the end, not after every row.
+          const saved = await addExpense.mutateAsync({ ...statementExpense(item, rows[item.id].category), deferRefresh: true })
+          // null: the server already had it, so it's handled but not new.
+          logged.current.set(item.id, saved?.duplicate ? null : rows[item.id].category)
+          if (!saved?.pending) synced = true
+        } catch {
+          failed++
+        }
       }
+      setProgress(++finished)
     }
+    await Promise.all(Array.from({ length: SAVE_CONCURRENCY }, async () => {
+      for (let lane = queue.shift(); lane; lane = queue.shift()) for (const item of lane) await save(item)
+    }))
+    // Queued (offline) saves are already in the cache and not on the server yet, so they need no refetch.
+    if (synced) void invalidateExpenseCreateQueries(qc)
     if (failed > 0) {
       setSaving('idle')
       setError(`Couldn't log ${failed === toLog.length ? 'these' : failed}. Check your connection and try again.`)

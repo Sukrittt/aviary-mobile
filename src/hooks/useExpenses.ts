@@ -144,7 +144,11 @@ export type AddExpenseResult = { id?: string; timestamp?: string; version?: numb
  * the caller gets a pending result. Only for callers that need no server id
  * straight away: scan-bill links its bill to `id`, the money brain collects them.
  */
-export type AddExpenseVars = NewExpenseRow & { instant?: boolean }
+export type AddExpenseVars = NewExpenseRow & {
+  instant?: boolean
+  /** Skip the per-save refetch; a caller saving a batch refreshes once at the end (invalidateExpenseCreateQueries). */
+  deferRefresh?: boolean
+}
 
 // A stalled connection held the log screen for the full 15s request timeout
 // (PostHog, 2026-10-18: a 10.7s save). Past this, the save finishes in the background.
@@ -154,7 +158,7 @@ const SLOW = Symbol('slow')
 export function useAddExpense() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ instant, ...row }: AddExpenseVars): Promise<AddExpenseResult> => {
+    mutationFn: async ({ instant, deferRefresh, ...row }: AddExpenseVars): Promise<AddExpenseResult> => {
       const owner = currentUserId()
       const generation = sessionGeneration()
       const payload = mintExpensePayload(row)
@@ -203,7 +207,7 @@ export function useAddExpense() {
         named: row.item.trim() !== splitEmoji(row.category).text,
       })
       if (!res.pending || !res.timestamp) {
-        void invalidateExpenseCreateQueries(qc)
+        if (!row.deferRefresh) void invalidateExpenseCreateQueries(qc)
         return
       }
       // Not on the server yet, so don't refetch for it. Show it in the cached

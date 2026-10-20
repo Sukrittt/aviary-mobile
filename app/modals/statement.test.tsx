@@ -1,4 +1,4 @@
-import { fireEvent, waitFor } from '@testing-library/react-native'
+import { act, fireEvent, waitFor } from '@testing-library/react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import StatementScreen from './statement'
 
@@ -66,6 +66,8 @@ it('logs only ticked rows, each with its hashed client_id', async () => {
   expect(screen.getByText('Pick a category for the ticked rows to log them.')).toBeTruthy()
   fireEvent.press(screen.getByLabelText('Pick a category for Chai'))
   fireEvent.press(screen.getByText('pick-food'))
+  // Left in flight: this is about what gets sent, and the success tick would animate past the test.
+  mockMutate.mockReturnValue(new Promise(() => {}))
   fireEvent.press(screen.getByText(/^Log 2 · /))
   await waitFor(() => expect(mockMutate).toHaveBeenCalledTimes(2))
   expect(mockMutate.mock.calls.map((c) => c[0].client_id)).toEqual(['statement:a', 'statement:c'])
@@ -135,6 +137,39 @@ async function logAndFinish(screen: Awaited<ReturnType<typeof openReview>>, labe
   await waitFor(() => expect(mockMutate).toHaveBeenCalledTimes(calls))
   await waitFor(() => jest.advanceTimersByTime(1100))
 }
+
+it('saves four at a time, a day in order, and counts every row to the end', async () => {
+  jest.useFakeTimers()
+  try {
+    // Two on the 1st (one lane, in order), then a day each: six rows, more than the four that go at once.
+    const days = ['01', '01', '02', '03', '04', '05']
+    mockRead.mockResolvedValueOnce({
+      ...PROPOSAL,
+      credits: 0,
+      items: days.map((d, n) => ({ id: `statement:${n}`, item: `Shop ${n}`, amount: 100, date: `2026-10-${d}`, category: 'Food', suggestSkip: null })),
+    })
+    const answers: (() => void)[] = []
+    mockMutate.mockImplementation(() => new Promise((r) => answers.push(() => r({}))))
+    const screen = await openReview()
+    fireEvent.press(screen.getByText(/^Log 6 · /))
+    const sent = () => mockMutate.mock.calls.map((c) => c[0].client_id)
+    await waitFor(() => expect(sent()).toEqual(['statement:0', 'statement:2', 'statement:3', 'statement:4']))
+    expect(mockMutate.mock.calls[0][0]).toMatchObject({ deferRefresh: true })
+    expect(screen.getByText('Logging 0 of 6…')).toBeTruthy()
+    // The 1st's second row only goes once its first one lands.
+    await act(async () => answers[0]())
+    await waitFor(() => expect(sent()).toEqual(['statement:0', 'statement:2', 'statement:3', 'statement:4', 'statement:1']))
+    expect(screen.getByText('Logging 1 of 6…')).toBeTruthy()
+    await act(async () => answers.slice(1).forEach((a) => a()))
+    await waitFor(() => expect(mockMutate).toHaveBeenCalledTimes(6))
+    expect(screen.getByText('Logging 5 of 6…')).toBeTruthy()
+    await act(async () => answers[5]())
+    await waitFor(() => jest.advanceTimersByTime(1100))
+    expect(await screen.findByText('6 payments added')).toBeTruthy()
+  } finally {
+    jest.useRealTimers()
+  }
+})
 
 it("doesn't count a row the server already had as added", async () => {
   jest.useFakeTimers()
