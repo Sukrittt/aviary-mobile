@@ -1,4 +1,5 @@
-import { fireEvent, waitFor } from '@testing-library/react-native'
+import { act, fireEvent, waitFor } from '@testing-library/react-native'
+import { setActiveBudget } from '@/src/lib/activeBudget'
 import { renderWithProviders, createTestQueryClient } from '@/src/test-utils/renderWithProviders'
 import { BudgetSwitcherSheet } from './BudgetSwitcherSheet'
 import { BudgetChip } from './BudgetChip'
@@ -45,6 +46,29 @@ describe('BudgetChip', () => {
     expect(utils.queryByText('🐦')).toBeNull()
     fireEvent.press(utils.getByTestId('budget-chip'))
     expect(utils.getByText('Budgets')).toBeTruthy()
+  })
+})
+
+describe('BudgetChip name', () => {
+  afterEach(() => {
+    jest.useRealTimers()
+    setActiveBudget(null)
+  })
+  const nameShown = (utils: ReturnType<typeof renderWithProviders>) => utils.getByTestId('budget-chip-name', { includeHiddenElements: true }).props.accessibilityElementsHidden !== true
+
+  it('shows the name on load, then folds to the icon, and says it again on a switch', () => {
+    jest.useFakeTimers()
+    const utils = renderWithProviders(<BudgetChip />, { queryClient: withBudgets({ budgets: [personal, home], count: 2 }) })
+    expect(nameShown(utils)).toBe(true)
+    act(() => jest.advanceTimersByTime(2500))
+    expect(nameShown(utils)).toBe(false)
+    // Still named for a screen reader once it's just the icon.
+    expect(utils.getByTestId('budget-chip').props.accessibilityLabel).toBe('Personal budget')
+    act(() => setActiveBudget('sp_home'))
+    expect(nameShown(utils)).toBe(true)
+    expect(utils.getByTestId('budget-chip')).toHaveTextContent('Home')
+    act(() => jest.advanceTimersByTime(2500))
+    expect(nameShown(utils)).toBe(false)
   })
 })
 
