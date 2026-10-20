@@ -76,6 +76,17 @@ it('asks what happens to each shared budget before the final confirm', async () 
   await waitFor(() => expect(deleteAccount).toHaveBeenCalledWith('a@b.co', { sp_home: 'u1' }))
 })
 
+it('tells unnamed members apart by when they joined', async () => {
+  ;(getSharedBudgets as jest.Mock).mockResolvedValue([
+    { id: 'sp_home', name: 'Home', emoji: '🏠', personal: false, members: [{ userId: 'u1', name: null, joinedAt: '2026-10-18T10:00:00Z' }, { userId: 'u2', name: null, joinedAt: '2026-10-19T10:00:00Z' }, { userId: 'u3', name: null }] },
+  ])
+  const utils = renderWithProviders(<SecurityScreen />)
+  fireEvent.press(utils.getAllByText('Delete account')[1])
+  expect(await utils.findByLabelText('Home: Hand it to whoever joined 18 Oct 2026')).toBeTruthy()
+  expect(utils.getByLabelText('Home: Hand it to whoever joined 19 Oct 2026')).toBeTruthy()
+  expect(utils.getByLabelText('Home: Hand it to them')).toBeTruthy()
+})
+
 it('offers a shared personal budget too, so its data can go to the person sharing it', async () => {
   ;(deleteAccount as jest.Mock).mockResolvedValue(undefined)
   ;(getSharedBudgets as jest.Mock).mockResolvedValue([

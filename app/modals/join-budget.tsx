@@ -113,7 +113,7 @@ export default function JoinBudgetModal() {
 
   if (intro !== null && budget) {
     const cards = [
-      { emoji: budget.emoji, title: `You and ${invite?.inviter ?? 'them'} share this budget`, body: "Everything either of you logs lands here. Your own budget stays just yours." },
+      { emoji: budget.emoji, title: `You and ${invite?.inviter ?? 'the owner'} share this budget`, body: "Everything anyone logs lands here, and you'll see who added what." },
       { emoji: '👆', title: 'Switch budgets from here', body: 'Tap the budget name at the top of Home to hop between your budgets.' },
     ]
     const card = cards[intro]

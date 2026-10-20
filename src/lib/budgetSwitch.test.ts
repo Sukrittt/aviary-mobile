@@ -2,6 +2,7 @@ import { QueryClient } from '@tanstack/react-query'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { switchBudget } from './budgetSwitch'
 import { activeBudgetId, setActiveBudget } from './activeBudget'
+import { setOnline } from './netStatus'
 
 // A plain in-memory mockStore standing in for the sealed one.
 const mockStore = new Map<string, unknown>()
@@ -53,4 +54,13 @@ it('does nothing when asked for the budget already open', async () => {
   qc.setQueryData(['budgets'], ['personal row'])
   await switchBudget(qc, 'user_a', 'user_a')
   expect(qc.getQueryData(['budgets'])).toEqual(['personal row'])
+})
+
+it('refetches the opened budget once the network comes back, after a switch made offline', async () => {
+  setOnline(false)
+  setOnline(false)
+  await switchBudget(qc, 'user_a', 'sp_home')
+  const invalidate = jest.spyOn(qc, 'invalidateQueries')
+  setOnline(true)
+  expect(invalidate).toHaveBeenCalled()
 })

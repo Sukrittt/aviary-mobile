@@ -31,7 +31,7 @@ import { useAppFonts } from '@/src/theme/fonts'
 import { ThemeProvider,useTheme } from '@/src/theme/ThemeProvider'
 import { WidgetSync, lockWidgets } from '@/src/widgets/WidgetSync'
 import { billingKey, useBillingStatus } from '@/src/hooks/useBillingStatus'
-import { accessAllowed } from '@/src/lib/billingStatus'
+import { accessAllowed, needsSetup } from '@/src/lib/billingStatus'
 import { onAiAllowanceExceeded } from '@/src/lib/aiAllowance'
 import { QueryClient, focusManager, useIsRestoring } from '@tanstack/react-query'
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client'
@@ -274,7 +274,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
   // No trial on the server means setup never finished, even if the fail-open
   // /api/user path above let the user past it. That's not a lapsed
   // subscription, so it goes back to setup, never to the Plan & billing lock.
-  const setupIncomplete = billing?.mode === 'setup_incomplete' && !billing.allowed
+  const setupIncomplete = needsSetup(billing)
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- the server's billing answer overrides the fail-open onboarding guess
     if (setupIncomplete) setOnboarded(false)

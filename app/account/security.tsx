@@ -1,6 +1,6 @@
 import { clearAccess, currentUserId } from '@/src/api/accessMode'
 import { deleteAccount,getSharedBudgets,resendEmailCode,revokeAllSessions,revokeSession,type SharedBudget } from '@/src/api/account'
-import { firstName } from '@/src/lib/budgetMembership'
+import { firstName, joinedOn } from '@/src/lib/budgetMembership'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { Icon } from '@/src/components/shared/Icon'
 import { BottomSheet } from '@/src/components/shared/Modal'
@@ -21,6 +21,10 @@ import { useRefresh } from '@/src/hooks/useRefresh'
 import { useBillingStatus } from '@/src/hooks/useBillingStatus'
 import { flushAnalytics, track } from '@/src/lib/analytics'
 import { isWebPlan } from '@/src/lib/billingStatus'
+
+/** Who a budget goes to. Unnamed members are told apart by the join date the member list shows. */
+const handOffName = (m: SharedBudget['members'][number]) =>
+  firstName(m.name) ?? (m.joinedAt ? `whoever joined ${joinedOn(m.joinedAt)}` : 'them')
 
 function sessionLabel(userAgent: string | null, authMethod: string): string {
   if (userAgent) return userAgent
@@ -411,7 +415,7 @@ export default function SecurityScreen() {
             {sharedBudgets.map((b) => (
               <View key={b.id} style={[styles.card, styles.handOffCard, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
                 <Text style={[styles.rowLabel, { color: tokens.text, fontFamily: fontFamily.bodyBold }]} numberOfLines={1}>{`${b.emoji} ${b.name}`.trim()}</Text>
-                {[...b.members.map((m) => ({ id: m.userId as string | null, label: `Hand it to ${firstName(m.name) ?? 'them'}` })), { id: null, label: 'Close it' }].map((o) => {
+                {[...b.members.map((m) => ({ id: m.userId as string | null, label: `Hand it to ${handOffName(m)}` })), { id: null, label: 'Close it' }].map((o) => {
                   const on = handOff[b.id] === o.id
                   return (
                     <Pressable
