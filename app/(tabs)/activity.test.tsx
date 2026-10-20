@@ -296,12 +296,23 @@ jest.mock('@/src/components/activity/DeletingRow', () => ({
   },
 }))
 
-it.each([[409, 'This transaction was updated'], [404, 'This transaction is already deleted']])('opens a full-screen message on delete status %s', (status, title) => {
+// Taps a list row open into its detail page. Deleting from there closes the
+// page before handing off, so wait out its close.
+const rowRect = { currentTarget: { measureInWindow: (cb: (x: number, y: number, w: number, h: number) => void) => cb(0, 120, 390, 64) } }
+function openRow(screen: ReturnType<typeof renderWithProviders>, item: string) {
+  fireEvent.press(screen.getByText(item), rowRect)
+}
+async function deleteRow(screen: ReturnType<typeof renderWithProviders>, item: string) {
+  openRow(screen, item)
+  fireEvent.press(screen.getByLabelText('Delete'))
+  await act(() => new Promise((r) => setTimeout(r, 300)))
+}
+
+it.each([[409, 'This transaction was updated'], [404, 'This transaction is already deleted']])('opens a full-screen message on delete status %s', async (status, title) => {
   mockUseExpensesPage.mockReturnValue({ data: pageResult({}), isLoading: false, error: null })
   mockDelete.mockReset().mockImplementation((_params, options) => options.onError(new ExpenseWriteError(Number(status), 'Raw API error')))
   const screen = renderWithProviders(<ActivityScreen />)
-  fireEvent.press(screen.getByText('Item 1'))
-  fireEvent.press(screen.getByText('Delete'))
+  await deleteRow(screen, 'Item 1')
   expect(screen.getByText(String(title))).toBeTruthy()
   expect(screen.queryByText('Raw API error')).toBeNull()
   fireEvent.press(screen.getByText('Back to transactions'))
@@ -314,8 +325,7 @@ it('deletes without a confirm, then offers Undo that restores it from Archive', 
   mockDelete.mockReset().mockImplementation((_params, options) => options.onSuccess())
   mockRestore.mockReset().mockResolvedValue(undefined)
   const screen = renderWithProviders(<ActivityScreen />)
-  fireEvent.press(screen.getByText('Item 1'))
-  fireEvent.press(screen.getByText('Delete'))
+  await deleteRow(screen, 'Item 1')
   expect(mockDelete).toHaveBeenCalledWith(expect.objectContaining({ id: 'row-1' }), expect.anything())
   expect(screen.queryByText(/cannot be undone/)).toBeNull()
   expect(screen.getByText('Deleted Item 1')).toBeTruthy()
@@ -323,16 +333,26 @@ it('deletes without a confirm, then offers Undo that restores it from Archive', 
   await waitFor(() => expect(mockRestore).toHaveBeenCalledWith('expenses', 'row-1'))
 })
 
-it('sends both deletes when a second starts while the first is still collapsing', () => {
+it('sends both deletes when a second starts while the first is still collapsing', async () => {
   mockUseExpensesPage.mockReturnValue({ data: pageResult({ rows: [row(1, '2026-06-01'), row(2, '2026-06-02')], total: 2 }), isLoading: false, error: null })
   mockDelete.mockReset()
   const screen = renderWithProviders(<ActivityScreen />)
-  fireEvent.press(screen.getByText('Item 1'))
-  fireEvent.press(screen.getByText('Delete'))
-  fireEvent.press(screen.getByText('Item 2'))
-  fireEvent.press(screen.getByText('Delete'))
+  await deleteRow(screen, 'Item 1')
+  await deleteRow(screen, 'Item 2')
   const ids = mockDelete.mock.calls.map(([vars]) => vars.id)
   expect(ids.sort()).toEqual(['row-1', 'row-2'])
+})
+
+it('opens a tapped row into its detail page, with Edit handing off to the edit form', () => {
+  mockUseExpensesPage.mockReturnValue({ data: pageResult({}), isLoading: false, error: null })
+  mockPush.mockReset()
+  const screen = renderWithProviders(<ActivityScreen />)
+  openRow(screen, 'Item 1')
+  expect(screen.getByText('Category')).toBeTruthy()
+  expect(screen.getByLabelText('Close')).toBeTruthy()
+  fireEvent.press(screen.getByText('Edit'))
+  expect(mockPush).toHaveBeenCalledWith(expect.objectContaining({ pathname: '/modals/log-expense', params: expect.objectContaining({ id: 'row-1' }) }))
+  expect(screen.queryByText('Category')).toBeNull()
 })
 
 describe('multi-select delete', () => {
@@ -574,12 +594,13 @@ describe('who logged what', () => {
     expect(screen.getByText('Item 1')).toBeTruthy()
   })
 
-  it('says who added it in the details sheet', () => {
+  it('says who added it on the detail page', () => {
     mockSpaces = { budgets: [home], active: home, multi: true }
     mockUseExpensesPage.mockReturnValue({ data: pageResult({ rows, total: 2 }), isLoading: false, error: null })
     const screen = renderWithProviders(<ActivityScreen />)
-    fireEvent.press(screen.getByText('Item 1'))
-    expect(screen.getByText('Added by Priya')).toBeTruthy()
+    openRow(screen, 'Item 1')
+    expect(screen.getByText('Added by')).toBeTruthy()
+    expect(screen.getByText('Priya')).toBeTruthy()
   })
 })
 

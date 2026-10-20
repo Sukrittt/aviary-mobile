@@ -27,6 +27,8 @@ import { tap } from "@/src/lib/haptics";
 import { AnimatedPressable, usePressSpring } from "@/src/components/ui/Button";
 import { CaretLeft, CaretRight, Images, MoneyWavy, Rows, SlidersHorizontal, Trash, WarningCircle, X } from "@/src/components/shared/icons";
 import { ActivityFeed } from "@/src/components/activity/ActivityFeed";
+import { TransactionDetail, type CardRect } from "@/src/components/activity/TransactionDetail";
+import { stablePhotoUrl } from "@/src/lib/activityFeed";
 import { useActivityView, useFeedOn } from "@/src/hooks/useActivityView";
 import { useFeedTip } from "@/src/hooks/useFeedTip";
 import { CaptureTipBubble } from "@/src/features/log-expense/CaptureTipBubble";
@@ -187,6 +189,8 @@ function ActivityScreen() {
   const [sheetTxn, setSheetTxn] = useState<ExpenseRow | null>(null);
   // "Move to another budget", offered only with 2+ budgets.
   const [moveTxn, setMoveTxn] = useState<ExpenseRow | null>(null);
+  // List view's tapped row, opened into the same detail page as a feed card.
+  const [detail, setDetail] = useState<{ txn: ExpenseRow; rect: CardRect } | null>(null);
   const { multi: multiBudget, active: activeBudget } = useBudgetSpaces();
   // Who logged what: only in a budget with 2+ people. One person, no change.
   const shared = (activeBudget?.members.length ?? 0) > 1;
@@ -841,13 +845,16 @@ function ActivityScreen() {
               const who = shared ? loggedBy(txn, activeBudget) : undefined;
               const content = (
                 <Pressable
-                  onPress={() => (selecting ? toggleSelected(txn) : setSheetTxn(txn))}
+                  onPress={(e) => {
+                    if (selecting) return toggleSelected(txn);
+                    e.currentTarget.measureInWindow((x, y, width, height) => setDetail({ txn, rect: { x, y, width, height } }));
+                  }}
                   onLongPress={() => {
                     if (!selecting) toggleSelected(txn);
                   }}
                   disabled={selectionLocked}
                   accessibilityState={selecting ? { selected: isSelected } : undefined}
-                  style={[styles.row, { backgroundColor: tokens.bg }]}
+                  style={[styles.row, { backgroundColor: tokens.bg, opacity: detail && keyOf(detail.txn) === keyOf(txn) ? 0 : 1 }]}
                 >
                   <SelectTint selected={isSelected} style={styles.rowTint} />
                   <SelectCheck selecting={selecting} selected={isSelected} gap={ROW_GAP} inset={SELECT_INSET} />
@@ -1008,6 +1015,23 @@ function ActivityScreen() {
           </View>
         ) : null}
         </>
+        )}
+
+        {detail && (
+          <TransactionDetail
+            txn={detail.txn}
+            from={detail.rect}
+            photoUri={detail.txn.photo_url ? stablePhotoUrl(detail.txn.photo_url) : null}
+            category={categoryByName.get(detail.txn.category)}
+            account={accountName(accountsQ.data, detail.txn.account_id)}
+            addedBy={shared ? addedByName(loggedBy(detail.txn, activeBudget)) : undefined}
+            onClosed={() => setDetail(null)}
+            onEdit={(t) => {
+              setDetail(null);
+              openEdit(t);
+            }}
+            onDelete={confirmDelete}
+          />
         )}
 
         <MoveExpenseSheet expense={moveTxn} onClose={() => setMoveTxn(null)} />
@@ -1257,8 +1281,12 @@ function AppliedFilterChip({
   );
 }
 
+function addedByName(who: { userId: string; name: string | null } | undefined): string {
+  return who?.userId === currentUserId() ? "you" : firstName(who?.name) ?? "someone";
+}
+
 function addedByLabel(who: { userId: string; name: string | null } | undefined): string {
-  return `Added by ${who?.userId === currentUserId() ? "you" : firstName(who?.name) ?? "someone"}`;
+  return `Added by ${addedByName(who)}`;
 }
 
 function SheetOption({
