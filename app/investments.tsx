@@ -1,5 +1,5 @@
 import { useCurrency } from '@/src/context/CurrencyContext'
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { View, Text, Pressable, ScrollView, RefreshControl, StyleSheet } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
@@ -120,6 +120,8 @@ export default function InvestmentsScreen() {
   const deleteHolding = useDeleteHolding()
   const qc = useQueryClient()
   const [undoToast, setUndoToast] = useState({ n: 0, name: '' })
+  // pendingDelete stays set after its request goes, so this says whether it was sent.
+  const sentDeleteRef = useRef<string | null>(null)
 
   const [sheetHolding, setSheetHolding] = useState<HoldingRow | null>(null)
   // Set once the confirm sheet's Delete is tapped; drives the row's collapse
@@ -193,21 +195,24 @@ export default function InvestmentsScreen() {
     if (!sheetHolding) return
     const name = sheetHolding.name
     setSheetHolding(null)
+    // A delete still mid-collapse is sent now, or swapping the target would cancel it.
+    if (pendingDelete && pendingDelete !== name && sentDeleteRef.current !== pendingDelete) runDelete(pendingDelete)
     setPendingDelete(name)
   }
 
   function runDelete(name: string) {
+    sentDeleteRef.current = name
     // Left set on success so the row stays collapsed until the refetch drops
     // it — clearing it here springs the row back to full height for a whole
     // round trip. On failure the row does come back, which is the signal.
     deleteHolding.mutate(name, {
       onSuccess: () => setUndoToast((u) => ({ n: u.n + 1, name })),
-      onError: () => setPendingDelete(null),
+      onError: () => setPendingDelete((p) => (p === name ? null : p)),
     })
   }
 
   async function undoDelete(name: string) {
-    setPendingDelete(null)
+    setPendingDelete((p) => (p === name ? null : p))
     try {
       // The DELETE doesn't return an id. Names are unique among live holdings,
       // so the newest archived one with this name is the one just deleted.

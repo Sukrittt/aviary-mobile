@@ -323,6 +323,18 @@ it('deletes without a confirm, then offers Undo that restores it from Archive', 
   await waitFor(() => expect(mockRestore).toHaveBeenCalledWith('expenses', 'row-1'))
 })
 
+it('sends both deletes when a second starts while the first is still collapsing', () => {
+  mockUseExpensesPage.mockReturnValue({ data: pageResult({ rows: [row(1, '2026-06-01'), row(2, '2026-06-02')], total: 2 }), isLoading: false, error: null })
+  mockDelete.mockReset()
+  const screen = renderWithProviders(<ActivityScreen />)
+  fireEvent.press(screen.getByText('Item 1'))
+  fireEvent.press(screen.getByText('Delete'))
+  fireEvent.press(screen.getByText('Item 2'))
+  fireEvent.press(screen.getByText('Delete'))
+  const ids = mockDelete.mock.calls.map(([vars]) => vars.id)
+  expect(ids.sort()).toEqual(['row-1', 'row-2'])
+})
+
 describe('multi-select delete', () => {
   beforeEach(() => {
     mockUseExpensesPage.mockReturnValue({

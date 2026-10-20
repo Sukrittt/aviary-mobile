@@ -100,10 +100,10 @@ export function Toast({
       bump.value = withSequence(withTiming(1.025, { duration: motion.fast }), withSpring(1, motion.springTight))
       badge.value = withSequence(withTiming(0.85, { duration: motion.fast }), withSpring(1, motion.springTight))
     }
-    const timer = setTimeout(() => setShown(false), VISIBLE_MS)
+    const timer = setTimeout(() => setShown(false), durationMs)
     return () => clearTimeout(timer)
     // Re-runs per trigger so a repeat tap wiggles and restarts the timer.
-  }, [shown, trigger, reduceMotion, progress, wiggle, bump, badge, motion])
+  }, [shown, trigger, reduceMotion, progress, wiggle, bump, badge, motion, durationMs])
 
   useEffect(() => () => {
     cancelAnimation(progress)

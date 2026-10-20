@@ -198,6 +198,9 @@ function ActivityScreen() {
   // animation finishes (see its onDone), so the refetch-driven removal never
   // pops a still-visible row.
   const [pendingDelete, setPendingDelete] = useState<ExpenseRow | null>(null);
+  // pendingDelete stays set after its request goes (until the refetch drops
+  // the row), so this says whether it was already sent.
+  const [sentDeleteRef] = useState<{ current: string | null }>(() => ({ current: null }));
   // Multi-select: a long-press starts it, and clearing the last row ends it.
   const [selectedKeys, setSelectedKeys] = useState<ReadonlySet<string>>(() => new Set());
   const selecting = selectedKeys.size > 0;
@@ -430,17 +433,21 @@ function ActivityScreen() {
 
   function confirmDelete(t: ExpenseRow) {
     setSheetTxn(null);
+    // One row collapses at a time. A delete still mid-collapse is sent now,
+    // or swapping the target would quietly cancel it.
+    if (pendingDelete && keyOf(pendingDelete) !== keyOf(t) && sentDeleteRef.current !== keyOf(pendingDelete)) runDelete(pendingDelete);
     setPendingDelete(t);
   }
 
   function undoDelete(id: string) {
-    setPendingDelete(null);
+    setPendingDelete((p) => (p?.id === id ? null : p));
     restoreArchivedItem("expenses", id)
       .then(() => qc.invalidateQueries())
       .catch(() => Alert.alert("Couldn't restore this", "You can still restore it from Archive."));
   }
 
   function runDelete(t: ExpenseRow) {
+    sentDeleteRef.current = keyOf(t);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(
       () => {},
     );
@@ -457,7 +464,7 @@ function ActivityScreen() {
       // round trip. On failure the row does come back, which is the signal.
       { onSuccess: () => setUndoToast((u) => ({ n: u.n + 1, txn: t })),
         onError: (err) => {
-        setPendingDelete(null);
+        setPendingDelete((p) => (p && keyOf(p) === keyOf(t) ? null : p));
         setDeleteNotice({ status: err instanceof ExpenseWriteError ? err.status : undefined });
       } },
     );

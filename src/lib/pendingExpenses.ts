@@ -180,20 +180,21 @@ export function listFailed(owner = currentUserId()): Promise<PendingExpense[]> {
 /**
  * Puts a failed entry back in the queue with fresh attempts, keeping its
  * client_id so the server still sees one create however many times it lands.
- * `payload` carries the user's fixes from Log Expense.
+ * `payload` carries the user's fixes from Log Expense. Resolves with the entry, or undefined if it was already gone.
  */
-export function retryFailed(payload: ExpensePayload, owner = currentUserId()): Promise<void> {
+export function retryFailed(payload: ExpensePayload, owner = currentUserId()): Promise<PendingExpense | undefined> {
   return serialize(async () => {
     const k = key(owner)
     const fk = failedKey(owner)
-    if (!k || !fk) return
+    if (!k || !fk) return undefined
     const failed = await read(fk)
     const entry = failed.find((e) => e.payload.client_id === payload.client_id)
-    if (!entry) return
+    if (!entry) return undefined
     // Queue first, same reason as bumpAttempts: a failure in between must leave a copy.
     const entries = await read(k)
     await write(k, [...entries.filter((e) => e.payload.client_id !== payload.client_id), { ...entry, payload, attempts: 0 }])
     await write(fk, failed.filter((e) => e.payload.client_id !== payload.client_id))
+    return entry
   })
 }
 

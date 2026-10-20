@@ -1,4 +1,4 @@
-import { act, render } from '@testing-library/react-native'
+import { act, fireEvent, render } from '@testing-library/react-native'
 import { ThemeProvider } from '@/src/theme/ThemeProvider'
 import { Toast, dropInStyle } from './Toast'
 
@@ -53,4 +53,19 @@ it('uses a fade without translation, stretch or tilt under reduced motion', () =
   expect(style.opacity).toBeGreaterThan(0)
   expect(style.opacity).toBeLessThan(1)
   expect(style.transform).toEqual([])
+})
+
+it('keeps an Undo toast up for its own duration, and the action hides it', () => {
+  const onUndo = jest.fn()
+  const undo = (trigger: number) => (
+    <ThemeProvider><Toast trigger={trigger} message="Deleted Chai" durationMs={5000} action={{ label: 'Undo', onPress: onUndo }} /></ThemeProvider>
+  )
+  const screen = render(undo(0))
+  screen.rerender(undo(1))
+  // With an action the pill isn't one accessible element, so read its text instead.
+  act(() => jest.advanceTimersByTime(4000))
+  expect(screen.queryByText('Deleted Chai', { includeHiddenElements: false })).toBeTruthy()
+  fireEvent.press(screen.getByText('Undo'))
+  expect(onUndo).toHaveBeenCalled()
+  expect(screen.queryByText('Deleted Chai', { includeHiddenElements: false })).toBeNull()
 })
