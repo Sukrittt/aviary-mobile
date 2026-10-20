@@ -1,3 +1,4 @@
+import * as Reanimated from 'react-native-reanimated'
 import { act, fireEvent, waitFor } from '@testing-library/react-native'
 import { setActiveBudget } from '@/src/lib/activeBudget'
 import { renderWithProviders, createTestQueryClient } from '@/src/test-utils/renderWithProviders'
@@ -69,6 +70,33 @@ describe('BudgetChip name', () => {
     expect(utils.getByTestId('budget-chip')).toHaveTextContent('Home')
     act(() => jest.advanceTimersByTime(2500))
     expect(nameShown(utils)).toBe(false)
+  })
+})
+
+describe('BudgetChip splash', () => {
+  afterEach(() => {
+    jest.useRealTimers()
+    jest.restoreAllMocks()
+    setActiveBudget(null)
+  })
+
+  it('splashes around the chip as it folds to the icon, not before', () => {
+    jest.useFakeTimers()
+    const utils = renderWithProviders(<BudgetChip />, { queryClient: withBudgets({ budgets: [personal, home], count: 2 }) })
+    expect(utils.queryByTestId('budget-chip-splash', { includeHiddenElements: true })).toBeNull()
+    act(() => jest.advanceTimersByTime(2300))
+    expect(utils.getByTestId('budget-chip-splash', { includeHiddenElements: true })).toBeTruthy()
+    // Gone once it's played, so nothing lingers over the header.
+    act(() => jest.advanceTimersByTime(2000))
+    expect(utils.queryByTestId('budget-chip-splash', { includeHiddenElements: true })).toBeNull()
+  })
+
+  it('stays still with reduced motion', () => {
+    jest.useFakeTimers()
+    jest.spyOn(Reanimated, 'useReducedMotion').mockReturnValue(true)
+    const utils = renderWithProviders(<BudgetChip />, { queryClient: withBudgets({ budgets: [personal, home], count: 2 }) })
+    act(() => jest.advanceTimersByTime(2300))
+    expect(utils.queryByTestId('budget-chip-splash', { includeHiddenElements: true })).toBeNull()
   })
 })
 
