@@ -40,7 +40,7 @@ import { useCollapsedGroups } from '@/src/hooks/useCollapsedGroups'
 import { useDismissedRolloverBanner } from '@/src/hooks/useDismissedRolloverBanner'
 import { useBillingStatus } from '@/src/hooks/useBillingStatus'
 import { GraceBanner } from '@/src/components/shared/MaintenanceBanner'
-import { trialReminderBucket, trialRemainingLabel } from '@/src/lib/billingStatus'
+import { daysOnUs, trialReminderBucket, trialRemainingLabel } from '@/src/lib/billingStatus'
 import { BALANCE_CHECK_ENABLED, BalanceCheckCard } from '@/src/components/balance/BalanceCheckCard'
 import { EnvelopeGroup } from '@/src/components/envelope/EnvelopeGroup'
 import { Screen } from '@/src/components/ui/Screen'
@@ -457,7 +457,7 @@ function HomeScreen() {
           <Card style={styles.rolloverCard} elevated={false}>
             <Pressable onPress={() => router.push('/account/plan')} style={{ flex: 1 }}>
               <Text style={{ color: tokens.text, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>
-                30 days on us · {trialRemainingLabel(billing.trialDaysRemaining).toLowerCase()}. See plans and prices.
+                {daysOnUs(billing)} · {trialRemainingLabel(billing.trialDaysRemaining).toLowerCase()}. See plans and prices.
               </Text>
             </Pressable>
             <Pressable onPress={() => setTrialDismissed(true)} hitSlop={8}>

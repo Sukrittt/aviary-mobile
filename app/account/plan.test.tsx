@@ -31,7 +31,7 @@ const base: BillingStatus = {
   mode: 'trial',
   allowed: true,
   enforced: true,
-  trialStartedAt: '2026-09-01T00:00:00Z',
+  trialStartedAt: '2099-09-16T00:00:00Z',
   trialEndsAt: '2099-10-16T00:00:00Z',
   trialDaysRemaining: 12,
   productId: null,

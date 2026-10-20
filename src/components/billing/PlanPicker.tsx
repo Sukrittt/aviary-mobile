@@ -132,7 +132,7 @@ export function PlanPicker({
           <Text style={[styles.eyebrow, { color: tokens.accentInk, fontFamily: fontFamily.bodyExtraBold }]}>AVIARY PRO</Text>
           <Text style={[styles.title, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Try everything. Pay only if it sticks.</Text>
           <Text style={[styles.sub, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
-            {`Your 30 days on us end on ${formatDate(trialEndsAt)}. Here's exactly what happens.`}
+            {`It's on us until ${formatDate(trialEndsAt)}. Here's exactly what happens.`}
           </Text>
         </View>
         <View>
