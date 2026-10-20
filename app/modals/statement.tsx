@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import { useQueryClient } from '@tanstack/react-query'
@@ -286,8 +286,7 @@ export default function StatementScreen() {
       )}
 
       {phase === 'reading' && (
-        <View style={[styles.center, { gap: space.md }]}>
-          <ActivityIndicator color={tokens.accentInk} />
+        <View style={styles.center}>
           <LoadingCaption phrases={['Reading your payments…', 'Matching payees to categories…', 'Checking what you already logged…', 'Almost done…']} />
         </View>
       )}
@@ -304,7 +303,7 @@ export default function StatementScreen() {
               </Pressable>
             </View>
             {days.map((day) => (
-              <View key={day.date} style={{ marginBottom: space.md }}>
+              <View key={day.date} style={{ marginBottom: space.md, gap: 6 }}>
                 <View style={[styles.dayHead, { borderBottomColor: tokens.borderStrong, paddingHorizontal: space.xs }]}>
                   <Text style={{ color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: 14 }}>{formatDateShort(day.date)}</Text>
                   <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodySemiBold, fontSize: 13 }}>{formatMoney(day.rows.reduce((sum, i) => sum + i.amount, 0))}</Text>
@@ -442,7 +441,7 @@ function ReviewRow({ item, row, busy, onToggle, onPickCategory }: {
         onToggle()
       }}
       disabled={busy}
-      style={[styles.row, { gap: space.md, paddingHorizontal: space.sm, borderRadius: radius.lg }]}
+      style={[styles.row, { gap: space.md, paddingHorizontal: space.md, borderRadius: radius.lg }]}
     >
       <SelectTint selected={row.checked} style={{ borderRadius: radius.lg }} />
       <SelectCheck selecting selected={row.checked} gap={space.md} />
@@ -584,7 +583,7 @@ const styles = StyleSheet.create({
   steps: { borderWidth: 1, overflow: 'hidden' },
   step: { flexDirection: 'row', alignItems: 'center' },
   summary: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  dayHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', paddingBottom: 8, marginBottom: 4, borderBottomWidth: StyleSheet.hairlineWidth },
+  dayHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', paddingBottom: 8, borderBottomWidth: StyleSheet.hairlineWidth },
   row: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, overflow: 'hidden' },
   avatar: { width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   meta: { flexDirection: 'row', alignItems: 'center', gap: 8, minWidth: 0 },
