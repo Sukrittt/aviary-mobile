@@ -9,7 +9,12 @@ jest.mock('@/src/components/shared/CategoryPickerSheet', () => {
   const { Pressable, Text } = jest.requireActual('react-native')
   return {
     CategoryPickerSheet: ({ visible, onSelect }: { visible: boolean; onSelect: (c: string) => void }) =>
-      visible ? <Pressable onPress={() => onSelect('Food')}><Text>pick-food</Text></Pressable> : null,
+      visible ? (
+        <>
+          <Pressable onPress={() => onSelect('Food')}><Text>pick-food</Text></Pressable>
+          <Pressable onPress={() => onSelect('Travel')}><Text>pick-travel</Text></Pressable>
+        </>
+      ) : null,
   }
 })
 const mockBack = jest.fn()
@@ -29,6 +34,24 @@ it('logs one Untracked spending today, keyed by the gap', async () => {
   await waitFor(() => expect(mockMutate).toHaveBeenCalledWith(expect.objectContaining({
     item: 'Untracked spending', amount_inr: '3500', category: 'Food', date: '2026-10-19', source: 'fresh_start', client_id: 'fresh:2026-10-15',
   })))
+})
+
+it('can split the rough total across categories, one expense each, keeping what was typed', async () => {
+  const screen = renderWithProviders(<FreshStartScreen />)
+  fireEvent.changeText(screen.getByLabelText('Rough total'), '2000')
+  fireEvent.press(screen.getByLabelText('Pick a category'))
+  fireEvent.press(screen.getByText('pick-food'))
+  fireEvent.press(screen.getByText('Split across categories'))
+  expect(screen.getByLabelText('Rough amount for Food').props.value).toBe('2000')
+  fireEvent.press(screen.getByText('Add another category'))
+  fireEvent.press(screen.getByText('pick-travel'))
+  fireEvent.changeText(screen.getByLabelText('Rough amount for Travel'), '800')
+  fireEvent.press(screen.getByText('Log 2 expenses'))
+  await waitFor(() => expect(mockMutate).toHaveBeenCalledTimes(2))
+  expect(mockMutate.mock.calls.map(([e]) => [e.category, e.amount_inr, e.client_id])).toEqual([
+    ['Food', '2000', 'fresh:2026-10-15:Food'],
+    ['Travel', '800', 'fresh:2026-10-15:Travel'],
+  ])
 })
 
 it('"No idea" closes without logging', () => {
