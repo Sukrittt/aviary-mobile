@@ -8,6 +8,7 @@ import { useBudgetSpaces } from '@/src/hooks/useBudgetSpaces'
 import { tap } from '@/src/lib/haptics'
 import { BudgetSwitcherSheet } from './BudgetSwitcherSheet'
 import { BudgetIcon } from './BudgetIcon'
+import { ChipSplash } from './ChipSplash'
 
 /** How long the name stays out after a launch or a switch before the chip folds to its icon. */
 const NAME_MS = 2200
@@ -15,8 +16,8 @@ const FOLD = { duration: 320, easing: Easing.out(Easing.cubic) }
 
 /**
  * The home header's budget, with 2+ budgets in place of the bird mark. Says
- * the name on launch and on every switch, then folds to just the icon so the
- * header stays quiet. Opens the switcher.
+ * the name on launch and on every switch, then folds to just the icon, with a
+ * splash, so the header stays quiet. Opens the switcher.
  */
 export function BudgetChip() {
   const { tokens } = useTheme()
@@ -25,6 +26,8 @@ export function BudgetChip() {
   // The budget whose name has already folded away. Any other one, a launch or a switch, is named.
   const [foldedId, setFoldedId] = useState<string | null>(null)
   const [nameWidth, setNameWidth] = useState(0)
+  // The budget whose fold is splashing right now.
+  const [splashFor, setSplashFor] = useState<string | null>(null)
   const reduceMotion = useReducedMotion()
   const shown = useSharedValue(1)
 
@@ -32,9 +35,12 @@ export function BudgetChip() {
   const named = foldedId !== activeId
   useEffect(() => {
     if (!activeId) return
-    const timer = setTimeout(() => setFoldedId(activeId), NAME_MS)
+    const timer = setTimeout(() => {
+      setFoldedId(activeId)
+      if (!reduceMotion) setSplashFor(activeId)
+    }, NAME_MS)
     return () => clearTimeout(timer)
-  }, [activeId])
+  }, [activeId, reduceMotion])
 
   useEffect(() => {
     shown.value = reduceMotion ? (named ? 1 : 0) : withTiming(named ? 1 : 0, FOLD)
@@ -44,7 +50,10 @@ export function BudgetChip() {
 
   if (!active) return null
   return (
-    <>
+    <View style={styles.wrap}>
+      {splashFor === activeId && !named && (
+        <ChipSplash center={FOLDED_CENTER} color={tokens.accent} softColor={tokens.accentInk} onDone={() => setSplashFor(null)} />
+      )}
       <Pressable
         testID="budget-chip"
         onPress={() => {
@@ -72,11 +81,15 @@ export function BudgetChip() {
         </Animated.View>
       </Pressable>
       <BudgetSwitcherSheet visible={open} onClose={() => setOpen(false)} />
-    </>
+    </View>
   )
 }
 
+// Where the folded chip's icon sits: half its 36px width, half its 34px height.
+const FOLDED_CENTER = { x: 18, y: 17 }
+
 const styles = StyleSheet.create({
+  wrap: { alignSelf: 'flex-start' },
   chip: { flexDirection: 'row', alignItems: 'center', borderRadius: 18, paddingHorizontal: 10, paddingVertical: 8, minWidth: 36, justifyContent: 'center' },
   nameClip: { height: 18, overflow: 'hidden' },
   nameRow: { position: 'absolute', left: 0, top: 0, height: 18, flexDirection: 'row', alignItems: 'center', gap: 6, paddingLeft: 6 },
