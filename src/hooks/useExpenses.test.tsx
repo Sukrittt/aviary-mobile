@@ -6,6 +6,7 @@ import { flush } from '@/src/sync/flush'
 import { HttpError } from '@/src/api/client'
 import { enqueue } from '@/src/lib/pendingExpenses'
 import { isOnline } from '@/src/lib/netStatus'
+import { setActiveBudget } from '@/src/lib/activeBudget'
 import { track, trackFirst } from '@/src/lib/analytics'
 import { FEED_MAX_PAGES, SLOW_SAVE_MS, useExpensesFeed, useExpenses, useLastSpent, useAddExpense, useUpdateExpense, useDeleteExpense } from './useExpenses'
 
@@ -101,7 +102,7 @@ describe('useAddExpense offline (offline sync §5/§7)', () => {
     result.current.mutate({ item: 'Milk', amount_inr: '450', category: 'Food' })
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
     expect(postExpensePayload).not.toHaveBeenCalled()
-    expect(enqueue).toHaveBeenCalledWith(expect.objectContaining({ client_id: expect.any(String) }), 'offline-user')
+    expect(enqueue).toHaveBeenCalledWith(expect.objectContaining({ client_id: expect.any(String) }), 'offline-user', false, 'offline-user')
     expect(result.current.data?.pending).toBe(true)
   })
 
@@ -123,7 +124,7 @@ describe('useAddExpense offline (offline sync §5/§7)', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
     expect(result.current.data).toMatchObject({ clientId: 'client-offline-1', pending: true })
     expect(enqueue).toHaveBeenCalledWith(
-      expect.objectContaining({ client_id: 'client-offline-1' }), null, true,
+      expect.objectContaining({ client_id: 'client-offline-1' }), null, true, undefined,
     )
   })
 
@@ -240,7 +241,7 @@ describe('useAddExpense instant (stalled connection)', () => {
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
 
     expect(result.current.data).toMatchObject({ clientId: 'client-slow-1', pending: true })
-    expect(enqueue).toHaveBeenCalledWith(expect.objectContaining({ client_id: 'client-slow-1' }), 'user-1', true)
+    expect(enqueue).toHaveBeenCalledWith(expect.objectContaining({ client_id: 'client-slow-1' }), 'user-1', true, 'user-1')
     // `instant` is a client option, never sent to the server.
     expect(mintExpensePayload).toHaveBeenCalledWith({ item: 'Coffee', amount_inr: '150', category: 'Food' })
     const rows = queryClient.getQueryData<RecentExpenses>(recentKey)!.rows
@@ -251,6 +252,27 @@ describe('useAddExpense instant (stalled connection)', () => {
 
     await act(async () => { land({ id: 'row-1', timestamp: '2026-01-01T10:00:00+05:30' }) })
     await waitFor(() => expect(flush).toHaveBeenCalled())
+    currentUserId.mockReturnValue(null)
+  })
+
+  it('pins a slow save to its budget and leaves it out of the cache after a switch', async () => {
+    jest.useFakeTimers()
+    const { currentUserId } = jest.requireMock('@/src/api/accessMode')
+    currentUserId.mockReturnValue('user-1')
+    ;(postExpensePayload as jest.Mock).mockReturnValue(new Promise(() => {}))
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { gcTime: Infinity } } })
+    queryClient.setQueryData<RecentExpenses>(recentKey, { rows: [], lastSpent: {} })
+    const { result } = renderHook(() => useAddExpense(), { wrapper: wrapper(queryClient) })
+
+    act(() => { result.current.mutate({ item: 'Coffee', amount_inr: '150', category: 'Food', instant: true }) })
+    await waitFor(() => expect(postExpensePayload).toHaveBeenCalled())
+    setActiveBudget('sp_home')
+    await act(async () => { jest.advanceTimersByTime(SLOW_SAVE_MS) })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    expect(enqueue).toHaveBeenCalledWith(expect.anything(), 'user-1', true, 'user-1')
+    expect(queryClient.getQueryData<RecentExpenses>(recentKey)!.rows).toEqual([])
+    setActiveBudget(null)
     currentUserId.mockReturnValue(null)
   })
 
@@ -315,4 +337,20 @@ it('useExpenses moves lastSpent for a queued row older than the recent window', 
   const { result } = renderHook(() => useLastSpent(), { wrapper: wrapper(queryClient) })
   await waitFor(() => expect(result.current.isSuccess).toBe(true))
   expect(result.current.data).toEqual({ Gifts: '2020-01-05' })
+})
+
+it('useExpenses leaves out a queued save from another budget', async () => {
+  const { list } = jest.requireMock('@/src/lib/pendingExpenses') as { list: jest.Mock }
+  const { currentUserId } = jest.requireMock('@/src/api/accessMode')
+  currentUserId.mockReturnValue('user-1')
+  list.mockResolvedValueOnce([
+    { attempts: 0, spaceId: 'sp_home', payload: { item: 'Rent', amount_inr: '500', category: 'Home', date: '2026-10-10', timestamp: '2026-10-10T10:00:00', client_id: 'c1' } },
+    { attempts: 0, payload: { item: 'Coffee', amount_inr: '50', category: 'Food', date: '2026-10-10', timestamp: '2026-10-10T11:00:00', client_id: 'c2' } },
+  ])
+  ;(getExpenses as jest.Mock).mockResolvedValue([])
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } })
+  const { result } = renderHook(() => useExpenses(), { wrapper: wrapper(queryClient) })
+  await waitFor(() => expect(result.current.isSuccess).toBe(true))
+  expect(result.current.data!.map((r) => r.item)).toEqual(['Coffee'])
+  currentUserId.mockReturnValue(null)
 })

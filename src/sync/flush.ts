@@ -1,7 +1,7 @@
 import { emitExpenseSynced } from './events'
 import { AppState } from 'react-native'
 import { getValidToken, currentUserId, sessionGeneration } from '@/src/api/accessMode'
-import { HttpError } from '@/src/api/client'
+import { BudgetReadOnlyError, HttpError, NotAMemberError } from '@/src/api/client'
 import { postExpensePayload } from '@/src/api/expenses'
 import * as pending from '@/src/lib/pendingExpenses'
 import { onOnlineTransition } from '@/src/lib/netStatus'
@@ -12,6 +12,11 @@ import { withExpenseLock } from './expenseLock'
 const MAX_ATTEMPTS = 3
 
 let inFlight: Promise<void> | null = null
+
+// Budgets that answered read-only. Their entries wait without a request, so a
+// background drain doesn't pop the read-only alert per row every 30s.
+// ponytail: kept until relaunch, so a renewal syncs on the next app start.
+const readOnlyBudgets = new Set<string>()
 
 /**
  * Drains the pending-expense queue one entry at a time, oldest first, through
@@ -43,6 +48,7 @@ async function drain(): Promise<void> {
   try {
     for (const entry of entries) {
       if (generation !== sessionGeneration()) return
+      if (readOnlyBudgets.has(entry.spaceId ?? owner)) continue
       try {
         await withExpenseLock(owner, entry.payload.client_id, async () => {
           if (generation !== sessionGeneration()) return
@@ -82,6 +88,19 @@ async function drain(): Promise<void> {
         })
       } catch (err) {
         if (generation !== sessionGeneration()) return
+        if (err instanceof NotAMemberError) {
+          // Pinned to a budget this person has since left. Every retry gets the
+          // same answer, so set it aside now (it stays exportable) rather than
+          // let it stall the personal expenses queued behind it.
+          await pending.bumpAttempts(entry.payload.client_id, 1, owner)
+          continue
+        }
+        // That budget's owner lapsed; this person's own access is fine. Keep
+        // the entry for when they renew, and carry on with the rest.
+        if (err instanceof BudgetReadOnlyError) {
+          readOnlyBudgets.add(entry.spaceId ?? owner)
+          continue
+        }
         if (err instanceof HttpError) {
           // The subscription gate, not a bad entry. Stop the whole drain and
           // leave the queue untouched: every remaining entry would hit the same

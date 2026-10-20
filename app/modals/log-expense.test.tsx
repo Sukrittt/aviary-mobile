@@ -264,7 +264,7 @@ it('saves a blank "What was it for?" under the category name', async () => {
     jest.advanceTimersByTime(950)
   })
 
-  expect(postExpensePayload).toHaveBeenCalledWith(expect.objectContaining({ item: 'Groceries', category: 'Groceries' }), 0)
+  expect(postExpensePayload).toHaveBeenCalledWith(expect.objectContaining({ item: 'Groceries', category: 'Groceries' }), 0, undefined)
   expect(mockReplace).toHaveBeenCalledWith(expect.objectContaining({ params: expect.objectContaining({ item: 'Groceries' }) }))
 })
 
@@ -516,7 +516,7 @@ it('adds up an amount on the keypad and saves the total', async () => {
     await Promise.resolve()
     await Promise.resolve()
   })
-  expect(postExpensePayload).toHaveBeenCalledWith(expect.objectContaining({ amount_inr: '10.25' }), 0)
+  expect(postExpensePayload).toHaveBeenCalledWith(expect.objectContaining({ amount_inr: '10.25' }), 0, undefined)
 })
 
 it('keeps a half-filled expense across leaving and coming back, until it is logged', async () => {
@@ -532,7 +532,7 @@ it('keeps a half-filled expense across leaving and coming back, until it is logg
     await Promise.resolve()
     await Promise.resolve()
   })
-  expect(postExpensePayload).toHaveBeenCalledWith(expect.objectContaining({ item: 'Milk', amount_inr: '450', category: 'Groceries' }), 0)
+  expect(postExpensePayload).toHaveBeenCalledWith(expect.objectContaining({ item: 'Milk', amount_inr: '450', category: 'Groceries' }), 0, undefined)
   second.unmount()
 
   expect(setup().queryByDisplayValue('Milk')).toBeNull()
@@ -574,7 +574,7 @@ it('creates a category from a populated picker, closes the modal and uses it for
   expect(utils.getByLabelText('Category: Gym')).toBeTruthy()
   expect(utils.getByPlaceholderText('What was it for?').props.value).toBe('Milk')
   await act(async () => { (globalThis as any).__submit() })
-  expect(postExpensePayload).toHaveBeenCalledWith(expect.objectContaining({ item: 'Milk', amount_inr: '450', category: '🏋️ Gym' }), 0)
+  expect(postExpensePayload).toHaveBeenCalledWith(expect.objectContaining({ item: 'Milk', amount_inr: '450', category: '🏋️ Gym' }), 0, undefined)
 })
 
 it('keeps category creation errors in the modal and lets the user retry', async () => {
