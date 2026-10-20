@@ -10,12 +10,17 @@ import { track } from '@/src/lib/analytics'
 import { Icon } from '@/src/components/shared/Icon'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
-import { clearAccess, sessionId } from '@/src/api/accessMode'
+import { clearAccess, currentUserId, sessionId } from '@/src/api/accessMode'
 import { revokeSession } from '@/src/api/account'
 import { usePaywall } from '@/src/hooks/usePaywall'
 import { openPlanManagement } from '@/src/components/shared/MaintenanceBanner'
 import { PACKAGE_TYPE } from 'react-native-purchases'
 import { formatDate, isWebPlan, lockedCopy, planSummary } from '@/src/lib/billingStatus'
+import { useQueryClient } from '@tanstack/react-query'
+import { useBudgetSpaces } from '@/src/hooks/useBudgetSpaces'
+import { switchBudget } from '@/src/lib/budgetSwitch'
+import { firstName, ownerOf } from '@/src/lib/budgetMembership'
+import { BudgetIcon } from '@/src/components/budgets/BudgetIcon'
 
 
 /**
@@ -36,6 +41,14 @@ export default function PlanScreen() {
   const router = useRouter()
   const { status, isLoading, locked, showPlans, canBuy, paid, packagesQuery, busy, setBusy, buy, doRestore } = usePaywall()
   const inlinePlans = showPlans && (locked || status?.mode === 'expired')
+  // Budgets someone else pays for stay open to this person; only the lock on
+  // their own plan put them here, so give them a way through to those.
+  const queryClient = useQueryClient()
+  const shared = useBudgetSpaces().budgets.filter((b) => b.role === 'member' && !b.readOnly)
+  const openShared = (id: string) => {
+    const uid = currentUserId()
+    if (uid) void switchBudget(queryClient, uid, id)
+  }
   // Once per visit, the first moment plans are actually on screen.
   const paywallSeen = useRef(false)
   useEffect(() => {
@@ -161,6 +174,32 @@ export default function PlanScreen() {
               ) : null}
             </View>
 
+            {locked && shared.length > 0 ? (
+              <View style={{ gap: 8 }}>
+                <Text style={[styles.sectionLabel, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>Budgets shared with you</Text>
+                <View style={[styles.card, styles.list, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
+                  {shared.map((b, i) => {
+                    const owner = firstName(ownerOf(b)?.name)
+                    return (
+                      <View key={b.id}>
+                        {i > 0 ? <View style={[styles.divider, { backgroundColor: tokens.border }]} /> : null}
+                        <Pressable onPress={() => openShared(b.id)} accessibilityRole="button" accessibilityLabel={`Open ${b.name}`} style={styles.row}>
+                          <BudgetIcon budget={b} size={16} color={tokens.text} />
+                          <View style={{ flex: 1, marginLeft: 12, gap: 2 }}>
+                            <Text style={[styles.rowLabel, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>{b.name}</Text>
+                            <Text style={[styles.cardMeta, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>
+                              {owner ? `${owner} pays for this one` : 'Paid for by its owner'}, so it stays open to you
+                            </Text>
+                          </View>
+                          <Icon icon={CaretRight} size={16} color={tokens.text3} />
+                        </Pressable>
+                      </View>
+                    )
+                  })}
+                </View>
+              </View>
+            ) : null}
+
             {locked ? (
               <View style={[styles.card, styles.list, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
                 <Row icon={User} label="Manage or delete account" onPress={() => router.push('/account/security')} tokens={tokens} />
@@ -225,4 +264,5 @@ const styles = StyleSheet.create({
   lockTitle: { fontSize: 19 },
   planRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 12 },
   footnote: { fontSize: 12, lineHeight: 17, paddingHorizontal: 4 },
+  sectionLabel: { fontSize: 12, letterSpacing: 0.6, textTransform: 'uppercase', paddingHorizontal: 4 },
 })
