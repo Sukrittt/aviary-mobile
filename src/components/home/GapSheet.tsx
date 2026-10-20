@@ -48,10 +48,11 @@ function OpenGapSheet({ since, onSeen }: { since: string; onSeen: () => void }) 
   }
 
   // Ask Aviary off means no chat to type into: log-expense is the way to type them then.
-  const typeHref = user && !isHidden(user, 'askAviary') ? ({ pathname: '/modals/money-brain', params: { capture: '1' } } as const) : '/modals/log-expense'
+  const capture = Boolean(user && !isHidden(user, 'askAviary'))
+  const typeHref = capture ? ({ pathname: '/modals/money-brain', params: { capture: '1' } } as const) : '/modals/log-expense'
   // Upload leads: the reason people can't catch up is not remembering, and their UPI app does.
   const others = [
-    { key: 'type' as const, icon: ChatText, label: 'Type what you remember', hint: 'One line, several spends. Aviary sorts them.', go: () => router.push(typeHref) },
+    { key: 'type' as const, icon: ChatText, label: 'Type what you remember', hint: capture ? 'One line, several spends. Aviary sorts them.' : 'Add what you remember, one at a time.', go: () => router.push(typeHref) },
     { key: 'fresh' as const, icon: ArrowClockwise, label: 'Start fresh', hint: 'One rough total, then carry on from today.', go: () => router.push({ pathname: '/modals/fresh-start', params: { since } }) },
   ]
   const label = { color: tokens.text, fontFamily: fontFamily.bodySemiBold, fontSize: type.body }

@@ -49,6 +49,7 @@ it('remembers the answer against the last expense date and routes each option', 
 it('types into log-expense when Ask Aviary is off', () => {
   mockUser = { hiddenFeatures: ['askAviary'] }
   const screen = renderWithProviders(<GapSheet lastSpent={AWAY} />)
+  expect(screen.getByText('Add what you remember, one at a time.')).toBeTruthy()
   fireEvent.press(screen.getByText('Type what you remember'))
   expect(mockPush).toHaveBeenCalledWith('/modals/log-expense')
 })
