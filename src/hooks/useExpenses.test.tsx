@@ -237,11 +237,7 @@ describe('useAddExpense instant (stalled connection)', () => {
     const { result } = renderHook(() => useAddExpense(), { wrapper: wrapper(queryClient) })
 
     act(() => { result.current.mutate({ item: 'Coffee', amount_inr: '150', category: 'Food', instant: true }) })
-    // A switch while the POST stalls must not move the queued replay.
-    await waitFor(() => expect(postExpensePayload).toHaveBeenCalled())
-    setActiveBudget('sp_home')
     await act(async () => { jest.advanceTimersByTime(SLOW_SAVE_MS) })
-    setActiveBudget(null)
     await waitFor(() => expect(result.current.isSuccess).toBe(true))
 
     expect(result.current.data).toMatchObject({ clientId: 'client-slow-1', pending: true })
@@ -256,6 +252,27 @@ describe('useAddExpense instant (stalled connection)', () => {
 
     await act(async () => { land({ id: 'row-1', timestamp: '2026-01-01T10:00:00+05:30' }) })
     await waitFor(() => expect(flush).toHaveBeenCalled())
+    currentUserId.mockReturnValue(null)
+  })
+
+  it('pins a slow save to its budget and leaves it out of the cache after a switch', async () => {
+    jest.useFakeTimers()
+    const { currentUserId } = jest.requireMock('@/src/api/accessMode')
+    currentUserId.mockReturnValue('user-1')
+    ;(postExpensePayload as jest.Mock).mockReturnValue(new Promise(() => {}))
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { gcTime: Infinity } } })
+    queryClient.setQueryData<RecentExpenses>(recentKey, { rows: [], lastSpent: {} })
+    const { result } = renderHook(() => useAddExpense(), { wrapper: wrapper(queryClient) })
+
+    act(() => { result.current.mutate({ item: 'Coffee', amount_inr: '150', category: 'Food', instant: true }) })
+    await waitFor(() => expect(postExpensePayload).toHaveBeenCalled())
+    setActiveBudget('sp_home')
+    await act(async () => { jest.advanceTimersByTime(SLOW_SAVE_MS) })
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+
+    expect(enqueue).toHaveBeenCalledWith(expect.anything(), 'user-1', true, 'user-1')
+    expect(queryClient.getQueryData<RecentExpenses>(recentKey)!.rows).toEqual([])
+    setActiveBudget(null)
     currentUserId.mockReturnValue(null)
   })
 

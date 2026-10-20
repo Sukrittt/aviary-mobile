@@ -297,14 +297,16 @@ describe('budget routing', () => {
     expect(pending.remove).toHaveBeenCalledWith('c2', 'user_1')
   })
 
-  it('keeps an entry for a read-only budget queued and drains the rest', async () => {
-    ;(pending.list as jest.Mock).mockResolvedValue([{ ...entry('c1'), spaceId: 'sp_home' }, entry('c2')])
+  it('keeps a read-only budget\'s entries queued, asks about it once, and drains the rest', async () => {
+    ;(pending.list as jest.Mock).mockResolvedValue([{ ...entry('c1'), spaceId: 'sp_ro' }, { ...entry('c3'), spaceId: 'sp_ro' }, entry('c2')])
     ;(postExpensePayload as jest.Mock)
       .mockRejectedValueOnce(new BudgetReadOnlyError())
       .mockResolvedValueOnce({ id: 'row-2', timestamp: 'ts' })
 
     await flush()
 
+    expect(postExpensePayload).toHaveBeenCalledTimes(2)
+    expect(postExpensePayload).not.toHaveBeenCalledWith(expect.objectContaining({ client_id: 'c3' }), 1, 'sp_ro')
     expect(pending.bumpAttempts).not.toHaveBeenCalled()
     expect(pending.remove).toHaveBeenCalledWith('c2', 'user_1')
     expect(pending.remove).not.toHaveBeenCalledWith('c1', 'user_1')

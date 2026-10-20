@@ -13,6 +13,11 @@ const MAX_ATTEMPTS = 3
 
 let inFlight: Promise<void> | null = null
 
+// Budgets that answered read-only. Their entries wait without a request, so a
+// background drain doesn't pop the read-only alert per row every 30s.
+// ponytail: kept until relaunch, so a renewal syncs on the next app start.
+const readOnlyBudgets = new Set<string>()
+
 /**
  * Drains the pending-expense queue one entry at a time, oldest first, through
  * the same POST /api/expenses every online create uses — no batch endpoint,
@@ -43,6 +48,7 @@ async function drain(): Promise<void> {
   try {
     for (const entry of entries) {
       if (generation !== sessionGeneration()) return
+      if (readOnlyBudgets.has(entry.spaceId ?? owner)) continue
       try {
         await withExpenseLock(owner, entry.payload.client_id, async () => {
           if (generation !== sessionGeneration()) return
@@ -91,7 +97,10 @@ async function drain(): Promise<void> {
         }
         // That budget's owner lapsed; this person's own access is fine. Keep
         // the entry for when they renew, and carry on with the rest.
-        if (err instanceof BudgetReadOnlyError) continue
+        if (err instanceof BudgetReadOnlyError) {
+          readOnlyBudgets.add(entry.spaceId ?? owner)
+          continue
+        }
         if (err instanceof HttpError) {
           // The subscription gate, not a bad entry. Stop the whole drain and
           // leave the queue untouched: every remaining entry would hit the same

@@ -142,7 +142,7 @@ export function prefetchExpensesPage(qc: QueryClient, params: ExpensesPageParams
 }
 
 /** `category` is the server's, which can differ from the one posted if it was renamed. Absent offline. */
-export type AddExpenseResult = { id?: string; timestamp?: string; version?: number; category?: string; clientId: string; pending: boolean; duplicate?: boolean }
+export type AddExpenseResult = { id?: string; timestamp?: string; version?: number; category?: string; clientId: string; pending: boolean; duplicate?: boolean; spaceId?: string }
 
 /**
  * `instant`: don't hold the caller past SLOW_SAVE_MS. A POST still in flight by
@@ -174,7 +174,7 @@ export function useAddExpense() {
       if (owner && !isOnline()) {
         await enqueue(payload, owner, false, spaceId)
         if (generation !== sessionGeneration()) throw new SessionChangedError()
-        return { timestamp: payload.timestamp, clientId: payload.client_id, pending: true }
+        return { timestamp: payload.timestamp, clientId: payload.client_id, pending: true, spaceId }
       }
       try {
         const post = postExpensePayload(payload, generation, spaceId)
@@ -188,7 +188,7 @@ export function useAddExpense() {
           await enqueue(payload, owner, true, spaceId)
           if (generation !== sessionGeneration()) throw new SessionChangedError()
           void post.catch(() => {}).finally(() => void flush())
-          return { timestamp: payload.timestamp, clientId: payload.client_id, pending: true }
+          return { timestamp: payload.timestamp, clientId: payload.client_id, pending: true, spaceId }
         }
         if (generation !== sessionGeneration()) throw new SessionChangedError()
         return { id: result.id, timestamp: result.timestamp, version: result.version, category: result.category, clientId: payload.client_id, pending: false, duplicate: result.duplicate }
@@ -198,7 +198,7 @@ export function useAddExpense() {
         if (err instanceof HttpError || err instanceof SessionChangedError || generation !== sessionGeneration()) throw err
         await enqueue(payload, owner, true, spaceId)
         if (generation !== sessionGeneration()) throw new SessionChangedError()
-        return { timestamp: payload.timestamp, clientId: payload.client_id, pending: true }
+        return { timestamp: payload.timestamp, clientId: payload.client_id, pending: true, spaceId }
       }
     },
     onSuccess: async (res, row) => {
@@ -222,6 +222,8 @@ export function useAddExpense() {
       // lists instead (envelopes count it straight away); later fetches merge
       // it from the queue until the drain's synced event refetches for real.
       // A fetch started before the enqueue would land without it, so drop that one.
+      // Switched budgets while it saved: the cache now holds the other budget's rows.
+      if (res.spaceId !== (activeBudgetId() ?? currentUserId() ?? undefined)) return
       await qc.cancelQueries({ queryKey: key })
       insertExpense(qc, queuedRow({ ...row, date: res.timestamp.slice(0, 10), timestamp: res.timestamp, client_id: res.clientId }))
     },
