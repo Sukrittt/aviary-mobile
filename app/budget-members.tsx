@@ -31,14 +31,15 @@ import { budgetsKey, useBudgetSpaces } from '@/src/hooks/useBudgetSpaces'
 import { currentUserId } from '@/src/api/accessMode'
 import { activeBudgetId } from '@/src/lib/activeBudget'
 import { switchBudget } from '@/src/lib/budgetSwitch'
-import { fallbackBudgetId, firstName, MAX_MEMBERS } from '@/src/lib/budgetMembership'
+import { fallbackBudgetId, firstName, joinedOn, MAX_MEMBERS } from '@/src/lib/budgetMembership'
 import { formatDateShort } from '@/src/lib/format'
+import { toLocalDateString } from '@/src/lib/date'
 
 const oops = () => Alert.alert("Couldn't do that", 'Check your connection and try again.')
 
 function joinedLabel(iso: string | null): string {
   if (!iso) return 'Joined a while back'
-  return `Joined ${formatDateShort(iso.slice(0, 10))} ${iso.slice(0, 4)}`
+  return `Joined ${joinedOn(iso)}`
 }
 
 export function inviteMessage(name: string, invite: BudgetInvite): string {
@@ -249,7 +250,7 @@ export default function BudgetMembersScreen() {
                     <View key={inv.code} style={styles.memberRow}>
                       <View style={{ flex: 1, gap: 2 }}>
                         <Text style={[styles.memberName, { color: tokens.text, fontFamily: fontFamily.bodySemiBold, letterSpacing: 2 }]}>{inv.code}</Text>
-                        <Text style={[styles.meta, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>{`Works until ${formatDateShort(inv.expiresAt.slice(0, 10))}`}</Text>
+                        <Text style={[styles.meta, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>{`Works until ${formatDateShort(toLocalDateString(new Date(inv.expiresAt)))}`}</Text>
                       </View>
                       <Pressable onPress={() => void share(inv)} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Share ${inv.code} again`}>
                         <Text style={[styles.link, { color: tokens.accentInk, fontFamily: fontFamily.bodySemiBold }]}>Share again</Text>

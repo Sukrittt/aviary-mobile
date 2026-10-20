@@ -1,6 +1,6 @@
 import { clearAccess, currentUserId } from '@/src/api/accessMode'
 import { deleteAccount,getSharedBudgets,resendEmailCode,revokeAllSessions,revokeSession,type SharedBudget } from '@/src/api/account'
-import { firstName } from '@/src/lib/budgetMembership'
+import { firstName, joinedOn } from '@/src/lib/budgetMembership'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { Icon } from '@/src/components/shared/Icon'
 import { BottomSheet } from '@/src/components/shared/Modal'
@@ -8,7 +8,7 @@ import { OfflineScreen } from '@/src/components/shared/OfflineScreen'
 import { ScreenHeader } from '@/src/components/shared/ScreenHeader'
 import { Alert } from '@/src/components/ui/AlertHost'
 import { usePrivacyProof,useRestoreAccount,useSessions,useUpdateUser,useUser } from '@/src/hooks/useUser'
-import { daysUntil, formatDateShort } from '@/src/lib/format'
+import { daysUntil } from '@/src/lib/format'
 import { useOnline } from '@/src/lib/netStatus'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
@@ -24,7 +24,7 @@ import { isWebPlan } from '@/src/lib/billingStatus'
 
 /** Who a budget goes to. Unnamed members are told apart by the join date the member list shows. */
 const handOffName = (m: SharedBudget['members'][number]) =>
-  firstName(m.name) ?? (m.joinedAt ? `whoever joined ${formatDateShort(m.joinedAt.slice(0, 10))} ${m.joinedAt.slice(0, 4)}` : 'them')
+  firstName(m.name) ?? (m.joinedAt ? `whoever joined ${joinedOn(m.joinedAt)}` : 'them')
 
 function sessionLabel(userAgent: string | null, authMethod: string): string {
   if (userAgent) return userAgent

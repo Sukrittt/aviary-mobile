@@ -4,9 +4,17 @@ import { Alert } from '@/src/components/ui/AlertHost'
 import { activeBudgetId } from './activeBudget'
 import { switchBudget } from './budgetSwitch'
 import { budgetsKey } from '@/src/hooks/useBudgetSpaces'
+import { toLocalDateString } from './date'
+import { formatDateShort } from './format'
 
 /** The most people a budget can have (the server enforces it too). */
 export const MAX_MEMBERS = 6
+
+/** "20 Oct 2026": the day someone joined, on this device's calendar. */
+export function joinedOn(iso: string): string {
+  const day = toLocalDateString(new Date(iso))
+  return `${formatDateShort(day)} ${day.slice(0, 4)}`
+}
 
 export function firstName(name: string | null | undefined): string | null {
   return name?.trim().split(/\s+/)[0] || null
