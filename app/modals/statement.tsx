@@ -397,7 +397,7 @@ export default function StatementScreen() {
 }
 
 /** Staggered rise for the picker, one beat per step. Reanimated drops it under the system's reduce-motion setting. */
-const reveal = (step: number) => FadeInDown.delay(30 + step * 40).springify().damping(22).stiffness(280)
+const reveal = (step: number) => FadeInDown.delay(step * 25).duration(220)
 
 const STEPS = [
   { icon: Images, label: 'Screenshot or download', hint: 'Your UPI app history, or a statement from net banking.' },
