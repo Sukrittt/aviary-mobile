@@ -28,6 +28,7 @@ import { splitEmoji } from '@/src/lib/emoji'
 import { isOnline } from '@/src/lib/netStatus'
 import { undoPendingExpense } from '@/src/sync/undoExpense'
 import { flush } from '@/src/sync/flush'
+import { activeBudgetId } from '@/src/lib/activeBudget'
 import { insertExpense, queuedRow, removeExpense, restoreExpenses, snapshotExpenses, withLastSpent, withQueued } from '@/src/lib/optimisticExpenses'
 
 const key = ['expenses'] as const
@@ -40,7 +41,12 @@ const categoryMapKey = ['category-map'] as const
 
 // Creates still in the offline queue. Merged into the fetches below so a
 // refetch (any write's settle, or staleness) can't drop a pending save.
-const queuedPayloads = () => listQueued().then((entries) => entries.map((e) => e.payload), () => [])
+// Only this budget's: one logged in Home isn't spent from personal.
+const queuedPayloads = () => {
+  const owner = currentUserId()
+  const budget = activeBudgetId() ?? owner
+  return listQueued().then((entries) => entries.filter((e) => (e.spaceId ?? owner) === budget).map((e) => e.payload), () => [])
+}
 
 async function getExpensesWithQueued() {
   const [rows, queued] = await Promise.all([getExpenses(), queuedPayloads()])
@@ -162,14 +168,16 @@ export function useAddExpense() {
       const owner = currentUserId()
       const generation = sessionGeneration()
       const payload = mintExpensePayload(row)
+      // Read once: a fallback enqueue can run seconds later, after a budget switch.
+      const spaceId = activeBudgetId() ?? owner ?? undefined
       // A create deliberately not sent yet can be cancelled entirely offline.
       if (owner && !isOnline()) {
-        await enqueue(payload, owner)
+        await enqueue(payload, owner, false, spaceId)
         if (generation !== sessionGeneration()) throw new SessionChangedError()
         return { timestamp: payload.timestamp, clientId: payload.client_id, pending: true }
       }
       try {
-        const post = postExpensePayload(payload, generation)
+        const post = postExpensePayload(payload, generation, spaceId)
         let timer: ReturnType<typeof setTimeout> | undefined
         const result = instant && owner
           ? await Promise.race([post, new Promise<typeof SLOW>((r) => { timer = setTimeout(() => r(SLOW), SLOW_SAVE_MS) })]).finally(() => clearTimeout(timer))
@@ -177,7 +185,7 @@ export function useAddExpense() {
         if (result === SLOW) {
           // Queued before the caller moves on, so the save survives a killed app.
           // Whichever lands first, this POST or the replay, the server keeps one row.
-          await enqueue(payload, owner, true)
+          await enqueue(payload, owner, true, spaceId)
           if (generation !== sessionGeneration()) throw new SessionChangedError()
           void post.catch(() => {}).finally(() => void flush())
           return { timestamp: payload.timestamp, clientId: payload.client_id, pending: true }
@@ -188,7 +196,7 @@ export function useAddExpense() {
         // A real rejection (bad request, auth) must still fail loudly — only a
         // transport failure (offline) gets queued for later.
         if (err instanceof HttpError || err instanceof SessionChangedError || generation !== sessionGeneration()) throw err
-        await enqueue(payload, owner, true)
+        await enqueue(payload, owner, true, spaceId)
         if (generation !== sessionGeneration()) throw new SessionChangedError()
         return { timestamp: payload.timestamp, clientId: payload.client_id, pending: true }
       }
