@@ -113,7 +113,7 @@ export default function SubscriptionModal() {
         },
         {
           onSuccess: () => setSaved(true),
-          onError: () => Alert.alert('Could not save subscription', 'Check your connection and try again.'),
+          onError: () => Alert.alert("Couldn't save this subscription", 'Check your connection and try again.'),
         },
       )
     } else {
@@ -132,7 +132,7 @@ export default function SubscriptionModal() {
             if (isReviewingSuggestion) acceptSuggestion(suggestionId)
             setSaved(true)
           },
-          onError: () => Alert.alert('Could not add subscription', 'Check your connection and try again.'),
+          onError: () => Alert.alert("Couldn't add this subscription", 'Check your connection and try again.'),
         },
       )
     }
@@ -141,7 +141,7 @@ export default function SubscriptionModal() {
   function handleReactivate() {
     reactivateSub.mutate(origService, {
       onSuccess: () => setSaved(true),
-      onError: () => Alert.alert('Could not reactivate subscription', 'Check your connection and try again.'),
+      onError: () => Alert.alert("Couldn't reactivate this subscription", 'Check your connection and try again.'),
     })
   }
 
@@ -153,7 +153,7 @@ export default function SubscriptionModal() {
       },
       onError: () => {
         setConfirmSheet(null)
-        Alert.alert('Could not cancel subscription', 'Check your connection and try again.')
+        Alert.alert("Couldn't cancel this subscription", 'Check your connection and try again.')
       },
     })
   }
@@ -166,7 +166,7 @@ export default function SubscriptionModal() {
       },
       onError: () => {
         setConfirmSheet(null)
-        Alert.alert('Could not delete subscription', 'Check your connection and try again.')
+        Alert.alert("Couldn't delete this subscription", 'Check your connection and try again.')
       },
     })
   }

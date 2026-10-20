@@ -173,7 +173,7 @@ function EditAmountBody({
       if (err instanceof BudgetWriteError && err.status === 409 && err.current) {
         setConflict(err.current)
       } else {
-        setError('Could not save. Check your connection and try again.')
+        setError("Couldn't save. Check your connection and try again.")
       }
       return false
     }

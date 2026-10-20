@@ -56,7 +56,7 @@ export default function EmailScreen() {
       } catch (err) {
         setPending(false)
         const msg = err instanceof Error ? err.message : ''
-        fail(msg.includes('already in use') ? msg : 'Could not change email. Check your connection and try again.')
+        fail(msg.includes('already in use') ? msg : "Couldn't change your email. Check your connection and try again.")
       }
       return
     }
@@ -70,7 +70,7 @@ export default function EmailScreen() {
     }
     if (!ok) {
       track('sign_in_failed', { method: 'email', reason: 'code_send_failed' })
-      return fail('Could not send code. Check the address and try again.')
+      return fail("Couldn't send the code. Check the address and try again.")
     }
     track('sign_in_code_sent')
     router.push({ pathname: '/(auth)/code', params: { email: trimmed } })

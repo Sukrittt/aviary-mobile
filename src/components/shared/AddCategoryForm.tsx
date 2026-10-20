@@ -38,7 +38,7 @@ export function AddCategoryForm({ onCreated }: {
       onError: (err) => setError(
         err instanceof Error && err.message.includes('already exists')
           ? 'That name is already taken. Try a different name.'
-          : 'Failed to add category. Try again.',
+          : "Couldn't add that category. Check your connection and try again.",
       ),
     })
   }

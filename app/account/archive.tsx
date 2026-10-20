@@ -227,7 +227,7 @@ export default function ArchiveScreen() {
     } catch (err) {
       setPending((prev) => withoutKey(prev, item.id));
       Alert.alert(
-        "Could not restore",
+        "Couldn't restore this",
         err instanceof Error && err.message.includes("already exists")
           ? err.message
           : "Check your connection and try again.",
@@ -243,7 +243,7 @@ export default function ArchiveScreen() {
       settle(item.id, "purge");
     } catch {
       setPending((prev) => withoutKey(prev, item.id));
-      Alert.alert("Could not delete", "Check your connection and try again.");
+      Alert.alert("Couldn't delete this for good", "Check your connection and try again.");
     }
   };
 

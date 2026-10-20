@@ -605,7 +605,7 @@ function EnvelopesScreen() {
     setLiftedGroup(null)
     if (to !== from) {
       setGroupOrder((cur) => moveItem(cur, name, to))
-      moveGroup.mutate({ name, toIndex: to }, { onError: () => showToast('Could not save group order. Please try again.') })
+      moveGroup.mutate({ name, toIndex: to }, { onError: () => showToast("Couldn't save the group order. Check your connection and try again.") })
     }
     setDragPhase('settling')
   }

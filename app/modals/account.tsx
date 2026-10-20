@@ -56,7 +56,7 @@ export default function AccountModal() {
     if (!canSubmit || busy) return
     const onError = (err: unknown) => {
       buzzError()
-      Alert.alert("Couldn't save", accountErrorMessage(err))
+      Alert.alert("Couldn't save this account", accountErrorMessage(err))
     }
     if (existing) update.mutate({ id: existing.id, updates: { name: name.trim(), type } }, { onSuccess: () => setSaved(true), onError })
     else add.mutate({ name: name.trim(), type }, { onSuccess: () => setSaved(true), onError })
@@ -74,7 +74,7 @@ export default function AccountModal() {
         onError: (err) => {
           setConfirmArchive(false)
           buzzError()
-          Alert.alert("Couldn't archive this", accountErrorMessage(err))
+          Alert.alert("Couldn't archive this account", accountErrorMessage(err))
         },
       },
     )

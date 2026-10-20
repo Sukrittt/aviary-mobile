@@ -60,7 +60,6 @@ import { useBounce } from "@/src/hooks/useBounce";
 import Reanimated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { useCallback,useEffect,useMemo,useRef,useState } from "react";
 import {
-Alert,
 Animated,
 Image,
 Keyboard,
@@ -75,7 +74,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { track } from "@/src/lib/analytics";
 import { isRefreshingToken } from "@/src/api/accessMode";
 import { tap } from "@/src/lib/haptics";
-import { Alert as AppAlert } from "@/src/components/ui/AlertHost";
+import { Alert } from "@/src/components/ui/AlertHost";
 import { mintExpensePayload } from "@/src/api/expenses";
 import { discardFailed, retryFailed } from "@/src/lib/pendingExpenses";
 import { flush } from "@/src/sync/flush";
@@ -471,7 +470,7 @@ export default function LogExpenseScreen() {
                 Keyboard.dismiss(); setDeleted(true); setShowDeletedNotice(true); setError(''); return;
               }
             }
-            setError(err instanceof Error ? err.message : "Could not save. Check your connection and try again.");
+            setError("Couldn't save your changes. Check your connection and try again.");
           },
         },
       );
@@ -803,7 +802,7 @@ export default function LogExpenseScreen() {
                 {
                   label: "Discard",
                   onPress: () =>
-                    AppAlert.alert("Discard this expense?", "It never reached your account, so it's gone for good.", [
+                    Alert.alert("Discard this expense?", "It never reached your account, so it's gone for good.", [
                       { text: "Keep it", style: "cancel" },
                       { text: "Discard", style: "destructive", onPress: () => void discardFailed(failedClientId).then(() => router.back()) },
                     ]),

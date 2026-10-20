@@ -174,7 +174,7 @@ export default function DataScreen() {
           "Resets next month.",
         );
       } else {
-        Alert.alert("Export failed", "Check your connection and try again.");
+        Alert.alert("Couldn't export your data", "Check your connection and try again.");
       }
     } finally {
       setStarting(false);
@@ -189,7 +189,7 @@ export default function DataScreen() {
         void Linking.openURL(url);
       } catch {
         Alert.alert(
-          "Couldn't open export",
+          "Couldn't open your export",
           "Check your connection and try again.",
         );
       }
@@ -210,7 +210,7 @@ export default function DataScreen() {
       setConfirmingClear(false);
     } catch {
       Alert.alert(
-        "Could not clear transactions",
+        "Couldn't clear your transactions",
         "Check your connection and try again.",
       );
     } finally {

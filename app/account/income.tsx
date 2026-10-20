@@ -120,7 +120,7 @@ export default function IncomeScreen() {
         onError: () => {
           Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
           setDeleting(null);
-          Alert.alert("Couldn't delete that", "Check your connection and try again.");
+          Alert.alert("Couldn't delete this income", "Check your connection and try again.");
         },
       },
     );

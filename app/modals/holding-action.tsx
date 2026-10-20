@@ -66,7 +66,7 @@ export default function HoldingActionModal() {
       {
         onSuccess: () => setConfirmSuccess(true),
         onError: () => {
-          Alert.alert('Could not save', 'Check your connection and try again.')
+          Alert.alert("Couldn't save this holding", 'Check your connection and try again.')
         },
       },
     )

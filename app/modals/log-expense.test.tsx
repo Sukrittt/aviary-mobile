@@ -3,6 +3,7 @@ import type { ExpenseRow } from '@/src/types'
 import { Alert, Modal } from 'react-native'
 import { act, fireEvent, waitFor, within } from '@testing-library/react-native'
 import * as pending from '@/src/lib/pendingExpenses'
+import { Alert as AppAlert } from '@/src/components/ui/AlertHost'
 import * as accessMode from '@/src/api/accessMode'
 import { createTestQueryClient, renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { userKey } from '@/src/hooks/useUser'
@@ -917,7 +918,7 @@ describe('photo', () => {
   })
 
   it('keeps the expense saved and says so kindly when the upload fails', async () => {
-    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {})
+    const alert = jest.spyOn(AppAlert, 'alert').mockImplementation(() => {})
     ;(postExpensePayload as jest.Mock).mockResolvedValue({ id: 'srv1', timestamp: '2026-09-04T01:24:00' })
     ;(uploadExpensePhoto as jest.Mock).mockRejectedValue(new Error('Failed to upload photo: 413'))
     const utils = setup()
