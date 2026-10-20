@@ -350,7 +350,7 @@ export default function SubscriptionModal() {
         </Text>
         <Text style={[styles.sheetBody, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
           {confirmSheet === 'delete'
-            ? `Remove "${origService}"? This cannot be undone.`
+            ? `Remove "${origService}"? You can restore it from Archive.`
             : `Cancel ${origService}? You can reactivate it later.`}
         </Text>
         <View style={styles.sheetButtonRow}>

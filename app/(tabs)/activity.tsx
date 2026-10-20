@@ -64,6 +64,9 @@ import { EmptyState } from "@/src/components/shared/EmptyState";
 import type { ExpenseRow, IncomeRow } from "@/src/types";
 import { formatDayLabel, parseLocalDate, toLocalDateString } from "@/src/lib/date";
 import { useOnline } from "@/src/lib/netStatus";
+import { restoreArchivedItem } from "@/src/api/account";
+import { Alert } from "@/src/components/ui/AlertHost";
+import { Toast } from "@/src/components/ui/Toast";
 import { useUnsyncedExpenses } from "@/src/hooks/useUnsyncedExpenses";
 import { LOG_EXPENSE_PATH } from "@/src/features/log-expense/SubmitContext";
 import { EMPTY } from "@/src/lib/constants";
@@ -188,8 +191,9 @@ function ActivityScreen() {
   // Who logged what: only in a budget with 2+ people. One person, no change.
   const shared = (activeBudget?.members.length ?? 0) > 1;
   const [mineOnly, setMineOnly] = useState(false);
-  const [deleteTxn, setDeleteTxn] = useState<ExpenseRow | null>(null);
-  // Set once the confirm sheet's Delete is tapped; drives the row's collapse
+  // Deleted rows go to Archive, so a delete needs no confirm: Undo restores it.
+  const [undoToast, setUndoToast] = useState<{ n: number; txn: ExpenseRow | null }>({ n: 0, txn: null });
+  // Set once Delete is tapped; drives the row's collapse
   // animation in DeletingRow. The actual mutate() call is deferred until that
   // animation finishes (see its onDone), so the refetch-driven removal never
   // pops a still-visible row.
@@ -426,11 +430,17 @@ function ActivityScreen() {
 
   function confirmDelete(t: ExpenseRow) {
     setSheetTxn(null);
-    setDeleteTxn(t);
+    setPendingDelete(t);
+  }
+
+  function undoDelete(id: string) {
+    setPendingDelete(null);
+    restoreArchivedItem("expenses", id)
+      .then(() => qc.invalidateQueries())
+      .catch(() => Alert.alert("Couldn't restore this", "You can still restore it from Archive."));
   }
 
   function runDelete(t: ExpenseRow) {
-    setDeleteTxn(null);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(
       () => {},
     );
@@ -445,7 +455,8 @@ function ActivityScreen() {
       // Left set on success so the row stays collapsed until the refetch drops
       // it — clearing it here springs the row back to full height for a whole
       // round trip. On failure the row does come back, which is the signal.
-      { onError: (err) => {
+      { onSuccess: () => setUndoToast((u) => ({ n: u.n + 1, txn: t })),
+        onError: (err) => {
         setPendingDelete(null);
         setDeleteNotice({ status: err instanceof ExpenseWriteError ? err.status : undefined });
       } },
@@ -689,6 +700,9 @@ function ActivityScreen() {
       ) : null}
     </>
   );
+
+  // A row still in the offline queue has no server copy, so nothing in Archive to bring back.
+  const undoId = undoToast.txn?.id;
 
   return (
     <>
@@ -1031,43 +1045,6 @@ function ActivityScreen() {
         </BottomSheet>
 
         <BottomSheet
-          visible={deleteTxn !== null}
-          onClose={() => setDeleteTxn(null)}
-        >
-          <Text
-            style={[
-              styles.confirmTitle,
-              { color: tokens.text, fontFamily: fontFamily.displaySemiBold },
-            ]}
-          >
-            Delete transaction
-          </Text>
-          <Text
-            style={[
-              styles.confirmBody,
-              { color: tokens.text2, fontFamily: fontFamily.bodyMedium },
-            ]}
-            numberOfLines={2}
-          >
-            Remove &quot;{deleteTxn?.item}&quot;? This cannot be undone.
-          </Text>
-          <SheetOption
-            label="Delete"
-            color={tokens.coral}
-            onPress={() => {
-              if (!deleteTxn) return;
-              setPendingDelete(deleteTxn);
-              setDeleteTxn(null);
-            }}
-          />
-          <SheetOption
-            label="Cancel"
-            color={tokens.text2}
-            onPress={() => setDeleteTxn(null)}
-          />
-        </BottomSheet>
-
-        <BottomSheet
           visible={confirmBulk}
           onClose={() => setConfirmBulk(false)}
         >
@@ -1214,6 +1191,14 @@ function ActivityScreen() {
           onDismiss={() => feedTip.close("dismiss")}
         />
       )}
+      <Toast
+        trigger={undoToast.n}
+        message={undoToast.txn ? `Deleted ${undoToast.txn.item}` : ""}
+        icon={Trash}
+        durationMs={5000}
+        action={undoId ? { label: "Undo", onPress: () => undoDelete(undoId) } : undefined}
+        style={{ top: insets.top + 12 }}
+      />
     </>
   );
 }

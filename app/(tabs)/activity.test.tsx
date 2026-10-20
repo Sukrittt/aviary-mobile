@@ -29,6 +29,9 @@ jest.mock('@/src/hooks/useExpenses', () => ({
   useRecentExpenses: () => ({ data: mockRecent, isLoading: false, error: null }),
 }))
 
+const mockRestore = jest.fn()
+jest.mock('@/src/api/account', () => ({ ...jest.requireActual('@/src/api/account'), restoreArchivedItem: (...args: unknown[]) => mockRestore(...args) }))
+
 let mockIncomes: Record<string, unknown>[] = []
 jest.mock('@/src/hooks/useUser', () => ({ useUser: () => ({ data: mockUser }) }))
 let mockImporting = false
@@ -299,12 +302,25 @@ it.each([[409, 'This transaction was updated'], [404, 'This transaction is alrea
   const screen = renderWithProviders(<ActivityScreen />)
   fireEvent.press(screen.getByText('Item 1'))
   fireEvent.press(screen.getByText('Delete'))
-  fireEvent.press(screen.getByText('Delete'))
   expect(screen.getByText(String(title))).toBeTruthy()
   expect(screen.queryByText('Raw API error')).toBeNull()
   fireEvent.press(screen.getByText('Back to transactions'))
   expect(screen.queryByText(String(title))).toBeNull()
   expect(mockDelete).toHaveBeenCalledTimes(1)
+})
+
+it('deletes without a confirm, then offers Undo that restores it from Archive', async () => {
+  mockUseExpensesPage.mockReturnValue({ data: pageResult({}), isLoading: false, error: null })
+  mockDelete.mockReset().mockImplementation((_params, options) => options.onSuccess())
+  mockRestore.mockReset().mockResolvedValue(undefined)
+  const screen = renderWithProviders(<ActivityScreen />)
+  fireEvent.press(screen.getByText('Item 1'))
+  fireEvent.press(screen.getByText('Delete'))
+  expect(mockDelete).toHaveBeenCalledWith(expect.objectContaining({ id: 'row-1' }), expect.anything())
+  expect(screen.queryByText(/cannot be undone/)).toBeNull()
+  expect(screen.getByText('Deleted Item 1')).toBeTruthy()
+  fireEvent.press(screen.getByText('Undo'))
+  await waitFor(() => expect(mockRestore).toHaveBeenCalledWith('expenses', 'row-1'))
 })
 
 describe('multi-select delete', () => {
@@ -513,11 +529,10 @@ describe('feed view', () => {
     })
   })
 
-  it('deletes from the feed as soon as the delete is confirmed', () => {
+  it('deletes from the feed straight away, no confirm', () => {
     const screen = renderWithProviders(<ActivityScreen />)
     fireEvent(screen.getByLabelText('Item 1, Food. View details'), 'longPress')
     fireEvent.press(screen.getByText('Delete'))
-    fireEvent.press(screen.getAllByText('Delete').at(-1)!)
     expect(mockDelete).toHaveBeenCalledWith(expect.objectContaining({ id: 'row-1' }), expect.anything())
   })
 })
