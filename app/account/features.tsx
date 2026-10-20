@@ -38,7 +38,7 @@ export default function FeaturesScreen() {
             const without = (cur ?? next).filter((k) => k !== key)
             return shown ? [...without, key] : without
           })
-          Alert.alert("Couldn't save", 'Check your connection and try again.')
+          Alert.alert("Couldn't save that setting", 'Check your connection and try again.')
         },
       },
     )
@@ -91,7 +91,7 @@ export default function FeaturesScreen() {
                 onValueChange={(v) =>
                   updateUser.mutate(
                     { activityFeed: v },
-                    { onError: () => Alert.alert("Couldn't save", 'Check your connection and try again.') },
+                    { onError: () => Alert.alert("Couldn't save that setting", 'Check your connection and try again.') },
                   )
                 }
               />

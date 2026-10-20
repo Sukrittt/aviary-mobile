@@ -208,7 +208,7 @@ export default function MoveMoneyModal() {
       setError(
         msg.includes('no budget row for')
           ? 'One of these categories changed since you opened this screen. Go back and try again.'
-          : 'Could not pull money. Check your connection and try again.',
+          : "Couldn't pull money. Check your connection and try again.",
       )
     }
   }

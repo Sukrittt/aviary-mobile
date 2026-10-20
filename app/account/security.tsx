@@ -234,7 +234,7 @@ export default function SecurityScreen() {
             <Pressable
               onPress={() =>
                 restoreAccountMutation.mutate(undefined, {
-                  onError: () => Alert.alert('Could not restore account', 'Check your connection and try again.'),
+                  onError: () => Alert.alert("Couldn't restore your account", 'Check your connection and try again.'),
                 })
               }
               disabled={restoreAccountMutation.isPending}

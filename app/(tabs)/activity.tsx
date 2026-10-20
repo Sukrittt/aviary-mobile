@@ -25,7 +25,7 @@ import { useRouter, useLocalSearchParams, useFocusEffect, type Href } from "expo
 import * as Haptics from "expo-haptics";
 import { tap } from "@/src/lib/haptics";
 import { AnimatedPressable, usePressSpring } from "@/src/components/ui/Button";
-import { CaretLeft, CaretRight, Images, MoneyWavy, Rows, SlidersHorizontal, Trash, X } from "@/src/components/shared/icons";
+import { CaretLeft, CaretRight, Images, MoneyWavy, Rows, SlidersHorizontal, Trash, WarningCircle, X } from "@/src/components/shared/icons";
 import { ActivityFeed } from "@/src/components/activity/ActivityFeed";
 import { useActivityView, useFeedOn } from "@/src/hooks/useActivityView";
 import { useFeedTip } from "@/src/hooks/useFeedTip";
@@ -64,6 +64,11 @@ import { EmptyState } from "@/src/components/shared/EmptyState";
 import type { ExpenseRow, IncomeRow } from "@/src/types";
 import { formatDayLabel, parseLocalDate, toLocalDateString } from "@/src/lib/date";
 import { useOnline } from "@/src/lib/netStatus";
+import { restoreArchivedItem } from "@/src/api/account";
+import { Alert } from "@/src/components/ui/AlertHost";
+import { Toast } from "@/src/components/ui/Toast";
+import { useUnsyncedExpenses } from "@/src/hooks/useUnsyncedExpenses";
+import { LOG_EXPENSE_PATH } from "@/src/features/log-expense/SubmitContext";
 import { EMPTY } from "@/src/lib/constants";
 import { useImportInProgress } from '@/src/components/home/ImportBanner'
 import { FORCE_EMPTY_STATE_PREVIEW, emptyForPreview } from "@/src/lib/emptyStatePreview";
@@ -115,6 +120,7 @@ function ActivityScreen() {
   const { hideAmounts } = usePrivacy();
   const router = useRouter();
   const online = useOnline();
+  const unsynced = useUnsyncedExpenses();
 
   const categoriesQ = useCategories();
   const categoryByName = useMemo(
@@ -185,12 +191,16 @@ function ActivityScreen() {
   // Who logged what: only in a budget with 2+ people. One person, no change.
   const shared = (activeBudget?.members.length ?? 0) > 1;
   const [mineOnly, setMineOnly] = useState(false);
-  const [deleteTxn, setDeleteTxn] = useState<ExpenseRow | null>(null);
-  // Set once the confirm sheet's Delete is tapped; drives the row's collapse
+  // Deleted rows go to Archive, so a delete needs no confirm: Undo restores it.
+  const [undoToast, setUndoToast] = useState<{ n: number; txn: ExpenseRow | null }>({ n: 0, txn: null });
+  // Set once Delete is tapped; drives the row's collapse
   // animation in DeletingRow. The actual mutate() call is deferred until that
   // animation finishes (see its onDone), so the refetch-driven removal never
   // pops a still-visible row.
   const [pendingDelete, setPendingDelete] = useState<ExpenseRow | null>(null);
+  // pendingDelete stays set after its request goes (until the refetch drops
+  // the row), so this says whether it was already sent.
+  const [sentDeleteRef] = useState<{ current: string | null }>(() => ({ current: null }));
   // Multi-select: a long-press starts it, and clearing the last row ends it.
   const [selectedKeys, setSelectedKeys] = useState<ReadonlySet<string>>(() => new Set());
   const selecting = selectedKeys.size > 0;
@@ -423,11 +433,21 @@ function ActivityScreen() {
 
   function confirmDelete(t: ExpenseRow) {
     setSheetTxn(null);
-    setDeleteTxn(t);
+    // One row collapses at a time. A delete still mid-collapse is sent now,
+    // or swapping the target would quietly cancel it.
+    if (pendingDelete && keyOf(pendingDelete) !== keyOf(t) && sentDeleteRef.current !== keyOf(pendingDelete)) runDelete(pendingDelete);
+    setPendingDelete(t);
+  }
+
+  function undoDelete(id: string) {
+    setPendingDelete((p) => (p?.id === id ? null : p));
+    restoreArchivedItem("expenses", id)
+      .then(() => qc.invalidateQueries())
+      .catch(() => Alert.alert("Couldn't restore this", "You can still restore it from Archive."));
   }
 
   function runDelete(t: ExpenseRow) {
-    setDeleteTxn(null);
+    sentDeleteRef.current = keyOf(t);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(
       () => {},
     );
@@ -442,8 +462,9 @@ function ActivityScreen() {
       // Left set on success so the row stays collapsed until the refetch drops
       // it — clearing it here springs the row back to full height for a whole
       // round trip. On failure the row does come back, which is the signal.
-      { onError: (err) => {
-        setPendingDelete(null);
+      { onSuccess: () => setUndoToast((u) => ({ n: u.n + 1, txn: t })),
+        onError: (err) => {
+        setPendingDelete((p) => (p && keyOf(p) === keyOf(t) ? null : p));
         setDeleteNotice({ status: err instanceof ExpenseWriteError ? err.status : undefined });
       } },
     );
@@ -553,8 +574,46 @@ function ActivityScreen() {
     />
   );
   // Search and filters, shared by both views.
+  // Given up on by the sync, so it's nowhere else in Activity. Stays until the
+  // user retries or discards it: never dropped on their behalf.
+  const firstFailed = unsynced.failed[0]?.payload;
+  const failedRow = firstFailed ? (
+    <Pressable
+      accessibilityRole="button"
+      onPress={() => {
+        tap();
+        router.push({
+          pathname: LOG_EXPENSE_PATH,
+          params: {
+            failedClientId: firstFailed.client_id,
+            item: firstFailed.item,
+            amountInr: firstFailed.amount_inr,
+            category: firstFailed.category,
+            date: firstFailed.date,
+            notes: firstFailed.notes ?? "",
+            paymentMethod: firstFailed.payment_method ?? "",
+            ...(firstFailed.account_id ? { accountId: firstFailed.account_id } : {}),
+          },
+        });
+      }}
+      style={[styles.row, styles.failedRow, { backgroundColor: tokens.coralSoft, marginBottom: space.md }]}
+    >
+      <Icon icon={WarningCircle} size={20} color={tokens.coral} />
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text style={[styles.rowItem, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>
+          {unsynced.failed.length === 1 ? "1 expense couldn't be saved" : `${unsynced.failed.length} expenses couldn't be saved`}
+        </Text>
+        <Text style={[styles.rowMeta, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
+          Tap to fix it and try again, or discard it.
+        </Text>
+      </View>
+      <Icon icon={CaretRight} size={16} color={tokens.text3} />
+    </Pressable>
+  ) : null;
+
   const controls = (
     <>
+      {failedRow}
       <View style={styles.searchRow}>
         <TextInput
           value={search}
@@ -649,6 +708,9 @@ function ActivityScreen() {
     </>
   );
 
+  // A row still in the offline queue has no server copy, so nothing in Archive to bring back.
+  const undoId = undoToast.txn?.id;
+
   return (
     <>
       {deleteNotice && <ExpenseNoticeScreen status={deleteNotice.status} action="delete" onBack={() => setDeleteNotice(null)} />}
@@ -683,6 +745,12 @@ function ActivityScreen() {
             </>
           ) : (
             <>
+              {/* Quiet on purpose: the queue drains itself, this only says it's on it. */}
+              {unsynced.pending > 0 && (
+                <Text style={[styles.syncing, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>
+                  Syncing {unsynced.pending}…
+                </Text>
+              )}
               {duplicateCount > 0 && (
                 <Chip
                   selected
@@ -990,43 +1058,6 @@ function ActivityScreen() {
         </BottomSheet>
 
         <BottomSheet
-          visible={deleteTxn !== null}
-          onClose={() => setDeleteTxn(null)}
-        >
-          <Text
-            style={[
-              styles.confirmTitle,
-              { color: tokens.text, fontFamily: fontFamily.displaySemiBold },
-            ]}
-          >
-            Delete transaction
-          </Text>
-          <Text
-            style={[
-              styles.confirmBody,
-              { color: tokens.text2, fontFamily: fontFamily.bodyMedium },
-            ]}
-            numberOfLines={2}
-          >
-            Remove &quot;{deleteTxn?.item}&quot;? This cannot be undone.
-          </Text>
-          <SheetOption
-            label="Delete"
-            color={tokens.coral}
-            onPress={() => {
-              if (!deleteTxn) return;
-              setPendingDelete(deleteTxn);
-              setDeleteTxn(null);
-            }}
-          />
-          <SheetOption
-            label="Cancel"
-            color={tokens.text2}
-            onPress={() => setDeleteTxn(null)}
-          />
-        </BottomSheet>
-
-        <BottomSheet
           visible={confirmBulk}
           onClose={() => setConfirmBulk(false)}
         >
@@ -1173,6 +1204,14 @@ function ActivityScreen() {
           onDismiss={() => feedTip.close("dismiss")}
         />
       )}
+      <Toast
+        trigger={undoToast.n}
+        message={undoToast.txn ? `Deleted ${undoToast.txn.item}` : ""}
+        icon={Trash}
+        durationMs={5000}
+        action={undoId ? { label: "Undo", onPress: () => undoDelete(undoId) } : undefined}
+        style={{ top: insets.top + 12 }}
+      />
     </>
   );
 }
@@ -1354,6 +1393,8 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
   },
   rowTint: { borderRadius: 14 },
+  failedRow: { borderRadius: 14, paddingHorizontal: 14 },
+  syncing: { fontSize: 12, alignSelf: "center" },
   icon: {
     width: 40,
     height: 40,

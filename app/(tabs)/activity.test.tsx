@@ -3,6 +3,8 @@ import { createContext, useContext, useState, type ReactNode } from 'react'
 import { act, fireEvent, waitFor } from '@testing-library/react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import type { ExpensesPage, ExpensesPageParams } from '@/src/api/expenses'
+import AsyncStorage from '@react-native-async-storage/async-storage'
+import * as pending from '@/src/lib/pendingExpenses'
 import ActivityScreen from './activity'
 
 const mockUseExpensesPage = jest.fn()
@@ -26,6 +28,9 @@ jest.mock('@/src/hooks/useExpenses', () => ({
   useExpenses: () => ({ data: [], isLoading: false, error: null }),
   useRecentExpenses: () => ({ data: mockRecent, isLoading: false, error: null }),
 }))
+
+const mockRestore = jest.fn()
+jest.mock('@/src/api/account', () => ({ ...jest.requireActual('@/src/api/account'), restoreArchivedItem: (...args: unknown[]) => mockRestore(...args) }))
 
 let mockIncomes: Record<string, unknown>[] = []
 jest.mock('@/src/hooks/useUser', () => ({ useUser: () => ({ data: mockUser }) }))
@@ -297,12 +302,37 @@ it.each([[409, 'This transaction was updated'], [404, 'This transaction is alrea
   const screen = renderWithProviders(<ActivityScreen />)
   fireEvent.press(screen.getByText('Item 1'))
   fireEvent.press(screen.getByText('Delete'))
-  fireEvent.press(screen.getByText('Delete'))
   expect(screen.getByText(String(title))).toBeTruthy()
   expect(screen.queryByText('Raw API error')).toBeNull()
   fireEvent.press(screen.getByText('Back to transactions'))
   expect(screen.queryByText(String(title))).toBeNull()
   expect(mockDelete).toHaveBeenCalledTimes(1)
+})
+
+it('deletes without a confirm, then offers Undo that restores it from Archive', async () => {
+  mockUseExpensesPage.mockReturnValue({ data: pageResult({}), isLoading: false, error: null })
+  mockDelete.mockReset().mockImplementation((_params, options) => options.onSuccess())
+  mockRestore.mockReset().mockResolvedValue(undefined)
+  const screen = renderWithProviders(<ActivityScreen />)
+  fireEvent.press(screen.getByText('Item 1'))
+  fireEvent.press(screen.getByText('Delete'))
+  expect(mockDelete).toHaveBeenCalledWith(expect.objectContaining({ id: 'row-1' }), expect.anything())
+  expect(screen.queryByText(/cannot be undone/)).toBeNull()
+  expect(screen.getByText('Deleted Item 1')).toBeTruthy()
+  fireEvent.press(screen.getByText('Undo'))
+  await waitFor(() => expect(mockRestore).toHaveBeenCalledWith('expenses', 'row-1'))
+})
+
+it('sends both deletes when a second starts while the first is still collapsing', () => {
+  mockUseExpensesPage.mockReturnValue({ data: pageResult({ rows: [row(1, '2026-06-01'), row(2, '2026-06-02')], total: 2 }), isLoading: false, error: null })
+  mockDelete.mockReset()
+  const screen = renderWithProviders(<ActivityScreen />)
+  fireEvent.press(screen.getByText('Item 1'))
+  fireEvent.press(screen.getByText('Delete'))
+  fireEvent.press(screen.getByText('Item 2'))
+  fireEvent.press(screen.getByText('Delete'))
+  const ids = mockDelete.mock.calls.map(([vars]) => vars.id)
+  expect(ids.sort()).toEqual(['row-1', 'row-2'])
 })
 
 describe('multi-select delete', () => {
@@ -511,11 +541,10 @@ describe('feed view', () => {
     })
   })
 
-  it('deletes from the feed as soon as the delete is confirmed', () => {
+  it('deletes from the feed straight away, no confirm', () => {
     const screen = renderWithProviders(<ActivityScreen />)
     fireEvent(screen.getByLabelText('Item 1, Food. View details'), 'longPress')
     fireEvent.press(screen.getByText('Delete'))
-    fireEvent.press(screen.getAllByText('Delete').at(-1)!)
     expect(mockDelete).toHaveBeenCalledWith(expect.objectContaining({ id: 'row-1' }), expect.anything())
   })
 })
@@ -551,5 +580,58 @@ describe('who logged what', () => {
     const screen = renderWithProviders(<ActivityScreen />)
     fireEvent.press(screen.getByText('Item 1'))
     expect(screen.getByText('Added by Priya')).toBeTruthy()
+  })
+})
+
+describe('expenses that failed to sync', () => {
+  // The real queue (AsyncStorage is mocked in jest.setup.js), so this goes
+  // through the same failed list the drain writes to.
+  async function failOne(clientId: string) {
+    await pending.enqueue({ client_id: clientId, item: 'Chai', amount_inr: '20', category: 'Food', date: '2026-06-01', timestamp: '2026-06-01T10:00:00' }, 'u1', false, 'u1')
+    await pending.bumpAttempts(clientId, 1, 'u1')
+  }
+
+  beforeEach(async () => {
+    await AsyncStorage.clear()
+    mockUseExpensesPage.mockReturnValue({ data: pageResult({}), isLoading: false, error: null })
+  })
+
+  it('shows a row for them that opens the entry in Log Expense', async () => {
+    await failOne('c1')
+    await failOne('c2')
+    const screen = renderWithProviders(<ActivityScreen />)
+
+    fireEvent.press(await screen.findByText("2 expenses couldn't be saved"))
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/modals/log-expense',
+      params: expect.objectContaining({ failedClientId: 'c1', item: 'Chai', amountInr: '20', category: 'Food' }),
+    })
+  })
+
+  it('says nothing when none failed', async () => {
+    const screen = renderWithProviders(<ActivityScreen />)
+    await act(async () => {})
+    expect(screen.queryByText(/couldn't be saved/)).toBeNull()
+  })
+})
+
+describe('sync status while online', () => {
+  beforeEach(async () => {
+    await AsyncStorage.clear()
+    mockUseExpensesPage.mockReturnValue({ data: pageResult({}), isLoading: false, error: null })
+  })
+
+  it('shows how many are still syncing, and drops it once the queue drains', async () => {
+    const queued = (id: string) => ({ client_id: id, item: 'Chai', amount_inr: '20', category: 'Food', date: '2026-06-01', timestamp: '2026-06-01T10:00:00' })
+    await pending.enqueue(queued('c1'), 'u1', false, 'u1')
+    await pending.enqueue(queued('c2'), 'u1', false, 'u1')
+    const screen = renderWithProviders(<ActivityScreen />)
+    expect(await screen.findByText('Syncing 2…')).toBeTruthy()
+
+    await act(async () => {
+      await pending.remove('c1', 'u1')
+      await pending.remove('c2', 'u1')
+    })
+    await waitFor(() => expect(screen.queryByText(/Syncing/)).toBeNull())
   })
 })

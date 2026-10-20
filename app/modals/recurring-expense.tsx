@@ -164,7 +164,7 @@ export default function RecurringExpenseModal() {
     if (isEdit) {
       updateRecurring.mutate(
         { id, updates: fields },
-        { onSuccess, onError: () => Alert.alert("Couldn't save", 'Check your connection and try again.') },
+        { onSuccess, onError: () => Alert.alert("Couldn't save this recurring expense", 'Check your connection and try again.') },
       )
     } else {
       addRecurring.mutate(
@@ -174,7 +174,7 @@ export default function RecurringExpenseModal() {
             if (isReviewingSuggestion) acceptSuggestion(suggestionId)
             onSuccess()
           },
-          onError: () => Alert.alert("Couldn't add this", 'Check your connection and try again.'),
+          onError: () => Alert.alert("Couldn't add this recurring expense", 'Check your connection and try again.'),
         },
       )
     }
@@ -184,7 +184,7 @@ export default function RecurringExpenseModal() {
     const mutation = isActive ? pauseRecurring : resumeRecurring
     mutation.mutate(id, {
       onSuccess: () => setSaved(true),
-      onError: () => Alert.alert("Couldn't update this", 'Check your connection and try again.'),
+      onError: () => Alert.alert("Couldn't update this recurring expense", 'Check your connection and try again.'),
     })
   }
 
@@ -196,7 +196,7 @@ export default function RecurringExpenseModal() {
       },
       onError: () => {
         setConfirmSheet(null)
-        Alert.alert("Couldn't delete this", 'Check your connection and try again.')
+        Alert.alert("Couldn't delete this recurring expense", 'Check your connection and try again.')
       },
     })
   }

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { View, Text, Pressable, ScrollView, Linking, ActivityIndicator, StyleSheet } from 'react-native'
+import { View, Text, Pressable, ScrollView, ActivityIndicator, StyleSheet } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { ArrowLeft, CaretRight, ArrowSquareOut, Question, Lock, SignOut, ArrowCounterClockwise, ShieldCheck, User, type PhosphorIcon } from '@/src/components/shared/icons'
@@ -13,14 +13,10 @@ import { fontFamily } from '@/src/theme/fonts'
 import { clearAccess, sessionId } from '@/src/api/accessMode'
 import { revokeSession } from '@/src/api/account'
 import { usePaywall } from '@/src/hooks/usePaywall'
-import { managementUrl } from '@/src/lib/purchases'
+import { openPlanManagement } from '@/src/components/shared/MaintenanceBanner'
 import { PACKAGE_TYPE } from 'react-native-purchases'
 import { formatDate, isWebPlan, lockedCopy, planSummary } from '@/src/lib/billingStatus'
-import { BASE_URL } from '@/src/api/client'
 
-const PLAY_SUBSCRIPTIONS_URL = 'https://play.google.com/store/account/subscriptions?package=com.sukrit04.envelope'
-/** Where a plan bought on the website is managed and cancelled: the web account page's subscription section. */
-const WEB_ACCOUNT_URL = `${BASE_URL}/account#subscription`
 
 /**
  * Plan & billing — and, while access is off, the whole app.
@@ -55,13 +51,7 @@ export default function PlanScreen() {
     packagesQuery.data?.find((p) => p.packageType === PACKAGE_TYPE.ANNUAL)?.product.pricePerMonthString ??
     packagesQuery.data?.find((p) => p.packageType === PACKAGE_TYPE.MONTHLY)?.product.priceString
 
-  async function openManage() {
-    if (web) {
-      await Linking.openURL(WEB_ACCOUNT_URL)
-      return
-    }
-    await Linking.openURL((await managementUrl()) ?? PLAY_SUBSCRIPTIONS_URL)
-  }
+  const openManage = () => openPlanManagement(web)
 
   async function signOut() {
     setBusy('signout')

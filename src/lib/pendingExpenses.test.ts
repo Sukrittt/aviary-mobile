@@ -206,3 +206,25 @@ describe('budget stamping', () => {
     expect((await pending.list())[0].spaceId).toBe('user_a')
   })
 })
+
+it('retryFailed puts a failed entry back in the queue under the same client_id, fixes included', async () => {
+  await pending.enqueue(payload('c1'))
+  await pending.bumpAttempts('c1', 1)
+  await pending.retryFailed({ ...payload('c1'), item: 'Tea' })
+  expect(await pending.listFailed()).toEqual([])
+  const [entry] = await pending.list()
+  expect(entry).toMatchObject({ attempts: 0, payload: { client_id: 'c1', item: 'Tea' } })
+})
+
+it('discardFailed drops only the failed copy, and onChange hears every write', async () => {
+  const heard = jest.fn()
+  const off = pending.onChange(heard)
+  await pending.enqueue(payload('c1'))
+  await pending.enqueue(payload('c2'))
+  await pending.bumpAttempts('c1', 1)
+  await pending.discardFailed('c1')
+  off()
+  expect(await pending.listFailed()).toEqual([])
+  expect((await pending.list()).map((e) => e.payload.client_id)).toEqual(['c2'])
+  expect(heard).toHaveBeenCalled()
+})

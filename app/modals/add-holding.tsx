@@ -126,8 +126,8 @@ export default function AddHoldingModal() {
               return
             }
             Alert.alert(
-              'Could not save changes',
-              error instanceof Error ? error.message : 'Check your connection and try again.',
+              "Couldn't save your changes",
+              'Check your connection and try again.',
             )
           },
         },
@@ -143,7 +143,7 @@ export default function AddHoldingModal() {
         },
         {
           onSuccess: () => setSaved(true),
-          onError: () => Alert.alert('Could not add holding', 'Check your connection and try again.'),
+          onError: () => Alert.alert("Couldn't add this holding", 'Check your connection and try again.'),
         },
       )
     }

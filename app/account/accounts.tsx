@@ -65,7 +65,7 @@ export default function AccountsScreen() {
         onError: (err) => {
           setDeleting(null);
           buzzError();
-          Alert.alert("Couldn't delete this", accountErrorMessage(err));
+          Alert.alert("Couldn't delete this account", accountErrorMessage(err));
         },
       },
     );
@@ -78,7 +78,7 @@ export default function AccountsScreen() {
         onSuccess: () => tap(),
         onError: (err) => {
           buzzError();
-          Alert.alert("Couldn't restore this", accountErrorMessage(err));
+          Alert.alert("Couldn't restore this account", accountErrorMessage(err));
         },
       },
     );
@@ -240,7 +240,7 @@ function StarterPicks({ names }: { names: string[] }) {
       setDone(true);
     } catch (err) {
       buzzError();
-      Alert.alert("Couldn't add these", accountErrorMessage(err));
+      Alert.alert("Couldn't add these accounts", accountErrorMessage(err));
     } finally {
       setSaving(false);
     }

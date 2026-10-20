@@ -336,7 +336,7 @@ export default function ExpenseAddedScreen() {
   function undoFailed(err: unknown) {
     undoStarted.current = false;
     if (!mounted.current || undoSession.generation !== sessionGeneration()) return;
-    setUndoError(err instanceof Error ? err.message : "Could not undo. The expense is still saved.");
+    setUndoError(err instanceof Error ? err.message : "Couldn't undo. The expense is still saved.");
   }
 
   function handleUndo() {

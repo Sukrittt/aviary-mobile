@@ -376,7 +376,7 @@ export default function MoneyBrainModal() {
       setView('chat')
     } catch {
       if (!ownsRequest()) return
-      Alert.alert('Could not load chat', 'Check your connection and try again.')
+      Alert.alert("Couldn't load the chat", 'Check your connection and try again.')
     }
   }
 
