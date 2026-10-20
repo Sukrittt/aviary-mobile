@@ -14,8 +14,8 @@ export function Avatar({ name, avatarUrl, size = 22 }: { name: string | null; av
   const ring = { width: size, height: size, borderRadius: size / 2, borderColor: tokens.bg }
   if (avatarUrl) return <Image source={{ uri: avatarUrl }} style={[styles.ring, ring]} accessibilityIgnoresInvertColors />
   return (
-    <View style={[styles.ring, ring, { backgroundColor: tokens.accentSoft }]}>
-      <Text style={{ color: tokens.accentInk, fontSize: Math.max(12, size * 0.5), fontFamily: fontFamily.bodyBold }}>{initialOf(name)}</Text>
+    <View testID="avatar-initial" style={[styles.ring, ring, { backgroundColor: tokens.accent }]}>
+      <Text style={{ color: tokens.onAccent, fontSize: Math.max(12, size * 0.5), fontFamily: fontFamily.bodyBold }}>{initialOf(name)}</Text>
     </View>
   )
 }

@@ -5,6 +5,8 @@ import { renderWithProviders, createTestQueryClient } from '@/src/test-utils/ren
 import { BudgetSwitcherSheet } from './BudgetSwitcherSheet'
 import { BudgetChip } from './BudgetChip'
 import { MoveExpenseSheet } from './MoveExpenseSheet'
+import { Avatar } from './MemberAvatars'
+import { StyleSheet } from 'react-native'
 import { budgetsKey } from '@/src/hooks/useBudgetSpaces'
 import { switchBudget } from '@/src/lib/budgetSwitch'
 import { getBudgetCategories, moveExpense, type Budget, type BudgetList } from '@/src/api/spaces'
@@ -199,5 +201,12 @@ describe('MoveExpenseSheet', () => {
   it('never offers the budget it is already in', () => {
     const utils = renderWithProviders(<MoveExpenseSheet expense={expense} onClose={() => {}} />, { queryClient: withBudgets({ budgets: [personal, home], count: 2 }) })
     expect(utils.queryByTestId('move-budget-u1')).toBeNull()
+  })
+})
+
+describe('Avatar', () => {
+  it('fills the initial solid, so nothing behind it shows through', () => {
+    const screen = renderWithProviders(<Avatar name="Rahul" avatarUrl={null} />)
+    expect(StyleSheet.flatten(screen.getByTestId('avatar-initial').props.style).backgroundColor).not.toMatch(/rgba/)
   })
 })

@@ -863,8 +863,13 @@ function ActivityScreen() {
                 >
                   <SelectTint selected={isSelected} style={styles.rowTint} />
                   <SelectCheck selecting={selecting} selected={isSelected} gap={ROW_GAP} inset={SELECT_INSET} />
-                  <View style={[styles.icon, { backgroundColor: tint.bg }]}>
+                  <View testID="row-icon" style={[styles.icon, { backgroundColor: tint.bg }]}>
                     <CategoryIcon name={txn.category} icon={cat?.icon} group={cat?.group} size={16} color={tint.ink} />
+                    {who ? (
+                      <View testID="logged-by" accessibilityLabel={`Added by ${firstName(who.name) ?? "someone"}`} style={styles.loggedBy}>
+                        <Avatar name={who.name} avatarUrl={who.avatarUrl} size={20} />
+                      </View>
+                    ) : null}
                   </View>
                   <View style={{ flex: 1, minWidth: 0 }}>
                     <Text
@@ -894,11 +899,6 @@ function ActivityScreen() {
                       {txn.has_photo ? " · Photo" : ""}
                     </Text>
                   </View>
-                  {who ? (
-                    <View testID="logged-by" accessibilityLabel={`Added by ${firstName(who.name) ?? "someone"}`}>
-                      <Avatar name={who.name} avatarUrl={null} size={20} />
-                    </View>
-                  ) : null}
                   <Text
                     style={[
                       styles.rowAmount,
@@ -1436,6 +1436,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  // Matches web's .txn-author: the face sits on the icon's corner, so the amounts stay in one column.
+  loggedBy: { position: "absolute", right: -6, bottom: -6 },
   rowItem: { fontSize: 15 },
   rowMeta: { fontSize: 12, marginTop: 2 },
   rowAmount: { fontSize: 15 },

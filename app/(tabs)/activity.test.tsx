@@ -1,7 +1,8 @@
 import { AlertHost } from '@/src/components/ui/AlertHost'
 import { ExpenseWriteError } from '@/src/lib/expenseConflict'
 import { createContext, useContext, useState, type ReactNode } from 'react'
-import { act, fireEvent, waitFor } from '@testing-library/react-native'
+import { act, fireEvent, waitFor, within } from '@testing-library/react-native'
+import { Image, StyleSheet } from 'react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import type { ExpensesPage, ExpensesPageParams } from '@/src/api/expenses'
 import AsyncStorage from '@react-native-async-storage/async-storage'
@@ -593,6 +594,16 @@ describe('who logged what', () => {
     expect(screen.getByText('Item 2')).toBeTruthy()
     fireEvent.press(screen.getByText('Everyone'))
     expect(screen.getByText('Item 1')).toBeTruthy()
+  })
+
+  it('pins the face to the corner of the category icon, photo and all', () => {
+    const withPhoto = { ...home, members: [{ ...member('u2', 'Priya', 'owner'), avatarUrl: 'https://img/priya.png' }, member('u1', 'Rahul', 'member')] }
+    mockSpaces = { budgets: [withPhoto], active: withPhoto, multi: true }
+    mockUseExpensesPage.mockReturnValue({ data: pageResult({ rows, total: 2 }), isLoading: false, error: null })
+    const screen = renderWithProviders(<ActivityScreen />)
+    const priya = within(screen.getAllByTestId('row-icon')[0]).getByTestId('logged-by')
+    expect(StyleSheet.flatten(priya.props.style)).toMatchObject({ position: 'absolute' })
+    expect(screen.UNSAFE_getAllByType(Image).some((img) => img.props.source?.uri === 'https://img/priya.png')).toBe(true)
   })
 
   it('says who added it on the detail page', () => {
