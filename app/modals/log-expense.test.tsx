@@ -2,6 +2,8 @@ import { ExpenseWriteError } from '@/src/lib/expenseConflict'
 import type { ExpenseRow } from '@/src/types'
 import { Alert, Modal } from 'react-native'
 import { act, fireEvent, waitFor, within } from '@testing-library/react-native'
+import * as pending from '@/src/lib/pendingExpenses'
+import * as accessMode from '@/src/api/accessMode'
 import { createTestQueryClient, renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { userKey } from '@/src/hooks/useUser'
 import { accountsKey } from '@/src/hooks/useAccounts'
@@ -32,6 +34,7 @@ jest.mock('@/src/features/log-expense/AutoCategoryPill', () => {
   }
 })
 
+jest.mock('@/src/sync/flush', () => ({ flush: jest.fn(async () => {}) }))
 jest.mock('@/src/api/expenses', () => ({
   getRecentExpenses: jest.fn(),
   postExpensePayload: jest.fn(),
@@ -1035,5 +1038,21 @@ describe('which budget it logs to', () => {
     await waitFor(() => expect(within(utils.getByTestId('log-budget')).getByText('Logging to')).toBeTruthy())
     expect(within(utils.getByTestId('log-budget')).getByText('Personal')).toBeTruthy()
     expect(utils.getByTestId('budget-icon-Bird')).toBeTruthy()
+  })
+})
+
+describe('an expense the sync gave up on', () => {
+  it('Try again re-queues it under the same client_id instead of posting a new one', async () => {
+    jest.spyOn(accessMode, 'currentUserId').mockReturnValue('u1')
+    await pending.enqueue({ client_id: 'c-failed', item: 'Milk', amount_inr: '450', category: 'Groceries', date: '2026-06-01', timestamp: '2026-06-01T10:00:00' }, 'u1', false, 'u1')
+    await pending.bumpAttempts('c-failed', 1, 'u1')
+    const utils = setup({ failedClientId: 'c-failed', item: 'Milk', amountInr: '450', category: 'Groceries', date: '2026-06-01' })
+
+    await act(async () => { fireEvent.press(await utils.findByText('Try again')) })
+
+    await waitFor(async () => expect(await pending.listFailed('u1')).toEqual([]))
+    const queued = await pending.list('u1')
+    expect(queued.map((e) => e.payload.client_id)).toEqual(['c-failed'])
+    expect(postExpensePayload).not.toHaveBeenCalled()
   })
 })

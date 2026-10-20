@@ -25,7 +25,7 @@ import { useRouter, useLocalSearchParams, useFocusEffect, type Href } from "expo
 import * as Haptics from "expo-haptics";
 import { tap } from "@/src/lib/haptics";
 import { AnimatedPressable, usePressSpring } from "@/src/components/ui/Button";
-import { CaretLeft, CaretRight, Images, MoneyWavy, Rows, SlidersHorizontal, Trash, X } from "@/src/components/shared/icons";
+import { CaretLeft, CaretRight, Images, MoneyWavy, Rows, SlidersHorizontal, Trash, WarningCircle, X } from "@/src/components/shared/icons";
 import { ActivityFeed } from "@/src/components/activity/ActivityFeed";
 import { useActivityView, useFeedOn } from "@/src/hooks/useActivityView";
 import { useFeedTip } from "@/src/hooks/useFeedTip";
@@ -64,6 +64,8 @@ import { EmptyState } from "@/src/components/shared/EmptyState";
 import type { ExpenseRow, IncomeRow } from "@/src/types";
 import { formatDayLabel, parseLocalDate, toLocalDateString } from "@/src/lib/date";
 import { useOnline } from "@/src/lib/netStatus";
+import { useUnsyncedExpenses } from "@/src/hooks/useUnsyncedExpenses";
+import { LOG_EXPENSE_PATH } from "@/src/features/log-expense/SubmitContext";
 import { EMPTY } from "@/src/lib/constants";
 import { useImportInProgress } from '@/src/components/home/ImportBanner'
 import { FORCE_EMPTY_STATE_PREVIEW, emptyForPreview } from "@/src/lib/emptyStatePreview";
@@ -115,6 +117,7 @@ function ActivityScreen() {
   const { hideAmounts } = usePrivacy();
   const router = useRouter();
   const online = useOnline();
+  const unsynced = useUnsyncedExpenses();
 
   const categoriesQ = useCategories();
   const categoryByName = useMemo(
@@ -553,8 +556,46 @@ function ActivityScreen() {
     />
   );
   // Search and filters, shared by both views.
+  // Given up on by the sync, so it's nowhere else in Activity. Stays until the
+  // user retries or discards it: never dropped on their behalf.
+  const firstFailed = unsynced.failed[0]?.payload;
+  const failedRow = firstFailed ? (
+    <Pressable
+      accessibilityRole="button"
+      onPress={() => {
+        tap();
+        router.push({
+          pathname: LOG_EXPENSE_PATH,
+          params: {
+            failedClientId: firstFailed.client_id,
+            item: firstFailed.item,
+            amountInr: firstFailed.amount_inr,
+            category: firstFailed.category,
+            date: firstFailed.date,
+            notes: firstFailed.notes ?? "",
+            paymentMethod: firstFailed.payment_method ?? "",
+            ...(firstFailed.account_id ? { accountId: firstFailed.account_id } : {}),
+          },
+        });
+      }}
+      style={[styles.row, styles.failedRow, { backgroundColor: tokens.coralSoft, marginBottom: space.md }]}
+    >
+      <Icon icon={WarningCircle} size={20} color={tokens.coral} />
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text style={[styles.rowItem, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>
+          {unsynced.failed.length === 1 ? "1 expense couldn't be saved" : `${unsynced.failed.length} expenses couldn't be saved`}
+        </Text>
+        <Text style={[styles.rowMeta, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
+          Tap to fix it and try again, or discard it.
+        </Text>
+      </View>
+      <Icon icon={CaretRight} size={16} color={tokens.text3} />
+    </Pressable>
+  ) : null;
+
   const controls = (
     <>
+      {failedRow}
       <View style={styles.searchRow}>
         <TextInput
           value={search}
@@ -1354,6 +1395,7 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
   },
   rowTint: { borderRadius: 14 },
+  failedRow: { borderRadius: 14, paddingHorizontal: 14 },
   icon: {
     width: 40,
     height: 40,

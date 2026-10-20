@@ -3,6 +3,8 @@ import { createContext, useContext, useState, type ReactNode } from 'react'
 import { act, fireEvent, waitFor } from '@testing-library/react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import type { ExpensesPage, ExpensesPageParams } from '@/src/api/expenses'
+import AsyncStorage from '@react-native-async-storage/async-storage'
+import * as pending from '@/src/lib/pendingExpenses'
 import ActivityScreen from './activity'
 
 const mockUseExpensesPage = jest.fn()
@@ -551,5 +553,37 @@ describe('who logged what', () => {
     const screen = renderWithProviders(<ActivityScreen />)
     fireEvent.press(screen.getByText('Item 1'))
     expect(screen.getByText('Added by Priya')).toBeTruthy()
+  })
+})
+
+describe('expenses that failed to sync', () => {
+  // The real queue (AsyncStorage is mocked in jest.setup.js), so this goes
+  // through the same failed list the drain writes to.
+  async function failOne(clientId: string) {
+    await pending.enqueue({ client_id: clientId, item: 'Chai', amount_inr: '20', category: 'Food', date: '2026-06-01', timestamp: '2026-06-01T10:00:00' }, 'u1', false, 'u1')
+    await pending.bumpAttempts(clientId, 1, 'u1')
+  }
+
+  beforeEach(async () => {
+    await AsyncStorage.clear()
+    mockUseExpensesPage.mockReturnValue({ data: pageResult({}), isLoading: false, error: null })
+  })
+
+  it('shows a row for them that opens the entry in Log Expense', async () => {
+    await failOne('c1')
+    await failOne('c2')
+    const screen = renderWithProviders(<ActivityScreen />)
+
+    fireEvent.press(await screen.findByText("2 expenses couldn't be saved"))
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/modals/log-expense',
+      params: expect.objectContaining({ failedClientId: 'c1', item: 'Chai', amountInr: '20', category: 'Food' }),
+    })
+  })
+
+  it('says nothing when none failed', async () => {
+    const screen = renderWithProviders(<ActivityScreen />)
+    await act(async () => {})
+    expect(screen.queryByText(/couldn't be saved/)).toBeNull()
   })
 })

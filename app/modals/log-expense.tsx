@@ -75,6 +75,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { track } from "@/src/lib/analytics";
 import { isRefreshingToken } from "@/src/api/accessMode";
 import { tap } from "@/src/lib/haptics";
+import { Alert as AppAlert } from "@/src/components/ui/AlertHost";
+import { mintExpensePayload } from "@/src/api/expenses";
+import { discardFailed, retryFailed } from "@/src/lib/pendingExpenses";
+import { flush } from "@/src/sync/flush";
 import { BudgetIcon } from '@/src/components/budgets/BudgetIcon'
 
 function str(v: string | string[] | undefined): string {
@@ -143,6 +147,8 @@ export default function LogExpenseScreen() {
   const origId = str(params.id) || undefined;
   const origTimestamp = str(params.timestamp);
   const isEdit = origTimestamp !== "";
+  // Opened from Activity's "couldn't be saved" row: this entry is in the failed queue.
+  const failedClientId = str(params.failedClientId) || undefined;
   const { multi: multiBudget, active: activeBudget } = useBudgetSpaces();
   const cachedUser = useCachedUser();
   const feedOn = useFeedOn().on;
@@ -472,18 +478,28 @@ export default function LogExpenseScreen() {
     } else {
       // Kept (still auto-picked at save) or overridden (the user changed it).
       if (suggestedBy.current) track("ai_category_suggested", { accepted: autoPicked, source: suggestedBy.current, ms: pickMs.current });
+      const row = {
+        item: savedItem,
+        amount_inr: String(parsedAmount),
+        category,
+        date,
+        notes: notes.trim(),
+        // With an account, its type is the payment method, sent too so a
+        // queued create on an account archived since still funds the right envelope.
+        payment_method: accountId ? accounts.find((a) => a.id === accountId)?.type ?? paymentMethod : paymentMethod,
+        ...(accountId ? { account_id: accountId } : {}),
+        source: 'manual' as const,
+      };
+      // A create the sync gave up on goes back in the queue under its own
+      // client_id, fixes included, and the drain takes it from there.
+      if (failedClientId) {
+        void retryFailed(mintExpensePayload({ ...row, client_id: failedClientId })).then(() => flush());
+        setLogSuccess(true);
+        return;
+      }
       addMutate(
         {
-          item: savedItem,
-          amount_inr: String(parsedAmount),
-          category,
-          date,
-          notes: notes.trim(),
-          // With an account, its type is the payment method, sent too so a
-          // queued create on an account archived since still funds the right envelope.
-          payment_method: accountId ? accounts.find((a) => a.id === accountId)?.type ?? paymentMethod : paymentMethod,
-          ...(accountId ? { account_id: accountId } : {}),
-          source: 'manual',
+          ...row,
           // A slow save finishes in the background instead of holding this
           // screen. Not with a photo: its upload needs the server id.
           instant: !photo,
@@ -533,7 +549,7 @@ export default function LogExpenseScreen() {
         },
       );
     }
-  }, [canSubmit, unusual, unusualWarnedFor, warnKey, base, amount, expectedVersion, isEdit, origId, origTimestamp, origItem, origAmountInr, item, savedItem, parsedAmount, date, category, notes, paymentMethod, accountId, accounts, editedDraft, router, addMutate, updateMutate, autoPicked, syncPhoto, photo]);
+  }, [canSubmit, unusual, unusualWarnedFor, warnKey, base, amount, expectedVersion, isEdit, origId, origTimestamp, origItem, origAmountInr, item, savedItem, parsedAmount, date, category, notes, paymentMethod, accountId, accounts, editedDraft, router, addMutate, updateMutate, autoPicked, syncPhoto, photo, failedClientId]);
 
   // Publish only when the action or its visible state changes, and only while
   // focused: a prefilled log-expense (habit nudge) stacks over the launch one,
@@ -776,6 +792,36 @@ export default function LogExpenseScreen() {
           },
         ]}
       >
+        {failedClientId && (
+          <View style={{ gap: space.sm }}>
+            <Text style={{ color: tokens.onAccent, fontFamily: fontFamily.bodySemiBold, fontSize: type.body }}>
+              This one couldn&apos;t be saved. Fix anything that looks off, then try again.
+            </Text>
+            <View style={{ flexDirection: "row", gap: space.sm }}>
+              {[
+                { label: "Try again", onPress: handleSubmit },
+                {
+                  label: "Discard",
+                  onPress: () =>
+                    AppAlert.alert("Discard this expense?", "It never reached your account, so it's gone for good.", [
+                      { text: "Keep it", style: "cancel" },
+                      { text: "Discard", style: "destructive", onPress: () => void discardFailed(failedClientId).then(() => router.back()) },
+                    ]),
+                },
+              ].map((b) => (
+                <Pressable
+                  key={b.label}
+                  accessibilityRole="button"
+                  disabled={holding}
+                  onPress={() => { tap(); b.onPress(); }}
+                  style={{ paddingHorizontal: space.md, paddingVertical: space.sm, borderRadius: radius.full, backgroundColor: fieldBg }}
+                >
+                  <Text style={{ color: tokens.onAccent, fontFamily: fontFamily.bodySemiBold }}>{b.label}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        )}
         {error !== "" && (
           <Text
             style={[
