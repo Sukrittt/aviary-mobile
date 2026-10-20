@@ -2,12 +2,12 @@ import { CurrencySetting } from '@/src/components/CurrencyPicker'
 import { memo, useState, type ReactNode } from 'react'
 import { View, Text, Image, Pressable, RefreshControl, Linking, Platform, Share, StyleSheet } from 'react-native'
 import { Toggle } from '@/src/components/ui/Toggle'
-import { useLocalSearchParams, useRouter } from 'expo-router'
+import { useLocalSearchParams, useRouter, type Href } from 'expo-router'
 import { useQuery } from '@tanstack/react-query'
 import { requestPinWidget } from 'react-native-android-widget'
 import * as ImagePicker from 'expo-image-picker'
 import * as Haptics from 'expo-haptics'
-import { Gift, Brain, Wallet, Bank, TrendUp, Lock, Database, Archive, Repeat, CreditCard, ChatCircle, SquaresFour, CaretRight, Scan, Camera, Images, FileText, Receipt, ChartLine, ClockCounterClockwise, Plus, UserPlus, UploadSimple, type PhosphorIcon } from '@/src/components/shared/icons'
+import { Gift, Brain, Wallet, Bank, TrendUp, Lock, Database, Archive, Repeat, CreditCard, ChatCircle, SquaresFour, CaretRight, Scan, Camera, Images, FileText, Receipt, ChartLine, ClockCounterClockwise, Plus, UserPlus, UploadSimple, Users, Ticket, type PhosphorIcon } from '@/src/components/shared/icons'
 import { Screen } from '@/src/components/ui/Screen'
 import { Alert } from '@/src/components/ui/AlertHost'
 import { useTheme } from '@/src/theme/ThemeProvider'
@@ -40,6 +40,7 @@ import { hiddenFeatures, isHidden, OPT_IN_FEATURES } from '@/src/lib/features'
 import { tap } from '@/src/lib/haptics'
 import { BudgetSwitcherSheet } from '@/src/components/budgets/BudgetSwitcherSheet'
 import { useBudgetSpaces } from '@/src/hooks/useBudgetSpaces'
+import { useReadOnly } from '@/src/components/budgets/ReadOnlyNotice'
 import { track } from '@/src/lib/analytics'
 
 const THEME_OPTIONS = [
@@ -73,6 +74,7 @@ function MoreScreen() {
     if (scan) router.setParams({ scan: undefined })
   }
   const online = useOnline()
+  const { readOnly } = useReadOnly()
 
   const userQuery = useUser()
   const user = userQuery.data
@@ -238,14 +240,14 @@ function MoreScreen() {
           <View style={styles.section}>
             <Text style={[styles.sectionLabel, { color: tokens.text3, fontFamily: fontFamily.bodyBold }]}>BUDGET</Text>
             <View style={styles.featureGrid}>
-              <FeatureCard
+              {!readOnly && <FeatureCard
                 icon={UploadSimple}
                 label="Add from statement"
                 blurb="Catch up from a screenshot or file"
                 iconBg={tokens.blueSoft}
                 iconColor={tokens.blue}
                 onPress={() => router.push('/modals/statement')}
-              />
+              />}
               {!isHidden(user, 'income') && <FeatureCard
                 icon={Wallet}
                 label="Income"
@@ -311,7 +313,7 @@ function MoreScreen() {
                 iconColor={tokens.mint}
                 onPress={() => router.push('/investments')}
               />}
-              {!isHidden(user, 'billScan') && <FeatureCard
+              {!isHidden(user, 'billScan') && !readOnly && <FeatureCard
                 icon={Scan}
                 label="Scan a bill"
                 blurb="Split a cart or receipt"
@@ -411,6 +413,9 @@ function MoreScreen() {
             </View>
           </View>
 
+          {/* BUDGETS: the shared-budget admin, on this person's own plan, so it stays open read-only too. */}
+          <BudgetsSection tokens={tokens} />
+
           {/* ACCOUNT */}
           <View style={styles.section}>
             <Text style={[styles.sectionLabel, { color: tokens.text3, fontFamily: fontFamily.bodyBold }]}>ACCOUNT</Text>
@@ -419,7 +424,6 @@ function MoreScreen() {
               <View style={[styles.divider, { backgroundColor: tokens.border }]} />
               <AccountRow icon={Database} label="Your data" onPress={() => router.push('/account/data')} tokens={tokens} />
               <View style={[styles.divider, { backgroundColor: tokens.border }]} />
-              <BudgetsRow tokens={tokens} />
               {Platform.OS === 'android' && (
                 <>
                   <View style={[styles.divider, { backgroundColor: tokens.border }]} />
@@ -690,21 +694,48 @@ function inviteFriend() {
   Share.share({ message: `I've been budgeting with Aviary. Give it a try: ${INVITE_URL}` }).catch(() => {})
 }
 
-/** More → Budgets: where a one-budget person makes their second, and where everyone can switch. */
-function BudgetsRow({ tokens }: { tokens: ReturnType<typeof useTheme>['tokens'] }) {
-  const { multi, active, count } = useBudgetSpaces()
+/**
+ * More → Budgets: switch, make one, share the open one, or join someone's.
+ * Where a one-budget person makes their second.
+ */
+function BudgetsSection({ tokens }: { tokens: ReturnType<typeof useTheme>['tokens'] }) {
+  const router = useRouter()
+  const { multi, active, count, atLimit } = useBudgetSpaces()
   const [open, setOpen] = useState(false)
+  const divider = <View style={[styles.divider, { backgroundColor: tokens.border }]} />
+  const shared = (active?.members.length ?? 0) > 1
   return (
-    <>
-      <AccountRow
-        icon={Wallet}
-        label="Budgets"
-        hint={multi && active ? `${count} budgets · you're in ${active.name}` : 'Start one for a trip or a shared home'}
-        onPress={() => setOpen(true)}
-        tokens={tokens}
-      />
+    <View style={styles.section}>
+      <Text style={[styles.sectionLabel, { color: tokens.text3, fontFamily: fontFamily.bodyBold }]}>BUDGETS</Text>
+      <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
+        {multi && active ? (
+          <>
+            <AccountRow icon={Wallet} label="Switch budget" hint={`${count} budgets · you're in ${active.name}`} onPress={() => setOpen(true)} tokens={tokens} />
+            {divider}
+          </>
+        ) : null}
+        {atLimit ? null : (
+          <>
+            <AccountRow icon={Plus} label="New budget" hint="Keep a trip or a household apart" onPress={() => router.push('/modals/new-budget')} tokens={tokens} />
+            {divider}
+          </>
+        )}
+        {active && !active.personal ? (
+          <>
+            <AccountRow
+              icon={Users}
+              label={shared ? `${active.name} members` : 'Share this budget'}
+              hint={active.role === 'owner' ? 'Invite someone to budget with you' : "See who's in, or leave"}
+              onPress={() => router.push(`/budget-members?id=${encodeURIComponent(active.id)}` as Href)}
+              tokens={tokens}
+            />
+            {divider}
+          </>
+        ) : null}
+        <AccountRow icon={Ticket} label="Join with a code" hint="Got an invite? Pop it in" onPress={() => router.push('/modals/join-budget')} tokens={tokens} />
+      </View>
       <BudgetSwitcherSheet visible={open} onClose={() => setOpen(false)} />
-    </>
+    </View>
   )
 }
 

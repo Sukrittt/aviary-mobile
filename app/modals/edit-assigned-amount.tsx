@@ -30,6 +30,7 @@ import { ActivityIndicator,Animated,Pressable,ScrollView,StyleSheet,Text,View } 
 import Reanimated,{ FadeIn } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import * as Haptics from 'expo-haptics'
+import { withReadOnlyGate } from '@/src/components/budgets/ReadOnlyNotice'
 
 const AnimatedPressable = Reanimated.createAnimatedComponent(Pressable)
 
@@ -41,7 +42,7 @@ function str(v: string | string[] | undefined): string {
 
 /** Full-screen replacement for the old inline "Edit assigned amount" sheet
  * (see EnvelopeRow.tsx) — same layout as move-money.tsx's amount step. */
-export default function EditAssignedAmountModal() {
+function EditAssignedAmountModal() {
   const { tokens } = useTheme()
   const params = useLocalSearchParams()
   // Switchable in place from the envelope card, so assigning across several
@@ -490,3 +491,5 @@ const styles = StyleSheet.create({
   quickChip: { paddingVertical: 8, paddingHorizontal: 14, borderWidth: 1 },
   confirmButton: { paddingVertical: 15, alignItems: 'center', justifyContent: 'center' },
 })
+
+export default withReadOnlyGate(EditAssignedAmountModal)

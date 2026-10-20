@@ -31,6 +31,7 @@ import { tap } from '@/src/lib/haptics'
 import { useOnline } from '@/src/lib/netStatus'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
+import { withReadOnlyGate } from '@/src/components/budgets/ReadOnlyNotice'
 
 const MAX_SCREENSHOTS = 5
 /** Five screenshots have to fit one request, so each goes smaller than a single bill scan. Same as Web. */
@@ -64,7 +65,7 @@ type RowState = { checked: boolean; category: string }
  * where the money went, so the last thing you see is that it worked. Twin of
  * Web's StatementModal.
  */
-export default function StatementScreen() {
+function StatementScreen() {
   const { tokens, space, radius, type } = useTheme()
   const { formatMoney } = useCurrency()
   const insets = useSafeAreaInsets()
@@ -632,3 +633,5 @@ const styles = StyleSheet.create({
   primary: { height: 48, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   saveFill: { position: 'absolute', left: 0, top: 0, bottom: 0, backgroundColor: 'rgba(255, 255, 255, 0.22)' },
 })
+
+export default withReadOnlyGate(StatementScreen)

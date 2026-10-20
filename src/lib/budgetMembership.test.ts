@@ -70,5 +70,6 @@ it('reads a null created_by as the owner, for Mine and the avatar', () => {
 })
 
 it("names the owner in the read-only copy", () => {
-  expect(readOnlyCopy(home)).toBe("This budget is read-only until Priya renews. Your data's safe, and export's always free.")
+  expect(readOnlyCopy(home)).toBe("Priya's plan has lapsed. You can view and export everything; logging comes back once they renew.")
+  expect(readOnlyCopy(null)).toMatch(/^The owner's plan has lapsed\./)
 })

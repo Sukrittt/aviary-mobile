@@ -4,7 +4,7 @@ import { Animated, Linking, Platform } from 'react-native'
 import { act, fireEvent, waitFor } from '@testing-library/react-native'
 import * as SecureStore from 'expo-secure-store'
 import { Path } from 'react-native-svg'
-import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
+import { createTestQueryClient, renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { currentMonthKey, monthAbbrev } from '@/src/lib/envelope'
 import { getSystemStatus } from '@/src/api/systemStatus'
 import { lightTokens } from '@/src/theme/tokens'
@@ -339,6 +339,18 @@ describe('HomeScreen · Ready to Assign', () => {
     expect(mockPush).toHaveBeenLastCalledWith('/modals/log-expense')
     fireEvent.press(getByText('Take a guided tour'))
     expect(mockPush).toHaveBeenLastCalledWith('/account/guided-tour')
+  })
+
+  it('in a read-only budget, shows the banner and drops Get started', async () => {
+    const queryClient = createTestQueryClient()
+    queryClient.setQueryData(['spaces'], {
+      count: 1, limit: 5, activeId: null,
+      budgets: [{ id: 'b1', name: 'Studio', emoji: '', role: 'member', ownerId: 'o1', currencyCode: 'INR', personal: true, readOnly: true,
+        members: [{ userId: 'o1', name: 'Priya Shah', avatarUrl: null, role: 'owner', joinedAt: null }] }],
+    })
+    const { findByTestId, queryByText } = renderWithProviders(<HomeScreen />, { queryClient })
+    expect(await findByTestId('read-only-banner')).toBeTruthy()
+    expect(queryByText('Get started')).toBeNull()
   })
 
   it('hides Get Started when skipped, and remembers it on this device', async () => {

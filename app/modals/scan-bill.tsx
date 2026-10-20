@@ -15,7 +15,9 @@ import { ScanReview } from "@/src/features/scan-bill/ScanReview";
 import { ScreenHeader } from "@/src/components/shared/ScreenHeader";
 import { styles } from "@/src/features/scan-bill/styles";
 import { useScanBillController } from "@/src/features/scan-bill/useScanBillController";
-export default function ScanBillScreen() {
+import { withReadOnlyGate } from "@/src/components/budgets/ReadOnlyNotice";
+
+function ScanBillScreen() {
  const state = useScanBillController();
  const {tokens, radius, type, phase, setPhase,  productItems, selecting, toggleSelecting} = state;
   return (
@@ -80,3 +82,5 @@ export default function ScanBillScreen() {
     </KeyboardAvoidingView>
   );
 }
+
+export default withReadOnlyGate(ScanBillScreen);

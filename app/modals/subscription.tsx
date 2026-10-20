@@ -24,6 +24,7 @@ import { splitEmoji } from '@/src/lib/emoji'
 import { CategoryIcon } from '@/src/components/shared/CategoryIcon'
 import { useCategoryIcons } from '@/src/hooks/useCategories'
 import { suggestPresets } from '@/src/lib/subscriptionPresets'
+import { withReadOnlyGate } from '@/src/components/budgets/ReadOnlyNotice'
 
 // House spring, reused from Modal.tsx's SHEET_TRANSITION — animates fields
 // sliding into place when the DatePicker above them opens/closes instead of snapping.
@@ -36,7 +37,7 @@ function str(v: string | string[] | undefined): string {
 }
 
 // Route-param driven per holding-action.tsx's pattern: {service} → edit mode, no params → add.
-export default function SubscriptionModal() {
+function SubscriptionModal() {
   const { currencySymbol, currencyCode } = useCurrency()
 
   const { tokens } = useTheme()
@@ -414,3 +415,5 @@ const styles = StyleSheet.create({
   sheetSaveButton: { flex: 1, minHeight: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center' },
   sheetSaveText: { fontSize: 14 },
 })
+
+export default withReadOnlyGate(SubscriptionModal)

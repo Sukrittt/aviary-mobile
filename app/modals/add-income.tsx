@@ -33,13 +33,14 @@ import {
 } from "react-native";
 import Reanimated, { FadeIn } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { withReadOnlyGate } from "@/src/components/budgets/ReadOnlyNotice";
 
 /** Opened from Home's Ready to Assign sheet and the Income screen. Records a
  * one-off in the income ledger; the server adds it to this month's income
  * extra in the same write, so Ready to Assign goes up by exactly that much and
  * next month doesn't repeat it. Same layout as edit-month-income.tsx.
  * With `?id=`, edits that recorded income instead (the Income screen's pencil). */
-export default function AddIncomeModal() {
+function AddIncomeModal() {
   const { id, label, intro } = useLocalSearchParams<{ id?: string; label?: string; intro?: string }>();
   const incomesQ = useIncomes();
   if (!id) return <IncomeForm defaultLabel={label} intro={intro} />;
@@ -442,3 +443,5 @@ const styles = StyleSheet.create({
   moreToggle: { flexDirection: "row", alignItems: "center", justifyContent: "center" },
   confirmButton: { paddingVertical: 15, alignItems: "center", justifyContent: "center" },
 });
+
+export default withReadOnlyGate(AddIncomeModal);

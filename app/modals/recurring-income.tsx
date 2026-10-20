@@ -27,6 +27,7 @@ import { getBudgets } from '@/src/api/budgets'
 import { EMPTY } from '@/src/lib/constants'
 import { computeEnvelopeState, currentMonthKey } from '@/src/lib/envelope'
 import { startingBalanceHref } from '@/src/lib/upcomingPay'
+import { withReadOnlyGate } from '@/src/components/budgets/ReadOnlyNotice'
 
 // House spring, same as recurring-expense.tsx.
 const FIELD_TRANSITION = LinearTransition.springify().damping(64).stiffness(700)
@@ -45,7 +46,7 @@ function str(v: string | string[] | undefined): string {
  */
 const buzzError = () => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {})
 
-export default function RecurringIncomeModal() {
+function RecurringIncomeModal() {
   const { currencySymbol } = useCurrency()
   const { tokens } = useTheme()
   const insets = useSafeAreaInsets()
@@ -350,3 +351,5 @@ const styles = StyleSheet.create({
   sheetSaveButton: { flex: 1, minHeight: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center' },
   sheetSaveText: { fontSize: 14 },
 })
+
+export default withReadOnlyGate(RecurringIncomeModal)

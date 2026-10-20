@@ -31,6 +31,16 @@ jest.mock('expo-haptics', () => ({
 }))
 const mockBack = jest.fn()
 const mockDismissTo = jest.fn()
+let mockActive: unknown = null
+jest.mock('@/src/hooks/useBudgetSpaces', () => ({
+  ...jest.requireActual('@/src/hooks/useBudgetSpaces'),
+  useBudgetSpaces: () => ({ active: mockActive, budgets: [], multi: true, count: 2, limit: 5, atLimit: false }),
+}))
+const READ_ONLY_BUDGET = {
+  id: 'b2', name: 'Studio', readOnly: true, ownerId: 'o1', role: 'member', personal: false,
+  members: [{ userId: 'o1', name: 'Priya Rao', avatarUrl: null, role: 'owner', joinedAt: null }],
+}
+
 jest.mock('expo-router', () => ({ useRouter: () => ({ back: mockBack, push: jest.fn(), dismissTo: mockDismissTo }) }))
 
 const PROPOSAL = {
@@ -46,6 +56,7 @@ const PROPOSAL = {
 
 beforeEach(() => {
   jest.clearAllMocks()
+  mockActive = null
   mockOnline = true
   mockRead.mockResolvedValue(PROPOSAL)
   mockMutate.mockResolvedValue({})
@@ -241,4 +252,11 @@ it('recovers when the file picker itself fails', async () => {
   const screen = renderWithProviders(<StatementScreen />)
   fireEvent.press(screen.getByText('Choose a statement'))
   expect(await screen.findByText("Couldn't open that. Try again.")).toBeTruthy()
+})
+
+it('opens to the read-only notice in a read-only budget', () => {
+  mockActive = READ_ONLY_BUDGET
+  const screen = renderWithProviders(<StatementScreen />)
+  expect(screen.getByTestId('read-only-notice')).toBeTruthy()
+  expect(screen.queryByText('Choose a statement')).toBeNull()
 })

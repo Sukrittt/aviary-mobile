@@ -2,6 +2,7 @@ import { useCurrency } from '@/src/context/CurrencyContext'
 import { useState } from 'react'
 import { View, Text, Pressable, ScrollView, RefreshControl, StyleSheet } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
+import { useReadOnly } from '@/src/components/budgets/ReadOnlyNotice'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { ArrowLeft, CheckCircle, ArrowsClockwise } from '@/src/components/shared/icons'
 import Reanimated from 'react-native-reanimated'
@@ -69,6 +70,7 @@ export default function RecurringSuggestionsScreen() {
   const query = useRecurringSuggestions(months)
   const scan = useScanRecurringSuggestions()
   const dismiss = useDismissRecurringSuggestion()
+  const { blocked } = useReadOnly()
 
   const data = query.data
   const suggestions = data?.suggestions.filter((suggestion) => allMode || suggestion.kind === mode) ?? []
@@ -91,6 +93,7 @@ export default function RecurringSuggestionsScreen() {
   }
 
   function openSuggestion(s: RecurringSuggestion) {
+    if (blocked()) return
     // With Subscriptions switched off, a subscription is set up as a recurring expense, so it lands somewhere they can see.
     if (s.kind === 'subscription' && !(allMode && isHidden(user, 'subscriptions'))) {
       router.push({
@@ -181,7 +184,7 @@ export default function RecurringSuggestionsScreen() {
                   ? 'Scan remaining patterns'
                   : allMode ? 'Find repeat payments' : subscriptionMode ? 'Find subscriptions' : 'Find recurring expenses'
             }
-            onPress={() => scan.mutate(months)}
+            onPress={() => !blocked() && scan.mutate(months)}
             disabled={busy || query.isLoading}
             size="small"
             style={styles.scanButton}
@@ -269,7 +272,7 @@ export default function RecurringSuggestionsScreen() {
                     hideAmounts={hideAmounts}
                     busy={busy}
                     onReview={() => openSuggestion(s)}
-                    onDismiss={() => dismiss.mutate(s.id)}
+                    onDismiss={() => !blocked() && dismiss.mutate(s.id)}
                   />
                 ))}
               </View>

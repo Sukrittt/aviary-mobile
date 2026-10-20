@@ -96,13 +96,20 @@ export default function BudgetMembersScreen() {
     },
   })
 
+  // Optimistic: the invite leaves the list on tap; a failed cancel puts it back.
   const cancel = useMutation({
     mutationFn: (code: string) => cancelInvite(id, code),
-    onSuccess: (_, code) => {
+    onMutate: (code) => {
+      const before = queryClient.getQueryData<typeof q.data>(membersKey)
+      if (before) queryClient.setQueryData(membersKey, { ...before, invites: before.invites?.filter((i) => i.code !== code) })
       if (freshInvite?.code === code) setFreshInvite(null)
-      refresh()
+      return { before }
     },
-    onError: oops,
+    onSuccess: refresh,
+    onError: (_, __, ctx) => {
+      if (ctx?.before) queryClient.setQueryData(membersKey, ctx.before)
+      oops()
+    },
   })
 
   const toggleNotify = useMutation({

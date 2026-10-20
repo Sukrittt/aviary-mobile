@@ -25,6 +25,10 @@ jest.mock('@/src/hooks/useCategories', () => ({
   useMoveCategory: () => ({}), useAddCategory: () => ({}),
   useUpdateCategory: () => ({ mutateAsync: mockUpdateCategory }), useDeleteCategory: () => ({}),
 }))
+let mockReadOnly = false
+jest.mock('@/src/hooks/useBudgetSpaces', () => ({
+  useBudgetSpaces: () => ({ active: { id: 'b1', name: 'Studio', ownerId: 'o1', members: [], readOnly: mockReadOnly } }),
+}))
 jest.mock('@/src/hooks/useCollapsedGroups', () => ({
   useCollapsedGroups: () => jest.requireActual('react').useState(new Set(['Savings'])),
 }))
@@ -92,6 +96,7 @@ jest.mock('react-native-reanimated', () => ({
 let frames: Map<number, FrameRequestCallback>
 let nextFrame: number
 beforeEach(() => {
+  mockReadOnly = false
   mockGroups = [...initialGroups]
   mockMove.mockReset()
   mockMove.mockImplementation(({ name, toIndex }) => { mockGroups = moveItem(mockGroups, name, toIndex) })
@@ -332,4 +337,13 @@ it("saves a category's picked colour", async () => {
   fireEvent.press(screen.getByLabelText('Teal'))
   await act(async () => { fireEvent.press(screen.getByText('Save')) })
   expect(mockUpdateCategory).toHaveBeenCalledWith({ name: 'House category 0', updates: { color: 'blue' } })
+})
+
+it('in a read-only budget, shows the banner and offers no way to add or reorder', () => {
+  mockReadOnly = true
+  const { getByTestId, queryByText } = render(<EnvelopesScreen />)
+  expect(getByTestId('read-only-banner')).toBeTruthy()
+  expect(queryByText('New group')).toBeNull()
+  expect(queryByText('Add category')).toBeNull()
+  expect(queryByText('Add first category')).toBeNull()
 })

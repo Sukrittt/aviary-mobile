@@ -70,12 +70,15 @@ export async function handleLostBudget(queryClient: QueryClient, uid: string, sp
 
 /** A write into a read-only shared budget. */
 export function alertReadOnly(budget: Budget | null | undefined): void {
-  Alert.alert('This budget is read-only', readOnlyCopy(budget), undefined, { sticky: true })
+  Alert.alert(READ_ONLY_TITLE, readOnlyCopy(budget), [{ text: 'Got it' }], { sticky: true })
 }
 
+export const READ_ONLY_TITLE = 'This budget is read-only'
+
+/** What read-only means and when it ends, under the title or on the banner. */
 export function readOnlyCopy(budget: Budget | null | undefined): string {
-  const owner = firstName(ownerOf(budget)?.name) ?? 'the owner'
-  return `This budget is read-only until ${owner} renews. Your data's safe, and export's always free.`
+  const owner = firstName(ownerOf(budget)?.name)
+  return `${owner ? `${owner}'s` : "The owner's"} plan has lapsed. You can view and export everything; logging comes back once they renew.`
 }
 
 /** Who logged a row in `budget`. `created_by` null is the owner. */

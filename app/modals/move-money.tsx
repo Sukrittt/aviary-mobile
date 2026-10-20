@@ -26,6 +26,10 @@ import { ActivityIndicator,Animated,KeyboardAvoidingView,Platform,Pressable,Scro
 import Reanimated, { FadeIn,FadeOut,LinearTransition,ZoomIn } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import * as Haptics from 'expo-haptics'
+import { withReadOnlyGate } from '@/src/components/budgets/ReadOnlyNotice'
+import { BudgetReadOnlyError } from '@/src/api/client'
+import { useBudgetSpaces } from '@/src/hooks/useBudgetSpaces'
+import { READ_ONLY_TITLE, readOnlyCopy } from '@/src/lib/budgetMembership'
 
 const RTA_SENTINEL = '__ready_to_assign__'
 const MAX_AUTO_SOURCES = 3
@@ -57,11 +61,12 @@ interface SourceItem {
   score: number
 }
 
-export default function MoveMoneyModal() {
+function MoveMoneyModal() {
   const { formatAmountInput, formatCurrency, formatMoney } = useCurrency()
 
   const { tokens, space, radius, type } = useTheme()
   const { hideAmounts } = usePrivacy()
+  const { active } = useBudgetSpaces()
   const insets = useSafeAreaInsets()
   const router = useRouter()
   const params = useLocalSearchParams()
@@ -206,7 +211,9 @@ export default function MoveMoneyModal() {
     } catch (err) {
       const msg = err instanceof Error ? err.message : ''
       setError(
-        msg.includes('no budget row for')
+        err instanceof BudgetReadOnlyError
+          ? `${READ_ONLY_TITLE}. ${readOnlyCopy(active)}`
+          : msg.includes('no budget row for')
           ? 'One of these categories changed since you opened this screen. Go back and try again.'
           : "Couldn't pull money. Check your connection and try again.",
       )
@@ -735,3 +742,5 @@ function SourceIcon({ icon, size, color }: { icon: CategoryIconKey; size: number
   const Icon = CATEGORY_ICON_COMPONENTS[icon]
   return <Icon size={size} color={color} />
 }
+
+export default withReadOnlyGate(MoveMoneyModal)

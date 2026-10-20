@@ -51,6 +51,8 @@ import { ErrorScreen } from '@/src/components/shared/ErrorScreen'
 import { useOnline } from '@/src/lib/netStatus'
 import { dragShift, dragTarget, moveItem } from '@/src/lib/dragReorder'
 import { EmptyState } from '@/src/components/shared/EmptyState'
+import { ReadOnlyBanner } from '@/src/components/budgets/ReadOnlyBanner'
+import { useReadOnly } from '@/src/components/budgets/ReadOnlyNotice'
 import { FORCE_EMPTY_STATE_PREVIEW, emptyForPreview } from '@/src/lib/emptyStatePreview'
 
 function sortedPcts(pcts: number[]): number[] {
@@ -138,12 +140,15 @@ function DraggableCategoryList({
   tokens,
   onReorder,
   onMenu,
+  locked,
 }: {
   items: CategoryRow[]
   group: string
   tokens: ThemeTokens
   onReorder: (name: string, toIndex: number) => void
   onMenu: (name: string) => void
+  /** Read-only budget: no drag handles. */
+  locked?: boolean
 }) {
   const { scheme } = useTheme()
   // react-query's cache notifications land on a setTimeout(0), a tick after React's own
@@ -253,11 +258,13 @@ function DraggableCategoryList({
               >
                 {splitEmoji(cat.name).text}
               </Text>
-              <View style={styles.catActions}>
-                <View {...responder.panHandlers} hitSlop={8} style={styles.dragHandle}>
-                  <Icon icon={Equals} size={14} color={scheme === 'dark' ? tokens.text2 : tokens.text3} />
+              {!locked && (
+                <View style={styles.catActions}>
+                  <View {...responder.panHandlers} hitSlop={8} style={styles.dragHandle}>
+                    <Icon icon={Equals} size={14} color={scheme === 'dark' ? tokens.text2 : tokens.text3} />
+                  </View>
                 </View>
-              </View>
+              )}
             </Pressable>
           </Animated.View>
         )
@@ -517,6 +524,7 @@ function EnvelopesScreen() {
   const updateGroup = useUpdateGroup()
   const deleteGroup = useDeleteGroup()
   const moveGroup = useMoveGroup()
+  const { readOnly, blocked } = useReadOnly()
 
   const [collapsedGroups, setCollapsedGroups] = useCollapsedGroups('envelopes')
 
@@ -801,9 +809,11 @@ function EnvelopesScreen() {
   }
   function openCategoryMenu(name: string) {
     tap()
+    if (blocked()) return
     setMenuTarget({ kind: 'category', name })
   }
   function openGroupMenu(name: string) {
+    if (blocked()) return
     setMenuTarget({ kind: 'group', name })
   }
 
@@ -866,9 +876,10 @@ function EnvelopesScreen() {
     <>
       <Screen
         title="Categories"
-        actions={<IconButton icon={Plus} accessibilityLabel="New group" onPress={openAddGroup} />}
+        actions={readOnly ? undefined : <IconButton icon={Plus} accessibilityLabel="New group" onPress={openAddGroup} />}
         scroll={false}
       >
+        {readOnly && <View style={styles.readOnly}><ReadOnlyBanner /></View>}
         <View style={styles.metaRow}>
           <Text style={{ color: tokens.text3, fontSize: 12, fontFamily: fontFamily.bodySemiBold }}>
             {groups.length} group{groups.length === 1 ? '' : 's'} · {categories.length} categor
@@ -906,7 +917,7 @@ function EnvelopesScreen() {
               subject="envelopes"
               title="Your categories are waiting"
               description="Make a group, add a category, and give all your money a place to land."
-              action={{ label: "Create your first group", onPress: openAddGroup }}
+              action={readOnly ? undefined : { label: "Create your first group", onPress: openAddGroup }}
             />
           ) : (
             <>
@@ -918,7 +929,7 @@ function EnvelopesScreen() {
                 <DraggableGroupCard
                   key={key}
                   name={name}
-                  draggable={name !== ''}
+                  draggable={name !== '' && !readOnly}
                   drag={groupDrag}
                   listRef={listRef}
                   dragging={dragPhase !== 'idle'}
@@ -979,9 +990,10 @@ function EnvelopesScreen() {
                       tokens={tokens}
                       onReorder={(catName, toIndex) => moveCategory.mutate({ name: catName, toIndex })}
                       onMenu={openCategoryMenu}
+                      locked={readOnly}
                     />
 
-                    {items.length === 0 ? (
+                    {readOnly ? null : items.length === 0 ? (
                       <Pressable
                         onPress={() => openAddCategory(name)}
                         style={[styles.addFirstCatBtn, { borderColor: tokens.borderStrong }]}
@@ -1011,16 +1023,20 @@ function EnvelopesScreen() {
               </Reanimated.View>
 
               <Reanimated.View onLayout={footerFlip.onLayout} style={footerStyle}>
-                <Pressable
-                  onPress={openAddGroup}
-                  style={[styles.addGroupBtn, { borderColor: tokens.borderStrong }]}
-                >
-                  <Icon icon={Plus} size={14} color={tokens.text2} weight="bold" />
-                  <Text style={{ color: tokens.text2, fontSize: 13, fontFamily: fontFamily.bodyBold }}>New group</Text>
-                </Pressable>
-                <Text style={{ color: tokens.text3, fontSize: 12, textAlign: 'center', marginTop: 2, fontFamily: fontFamily.bodySemiBold }}>
-                  Tap a group to collapse · drag a handle to reorder
-                </Text>
+                {!readOnly && (
+                  <>
+                    <Pressable
+                      onPress={openAddGroup}
+                      style={[styles.addGroupBtn, { borderColor: tokens.borderStrong }]}
+                    >
+                      <Icon icon={Plus} size={14} color={tokens.text2} weight="bold" />
+                      <Text style={{ color: tokens.text2, fontSize: 13, fontFamily: fontFamily.bodyBold }}>New group</Text>
+                    </Pressable>
+                    <Text style={{ color: tokens.text3, fontSize: 12, textAlign: 'center', marginTop: 2, fontFamily: fontFamily.bodySemiBold }}>
+                      Tap a group to collapse · drag a handle to reorder
+                    </Text>
+                  </>
+                )}
               </Reanimated.View>
             </>
           )}
@@ -1304,6 +1320,7 @@ function SheetOption({
 }
 
 const styles = StyleSheet.create({
+  readOnly: { marginBottom: 12 },
   metaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, paddingBottom: 12 },
   metaActions: { flexDirection: 'row', gap: 8 },
   scrollContent: { paddingVertical: 4, gap: GROUP_GAP },

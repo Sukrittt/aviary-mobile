@@ -2,6 +2,7 @@ import { useCurrency } from "@/src/context/CurrencyContext";
 import { useState } from "react";
 import { View, Text, Pressable, ScrollView, RefreshControl, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
+import { useReadOnly } from "@/src/components/budgets/ReadOnlyNotice";
 import * as Haptics from "expo-haptics";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ArrowLeft, PencilSimple, Plus, Trash } from "@/src/components/shared/icons";
@@ -105,6 +106,7 @@ export default function IncomeScreen() {
   const loading = recurringQ.isLoading || incomesQ.isLoading;
   const loadError = recurringQ.isError || incomesQ.isError;
   const empty = schedules.length === 0 && thisMonth.length === 0;
+  const { readOnly, blocked } = useReadOnly();
 
   if (!online) return <OfflineScreen />;
 
@@ -133,7 +135,7 @@ export default function IncomeScreen() {
           <Icon icon={ArrowLeft} size={20} color={tokens.text} />
         </Pressable>
         <Text style={[styles.headerTitle, { flex: 1, color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Income</Text>
-        <View style={styles.headerButtons}>
+        {!readOnly && <View style={styles.headerButtons}>
           <Pressable onPress={() => router.push("/modals/add-income")} accessibilityRole="button" style={[styles.addButton, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
             <Icon icon={Plus} size={16} color={tokens.text} />
             <Text style={[styles.addText, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>One-off</Text>
@@ -142,7 +144,7 @@ export default function IncomeScreen() {
             <Icon icon={Plus} size={16} color={tokens.onAccent} />
             <Text style={[styles.addText, { color: tokens.onAccent, fontFamily: fontFamily.bodyBold }]}>Recurring</Text>
           </Pressable>
-        </View>
+        </View>}
       </View>
 
       <ScrollView
@@ -161,7 +163,7 @@ export default function IncomeScreen() {
             subject="recurring"
             title="What comes in?"
             description="Add your salary once and it counts toward Ready to Assign every month. Weekly gigs land on each payday."
-            action={{ label: "Add your income", onPress: () => router.push("/modals/recurring-income") }}
+            action={readOnly ? undefined : { label: "Add your income", onPress: () => router.push("/modals/recurring-income") }}
             style={{ paddingVertical: 0 }}
           />
         ) : (
@@ -246,7 +248,7 @@ export default function IncomeScreen() {
                         <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); router.push(`/modals/add-income?id=${encodeURIComponent(row.id)}`); }} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Edit ${row.label}`}>
                           <PencilSimple size={17} color={tokens.text3} />
                         </Pressable>
-                        <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); setDeleting(row); }} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Delete ${row.label}`}>
+                        <Pressable onPress={() => { Haptics.selectionAsync().catch(() => {}); if (!blocked()) setDeleting(row); }} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Delete ${row.label}`}>
                           <Trash size={17} color={tokens.text3} />
                         </Pressable>
                       </View>

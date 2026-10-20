@@ -23,6 +23,8 @@ import { useRefresh } from "@/src/hooks/useRefresh";
 import { ACCOUNT_TYPE_LABEL, accountErrorMessage } from "@/src/lib/accounts";
 import type { AccountRow, AccountType } from "@/src/types";
 import { tap } from "@/src/lib/haptics";
+import { useReadOnly } from "@/src/components/budgets/ReadOnlyNotice";
+import { ReadOnlyBanner } from "@/src/components/budgets/ReadOnlyBanner";
 
 const LOADING_PHRASES = ["Opening your wallet…", "Shaking the piggy bank…", "Shuffling your cards…", "Counting the coin jar…"];
 const MOUNT_DELAY = 100;
@@ -48,6 +50,7 @@ export default function AccountsScreen() {
   const live = liveAccounts(all);
   const archived = all.filter((a) => a.archived);
   const [deleting, setDeleting] = useState<AccountRow | null>(null);
+  const { readOnly, blocked } = useReadOnly();
 
   if (!online) return <OfflineScreen />;
 
@@ -72,6 +75,7 @@ export default function AccountsScreen() {
   }
 
   function restore(a: AccountRow) {
+    if (blocked()) return;
     update.mutate(
       { id: a.id, updates: { archived: false } },
       {
@@ -96,16 +100,19 @@ export default function AccountsScreen() {
             Where your money lives
           </Text>
         </View>
-        <Pressable onPress={() => { tick(); router.push("/modals/account"); }} accessibilityRole="button" style={[styles.addButton, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
-          <Icon icon={Plus} size={16} color={tokens.text} />
-          <Text style={[styles.addText, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>Add</Text>
-        </Pressable>
+        {!readOnly && (
+          <Pressable onPress={() => { tick(); router.push("/modals/account"); }} accessibilityRole="button" style={[styles.addButton, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
+            <Icon icon={Plus} size={16} color={tokens.text} />
+            <Text style={[styles.addText, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>Add</Text>
+          </Pressable>
+        )}
       </View>
 
       <ScrollView
         contentContainerStyle={accountsQ.isLoading ? styles.centered : styles.body}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={tokens.accent} colors={[tokens.accent]} />}
       >
+        {!accountsQ.isLoading && <ReadOnlyBanner />}
         {accountsQ.isLoading ? (
           <LoadingPhrase phrases={LOADING_PHRASES} color={tokens.text2} style={[styles.loadingPhrase, { fontFamily: fontFamily.bodyMedium }]} />
         ) : live.length === 0 && archived.length === 0 ? (
@@ -118,9 +125,9 @@ export default function AccountsScreen() {
                   key={a.id}
                   account={a}
                   index={i}
-                  onEdit={() => router.push(`/modals/account?id=${encodeURIComponent(a.id)}`)}
+                  onEdit={() => !blocked() && router.push(`/modals/account?id=${encodeURIComponent(a.id)}`)}
                   onTransactions={() => router.push({ pathname: "/(tabs)/activity", params: { account: a.id } })}
-                  onDelete={() => setDeleting(a)}
+                  onDelete={() => !blocked() && setDeleting(a)}
                 />
               ))}
             </View>
@@ -230,9 +237,10 @@ function StarterPicks({ names }: { names: string[] }) {
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
   const picked = choices.filter((c) => c.picked);
+  const { blocked } = useReadOnly();
 
   async function addAll() {
-    if (picked.length === 0 || saving) return;
+    if (picked.length === 0 || saving || blocked()) return;
     setSaving(true);
     try {
       // One at a time, so a duplicate stops the rest instead of racing them.

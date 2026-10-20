@@ -23,13 +23,14 @@ import {
 } from "react-native";
 import Reanimated, { FadeIn } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { withReadOnlyGate } from "@/src/components/budgets/ReadOnlyNotice";
 
 /** Opened from Insights' Saved view on a month with spending but no income, so
  * that month can be counted, and from Home's Ready to Assign sheet ("Change
  * income") for the current month's monthly income. Later months carry it
  * forward until one has its own income. Same layout as
  * edit-ready-to-assign.tsx. */
-export default function EditMonthIncomeModal() {
+function EditMonthIncomeModal() {
   const { month, initial } = useLocalSearchParams<{ month: string; initial?: string }>();
   const isCurrent = month === currentMonthKey();
   const { formatAmountInput } = useCurrency()
@@ -317,3 +318,5 @@ const styles = StyleSheet.create({
   amountWrap: { alignItems: "center", paddingVertical: 8 },
   confirmButton: { paddingVertical: 15, alignItems: "center", justifyContent: "center" },
 });
+
+export default withReadOnlyGate(EditMonthIncomeModal);

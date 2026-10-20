@@ -41,7 +41,7 @@ it('explains a read-only write in words, never the paywall', () => {
   queryClient.setQueryData(['spaces'], mockList.data)
   renderWithProviders(<BudgetAccessWatcher />, { queryClient })
   act(() => emitBudgetAccess({ kind: 'read_only' }))
-  expect(alert).toHaveBeenCalledWith('This budget is read-only', "This budget is read-only until Priya renews. Your data's safe, and export's always free.", undefined, { sticky: true })
+  expect(alert).toHaveBeenCalledWith('This budget is read-only', "Priya's plan has lapsed. You can view and export everything; logging comes back once they renew.", [{ text: 'Got it' }], { sticky: true })
   expect(mockPush).not.toHaveBeenCalled()
 })
 

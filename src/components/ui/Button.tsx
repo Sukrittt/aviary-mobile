@@ -36,6 +36,7 @@ export function Button({
   icon,
   disabled,
   style,
+  testID,
 }: {
   label: string
   onPress: () => void
@@ -44,6 +45,7 @@ export function Button({
   icon?: PhosphorIcon
   disabled?: boolean
   style?: StyleProp<ViewStyle>
+  testID?: string
 }) {
   const { tokens, radius, space, type } = useTheme()
   const press = usePressSpring()
@@ -57,6 +59,7 @@ export function Button({
 
   return (
     <AnimatedPressable
+      testID={testID}
       accessibilityRole="button"
       accessibilityState={{ disabled: !!disabled }}
       disabled={disabled}

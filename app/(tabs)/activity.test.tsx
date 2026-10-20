@@ -1,3 +1,4 @@
+import { AlertHost } from '@/src/components/ui/AlertHost'
 import { ExpenseWriteError } from '@/src/lib/expenseConflict'
 import { createContext, useContext, useState, type ReactNode } from 'react'
 import { act, fireEvent, waitFor } from '@testing-library/react-native'
@@ -655,4 +656,17 @@ describe('sync status while online', () => {
     })
     await waitFor(() => expect(screen.queryByText(/Syncing/)).toBeNull())
   })
+})
+
+it('in a read-only budget, shows the banner and says why instead of deleting', async () => {
+  const owner = { userId: 'u2', name: 'Priya Shah', avatarUrl: null, role: 'owner', joinedAt: null }
+  const studio = { id: 'sp_studio', name: 'Studio', emoji: '', role: 'member', ownerId: 'u2', currencyCode: 'INR', personal: false, members: [owner], readOnly: true }
+  mockSpaces = { budgets: [studio], active: studio, multi: false }
+  mockUseExpensesPage.mockReturnValue({ data: pageResult({}), isLoading: false, error: null })
+  mockDelete.mockReset()
+  const screen = renderWithProviders(<><AlertHost /><ActivityScreen /></>)
+  expect(screen.getByTestId('read-only-banner')).toBeTruthy()
+  await deleteRow(screen, 'Item 1')
+  expect(mockDelete).not.toHaveBeenCalled()
+  expect(screen.getByText('This budget is read-only')).toBeTruthy()
 })
