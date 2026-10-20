@@ -1,7 +1,7 @@
 import { emitExpenseSynced } from './events'
 import { AppState } from 'react-native'
 import { getValidToken, currentUserId, sessionGeneration } from '@/src/api/accessMode'
-import { HttpError } from '@/src/api/client'
+import { BudgetReadOnlyError, HttpError, NotAMemberError } from '@/src/api/client'
 import { postExpensePayload } from '@/src/api/expenses'
 import * as pending from '@/src/lib/pendingExpenses'
 import { onOnlineTransition } from '@/src/lib/netStatus'
@@ -82,6 +82,16 @@ async function drain(): Promise<void> {
         })
       } catch (err) {
         if (generation !== sessionGeneration()) return
+        if (err instanceof NotAMemberError) {
+          // Pinned to a budget this person has since left. Every retry gets the
+          // same answer, so set it aside now (it stays exportable) rather than
+          // let it stall the personal expenses queued behind it.
+          await pending.bumpAttempts(entry.payload.client_id, 1, owner)
+          continue
+        }
+        // That budget's owner lapsed; this person's own access is fine. Keep
+        // the entry for when they renew, and carry on with the rest.
+        if (err instanceof BudgetReadOnlyError) continue
         if (err instanceof HttpError) {
           // The subscription gate, not a bad entry. Stop the whole drain and
           // leave the queue untouched: every remaining entry would hit the same
