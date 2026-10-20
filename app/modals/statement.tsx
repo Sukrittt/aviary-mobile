@@ -25,6 +25,7 @@ import { canPickFiles, pickFile } from '@/src/lib/filePicker'
 import { formatDateShort } from '@/src/lib/format'
 import { splitEmoji } from '@/src/lib/emoji'
 import { track } from '@/src/lib/analytics'
+import * as Haptics from 'expo-haptics'
 import { tap } from '@/src/lib/haptics'
 import { useOnline } from '@/src/lib/netStatus'
 import { useTheme } from '@/src/theme/ThemeProvider'
@@ -44,6 +45,9 @@ const SUCCESS_MS = 1100
 const DONE_CATEGORIES = 4
 /** Saves in flight at once while logging. Each is a full round trip (about 2.5s), so one at a time crawled. */
 const SAVE_CONCURRENCY = 4
+/** Haptics as the rest of the app uses them: a selection tick for ticking rows (Activity), an error buzz when something fails (add-income). */
+const select = () => Haptics.selectionAsync().catch(() => {})
+const failedBuzz = () => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {})
 
 type RowState = { checked: boolean; category: string }
 
@@ -101,6 +105,7 @@ export default function StatementScreen() {
       track('statement_read', { kind, rows: result.items.length, credits: result.credits })
     } catch (err) {
       // The mascot, a title and a way back, like Web: a failed read is the whole screen's news, not a line under the buttons.
+      failedBuzz()
       setFailure(err instanceof StatementFailure ? { title: err.title, message: err.message } : { title: UNREADABLE_TITLE, message: UNREADABLE })
       setPhase('error')
     }
@@ -196,6 +201,7 @@ export default function StatementScreen() {
     // Queued (offline) saves are already in the cache and not on the server yet, so they need no refetch.
     if (synced) void invalidateExpenseCreateQueries(qc)
     if (failed > 0) {
+      failedBuzz()
       setSaving('idle')
       setError(`Couldn't log ${failed === toLog.length ? 'these' : failed}. Check your connection and try again.`)
       return
@@ -298,7 +304,10 @@ export default function StatementScreen() {
               <Text style={{ ...caption, fontFamily: fontFamily.bodySemiBold }}>
                 {items.length} {items.length === 1 ? 'payment' : 'payments'} · {daySpan(dates[0], dates[dates.length - 1])}
               </Text>
-              <Pressable accessibilityRole="button" onPress={() => setChecked(items.map((i) => i.id), !allOn)} disabled={busy} hitSlop={10}>
+              <Pressable accessibilityRole="button" onPress={() => {
+                select()
+                setChecked(items.map((i) => i.id), !allOn)
+              }} disabled={busy} hitSlop={10}>
                 <Text style={{ color: tokens.accentInk, fontFamily: fontFamily.bodySemiBold, fontSize: type.caption }}>{allOn ? 'Untick all' : 'Tick all'}</Text>
               </Pressable>
             </View>
@@ -437,7 +446,7 @@ function ReviewRow({ item, row, busy, onToggle, onPickCategory }: {
       accessibilityState={{ checked: row.checked, disabled: busy }}
       accessibilityLabel={`Add ${item.item}, ${formatMoney(item.amount)}`}
       onPress={() => {
-        tap()
+        select()
         onToggle()
       }}
       disabled={busy}
@@ -452,7 +461,10 @@ function ReviewRow({ item, row, busy, onToggle, onPickCategory }: {
         <Text numberOfLines={1} style={{ color: dim ? tokens.text3 : tokens.text, fontFamily: fontFamily.bodySemiBold, fontSize: 15 }}>{item.item}</Text>
         <View style={styles.meta}>
           <Pressable
-            onPress={onPickCategory}
+            onPress={() => {
+              tap()
+              onPickCategory()
+            }}
             disabled={busy}
             hitSlop={6}
             accessibilityRole="button"
@@ -564,7 +576,13 @@ function StatementDone({ done, onDone, onActivity }: { done: CaughtUp; onDone: (
         >
           <Text style={{ color: tokens.onAccent, fontFamily: fontFamily.bodyBold, fontSize: 15 }}>Done</Text>
         </Pressable>
-        <Pressable accessibilityRole="button" onPress={onActivity} style={[styles.primary, { borderRadius: radius.full }]}>
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => {
+            tap()
+            onActivity()
+          }}
+          style={[styles.primary, { borderRadius: radius.full }]}>
           <Text style={{ color: tokens.accentInk, fontFamily: fontFamily.bodySemiBold, fontSize: 15 }}>See them in Activity</Text>
         </Pressable>
       </Animated.View>

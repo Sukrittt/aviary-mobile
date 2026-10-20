@@ -20,6 +20,15 @@ jest.mock('@/src/components/shared/CategoryPickerSheet', () => {
 })
 let mockOnline = true
 jest.mock('@/src/lib/netStatus', () => ({ ...jest.requireActual('@/src/lib/netStatus'), useOnline: () => mockOnline }))
+jest.mock('expo-haptics', () => ({
+  selectionAsync: jest.fn(() => Promise.resolve()),
+  notificationAsync: jest.fn(() => Promise.resolve()),
+  impactAsync: jest.fn(() => Promise.resolve()),
+  performAndroidHapticsAsync: jest.fn(() => Promise.resolve()),
+  NotificationFeedbackType: { Success: 'success', Error: 'error' },
+  ImpactFeedbackStyle: { Rigid: 'rigid' },
+  AndroidHaptics: { Clock_Tick: 'clock_tick' },
+}))
 const mockBack = jest.fn()
 const mockDismissTo = jest.fn()
 jest.mock('expo-router', () => ({ useRouter: () => ({ back: mockBack, push: jest.fn(), dismissTo: mockDismissTo }) }))
@@ -81,6 +90,8 @@ it('ticks every row at once, and unticks them again', async () => {
   expect(screen.getByLabelText(/Add Rapido/).props.accessibilityState).toMatchObject({ checked: true })
   fireEvent.press(screen.getByText('Untick all'))
   expect(screen.getByText('Tick what to add')).toBeTruthy()
+  // A selection tick each time, like Activity's select mode.
+  expect(jest.requireMock('expo-haptics').selectionAsync).toHaveBeenCalledTimes(2)
 })
 
 it('picking a category ticks the row it belongs to', async () => {
@@ -209,6 +220,7 @@ it('turns away a file that is not a statement, and words a locked pdf', async ()
   fireEvent.press(screen.getByText('Choose a statement'))
   expect(await screen.findByText(/That PDF has a password/)).toBeTruthy()
   expect(screen.getByText('That PDF is locked')).toBeTruthy()
+  expect(jest.requireMock('expo-haptics').notificationAsync).toHaveBeenCalledWith('error')
   // Try again goes back to the picker.
   fireEvent.press(screen.getByText('Try again'))
   expect(screen.getByText('Choose a statement')).toBeTruthy()
