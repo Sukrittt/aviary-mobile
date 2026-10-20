@@ -316,7 +316,10 @@ export default function BudgetMembersScreen() {
               .map((m) => (
                 <Pressable key={m.userId} onPress={() => setConfirm({ kind: 'transfer', member: m })} accessibilityRole="button" accessibilityLabel={`Make ${m.name ?? 'them'} the owner`} style={styles.memberRow}>
                   <Avatar name={m.name} avatarUrl={m.avatarUrl} size={36} />
-                  <Text numberOfLines={1} style={[styles.memberName, { flex: 1, color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>{m.name ?? 'Someone'}</Text>
+                  <View style={{ flex: 1, gap: 2 }}>
+                    <Text numberOfLines={1} style={[styles.memberName, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>{m.name ?? 'Someone'}</Text>
+                    {!m.name && <Text style={[styles.meta, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>{joinedLabel(m.joinedAt)}</Text>}
+                  </View>
                 </Pressable>
               ))}
           </>

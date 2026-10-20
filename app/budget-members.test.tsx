@@ -89,6 +89,18 @@ describe('as the owner', () => {
 })
 
 describe('handing over', () => {
+  it('tells unnamed members apart by when they joined', async () => {
+    mockUid = 'u2'
+    const unnamed = [members[0], { ...members[1], name: null }]
+    ;(getBudgetMembers as jest.Mock).mockResolvedValue({ members: unnamed, role: 'owner', notifyOthers: false })
+    const queryClient = createTestQueryClient()
+    queryClient.setQueryData(budgetsKey, { budgets: [personal, { ...home, role: 'owner', members: unnamed }], count: 2, limit: 5, activeId: 'u1' })
+    const utils = renderWithProviders(<BudgetMembersScreen />, { queryClient })
+    fireEvent.press(await utils.findByTestId('transfer-owner'))
+    expect(utils.getByLabelText('Make them the owner')).toBeTruthy()
+    expect(utils.getAllByText('Joined 1 Oct 2026').length).toBe(1)
+  })
+
   it('makes a member the owner after saying what changes, then refreshes the list', async () => {
     jest.useFakeTimers()
     const utils = setup('owner')
