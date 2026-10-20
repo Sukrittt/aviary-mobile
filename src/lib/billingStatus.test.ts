@@ -1,5 +1,5 @@
 import type { BillingStatus } from '@/src/api/billing'
-import { accessAllowed, needsSetup, billingVisible, isWebPlan, lockedCopy, planSummary, trialReminderBucket, yearlySavingsPercent, planPeriod, daysUntilLabel } from './billingStatus'
+import { accessAllowed, daysOnUs, needsSetup, billingVisible, isWebPlan, lockedCopy, planSummary, trialReminderBucket, yearlySavingsPercent, planPeriod, daysUntilLabel } from './billingStatus'
 
 const NOW = Date.parse('2026-10-01T00:00:00Z')
 const DAY = 86_400_000
@@ -85,16 +85,16 @@ describe('trialReminderBucket', () => {
 
 describe('copy', () => {
   it('names the trial in the plan summary', () => {
-    expect(planSummary(status({ trialDaysRemaining: 3 }))).toBe('30 days on us · 3 days left')
+    expect(planSummary(status({ trialDaysRemaining: 3 }))).toBe('45 days on us · 3 days left')
   })
 
   it('keeps calling it a trial when a web plan is waiting on its first charge', () => {
     const scheduled = status({ mode: 'paid', store: 'web', renewalState: 'scheduled', autoRenew: true, paidExpiresAt: '2026-10-17T12:00:00Z' })
-    expect(planSummary(scheduled)).toMatch(/^30 days on us · first charge /)
+    expect(planSummary(scheduled)).toMatch(/^45 days on us · first charge /)
   })
 
   it('explains a lapsed trial as a trial, even from a stale cached status', () => {
-    expect(lockedCopy(status({ mode: 'trial' })).title).toBe('Your 30 days on us are up')
+    expect(lockedCopy(status({ mode: 'trial' })).title).toBe('Your 45 days on us are up')
     expect(lockedCopy(status({ mode: 'expired', productId: 'envelope_individual' })).title).toBe('Your subscription has ended')
     expect(lockedCopy(status({ renewalState: 'on_hold' })).title).toBe("A payment didn't go through")
   })
@@ -164,5 +164,13 @@ describe('needsSetup', () => {
   it('not while the status is unknown, or once there is a plan', () => {
     expect(needsSetup(undefined)).toBe(false)
     expect(needsSetup(status())).toBe(false)
+  })
+})
+
+describe('daysOnUs', () => {
+  it("says the trial's real length, 30 when the dates are missing", () => {
+    expect(daysOnUs({ trialStartedAt: '2026-08-01T00:00:00Z', trialEndsAt: '2026-08-31T00:00:00Z' })).toBe('30 days on us')
+    expect(daysOnUs({ trialStartedAt: '2026-08-01T00:00:00Z', trialEndsAt: '2026-09-15T00:00:00Z' })).toBe('45 days on us')
+    expect(daysOnUs({ trialStartedAt: null, trialEndsAt: null })).toBe('30 days on us')
   })
 })
