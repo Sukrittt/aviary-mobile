@@ -30,7 +30,9 @@ describe('addOkHttpPing', () => {
 
   it('drops idle connections on foreground, on background and after a failed call', () => {
     const out = addOkHttpPing(MAIN_APPLICATION)
-    expect(out).toMatch(/override fun callFailed\(call: okhttp3\.Call, ioe: java\.io\.IOException\) = evictIdle\(\)/)
+    // Already on an OkHttp worker: evict right away, so the next request
+    // can't grab the stale socket before a queued eviction runs.
+    expect(out).toMatch(/override fun callFailed\(call: okhttp3\.Call, ioe: java\.io\.IOException\) = okHttpPool\.evictAll\(\)/)
     expect(out).toMatch(/override fun onActivityStarted\(activity: android\.app\.Activity\) = evictIdle\(\)/)
     expect(out).toMatch(/override fun onActivityStopped\(activity: android\.app\.Activity\) = evictIdle\(\)/)
     // Off the main thread: evicting closes TLS sockets, and socket I/O on the

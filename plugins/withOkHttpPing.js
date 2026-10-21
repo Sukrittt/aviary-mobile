@@ -24,6 +24,9 @@ const MARKER = 'withOkHttpPing';
  *   so the request after a stuck burst opens a fresh connection instead of
  *   queueing behind the dead one.
  * evictAll() only touches idle connections; a request in flight is never cut.
+ * callFailed runs on an OkHttp worker, so it evicts there and then, before the
+ * next request can pick the stale socket; the activity callbacks run on the
+ * main thread, so theirs goes to a background executor.
  *
  * Same client React Native builds by default (createClientBuilder(context)
  * keeps the 10MB http cache and cookie jar), plus the ping. The factory builds
@@ -45,7 +48,7 @@ function addOkHttpPing(src) {
     '        .connectionPool(okHttpPool)\n' +
     `        .pingInterval(${PING_SECONDS}, TimeUnit.SECONDS)\n` +
     '        .eventListener(object : okhttp3.EventListener() {\n' +
-    '          override fun callFailed(call: okhttp3.Call, ioe: java.io.IOException) = evictIdle()\n' +
+    '          override fun callFailed(call: okhttp3.Call, ioe: java.io.IOException) = okHttpPool.evictAll()\n' +
     '        })\n' +
     '        .build()\n' +
     '    }\n' +

@@ -18,9 +18,15 @@ function onNetwork(type: string | undefined): void {
 AppState.addEventListener('change', (state) => {
   if (state === 'active') activeSince = Date.now()
 })
+// The first read only fills in a type the listener hasn't reported yet, so a
+// late answer can't overwrite a newer change.
+let heard = false
 try {
-  Network.addNetworkStateListener(({ type }) => onNetwork(type))
-  void Network.getNetworkStateAsync().then((state) => onNetwork(state?.type), () => {})
+  Network.addNetworkStateListener(({ type }) => {
+    heard = true
+    onNetwork(type)
+  })
+  void Network.getNetworkStateAsync().then((state) => { if (!heard) onNetwork(state?.type) }, () => {})
 } catch {
   // No native module (tests, a stale dev client): report 'unknown'.
 }
