@@ -8,6 +8,8 @@ import { useCurrency } from '@/src/context/CurrencyContext'
 import { CurrencySetting } from './CurrencyPicker'
 
 jest.mock('@/src/api/account', () => ({ getUser: jest.fn(), updateUser: jest.fn() }))
+const mockActive: { current: { role: 'owner' | 'member' } | null } = { current: null }
+jest.mock('@/src/hooks/useBudgetSpaces', () => ({ useBudgetSpaces: () => ({ active: mockActive.current }) }))
 jest.mock('@/src/theme/ThemeProvider', () => ({ useTheme: () => ({ tokens: {} }) }))
 jest.mock('@/src/components/shared/Modal', () => ({
   BottomSheet: ({ visible, children }: { visible: boolean; children: ReactNode }) => visible ? children : null,
@@ -43,5 +45,25 @@ it('updates the visible currency before the save request settles', async () => {
 
   resolveUpdate({ email: 'a@b.com', emailVerified: true, currencyCode: 'USD' })
   await waitFor(() => expect(queryClient.getQueryData<UserProfile>(['user'])?.currencyCode).toBe('USD'))
+  queryClient.clear()
+})
+
+it("shows a shared budget's currency read-only to a member, since only its owner can change it", async () => {
+  mockActive.current = { role: 'member' }
+  ;(getUser as jest.Mock).mockResolvedValue({ email: 'a@b.com', emailVerified: true, currencyCode: 'USD' })
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } })
+
+  render(
+    <QueryClientProvider client={queryClient}>
+      <CurrencyProvider enabled>
+        <CurrencySetting />
+      </CurrencyProvider>
+    </QueryClientProvider>,
+  )
+
+  await waitFor(() => expect(screen.getByLabelText('Currency, US Dollar. Set by the budget owner')).toBeTruthy())
+  expect(screen.queryByRole('button', { name: /Currency/ })).toBeNull()
+  expect(screen.getByText('Set by the budget owner')).toBeTruthy()
+  mockActive.current = null
   queryClient.clear()
 })
