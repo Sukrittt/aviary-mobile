@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister'
 import { defaultShouldDehydrateQuery, type Query } from '@tanstack/react-query'
+import type { Persister } from '@tanstack/react-query-persist-client'
 import * as Application from 'expo-application'
 import * as Updates from 'expo-updates'
 import { readEncrypted, writeEncrypted } from './encryptedStorage'
@@ -47,19 +48,37 @@ export function shouldPersistQuery(query: Query): boolean {
 //
 // Query keys carry no budget, so each budget gets its own snapshot
 // (`rq-cache:<spaceId>`, plain `rq-cache` for the personal one) and a switch
-// swaps them (lib/budgetSwitch.ts). Reads wait for the last used budget so a
-// cold start restores the right one.
-export const queryPersister = createAsyncStoragePersister({
-  key: 'rq-cache',
-  storage: {
-    getItem: async (key) => {
-      await restoreActiveBudget()
-      return readEncrypted<string>(`${key}${budgetKeySuffix()}`).catch(() => null)
-    },
-    setItem: (key, value) => writeEncrypted(`${key}${budgetKeySuffix()}`, value),
-    removeItem: (key) => AsyncStorage.removeItem(`${key}${budgetKeySuffix()}`),
+// swaps them (lib/budgetSwitch.ts). One persister per key: the library
+// throttles writes, so a save requested for budget A while the switch to B
+// is in flight must still land under A's key, not whichever is active when
+// the throttle fires. Reads wait for the last used budget so a cold start
+// restores the right one.
+const persisters = new Map<string, Persister>()
+function persisterFor(suffix: string): Persister {
+  let p = persisters.get(suffix)
+  if (!p) {
+    const key = `rq-cache${suffix}`
+    p = createAsyncStoragePersister({
+      key,
+      storage: {
+        getItem: () => readEncrypted<string>(key).catch(() => null),
+        setItem: (_, value) => writeEncrypted(key, value),
+        removeItem: () => AsyncStorage.removeItem(key),
+      },
+    })
+    persisters.set(suffix, p)
+  }
+  return p
+}
+
+export const queryPersister: Persister = {
+  persistClient: (client) => persisterFor(budgetKeySuffix()).persistClient(client),
+  restoreClient: async () => {
+    await restoreActiveBudget()
+    return persisterFor(budgetKeySuffix()).restoreClient()
   },
-})
+  removeClient: () => persisterFor(budgetKeySuffix()).removeClient(),
+}
 
 /** Sign-out: every budget's snapshot goes, not just the active one's. */
 export async function removeAllQuerySnapshots(): Promise<void> {
