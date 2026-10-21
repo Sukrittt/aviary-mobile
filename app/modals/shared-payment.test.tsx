@@ -49,7 +49,7 @@ it('opens the sheet with the screenshot attached when it can’t be read', async
   ;(readStatement as jest.Mock).mockRejectedValue(new Error('unreadable'))
   setPendingShare(image)
   renderWithProviders(<SharedPaymentScreen />)
-  await waitFor(() => expect(mockReplace).toHaveBeenCalledWith({ pathname: '/modals/log-expense', params: { shared: '1' } }))
+  await waitFor(() => expect(mockReplace).toHaveBeenCalledWith({ pathname: '/modals/log-expense', params: { shared: '1', unread: '1' } }))
   expect(takeSharedPhoto()).toEqual({ uri: 'file:///small.jpg', base64: 'QUJD', mimeType: 'image/jpeg' })
 })
 
@@ -62,6 +62,18 @@ it('reads a text receipt on the phone, keeping its UPI reference', async () => {
     pathname: '/modals/log-expense',
     params: { shared: '1', item: 'Swiggy', amountInr: '1200', notes: 'UPI ref 312345678901' },
   })
+})
+
+it('waits for the recent rows before deciding it isn’t a duplicate', async () => {
+  let land!: (v: unknown) => void
+  ;(getRecentExpenses as jest.Mock).mockReturnValue(new Promise((r) => { land = r }))
+  setPendingShare({ text: 'Paid ₹1,200 to Swiggy' })
+  renderWithProviders(<SharedPaymentScreen />)
+  await new Promise((r) => setTimeout(r, 20))
+  expect(mockReplace).not.toHaveBeenCalled()
+  land({ rows: [{ timestamp: new Date().toISOString(), date: '', item: 'Swiggy', amount_inr: '1200', category: '', notes: '', source: '', amount: '1200', description: '', payment_method: 'bank' }], lastSpent: {} })
+  await waitFor(() => expect(mockReplace).toHaveBeenCalled())
+  expect(mockReplace.mock.calls[0][0].params.dupe).toBe('1')
 })
 
 it('goes back when there is nothing waiting', () => {

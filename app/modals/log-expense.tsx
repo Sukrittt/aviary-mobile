@@ -228,6 +228,8 @@ function LogExpenseScreen() {
   // a screenshot it couldn't read comes attached. `dupe` when it looks logged already.
   const shared = str(params.shared) === "1";
   const sharedDupe = shared && str(params.dupe) === "1";
+  // It couldn't be read (unclear, offline, or this month's AI reads are used up): say so, not a bare form.
+  const sharedUnread = shared && str(params.unread) === "1";
   const [photo, setPhoto] = useState<PickedPhoto | null>(() => (shared ? takeSharedPhoto() : null));
   const [photoRemoved, setPhotoRemoved] = useState(false);
   const savedPhotoQ = useExpensePhotoUrl(origId, hasSavedPhoto);
@@ -546,6 +548,8 @@ function LogExpenseScreen() {
                   ...(accountId ? { accountId } : {}),
                 }),
                 ...(shared ? { shared: "1" } : {}),
+                // What it was paid with: an account's type (bank, cash, card) wins over the toggle.
+                paidWith: row.payment_method,
               },
             };
             setLogSuccess(true);
@@ -874,6 +878,17 @@ function LogExpenseScreen() {
             ]}
           >
             Looks already logged. Add it again only if you paid twice.
+          </Text>
+        )}
+        {sharedUnread && error === "" && (
+          <Text
+            testID="shared-unread"
+            style={[
+              styles.error,
+              { color: tokens.onAccent, fontFamily: fontFamily.bodySemiBold },
+            ]}
+          >
+            Couldn&apos;t read that one, so add the amount yourself.
           </Text>
         )}
         {error !== "" && (

@@ -1068,6 +1068,10 @@ describe('shared from a UPI app', () => {
     expect(utils.getByTestId('shared-dupe')).toHaveTextContent('Looks already logged. Add it again only if you paid twice.')
   })
 
+  it('says when it couldn’t read the share', () => {
+    expect(setup({ shared: '1', unread: '1' }).getByTestId('shared-unread')).toHaveTextContent("Couldn't read that one, so add the amount yourself.")
+  })
+
   it('says nothing about duplicates for a fresh payment', () => {
     expect(setup({ shared: '1', item: 'Swiggy', amountInr: '1200' }).queryByTestId('shared-dupe')).toBeNull()
   })
@@ -1085,6 +1089,6 @@ describe('shared from a UPI app', () => {
     await act(async () => {
       jest.advanceTimersByTime(1100)
     })
-    expect(mockReplace).toHaveBeenCalledWith(expect.objectContaining({ params: expect.objectContaining({ shared: '1' }) }))
+    expect(mockReplace).toHaveBeenCalledWith(expect.objectContaining({ params: expect.objectContaining({ shared: '1', paidWith: 'bank' }) }))
   })
 })

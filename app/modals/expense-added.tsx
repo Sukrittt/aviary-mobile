@@ -212,6 +212,7 @@ export default function ExpenseAddedScreen() {
   const accountId = str(params.accountId);
   const amount = Number(str(params.amount)) || 0;
   const shared = str(params.shared) === "1";
+  const paidWith = str(params.paidWith) || paymentMethod;
   // Older servers return no timestamp on POST, which left the stamp line blank.
   // log-expense sends the moment it navigated as a fallback; it is only ever
   // displayed — Undo still addresses the row by `timestamp`, empty or not.
@@ -330,7 +331,7 @@ export default function ExpenseAddedScreen() {
   const [upiTip, setUpiTip] = useState(false);
   useEffect(() => {
     let live = true;
-    void takeUpiShareTip({ android: Platform.OS === "android", paymentMethod, shared }).then((show) => {
+    void takeUpiShareTip({ android: Platform.OS === "android", paidWith, shared }).then((show) => {
       if (!show || !live) return;
       setUpiTip(true);
       track("upi_share_tip_shown");
