@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { View, Text, Pressable, ScrollView, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native'
-import Reanimated, { FadeInUp, ZoomIn, useReducedMotion } from 'react-native-reanimated'
+import Reanimated, { FadeIn, ZoomIn, useReducedMotion } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { type Href, useLocalSearchParams, useRouter } from 'expo-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -191,7 +191,7 @@ export default function JoinBudgetModal() {
   return (
     <KeyboardAvoidingView style={[styles.container, { backgroundColor: tokens.bg }]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       {header}
-      <ScrollView contentContainerStyle={[styles.body, { paddingBottom: insets.bottom + 32 }]} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={[styles.body, styles.grow, { paddingBottom: insets.bottom + 32 }]} keyboardShouldPersistTaps="handled">
         <View style={styles.field}>
           <Text style={[styles.headline, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Got an invite?</Text>
           <CodeTiles
@@ -208,49 +208,51 @@ export default function JoinBudgetModal() {
           />
         </View>
 
-        {complete && preview.isLoading ? (
-          <Text style={[styles.note, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>Looking it up…</Text>
-        ) : complete && preview.isError ? (
-          <Text style={[styles.note, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>{"Couldn't check that code. Check your connection and try again."}</Text>
-        ) : blocked ? (
-          <View testID="join-blocked" style={[styles.card, { backgroundColor: tokens.pillBg }]}>
-            <Text style={[styles.cardText, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>{blocked}</Text>
-          </View>
-        ) : budget ? (
-          <Reanimated.View key={budget.id} entering={reduceMotion ? undefined : FadeInUp.springify().damping(16)} style={[styles.card, styles.invite, { backgroundColor: tokens.pillBg }]}>
-            <View style={[styles.hero, { backgroundColor: tokens.accentSoft }]}>
-              <BudgetIcon budget={budget} size={36} color={tokens.accentInk} />
+        <View style={styles.result}>
+          {complete && preview.isLoading ? (
+            <Text style={[styles.note, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>Looking it up…</Text>
+          ) : complete && preview.isError ? (
+            <Text style={[styles.note, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>{"Couldn't check that code. Check your connection and try again."}</Text>
+          ) : blocked ? (
+            <View testID="join-blocked" style={[styles.card, { backgroundColor: tokens.pillBg }]}>
+              <Text style={[styles.cardText, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>{blocked}</Text>
             </View>
-            <Text style={[styles.cardTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
-              {alreadyIn ? `You're already in ${budget.name}` : invite?.inviter ? `${invite.inviter} invited you to ${budget.name}` : `You're invited to ${budget.name}`}
-            </Text>
-            {!alreadyIn && whoIsIn(invite?.members, invite?.inviter) ? (
-              <View style={styles.whoIn}>
-                <Users size={16} color={tokens.text3} />
-                <Text style={[styles.cardText, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>{whoIsIn(invite?.members, invite?.inviter)}</Text>
+          ) : budget ? (
+            <Reanimated.View key={budget.id} entering={reduceMotion ? undefined : FadeIn.duration(200)} style={[styles.card, styles.invite, { backgroundColor: tokens.pillBg }]}>
+              <View style={[styles.hero, { backgroundColor: tokens.accentSoft }]}>
+                <BudgetIcon budget={budget} size={36} color={tokens.accentInk} />
               </View>
-            ) : null}
-            <Text style={[styles.cardText, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
-              {alreadyIn ? 'Open it and pick up where you left off.' : 'Your own budget stays exactly as it is.'}
-            </Text>
-            <Pressable
-              onPress={() => (alreadyIn ? void open(budget.id, false) : !join.isPending && join.mutate())}
-              disabled={join.isPending || !!joined}
-              accessibilityRole="button"
-              style={[styles.confirmButton, { backgroundColor: joined ? tokens.successBg : tokens.accent, opacity: join.isPending ? 0.5 : 1 }]}
-            >
-              {joined ? (
-                <CheckIcon color={tokens.onSuccess} />
-              ) : (
-                <Text style={[styles.confirmText, { color: tokens.onAccent, fontFamily: fontFamily.bodyBold }]}>
-                  {alreadyIn ? `Open ${budget.name}` : join.isPending ? 'Joining…' : `Join ${budget.name}`}
-                </Text>
-              )}
-            </Pressable>
-          </Reanimated.View>
-        ) : (
-          <Text style={[styles.note, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>{"Pop in the 6 letters and numbers from the invite you got."}</Text>
-        )}
+              <Text style={[styles.cardTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
+                {alreadyIn ? `You're already in ${budget.name}` : invite?.inviter ? `${invite.inviter} invited you to ${budget.name}` : `You're invited to ${budget.name}`}
+              </Text>
+              {!alreadyIn && whoIsIn(invite?.members, invite?.inviter) ? (
+                <View style={styles.whoIn}>
+                  <Users size={16} color={tokens.text3} />
+                  <Text style={[styles.cardText, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>{whoIsIn(invite?.members, invite?.inviter)}</Text>
+                </View>
+              ) : null}
+              <Text style={[styles.cardText, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
+                {alreadyIn ? 'Open it and pick up where you left off.' : 'Your own budget stays exactly as it is.'}
+              </Text>
+              <Pressable
+                onPress={() => (alreadyIn ? void open(budget.id, false) : !join.isPending && join.mutate())}
+                disabled={join.isPending || !!joined}
+                accessibilityRole="button"
+                style={[styles.confirmButton, { backgroundColor: joined ? tokens.successBg : tokens.accent, opacity: join.isPending ? 0.5 : 1 }]}
+              >
+                {joined ? (
+                  <CheckIcon color={tokens.onSuccess} />
+                ) : (
+                  <Text style={[styles.confirmText, { color: tokens.onAccent, fontFamily: fontFamily.bodyBold }]}>
+                    {alreadyIn ? `Open ${budget.name}` : join.isPending ? 'Joining…' : `Join ${budget.name}`}
+                  </Text>
+                )}
+              </Pressable>
+            </Reanimated.View>
+          ) : (
+            <Text style={[styles.note, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>{"Pop in the 6 letters and numbers from the invite you got."}</Text>
+          )}
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   )
@@ -269,6 +271,9 @@ const styles = StyleSheet.create({
   headerAction: { fontSize: 14, width: 52 },
   headerTitle: { fontSize: 16 },
   body: { padding: 20, gap: 18 },
+  grow: { flexGrow: 1 },
+  // Tiles stay put up top; whatever the code turns up sits in the middle of what's left.
+  result: { flex: 1, justifyContent: 'center', gap: 18 },
   field: { gap: 16, paddingTop: 8 },
   headline: { fontSize: 24, textAlign: 'center' },
   hero: { width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center' },

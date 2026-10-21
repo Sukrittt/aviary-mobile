@@ -251,3 +251,16 @@ it('opens to the read-only notice in a read-only budget, and Got it goes back', 
   fireEvent.press(getByText('Got it'))
   expect(mockBack).toHaveBeenCalled()
 })
+
+it("Got it on the read-only notice lands on Home when there's nothing to go back to", async () => {
+  mockActive = READ_ONLY_BUDGET
+  mockCanGoBack = false
+  try {
+    const { getByText } = setup()
+    fireEvent.press(getByText('Got it'))
+    expect(mockBack).not.toHaveBeenCalled()
+    expect(mockReplace).toHaveBeenCalledWith('/(tabs)')
+  } finally {
+    mockCanGoBack = true
+  }
+})

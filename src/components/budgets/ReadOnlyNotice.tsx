@@ -48,7 +48,8 @@ export function ReadOnlyScreen() {
   const insets = useSafeAreaInsets()
   return (
     <View style={[styles.screen, { backgroundColor: tokens.bg, paddingTop: insets.top, paddingBottom: insets.bottom }]}>
-      <ReadOnlyNotice onClose={() => router.back()} />
+      {/* Opened straight from a widget or link, there's nothing behind it: land on Home. */}
+      <ReadOnlyNotice onClose={() => (router.canGoBack() ? router.back() : router.replace('/(tabs)'))} />
     </View>
   )
 }
