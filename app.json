@@ -75,7 +75,7 @@
           "insetDp": 16
         }
       ],
-      "./plugins/withOkHttpPing",
+      "./plugins/withOkHttpClient",
       "expo-router",
       "expo-status-bar",
       "expo-secure-store",
