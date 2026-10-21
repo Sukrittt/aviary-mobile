@@ -112,7 +112,7 @@ it('shakes with an error buzz on a code that matches nothing', async () => {
   ;(previewJoin as jest.Mock).mockResolvedValue({ status: 'not_found' })
   const utils = setup()
   fireEvent.changeText(utils.getByLabelText('Invite code'), 'AB12CD')
-  expect(await utils.findByText("That code doesn't match an invite. Check it and try again.")).toBeTruthy()
+  expect(await utils.findByText('No invite with that code')).toBeTruthy()
   expect(buzz).toHaveBeenCalledWith(Haptics.NotificationFeedbackType.Error)
 })
 
@@ -125,11 +125,11 @@ it('opens a link with the code already in', async () => {
 })
 
 it.each([
-  ['at your budget limit', { count: 5 }, ok, "You're at 5 budgets. Leave one to join."],
-  ['the budget is full', {}, { ...ok, members: 6 }, 'Home is full. 6 people is the most a budget can have.'],
-  ['the invite expired', {}, { ...ok, status: 'expired' }, 'This invite has expired. Ask Priya for a new one.'],
-  ['the invite was cancelled', {}, { ...ok, status: 'cancelled' }, 'This invite has expired. Ask Priya for a new one.'],
-  ['the code is wrong', {}, { status: 'not_found' }, "That code doesn't match an invite. Check it and try again."],
+  ['at your budget limit', { count: 5 }, ok, "You're at 5 budgets"],
+  ['the budget is full', {}, { ...ok, members: 6 }, 'Home is full'],
+  ['the invite expired', {}, { ...ok, status: 'expired' }, 'Ask Priya to send you a fresh one.'],
+  ['the invite was cancelled', {}, { ...ok, status: 'cancelled' }, 'Ask Priya to send you a fresh one.'],
+  ['the code is wrong', {}, { status: 'not_found' }, 'No invite with that code'],
 ])('says why when %s', async (_, opts, preview, copy) => {
   mockParams = { code: 'AB12CD' }
   ;(previewJoin as jest.Mock).mockResolvedValue(preview)
@@ -144,7 +144,7 @@ it('explains a refusal from the join itself', async () => {
   ;(joinBudget as jest.Mock).mockRejectedValueOnce(new BudgetRefusedError(409, 'FULL'))
   const utils = setup()
   fireEvent.press(await utils.findByText('Join Home'))
-  expect(await utils.findByText('Home is full. 6 people is the most a budget can have.')).toBeTruthy()
+  expect(await utils.findByText('Home is full')).toBeTruthy()
 })
 
 it("just opens a budget you're already in", async () => {
@@ -179,4 +179,31 @@ it("lets a brand-new account join instead of setting up, and sends it to setup i
   expect(signalOnboarded).toHaveBeenCalledWith({ elsewhere: true })
   expect(mockReplace).toHaveBeenCalledWith('/(tabs)')
   expect(mockBack).not.toHaveBeenCalled()
+})
+
+it("shows where to find the code until there's an invite to show instead", async () => {
+  ;(previewJoin as jest.Mock).mockResolvedValue(ok)
+  const utils = setup()
+  expect(utils.getByTestId('where-to-find')).toBeTruthy()
+  expect(utils.getByText("Got the link instead? Tap it and we'll fill this in.")).toBeTruthy()
+  fireEvent.changeText(utils.getByLabelText('Invite code'), 'AB12CD')
+  expect(await utils.findByText('Priya invited you to Home')).toBeTruthy()
+  expect(utils.queryByTestId('where-to-find')).toBeNull()
+})
+
+it('clears a wrong code so you can try another', async () => {
+  mockParams = { code: 'AB12CD' }
+  ;(previewJoin as jest.Mock).mockResolvedValue({ status: 'not_found' })
+  const utils = setup()
+  fireEvent.press(await utils.findByText('Try another code'))
+  expect(utils.getByLabelText('Invite code').props.value).toBe('')
+  expect(utils.getByTestId('where-to-find')).toBeTruthy()
+})
+
+it('draws the invite card while the code is looked up', async () => {
+  ;(previewJoin as jest.Mock).mockReturnValue(new Promise(() => {}))
+  const utils = setup()
+  fireEvent.changeText(utils.getByLabelText('Invite code'), 'AB12CD')
+  expect(await utils.findByLabelText('Looking up your invite')).toBeTruthy()
+  expect(utils.queryByTestId('where-to-find')).toBeNull()
 })

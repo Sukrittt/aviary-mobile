@@ -18,7 +18,9 @@ import { BudgetIcon } from '@/src/components/budgets/BudgetIcon'
 import { CodeTiles } from '@/src/components/budgets/CodeTiles'
 import { Avatar } from '@/src/components/budgets/MemberAvatars'
 import { ChipSplash } from '@/src/components/budgets/ChipSplash'
-import { HandPointing, Users } from '@/src/components/shared/icons'
+import { HandPointing, Hourglass, LinkSimple, MagnifyingGlass, Stack, UserPlus, Users, WifiSlash } from '@/src/components/shared/icons'
+import { Button } from '@/src/components/ui/Button'
+import { InviteSkeleton } from '@/src/components/shared/TabSkeleton'
 import { tap } from '@/src/lib/haptics'
 
 const CODE_LENGTH = 6
@@ -30,21 +32,25 @@ export function cleanCode(raw: string): string {
   return raw.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, CODE_LENGTH)
 }
 
+export type Blocked = { kind: 'wrong' | 'expired' | 'limit' | 'full' | 'offline'; title: string; body: string }
+
 /**
  * Why this invite can't be used, in words, or null when it can. `refused` is
  * the server's `{error}` from the join itself, which can differ from the
  * preview (the budget filled up meanwhile).
  */
-export function blockedReason(invite: JoinPreview, refused: string | null | undefined, ctx: { limit: number; atLimit: boolean }): string | null {
+export function blockedReason(invite: JoinPreview, refused: string | null | undefined, ctx: { limit: number; atLimit: boolean }): Blocked | null {
   const name = invite.budget?.name ?? 'This budget'
   const inviter = invite.inviter || 'whoever sent it'
-  if (invite.status === 'not_found' || refused === 'NOT_FOUND') return "That code doesn't match an invite. Check it and try again."
-  if (invite.status !== 'ok' || refused === 'EXPIRED') return `This invite has expired. Ask ${inviter} for a new one.`
-  if (refused === 'LIMIT_REACHED' || (refused === undefined && ctx.atLimit)) return `You're at ${ctx.limit} budgets. Leave one to join.`
-  if (refused === 'FULL' || (refused === undefined && (invite.members ?? 0) >= MAX_MEMBERS)) return `${name} is full. ${MAX_MEMBERS} people is the most a budget can have.`
-  if (refused !== undefined) return 'Check your connection and try again.'
+  if (invite.status === 'not_found' || refused === 'NOT_FOUND') return { kind: 'wrong', title: 'No invite with that code', body: 'Check it against the message you got and try again.' }
+  if (invite.status !== 'ok' || refused === 'EXPIRED') return { kind: 'expired', title: 'This invite has expired', body: `Ask ${inviter} to send you a fresh one.` }
+  if (refused === 'LIMIT_REACHED' || (refused === undefined && ctx.atLimit)) return { kind: 'limit', title: `You're at ${ctx.limit} budgets`, body: `Leave one to make room for ${name}.` }
+  if (refused === 'FULL' || (refused === undefined && (invite.members ?? 0) >= MAX_MEMBERS)) return { kind: 'full', title: `${name} is full`, body: `${MAX_MEMBERS} people is the most a budget can have.` }
+  if (refused !== undefined) return OFFLINE
   return null
 }
+
+const OFFLINE: Blocked = { kind: 'offline', title: "Couldn't reach Aviary", body: 'Check your connection and try again.' }
 
 /** How many people are already in the budget you're about to join. */
 export function whoIsIn(members: number | undefined, inviter: string | null | undefined): string | null {
@@ -87,6 +93,8 @@ export default function JoinBudgetModal() {
   // undefined: not tried yet. null: refused for no reason we have words for.
   const refused = join.error ? (join.error instanceof BudgetRefusedError ? join.error.code : null) : undefined
   const blocked = invite && !alreadyIn ? blockedReason(invite, refused, { limit, atLimit }) : null
+  // Nothing to show for the code yet: the how-to sits right under the tiles instead of mid-screen.
+  const showHelp = !(complete && (preview.isLoading || preview.isError)) && !blocked && !budget
   const wrongCode = invite?.status === 'not_found' || refused === 'NOT_FOUND'
 
   // Leave the modal. A new account has nothing under it: joining makes them
@@ -165,7 +173,7 @@ export default function JoinBudgetModal() {
                 <Avatar name={m.name} avatarUrl={m.avatarUrl} size={FACE} />
               </View>
             ))}
-            <Reanimated.View testID="welcome-you" entering={reduceMotion ? undefined : ZoomIn.delay(200).springify().damping(12)} style={{ marginLeft: others.length ? -8 : 0 }}>
+            <Reanimated.View testID="welcome-you" entering={reduceMotion ? undefined : ZoomIn.delay(200).springify().damping(18)} style={{ marginLeft: others.length ? -8 : 0 }}>
               <Avatar name={me?.name ?? 'You'} avatarUrl={me?.avatarUrl ?? null} size={FACE} />
             </Reanimated.View>
             {splash && (
@@ -193,7 +201,10 @@ export default function JoinBudgetModal() {
       {header}
       <ScrollView contentContainerStyle={[styles.body, styles.grow, { paddingBottom: insets.bottom + 32 }]} keyboardShouldPersistTaps="handled">
         <View style={styles.field}>
-          <Text style={[styles.headline, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Got an invite?</Text>
+          <View style={styles.titles}>
+            <Text style={[styles.headline, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Got an invite?</Text>
+            <Text style={[styles.subhead, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>Pop in the 6-character code you were sent.</Text>
+          </View>
           <CodeTiles
             value={code}
             onChange={(t) => {
@@ -208,15 +219,17 @@ export default function JoinBudgetModal() {
           />
         </View>
 
-        <View style={styles.result}>
+        <View style={[styles.result, showHelp && styles.resultTop]}>
           {complete && preview.isLoading ? (
-            <Text style={[styles.note, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>Looking it up…</Text>
+            <InviteSkeleton />
           ) : complete && preview.isError ? (
-            <Text style={[styles.note, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>{"Couldn't check that code. Check your connection and try again."}</Text>
+            <BlockedCard blocked={OFFLINE} action="Try again" onAction={() => void preview.refetch()} />
           ) : blocked ? (
-            <View testID="join-blocked" style={[styles.card, { backgroundColor: tokens.pillBg }]}>
-              <Text style={[styles.cardText, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>{blocked}</Text>
-            </View>
+            <BlockedCard
+              blocked={blocked}
+              action={blocked.kind === 'wrong' || blocked.kind === 'expired' ? 'Try another code' : blocked.kind === 'offline' ? 'Try again' : undefined}
+              onAction={() => (blocked.kind === 'offline' ? join.mutate() : (join.reset(), setCode('')))}
+            />
           ) : budget ? (
             <Reanimated.View key={budget.id} entering={reduceMotion ? undefined : FadeIn.duration(200)} style={[styles.card, styles.invite, { backgroundColor: tokens.pillBg }]}>
               <View style={[styles.hero, { backgroundColor: tokens.accentSoft }]}>
@@ -250,11 +263,61 @@ export default function JoinBudgetModal() {
               </Pressable>
             </Reanimated.View>
           ) : (
-            <Text style={[styles.note, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>{"Pop in the 6 letters and numbers from the invite you got."}</Text>
+            <WhereToFind />
           )}
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
+  )
+}
+
+const BLOCKED_ICON = { wrong: MagnifyingGlass, expired: Hourglass, limit: Stack, full: Users, offline: WifiSlash }
+
+/** Why the code can't be used, with the one thing you can do about it. */
+function BlockedCard({ blocked, action, onAction }: { blocked: Blocked; action?: string; onAction: () => void }) {
+  const { tokens } = useTheme()
+  const reduceMotion = useReducedMotion()
+  const Icon = BLOCKED_ICON[blocked.kind]
+  return (
+    <Reanimated.View key={blocked.kind} testID="join-blocked" entering={reduceMotion ? undefined : FadeIn.duration(200)} style={styles.blocked} accessibilityRole="alert">
+      <View style={[styles.blockedIcon, { backgroundColor: tokens.warnSoft }]}>
+        <Icon size={26} color={tokens.warnInk} />
+      </View>
+      <Text style={[styles.cardTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>{blocked.title}</Text>
+      <Text style={[styles.cardText, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>{blocked.body}</Text>
+      {action ? <Button label={action} variant="secondary" size="small" onPress={onAction} style={styles.blockedAction} /> : null}
+    </Reanimated.View>
+  )
+}
+
+/** Where the code lives: a look-alike of the invite message, the code lit up, and what to do without one. */
+function WhereToFind() {
+  const { tokens } = useTheme()
+  const tips = [
+    { icon: LinkSimple, text: "Got the link instead? Tap it and we'll fill this in." },
+    { icon: UserPlus, text: 'No invite yet? Ask the budget owner to send you one.' },
+  ]
+  return (
+    <View testID="where-to-find" style={styles.where}>
+      <Text style={[styles.whereLabel, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>{"Where's my code?"}</Text>
+      <View style={[styles.bubble, { backgroundColor: tokens.inputBg, borderColor: tokens.border }]}>
+        <Text style={[styles.bubbleText, { color: tokens.text, fontFamily: fontFamily.bodyMedium }]}>Join our budget on Aviary</Text>
+        <Text style={[styles.bubbleText, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>useaviary.com/join/…</Text>
+        <View style={styles.bubbleCodeRow}>
+          <Text style={[styles.bubbleText, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>Code</Text>
+          <View style={[styles.bubbleCode, { backgroundColor: tokens.accentSoft }]}>
+            <Text style={[styles.bubbleCodeText, { color: tokens.accentInk, fontFamily: fontFamily.bodyBold }]}>K7P2QX</Text>
+          </View>
+          <Text style={[styles.bubbleHint, { color: tokens.accentInk, fontFamily: fontFamily.bodySemiBold }]}>like this</Text>
+        </View>
+      </View>
+      {tips.map(({ icon: Icon, text }) => (
+        <View key={text} style={styles.whereTip}>
+          <Icon size={18} color={tokens.accentInk} />
+          <Text style={[styles.whereTipText, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>{text}</Text>
+        </View>
+      ))}
+    </View>
   )
 }
 
@@ -273,16 +336,31 @@ const styles = StyleSheet.create({
   body: { padding: 20, gap: 18 },
   grow: { flexGrow: 1 },
   // Tiles stay put up top; whatever the code turns up sits in the middle of what's left.
+  blocked: { alignItems: 'center', gap: 8, paddingHorizontal: 12 },
+  blockedIcon: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
+  blockedAction: { marginTop: 8, alignSelf: 'center' },
   result: { flex: 1, justifyContent: 'center', gap: 18 },
+  resultTop: { justifyContent: 'flex-start', paddingTop: 12 },
   field: { gap: 16, paddingTop: 8 },
+  titles: { gap: 6 },
   headline: { fontSize: 24, textAlign: 'center' },
+  subhead: { fontSize: 14, lineHeight: 20, textAlign: 'center' },
+  where: { gap: 12 },
+  whereLabel: { fontSize: 13, textAlign: 'center' },
+  bubble: { borderRadius: 18, borderWidth: 1, paddingHorizontal: 16, paddingVertical: 12, gap: 2, alignSelf: 'stretch' },
+  bubbleText: { fontSize: 14, lineHeight: 20 },
+  bubbleCodeRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
+  bubbleCode: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
+  bubbleCodeText: { fontSize: 15, letterSpacing: 1.5 },
+  bubbleHint: { fontSize: 12 },
+  whereTip: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 2 },
+  whereTipText: { fontSize: 13, lineHeight: 18, flex: 1 },
   hero: { width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center' },
   invite: { paddingTop: 22, gap: 10 },
   whoIn: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   faces: { flexDirection: 'row', alignItems: 'center', marginVertical: 8 },
   tip: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10 },
   tipText: { fontSize: 13 },
-  note: { fontSize: 13, lineHeight: 18, textAlign: 'center' },
   card: { borderRadius: 16, padding: 16, gap: 8, alignItems: 'center' },
   cardTitle: { fontSize: 18, textAlign: 'center' },
   cardText: { fontSize: 14, lineHeight: 20, textAlign: 'center' },
