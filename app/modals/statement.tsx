@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import { useQueryClient } from '@tanstack/react-query'
 import * as ImagePicker from 'expo-image-picker'
-import { CaretDown, CaretRight, Check, CheckCircle, FileText, Images, Sparkle, X } from '@/src/components/shared/icons'
+import { CaretDown, CaretRight, Check, CheckCircle, FileText, Images, Lock, Sparkle, X } from '@/src/components/shared/icons'
 import Animated, { FadeIn, FadeInDown, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated'
 import { CategoryPickerSheet } from '@/src/components/shared/CategoryPickerSheet'
 import { CategoryIcon } from '@/src/components/shared/CategoryIcon'
@@ -20,6 +20,7 @@ import { useAddExpense } from '@/src/hooks/useExpenses'
 import { invalidateExpenseCreateQueries } from '@/src/lib/expenseQueries'
 import { useCategories, useCategoryTint } from '@/src/hooks/useCategories'
 import { readStatement, StatementFailure, type StatementItem, type StatementProposal } from '@/src/api/statement'
+import type { PickedFile } from '@/src/api/imports'
 import { byDay, caughtUp, creditsLine, daySpan, statementExpense, type CaughtUp } from '@/src/features/fill-gap/gap'
 import { downscaleImage } from '@/src/lib/downscaleImage'
 import { canPickFiles, pickFile } from '@/src/lib/filePicker'
@@ -56,7 +57,8 @@ type RowState = { checked: boolean; category: string }
 /**
  * "Add from statement or screenshot", from log-expense's More sheet and the
  * catch-up sheet on Home. The days you didn't log, read from your own UPI or
- * bank history: up to five screenshots, or a csv, xlsx or unlocked pdf. Same
+ * bank history: up to five screenshots, or a csv, xlsx or pdf, asking for a
+ * locked pdf's password in place. Same
  * propose-then-confirm as chat capture. Rows that look logged already, or are
  * older than your last log, start unticked; credits are only counted. Each
  * row logs through the normal add-expense path with a hashed client_id, so
@@ -72,7 +74,9 @@ function StatementScreen() {
   const router = useRouter()
   const addExpense = useAddExpense()
   const qc = useQueryClient()
-  const [phase, setPhase] = useState<'pick' | 'reading' | 'review' | 'error' | 'done'>('pick')
+  const [phase, setPhase] = useState<'pick' | 'reading' | 'password' | 'review' | 'error' | 'done'>('pick')
+  // A locked pdf waiting on its password. The file stays so a wrong guess isn't a re-pick; the password lives only in the field.
+  const [locked, setLocked] = useState<{ file: PickedFile; wrong: boolean; error: string } | null>(null)
   const [proposal, setProposal] = useState<StatementProposal | null>(null)
   const [rows, setRows] = useState<Record<string, RowState>>({})
   const [error, setError] = useState('')
@@ -106,6 +110,19 @@ function StatementScreen() {
       setPhase('review')
       track('statement_read', { kind, rows: result.items.length, credits: result.credits })
     } catch (err) {
+      if ('file' in input && err instanceof StatementFailure && (err.code === 'pdf_locked' || err.code === 'pdf_password_wrong')) {
+        if (err.code === 'pdf_password_wrong') failedBuzz()
+        setLocked({ file: input.file, wrong: err.code === 'pdf_password_wrong', error: '' })
+        setPhase('password')
+        return
+      }
+      if ('file' in input && input.password && err instanceof StatementFailure && (err.code === 'rate_limited' || err.code === 'offline')) {
+        // Worth another go with the same file, so stay on the password, not the error screen whose Try again starts over.
+        failedBuzz()
+        setLocked({ file: input.file, wrong: false, error: err.message })
+        setPhase('password')
+        return
+      }
       // The mascot, a title and a way back, like Web: a failed read is the whole screen's news, not a line under the buttons.
       failedBuzz()
       setFailure(err instanceof StatementFailure ? { title: err.title, message: err.message } : { title: UNREADABLE_TITLE, message: UNREADABLE })
@@ -299,6 +316,17 @@ function StatementScreen() {
         </View>
       )}
 
+      {phase === 'password' && locked && (
+        <StatementPassword
+          name={locked.file.name}
+          wrong={locked.wrong}
+          error={locked.error}
+          bottomInset={insets.bottom}
+          onSubmit={(password) => void read({ file: locked.file, password }, 'file')}
+          onPickAnother={() => setPhase('pick')}
+        />
+      )}
+
       {phase === 'reading' && (
         <View style={styles.center}>
           <LoadingCaption phrases={['Reading your payments…', 'Matching payees to categories…', 'Checking what you already logged…', 'Almost done…']} />
@@ -405,6 +433,82 @@ const STEPS = [
   { icon: Sparkle, label: 'We read the payments', hint: "Money going out only. Anything you've logged starts unticked." },
   { icon: CheckCircle, label: 'You pick what to add', hint: "Nothing's logged until you say so." },
 ] as const
+
+/** A locked pdf's password, asked for in place. Sent once with the file, never kept. */
+function StatementPassword({ name, wrong, error, bottomInset, onSubmit, onPickAnother }: {
+  name: string
+  wrong: boolean
+  error: string
+  bottomInset: number
+  onSubmit: (password: string) => void
+  onPickAnother: () => void
+}) {
+  const { tokens, space, radius, type } = useTheme()
+  const [password, setPassword] = useState('')
+  // Once per showing: a double tap, or Go plus the button, lands before the reading screen does. A wrong guess remounts this.
+  const sent = useRef(false)
+  const caption = { color: tokens.text2, fontFamily: fontFamily.bodyMedium, fontSize: type.caption }
+  const submit = () => {
+    if (!password || sent.current) return
+    sent.current = true
+    onSubmit(password)
+  }
+  return (
+    <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: space.lg, paddingBottom: bottomInset + space.lg, gap: space.sm }}>
+      <View style={[styles.tile, styles.pickTile, { alignSelf: 'center', backgroundColor: tokens.accentSoft }]}>
+        <Icon icon={Lock} size={22} color={tokens.accentInk} />
+      </View>
+      <Text accessibilityRole="header" style={{ color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: type.title, textAlign: 'center' }}>
+        {name} has a password
+      </Text>
+      <TextInput
+        value={password}
+        onChangeText={setPassword}
+        secureTextEntry
+        autoFocus
+        autoCapitalize="none"
+        autoCorrect={false}
+        autoComplete="off"
+        textContentType="none"
+        returnKeyType="go"
+        onSubmitEditing={submit}
+        accessibilityLabel="Password"
+        accessibilityHint="Usually your date of birth, customer ID, or the format your bank's email mentions"
+        placeholder="Password"
+        placeholderTextColor={tokens.text3}
+        style={{
+          marginTop: space.sm,
+          backgroundColor: tokens.inputBg,
+          borderRadius: radius.md,
+          borderWidth: 1,
+          borderColor: wrong ? tokens.coral : tokens.border,
+          paddingHorizontal: 14,
+          paddingVertical: 14,
+          color: tokens.text,
+          fontFamily: fontFamily.bodyMedium,
+          fontSize: type.body,
+        }}
+      />
+      {(wrong || error !== '') && (
+        <Text accessibilityRole="alert" style={{ ...caption, color: tokens.coral }}>{wrong ? "That didn't open it, try again." : error}</Text>
+      )}
+      <Text style={caption}>Usually your date of birth (DDMMYYYY), customer ID, or the format your bank&apos;s email mentions.</Text>
+      <Text style={caption}>Used once to open the file. Never saved.</Text>
+      <Pressable
+        accessibilityRole="button"
+        onPress={submit}
+        disabled={!password}
+        accessibilityState={{ disabled: !password }}
+        style={[styles.primary, { marginTop: space.sm, backgroundColor: tokens.accent, borderRadius: radius.full, opacity: password ? 1 : 0.5 }]}
+      >
+        <Text style={{ color: tokens.onAccent, fontFamily: fontFamily.bodyBold, fontSize: type.body }}>Open it</Text>
+      </Pressable>
+      <Pressable accessibilityRole="button" onPress={onPickAnother} hitSlop={8} style={{ alignSelf: 'center', padding: space.sm }}>
+        <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodySemiBold, fontSize: type.caption }}>Pick another file</Text>
+      </Pressable>
+    </ScrollView>
+  )
+}
 
 function PickButton({ icon, label, hint, onPress, disabled, primary }: { icon: typeof Images; label: string; hint: string; onPress: () => void; disabled?: boolean; primary?: boolean }) {
   const { tokens, space, radius, type } = useTheme()
