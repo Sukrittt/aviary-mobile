@@ -113,3 +113,13 @@ it('suggests Goa only for a rupee budget', () => {
   fireEvent.press(utils.getByText(/USD/))
   expect(utils.getByLabelText('Budget name').props.placeholder).toBe('Home, Beach trip, Studio…')
 })
+
+it('shows a radio dot on each start option, filled on the picked one', () => {
+  const utils = setup()
+  const filled = (id: string) => utils.getByTestId(`start-dot-${id}`).children.length > 0
+  expect(filled('fresh')).toBe(true)
+  expect(filled('import')).toBe(false)
+  fireEvent.press(utils.getByLabelText('Bring in history from another app'))
+  expect(filled('fresh')).toBe(false)
+  expect(filled('import')).toBe(true)
+})

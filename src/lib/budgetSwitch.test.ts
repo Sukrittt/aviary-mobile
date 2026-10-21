@@ -1,4 +1,4 @@
-import { QueryClient } from '@tanstack/react-query'
+import { QueryClient, QueryObserver } from '@tanstack/react-query'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { switchBudget } from './budgetSwitch'
 import { activeBudgetId, setActiveBudget } from './activeBudget'
@@ -35,6 +35,18 @@ it("swaps the screens' data for the other budget's and back, with no network", a
 
   await switchBudget(qc, 'user_a', 'sp_home')
   expect(qc.getQueryData(['budgets'])).toEqual(['home row'])
+})
+
+it('refreshes what a mounted screen shows, not just the cache', async () => {
+  // A screen's useQuery stays mounted through a switch: it must get the opened budget's data.
+  const observer = new QueryObserver(qc, { queryKey: ['budgets'], queryFn: async () => [`rows of ${activeBudgetId() ?? 'personal'}`] })
+  const unsubscribe = observer.subscribe(() => {})
+  await new Promise((r) => setTimeout(r, 0))
+  expect(observer.getCurrentResult().data).toEqual(['rows of personal'])
+  await switchBudget(qc, 'user_a', 'sp_home')
+  await new Promise((r) => setTimeout(r, 0))
+  expect(observer.getCurrentResult().data).toEqual(['rows of sp_home'])
+  unsubscribe()
 })
 
 it('keeps the budget list across a switch, so the switcher never blinks', async () => {

@@ -178,6 +178,9 @@ export default function NewBudgetModal() {
                     accessibilityLabel={c.title}
                     style={[styles.row, { backgroundColor: on ? tokens.accentSoft : tokens.inputBg, borderColor: on ? tokens.accent : tokens.border }]}
                   >
+                    <View testID={`start-dot-${c.id}`} style={[styles.radio, { borderColor: on ? tokens.accent : tokens.text3 }]}>
+                      {on ? <View style={[styles.radioDot, { backgroundColor: tokens.accent }]} /> : null}
+                    </View>
                     <View style={{ flex: 1, gap: 2 }}>
                       <Text style={[styles.rowText, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>{c.title}</Text>
                       <Text style={[styles.hint, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>{c.detail}</Text>
@@ -296,6 +299,8 @@ const styles = StyleSheet.create({
   iconCell: { width: 44, height: 44, borderRadius: 12, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 14 },
   rowText: { fontSize: 15, flex: 1 },
+  radio: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  radioDot: { width: 10, height: 10, borderRadius: 5 },
   hint: { fontSize: 12, lineHeight: 16 },
   confirmButton: { borderRadius: 14, paddingVertical: 15, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
   confirmText: { fontSize: 16 },

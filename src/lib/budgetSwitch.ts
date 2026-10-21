@@ -12,7 +12,7 @@ let refetchWhenOnline: (() => void) | null = null
  * Opens another budget. Query keys carry no budget, so this swaps the whole
  * cache: the open budget's snapshot is saved under its own key, the target's
  * is painted from disk (instant when it was opened before), and everything
- * refetches in the background. `clear()` also orphans any request still in
+ * refetches in the background. Resetting also drops any request still in
  * flight for the old budget, so a late answer can't land on the new one.
  * The budget list is the same in every budget, so it rides across.
  */
@@ -36,7 +36,11 @@ export async function switchBudget(queryClient: QueryClient, uid: string, spaceI
   } catch {
     snapshot = undefined
   }
-  queryClient.clear()
+  // Not clear(): a mounted useQuery keeps the query it was given, so clearing
+  // strands every open screen on the old budget's data. Reset in place keeps
+  // them attached; the refetch below then lands on screen. Unwatched ones go.
+  queryClient.removeQueries({ predicate: (q) => q.getObserversCount() === 0 })
+  queryClient.getQueryCache().getAll().forEach((q) => q.reset())
   if (snapshot && snapshot.buster === persistOptions.buster && Date.now() - snapshot.timestamp < PERSIST_MAX_AGE) {
     hydrate(queryClient, snapshot.clientState)
   }
