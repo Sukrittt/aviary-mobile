@@ -4,9 +4,9 @@ import { Chip } from '@/src/components/ui/Chip'
 import { useAddCategory } from '@/src/hooks/useCategories'
 import { useGroupIcons, useGroups } from '@/src/hooks/useGroups'
 import { CategoryIcon } from '@/src/components/shared/CategoryIcon'
-import { CategoryIconPicker } from '@/src/components/shared/CategoryIconPicker'
+import { CategoryIconPicker, ColorSwatches } from '@/src/components/shared/CategoryIconPicker'
 import { categoryIconKey, type CategoryIconKey } from '@/src/lib/categoryIcons'
-import { categoryTint, splitEmoji } from '@/src/lib/emoji'
+import { categoryColor, colorTint, splitEmoji, type CategoryColor } from '@/src/lib/emoji'
 import { useOnline } from '@/src/lib/netStatus'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
@@ -26,12 +26,15 @@ export function AddCategoryForm({ onCreated }: {
   // Null until picked: the icon follows the name.
   const [pickedIcon, setPickedIcon] = useState<CategoryIconKey | null>(null)
   const icon = pickedIcon ?? categoryIconKey(name.trim(), undefined, group)
+  // Same for the colour: it follows the name until picked.
+  const [pickedColor, setPickedColor] = useState<CategoryColor | null>(null)
+  const color = categoryColor(name, pickedColor ?? undefined)
   const [error, setError] = useState('')
   const canSave = !!name.trim() && online && !addCategory.isPending
 
   function save() {
     if (!canSave) return
-    const category = { name: name.trim(), group, icon }
+    const category = { name: name.trim(), group, icon, ...(pickedColor ? { color: pickedColor } : {}) }
     setError('')
     addCategory.mutate(category, {
       onSuccess: () => onCreated(category),
@@ -46,7 +49,7 @@ export function AddCategoryForm({ onCreated }: {
   return (
     <View style={{ gap: space.md }}>
       <Text style={{ color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: type.bodyLg }}>Add category</Text>
-      <CategoryIconPicker value={icon} onChange={setPickedIcon} tint={categoryTint(name, tokens)} disabled={addCategory.isPending}>
+      <CategoryIconPicker value={icon} onChange={setPickedIcon} tint={colorTint(color, tokens)} disabled={addCategory.isPending}>
         <TextInput
           accessibilityLabel="Category name"
           value={name}
@@ -60,6 +63,8 @@ export function AddCategoryForm({ onCreated }: {
           style={[styles.input, { backgroundColor: tokens.inputBg, borderColor: tokens.borderStrong, borderRadius: radius.md, color: tokens.text, fontFamily: fontFamily.bodyMedium, fontSize: type.body }]}
         />
       </CategoryIconPicker>
+      <Text style={{ color: tokens.text3, fontFamily: fontFamily.bodySemiBold, fontSize: type.caption }}>Color</Text>
+      <ColorSwatches value={color} onChange={setPickedColor} disabled={addCategory.isPending} />
       <Text style={{ color: tokens.text3, fontFamily: fontFamily.bodySemiBold, fontSize: type.caption }}>Group</Text>
       <View pointerEvents={addCategory.isPending ? 'none' : 'auto'} style={{ flexDirection: 'row', flexWrap: 'wrap', gap: space.sm }}>
         <Chip label="Other" selected={!group} onPress={() => setGroup('')} />

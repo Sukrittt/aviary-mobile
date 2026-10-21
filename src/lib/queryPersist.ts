@@ -71,8 +71,16 @@ function persisterFor(suffix: string): Persister {
   return p
 }
 
+// Set while a budget switch runs: the active budget (and so the key) flips
+// before the cache does, so a save then would file the old budget's data
+// under the new one's key, and the switch would restore it from there.
+let paused = false
+export function pausePersist(next: boolean): void {
+  paused = next
+}
+
 export const queryPersister: Persister = {
-  persistClient: (client) => persisterFor(budgetKeySuffix()).persistClient(client),
+  persistClient: (client) => (paused ? undefined : persisterFor(budgetKeySuffix()).persistClient(client)),
   restoreClient: async () => {
     await restoreActiveBudget()
     return persisterFor(budgetKeySuffix()).restoreClient()

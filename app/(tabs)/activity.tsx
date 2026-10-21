@@ -67,9 +67,6 @@ import { EmptyState } from "@/src/components/shared/EmptyState";
 import type { ExpenseRow, IncomeRow } from "@/src/types";
 import { formatDayLabel, parseLocalDate, toLocalDateString } from "@/src/lib/date";
 import { useOnline } from "@/src/lib/netStatus";
-import { restoreArchivedItem } from "@/src/api/account";
-import { Alert } from "@/src/components/ui/AlertHost";
-import { Toast } from "@/src/components/ui/Toast";
 import { useUnsyncedExpenses } from "@/src/hooks/useUnsyncedExpenses";
 import { LOG_EXPENSE_PATH } from "@/src/features/log-expense/SubmitContext";
 import { EMPTY } from "@/src/lib/constants";
@@ -197,9 +194,8 @@ function ActivityScreen() {
   // Who logged what: only in a budget with 2+ people. One person, no change.
   const shared = (activeBudget?.members.length ?? 0) > 1;
   const [mineOnly, setMineOnly] = useState(false);
-  // Deleted rows go to Archive, so a delete needs no confirm: Undo restores it.
-  const [undoToast, setUndoToast] = useState<{ n: number; txn: ExpenseRow | null }>({ n: 0, txn: null });
-  // Set once Delete is tapped; drives the row's collapse
+  const [deleteTxn, setDeleteTxn] = useState<ExpenseRow | null>(null);
+  // Set once the confirm sheet's Delete is tapped; drives the row's collapse
   // animation in DeletingRow. The actual mutate() call is deferred until that
   // animation finishes (see its onDone), so the refetch-driven removal never
   // pops a still-visible row.
@@ -457,17 +453,17 @@ function ActivityScreen() {
   function confirmDelete(t: ExpenseRow) {
     setSheetTxn(null);
     if (blocked()) return;
+    setDeleteTxn(t);
+  }
+
+  function startDelete(t: ExpenseRow) {
+    setDeleteTxn(null);
+    // Access can change while the sheet is open.
+    if (blocked()) return;
     // One row collapses at a time. A delete still mid-collapse is sent now,
     // or swapping the target would quietly cancel it.
     if (pendingDelete && keyOf(pendingDelete) !== keyOf(t) && sentDeleteRef.current !== keyOf(pendingDelete)) runDelete(pendingDelete);
     setPendingDelete(t);
-  }
-
-  function undoDelete(id: string) {
-    setPendingDelete((p) => (p?.id === id ? null : p));
-    restoreArchivedItem("expenses", id)
-      .then(() => qc.invalidateQueries())
-      .catch(() => Alert.alert("Couldn't restore this", "You can still restore it from Archive."));
   }
 
   function runDelete(t: ExpenseRow) {
@@ -486,8 +482,7 @@ function ActivityScreen() {
       // Left set on success so the row stays collapsed until the refetch drops
       // it — clearing it here springs the row back to full height for a whole
       // round trip. On failure the row does come back, which is the signal.
-      { onSuccess: () => setUndoToast((u) => ({ n: u.n + 1, txn: t })),
-        onError: (err) => {
+      { onError: (err) => {
         setPendingDelete((p) => (p && keyOf(p) === keyOf(t) ? null : p));
         setDeleteNotice({ status: err instanceof ExpenseWriteError ? err.status : undefined });
       } },
@@ -732,9 +727,6 @@ function ActivityScreen() {
       ) : null}
     </>
   );
-
-  // A row still in the offline queue has no server copy, so nothing in Archive to bring back.
-  const undoId = undoToast.txn?.id;
 
   return (
     <>
@@ -1105,6 +1097,39 @@ function ActivityScreen() {
         </BottomSheet>
 
         <BottomSheet
+          visible={deleteTxn !== null}
+          onClose={() => setDeleteTxn(null)}
+        >
+          <Text
+            style={[
+              styles.confirmTitle,
+              { color: tokens.text, fontFamily: fontFamily.displaySemiBold },
+            ]}
+          >
+            Delete transaction
+          </Text>
+          <Text
+            style={[
+              styles.confirmBody,
+              { color: tokens.text2, fontFamily: fontFamily.bodyMedium },
+            ]}
+            numberOfLines={2}
+          >
+            &quot;{deleteTxn?.item}&quot; will move to Archive. You can restore it for 7 days.
+          </Text>
+          <SheetOption
+            label="Delete"
+            color={tokens.coral}
+            onPress={() => deleteTxn && startDelete(deleteTxn)}
+          />
+          <SheetOption
+            label="Cancel"
+            color={tokens.text2}
+            onPress={() => setDeleteTxn(null)}
+          />
+        </BottomSheet>
+
+        <BottomSheet
           visible={confirmBulk}
           onClose={() => setConfirmBulk(false)}
         >
@@ -1257,14 +1282,6 @@ function ActivityScreen() {
           onDismiss={() => feedTip.close("dismiss")}
         />
       )}
-      <Toast
-        trigger={undoToast.n}
-        message={undoToast.txn ? `Deleted ${undoToast.txn.item}` : ""}
-        icon={Trash}
-        durationMs={5000}
-        action={undoId ? { label: "Undo", onPress: () => undoDelete(undoId) } : undefined}
-        style={{ top: insets.top + 12 }}
-      />
     </>
   );
 }

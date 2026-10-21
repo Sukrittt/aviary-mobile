@@ -583,6 +583,18 @@ it('creates a category from a populated picker, closes the modal and uses it for
   expect(postExpensePayload).toHaveBeenCalledWith(expect.objectContaining({ item: 'Milk', amount_inr: '450', category: '🏋️ Gym' }), 0, undefined)
 })
 
+it('saves the colour picked for a new category', async () => {
+  ;(addCategory as jest.Mock).mockResolvedValue(undefined)
+  const utils = setup()
+  await fillValidForm(utils)
+  fireEvent.press(utils.getByLabelText('Category: Groceries'))
+  fireEvent.press(utils.getByLabelText('Add category in picker'))
+  fireEvent.changeText(utils.getByPlaceholderText('New category name'), 'Gym')
+  fireEvent.press(utils.getByLabelText('Purple'))
+  await act(async () => { fireEvent.press(utils.getByLabelText('Save category')) })
+  expect(addCategory).toHaveBeenCalledWith('Gym', '', expect.any(String), 'violet')
+})
+
 it('keeps category creation errors in the modal and lets the user retry', async () => {
   ;(addCategory as jest.Mock).mockRejectedValueOnce(new Error('Category already exists'))
     .mockResolvedValueOnce(undefined)

@@ -31,8 +31,6 @@ jest.mock('@/src/hooks/useExpenses', () => ({
   useRecentExpenses: () => ({ data: mockRecent, isLoading: false, error: null }),
 }))
 
-const mockRestore = jest.fn()
-jest.mock('@/src/api/account', () => ({ ...jest.requireActual('@/src/api/account'), restoreArchivedItem: (...args: unknown[]) => mockRestore(...args) }))
 
 let mockIncomes: Record<string, unknown>[] = []
 jest.mock('@/src/hooks/useUser', () => ({ useUser: () => ({ data: mockUser }) }))
@@ -308,6 +306,9 @@ async function deleteRow(screen: ReturnType<typeof renderWithProviders>, item: s
   openRow(screen, item)
   fireEvent.press(screen.getByLabelText('Delete'))
   await act(() => new Promise((r) => setTimeout(r, 300)))
+  // A blocked delete never opens the confirm.
+  const confirm = screen.queryAllByText('Delete').at(-1)
+  if (confirm) fireEvent.press(confirm)
 }
 
 it.each([[409, 'This transaction was updated'], [404, 'This transaction is already deleted']])('opens a full-screen message on delete status %s', async (status, title) => {
@@ -322,17 +323,18 @@ it.each([[409, 'This transaction was updated'], [404, 'This transaction is alrea
   expect(mockDelete).toHaveBeenCalledTimes(1)
 })
 
-it('deletes without a confirm, then offers Undo that restores it from Archive', async () => {
+it('asks before deleting, and Cancel keeps the row', async () => {
   mockUseExpensesPage.mockReturnValue({ data: pageResult({}), isLoading: false, error: null })
-  mockDelete.mockReset().mockImplementation((_params, options) => options.onSuccess())
-  mockRestore.mockReset().mockResolvedValue(undefined)
+  mockDelete.mockReset()
   const screen = renderWithProviders(<ActivityScreen />)
-  await deleteRow(screen, 'Item 1')
-  expect(mockDelete).toHaveBeenCalledWith(expect.objectContaining({ id: 'row-1' }), expect.anything())
-  expect(screen.queryByText(/cannot be undone/)).toBeNull()
-  expect(screen.getByText('Deleted Item 1')).toBeTruthy()
-  fireEvent.press(screen.getByText('Undo'))
-  await waitFor(() => expect(mockRestore).toHaveBeenCalledWith('expenses', 'row-1'))
+  openRow(screen, 'Item 1')
+  fireEvent.press(screen.getByLabelText('Delete'))
+  await act(() => new Promise((r) => setTimeout(r, 300)))
+  expect(screen.getByText('Delete transaction')).toBeTruthy()
+  expect(screen.getByText(/will move to Archive/)).toBeTruthy()
+  fireEvent.press(screen.getByText('Cancel'))
+  expect(mockDelete).not.toHaveBeenCalled()
+  expect(screen.queryByText('Undo')).toBeNull()
 })
 
 it('sends both deletes when a second starts while the first is still collapsing', async () => {
@@ -563,10 +565,12 @@ describe('feed view', () => {
     })
   })
 
-  it('deletes from the feed straight away, no confirm', () => {
+  it('deletes from the feed after the confirm', () => {
     const screen = renderWithProviders(<ActivityScreen />)
     fireEvent(screen.getByLabelText('Item 1, Food. View details'), 'longPress')
     fireEvent.press(screen.getByText('Delete'))
+    expect(mockDelete).not.toHaveBeenCalled()
+    fireEvent.press(screen.getAllByText('Delete').at(-1)!)
     expect(mockDelete).toHaveBeenCalledWith(expect.objectContaining({ id: 'row-1' }), expect.anything())
   })
 })

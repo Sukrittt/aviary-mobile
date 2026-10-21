@@ -6,6 +6,7 @@ import { markAccessBlocked, SUBSCRIPTION_REQUIRED_STATUS } from '@/src/lib/acces
 import { track } from '@/src/lib/analytics'
 import { activeBudgetId, budgetHeaders, restoreActiveBudget } from '@/src/lib/activeBudget'
 import { emitBudgetAccess } from '@/src/lib/budgetAccess'
+import { connectionContext } from '@/src/lib/connectionTelemetry'
 
 // A dev build with no API URL set would otherwise silently point at
 // production data (see the fallback below) with no warning — fail loudly
@@ -20,6 +21,10 @@ export const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'https://www.useaviar
 export const WEB_URL = 'https://www.useaviary.com'
 
 const REQUEST_TIMEOUT_MS = 15_000
+
+// Requests waiting on a response right now. A dead pooled connection fails
+// them all at once, so request_failed reports how many were stuck with it.
+let inFlight = 0
 
 /**
  * The token is fetched (and refreshed if stale) per request, so this must be
@@ -44,30 +49,33 @@ export async function apiFetch(path: string, init?: RequestInit & { anonymous?: 
   // A cold start's first requests must name the budget the person was last in.
   if (token) await restoreActiveBudget()
   const tokenMs = Date.now() - startedAt
+  // RN's fetch has no default timeout — without this, a hung connection
+  // pins a screen's loading state forever. Callers already surface a
+  // thrown error as a generic "check your connection" state, so a timeout
+  // needs no special handling here.
+  const signal = init?.signal ?? AbortSignal.timeout(REQUEST_TIMEOUT_MS)
   let resp: Response
+  inFlight += 1
   try {
     resp = await fetch(`${BASE_URL}${path}`, {
       ...init,
-      // RN's fetch has no default timeout — without this, a hung connection
-      // pins a screen's loading state forever. Callers already surface a
-      // thrown error as a generic "check your connection" state, so a timeout
-      // (which throws an AbortError, same as any other network failure) needs
-      // no special handling here.
-      signal: init?.signal ?? AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      signal,
       headers: {
         ...(token ? { Authorization: `Bearer ${token}`, ...budgetHeaders(activeBudgetId()) } : {}),
         ...(init?.headers ?? {}),
       },
     })
   } catch (err) {
-    // fetch() itself threw (TypeError, or AbortError from the timeout above)
-    // — no response at all, so this is a transport failure, not a rejection.
-    reportRequestFailure('fetch', path, err, startedAt)
+    // fetch() itself threw — no response at all, so this is a transport
+    // failure, not a rejection.
+    reportRequestFailure('fetch', path, err, startedAt, signal.aborted)
     // A timeout or abort means the server was slow (or the caller gave up, like
     // the 5s AI category suggestion), not that the device lost its connection.
     // Counting those flipped the whole app to the offline screen while online.
-    if (!isAbort(err)) setOnline(false, serverUnreachable)
+    if (!signal.aborted) setOnline(false, serverUnreachable)
     throw err
+  } finally {
+    inFlight -= 1
   }
   // Every answered request, for latency percentiles and error rates per
   // endpoint. Timed to the response headers, not the body download.
@@ -121,19 +129,25 @@ async function peekErrorBody(resp: Response): Promise<{ error?: unknown; spaceId
 
 /**
  * Diagnostics for requests that never got an answer: did the token refresh
- * stall, or the request itself? Error name only, never the message, and ids
- * stripped from the path. Sent before setOnline(false), so the first failure
- * of a run still goes out even though track() skips while offline.
+ * stall, or the request itself, and what were the app and network doing?
+ * Ids stripped from the path. The message is a transport error's (expo/fetch's
+ * "fetch failed: <OkHttp reason>", the only place a timeout, a reset stream
+ * and a DNS failure differ), clipped. Sent before setOnline(false), so the
+ * first failure of a run still goes out even though track() skips while offline.
  */
-function reportRequestFailure(phase: 'token_refresh' | 'fetch', path: string, err: unknown, startedAt: number): void {
+function reportRequestFailure(phase: 'token_refresh' | 'fetch', path: string, err: unknown, startedAt: number, aborted = false): void {
   // AuthRefreshError's `reason`: what failed under the refresh (a timeout, no network, a WorkOS 5xx).
   const reason = (err as { reason?: unknown } | null)?.reason
   track('request_failed', {
     phase,
     path: metricPath(path),
     error: err instanceof Error ? err.name : 'unknown',
+    ...(err instanceof Error && { message: err.message.slice(0, 120) }),
     ...(typeof reason === 'string' && { reason }),
     elapsed_ms: Date.now() - startedAt,
+    aborted,
+    in_flight: inFlight,
+    ...connectionContext(),
   })
 }
 
@@ -149,16 +163,15 @@ const PROBE_TIMEOUT_MS = 8_000
  */
 async function serverUnreachable(): Promise<boolean> {
   await new Promise((r) => setTimeout(r, PROBE_DELAY_MS))
+  const signal = AbortSignal.timeout(PROBE_TIMEOUT_MS)
   try {
-    await fetch(BASE_URL, { method: 'HEAD', signal: AbortSignal.timeout(PROBE_TIMEOUT_MS) })
+    await fetch(BASE_URL, { method: 'HEAD', signal })
     return false
-  } catch (err) {
-    return !isAbort(err)
+  } catch {
+    // Read the signal, not the error: expo/fetch rejects a timeout with a
+    // plain Error, so its name can't tell one apart.
+    return !signal.aborted
   }
-}
-
-function isAbort(err: unknown): boolean {
-  return err instanceof Error && (err.name === 'AbortError' || err.name === 'TimeoutError')
 }
 
 /** Query string dropped and ids collapsed, so one endpoint groups as one path. */

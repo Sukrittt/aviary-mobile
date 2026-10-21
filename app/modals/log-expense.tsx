@@ -647,7 +647,7 @@ function LogExpenseScreen() {
         // With 2+ budgets, always say which one this lands in. A new expense
         // can switch budgets from here: the form stays, the category and
         // account (which belong to the old budget) clear.
-        <View style={{ alignItems: "center", paddingHorizontal: space.lg }}>
+        <View style={{ alignItems: "center", paddingHorizontal: space.lg, marginTop: space.sm }}>
           <Pressable
             testID="log-budget"
             disabled={isEdit}

@@ -1,6 +1,6 @@
 import { dehydrate, hydrate, type QueryClient } from '@tanstack/react-query'
 import { activeBudgetId, saveActiveBudget } from './activeBudget'
-import { PERSIST_MAX_AGE, persistOptions, queryPersister } from './queryPersist'
+import { PERSIST_MAX_AGE, pausePersist, persistOptions, queryPersister } from './queryPersist'
 import { readCategoryCache } from './categoryCache'
 import { readGroupCache } from './groupCache'
 import { onOnlineTransition } from './netStatus'
@@ -12,7 +12,7 @@ let refetchWhenOnline: (() => void) | null = null
  * Opens another budget. Query keys carry no budget, so this swaps the whole
  * cache: the open budget's snapshot is saved under its own key, the target's
  * is painted from disk (instant when it was opened before), and everything
- * refetches in the background. `clear()` also orphans any request still in
+ * refetches in the background. Resetting also drops any request still in
  * flight for the old budget, so a late answer can't land on the new one.
  * The budget list is the same in every budget, so it rides across.
  */
@@ -29,16 +29,26 @@ export async function switchBudget(queryClient: QueryClient, uid: string, spaceI
   })
   const spaces = queryClient.getQueryData(['spaces'])
 
-  await saveActiveBudget(uid, next)
-  let snapshot: Awaited<ReturnType<typeof queryPersister.restoreClient>>
+  // Until the cache holds the opened budget, saving would mix the two.
+  pausePersist(true)
   try {
-    snapshot = await queryPersister.restoreClient()
-  } catch {
-    snapshot = undefined
-  }
-  queryClient.clear()
-  if (snapshot && snapshot.buster === persistOptions.buster && Date.now() - snapshot.timestamp < PERSIST_MAX_AGE) {
-    hydrate(queryClient, snapshot.clientState)
+    await saveActiveBudget(uid, next)
+    let snapshot: Awaited<ReturnType<typeof queryPersister.restoreClient>>
+    try {
+      snapshot = await queryPersister.restoreClient()
+    } catch {
+      snapshot = undefined
+    }
+    // Not clear(): a mounted useQuery keeps the query it was given, so clearing
+    // strands every open screen on the old budget's data. Reset in place keeps
+    // them attached; the refetch below then lands on screen. Unwatched ones go.
+    queryClient.removeQueries({ predicate: (q) => q.getObserversCount() === 0 })
+    queryClient.getQueryCache().getAll().forEach((q) => q.reset())
+    if (snapshot && snapshot.buster === persistOptions.buster && Date.now() - snapshot.timestamp < PERSIST_MAX_AGE) {
+      hydrate(queryClient, snapshot.clientState)
+    }
+  } finally {
+    pausePersist(false)
   }
   if (spaces !== undefined) queryClient.setQueryData(['spaces'], spaces)
   // The offline pickers' own caches, for a budget never opened while online.
