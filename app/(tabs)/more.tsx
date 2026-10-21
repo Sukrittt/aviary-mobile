@@ -75,6 +75,7 @@ function MoreScreen() {
   }
   const online = useOnline()
   const { readOnly } = useReadOnly()
+  const { active } = useBudgetSpaces()
 
   const userQuery = useUser()
   const user = userQuery.data
@@ -272,7 +273,7 @@ function MoreScreen() {
                 iconColor={tokens.violet}
                 onPress={() => router.push('/account/recurring')}
               />}
-              {!readOnly && <FeatureCard
+              {!readOnly && active?.role !== 'member' && <FeatureCard
                 icon={DownloadSimple}
                 label="Import from another app"
                 blurb="Bring your old history in"

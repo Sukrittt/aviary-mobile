@@ -34,7 +34,8 @@ export default function ImportScreen() {
   return (
     <View style={[styles.container, { backgroundColor: tokens.bg, paddingTop: insets.top + 8, paddingBottom: insets.bottom + 20 }]}>
       <ImportFlow skipAsk budgetName={active?.name} onFresh={() => router.back()} onDone={home} onAlreadySetUp={home}>
-        <PastImports />
+        {/* Undo is the owner's, like the import itself. */}
+        {active?.role !== 'member' && <PastImports />}
       </ImportFlow>
     </View>
   )
