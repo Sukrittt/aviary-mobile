@@ -306,12 +306,12 @@ describe('later, from Settings', () => {
     budgetTotal: 0,
     skipped: { after_start: 4 },
     otherCurrencies: [],
-    groups: ['Bills'],
+    groups: ['🏠 Bills'],
     categories: [
-      { source: 'Bills', name: 'Bills', group: 'Bills', monthly: 0 },
-      { source: 'Gifts', name: 'Gifts', group: 'Bills', monthly: 0 },
+      { source: 'Bills', name: 'Bills', group: '🏠 Bills', monthly: 0 },
+      { source: 'Gifts', name: 'Gifts', group: '🏠 Bills', monthly: 0 },
     ],
-    later: { cutoff: '2026-10-03', categories: ['Bills', 'Groceries'] },
+    later: { cutoff: '2026-10-03', categories: ['Bills', '🛒 Groceries'], icons: { categories: { '🛒 Groceries': 'ShoppingCart' }, groups: {} } },
   }
 
   function toLaterReview() {
@@ -331,18 +331,22 @@ describe('later, from Settings', () => {
     expect(utils.queryByText(/Your money’s in/)).toBeNull()
     expect(utils.getByLabelText('Envelope for Bills, Bills')).toBeTruthy()
     expect(utils.getByLabelText('Envelope for Gifts, New envelope')).toBeTruthy()
+    // Our icons and bare names: stored "🏠 Bills" and "🛒 Groceries" never show their emoji.
+    expect(utils.getByLabelText('Group for Gifts, Bills')).toBeTruthy()
+    expect(utils.queryByText(/🏠|🛒/)).toBeNull()
   })
 
   it('puts a leftover category into an existing envelope and sends no salary', async () => {
     const utils = toLaterReview()
     fireEvent.press(await utils.findByLabelText('Envelope for Gifts, New envelope'))
+    expect(utils.queryByText(/🛒/)).toBeNull()
     fireEvent.press(utils.getByText('Groceries'))
     expect(utils.getByLabelText('Envelope for Gifts, Groceries')).toBeTruthy()
     fireEvent.press(utils.getByText('Bring it in'))
     await waitFor(() => expect(mockCommit).toHaveBeenCalled())
     expect(mockCommit.mock.calls[0][1]).toMatchObject({
       salary: null,
-      categories: [{ source: 'Bills', name: 'Bills', group: 'Bills' }, { source: 'Gifts', name: 'Groceries', group: 'Bills' }],
+      categories: [{ source: 'Bills', name: 'Bills', group: '🏠 Bills' }, { source: 'Gifts', name: '🛒 Groceries', group: '🏠 Bills' }],
     })
   })
 
@@ -353,7 +357,7 @@ describe('later, from Settings', () => {
     fireEvent.changeText(utils.getByLabelText('Name for Bills'), 'Old bills')
     fireEvent.press(utils.getByText('Bring it in'))
     await waitFor(() => expect(mockCommit).toHaveBeenCalled())
-    expect(mockCommit.mock.calls[0][1].categories[0]).toEqual({ source: 'Bills', name: 'Old bills', group: 'Bills' })
+    expect(mockCommit.mock.calls[0][1].categories[0]).toEqual({ source: 'Bills', name: 'Old bills', group: '🏠 Bills' })
   })
 
   it('won’t bring in a file with nothing from before the first entry', async () => {

@@ -28,7 +28,7 @@ export interface ImportReview {
   salary: { label: string; amount: number; day: number } | null
   budgetTotal: number
   /** Set for a later import (a budget that's already set up): where the history stops, and the envelopes it can land in. */
-  later?: { cutoff: string | null; categories: string[] } | null
+  later?: { cutoff: string | null; categories: string[]; icons: { categories: Record<string, string>; groups: Record<string, string> } } | null
 }
 
 export interface CommitEdits {

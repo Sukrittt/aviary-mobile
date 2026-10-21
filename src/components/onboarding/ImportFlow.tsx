@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type StyleProp, type ViewStyle } from 'react-native'
+import { KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type StyleProp, type TextStyle, type ViewStyle } from 'react-native'
 import Animated, { FadeIn, FadeInDown, useAnimatedStyle, useReducedMotion, useSharedValue, withSpring, withTiming } from 'react-native-reanimated'
 import * as Haptics from 'expo-haptics'
 import { ArrowLeft, CaretDown, CaretRight, Check, FileText, Plus, SealCheck } from '@/src/components/shared/icons'
@@ -8,6 +8,8 @@ import { CurrencyScope, useCurrency } from '@/src/context/CurrencyContext'
 import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
 import { LoadingPhrase } from '@/src/components/shared/LoadingPhrase'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
+import { CategoryIcon } from '@/src/components/shared/CategoryIcon'
+import { splitEmoji } from '@/src/lib/emoji'
 import { BottomSheet } from '@/src/components/shared/Modal'
 import { PopIn } from '@/src/components/shared/PopIn'
 import { StepDot } from '@/src/components/onboarding/StepDot'
@@ -543,7 +545,7 @@ function Review({ review, picked, budgetName, onReview, onDone, onAlreadySetUp }
                 <Text numberOfLines={1} style={[styles.input, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>{c.source}</Text>
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={`Envelope for ${c.source}, ${isNew(c) ? 'New envelope' : c.name}`}
+                  accessibilityLabel={`Envelope for ${c.source}, ${isNew(c) ? 'New envelope' : bare(c.name)}`}
                   onPress={() => {
                     Haptics.selectionAsync().catch(() => {})
                     setTargetFor(c.source)
@@ -551,7 +553,11 @@ function Review({ review, picked, budgetName, onReview, onDone, onAlreadySetUp }
                   hitSlop={4}
                   style={[styles.groupPill, { backgroundColor: isNew(c) ? tokens.accentSoft : tokens.pillBg, borderColor: tokens.border }]}
                 >
-                  <Text numberOfLines={1} style={[styles.groupPillText, { color: isNew(c) ? tokens.accentInk : tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>{isNew(c) ? 'New envelope' : c.name}</Text>
+                  {isNew(c) ? (
+                    <Text numberOfLines={1} style={[styles.groupPillText, { color: tokens.accentInk, fontFamily: fontFamily.bodySemiBold }]}>New envelope</Text>
+                  ) : (
+                    <Named name={c.name} icon={later.icons.categories[c.name]} color={tokens.text2} style={[styles.groupPillText, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]} />
+                  )}
                   <CaretDown size={12} color={tokens.text3} weight="bold" />
                 </Pressable>
                 {isNew(c) && (
@@ -565,7 +571,7 @@ function Review({ review, picked, budgetName, onReview, onDone, onAlreadySetUp }
                     />
                     <Pressable
                       accessibilityRole="button"
-                      accessibilityLabel={`Group for ${c.source}, ${c.group}`}
+                      accessibilityLabel={`Group for ${c.source}, ${bare(c.group)}`}
                       onPress={() => {
                         Haptics.selectionAsync().catch(() => {})
                         setGroupFor(c.source)
@@ -573,7 +579,7 @@ function Review({ review, picked, budgetName, onReview, onDone, onAlreadySetUp }
                       hitSlop={4}
                       style={[styles.groupPill, { backgroundColor: tokens.pillBg, borderColor: tokens.border }]}
                     >
-                      <Text numberOfLines={1} style={[styles.groupPillText, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>{c.group}</Text>
+                      <Named kind="group" name={c.group} icon={later.icons.groups[c.group]} color={tokens.text2} style={[styles.groupPillText, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]} />
                       <CaretDown size={12} color={tokens.text3} weight="bold" />
                     </Pressable>
                   </View>
@@ -817,7 +823,13 @@ function Review({ review, picked, budgetName, onReview, onDone, onAlreadySetUp }
                     }}
                     style={[styles.groupOption, { backgroundColor: on ? tokens.accentSoft : tokens.card, borderColor: on ? tokens.accent : tokens.border }]}
                   >
-                    <Text style={[styles.fill, styles.groupOptionText, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>{name ?? 'New envelope'}</Text>
+                    {name === null ? (
+                      <Text style={[styles.fill, styles.groupOptionText, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>New envelope</Text>
+                    ) : (
+                      <View style={styles.fill}>
+                        <Named name={name} icon={later.icons.categories[name]} color={tokens.text2} style={[styles.groupOptionText, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]} />
+                      </View>
+                    )}
                     {on && <Check size={16} color={tokens.accent} weight="bold" />}
                   </Pressable>
                 )
@@ -846,7 +858,13 @@ function Review({ review, picked, budgetName, onReview, onDone, onAlreadySetUp }
                   }}
                   style={[styles.groupOption, { backgroundColor: on ? tokens.accentSoft : tokens.card, borderColor: on ? tokens.accent : tokens.border }]}
                 >
-                  <Text style={[styles.fill, styles.groupOptionText, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>{g}</Text>
+                  {later ? (
+                    <View style={styles.fill}>
+                      <Named kind="group" name={g} icon={later.icons.groups[g]} color={tokens.text2} style={[styles.groupOptionText, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]} />
+                    </View>
+                  ) : (
+                    <Text style={[styles.fill, styles.groupOptionText, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>{g}</Text>
+                  )}
                   {on && <Check size={16} color={tokens.accent} weight="bold" />}
                 </Pressable>
               )
@@ -878,6 +896,19 @@ function Review({ review, picked, budgetName, onReview, onDone, onAlreadySetUp }
         )}
       </BottomSheet>
     </KeyboardAvoidingView>
+  )
+}
+
+/** A name as the rest of the app shows it: without the emoji some older names start with. */
+const bare = (name: string) => splitEmoji(name).text || name
+
+/** An envelope or group as Envelopes shows it: our icon, then its bare name. Never the name's emoji. */
+function Named({ name, icon, kind = 'category', color, style }: { name: string; icon?: string; kind?: 'category' | 'group'; color: string; style: StyleProp<TextStyle> }) {
+  return (
+    <View style={styles.named}>
+      <CategoryIcon kind={kind} name={name} icon={icon} size={14} color={color} />
+      <Text numberOfLines={1} style={style}>{bare(name)}</Text>
+    </View>
   )
 }
 
@@ -1101,6 +1132,7 @@ const styles = StyleSheet.create({
   groupOption: { flexDirection: 'row', alignItems: 'center', paddingVertical: 13, paddingHorizontal: 14, borderRadius: 14, borderWidth: 1 },
   groupOptionText: { fontSize: 14 },
   goingInto: { marginTop: 6 },
+  named: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 },
   newEnvelope: { flexBasis: '100%', flexDirection: 'row', alignItems: 'center', gap: 8 },
   targetList: { maxHeight: 420 },
   addGroup: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 12, paddingHorizontal: 14, borderRadius: 100, borderWidth: 1, borderStyle: 'dashed' },
