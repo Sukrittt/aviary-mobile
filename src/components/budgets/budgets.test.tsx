@@ -8,6 +8,7 @@ import { MoveExpenseSheet } from './MoveExpenseSheet'
 import { Avatar } from './MemberAvatars'
 import { StyleSheet } from 'react-native'
 import { budgetsKey } from '@/src/hooks/useBudgetSpaces'
+import { Alert } from '@/src/components/ui/AlertHost'
 import { switchBudget } from '@/src/lib/budgetSwitch'
 import { getBudgetCategories, moveExpense, type Budget, type BudgetList } from '@/src/api/spaces'
 import type { ExpenseRow } from '@/src/types'
@@ -23,6 +24,7 @@ jest.mock('@/src/api/spaces', () => ({
   getBudgetCategories: jest.fn(async () => [{ name: 'Groceries', group: 'Needs' }, { name: 'Rent', group: 'Needs' }]),
   moveExpense: jest.fn(async () => ({ version: 3 })),
   restoreBudget: jest.fn(async () => {}),
+  purgeBudget: jest.fn(async () => {}),
 }))
 
 const personal: Budget = { id: 'u1', name: 'Personal', emoji: '🐦', role: 'owner', ownerId: 'u1', currencyCode: 'INR', personal: true, members: [] }
@@ -173,6 +175,19 @@ describe('BudgetSwitcherSheet', () => {
     expect(utils.getByTestId('budget-icon-Airplane')).toBeTruthy()
     fireEvent.press(utils.getByLabelText('Restore Goa'))
     expect(restoreBudget).toHaveBeenCalledWith('sp_trip')
+  })
+
+  it('deletes a deleted budget for good, only after you confirm', async () => {
+    const { purgeBudget } = jest.requireMock('@/src/api/spaces')
+    const alert = jest.spyOn(Alert, 'alert')
+    const deleted = [{ id: 'sp_trip', name: 'Goa', emoji: '✈️', deletedAt: '', deletedBy: 'Priya', canRestore: true }]
+    const utils = renderWithProviders(<BudgetSwitcherSheet visible onClose={() => {}} />, { queryClient: withBudgets({ deleted }) })
+    fireEvent.press(utils.getByLabelText('Delete Goa for good'))
+    expect(purgeBudget).not.toHaveBeenCalled()
+    const [title, , buttons] = alert.mock.calls[0]!
+    expect(title).toBe('Delete Goa for good?')
+    buttons!.find((b) => b.style === 'destructive')!.onPress!()
+    expect(purgeBudget).toHaveBeenCalledWith('sp_trip')
   })
 
   it('says "5 of 5 budgets" at the limit, and where to ask for more', () => {

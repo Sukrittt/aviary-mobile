@@ -139,6 +139,11 @@ export async function restoreBudget(id: string): Promise<void> {
   await send(`${spacePath(id)}/restore`, { method: 'POST' })
 }
 
+/** Gone for good, data and all. Only for one that's already deleted. */
+export async function purgeBudget(id: string): Promise<void> {
+  await send(`${spacePath(id)}/purge`, { method: 'POST' })
+}
+
 export type JoinPreview = {
   status: 'ok' | 'expired' | 'cancelled' | 'accepted' | 'not_found'
   budget?: { id: string; name: string; emoji: string; icon?: string }
