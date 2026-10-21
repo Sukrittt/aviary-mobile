@@ -216,6 +216,12 @@ describe('tabsState', () => {
     expect(tabsState({ key: 'root', routes: [{ name: '__root', state: { key: 'stack', routes: [{ name: '(auth)/email' }, { name: '(tabs)', state: tabs }] } }] })).toBe(tabs)
   })
 
+  it('picks the topmost tabs when a replace stacked a second copy over the first', () => {
+    const hidden = { key: 'tab-1', index: 3, routes: [{ name: 'index' }] }
+    const shown = { key: 'tab-2', index: 3, routes: [{ name: 'index' }] }
+    expect(tabsState({ key: 'root', routes: [{ name: '__root', state: { key: 'stack', routes: [{ name: '(tabs)', state: hidden }, { name: '(tabs)', state: shown }] } }] })).toBe(shown)
+  })
+
   it('is undefined while the tabs aren\'t mounted', () => {
     expect(tabsState(undefined)).toBeUndefined()
     expect(tabsState({ routes: [{ name: '__root', state: { routes: [{ name: '(auth)/welcome' }] } }] })).toBeUndefined()
