@@ -38,6 +38,7 @@ describe('runOutWarning', () => {
     expect(at('🍔 Food & Drinks', '2026-10-26')).toBe(key)
     expect(at('🍔 Food & Drinks', '2026-10-27')).not.toBe(key)
     expect(at('Fun', '2026-10-26')).not.toBe(key)
+    expect(at('Aa', '2026-10-26')).not.toBe(at('BB', '2026-10-26'))
   })
 })
 

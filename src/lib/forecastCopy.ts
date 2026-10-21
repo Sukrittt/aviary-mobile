@@ -25,13 +25,14 @@ export function runOutWarning(f: Forecast): { text: string; key: string } | null
     .filter((e) => e.runsOutOn)
     .sort((a, b) => a.runsOutOn!.localeCompare(b.runsOutOn!))[0]
   if (!first) return null
-  // SecureStore keys allow only [A-Za-z0-9._-], and category names hold emoji and spaces.
-  let h = 0
-  for (const c of first.category) h = (h * 31 + c.codePointAt(0)!) | 0
+  // SecureStore keys allow only [A-Za-z0-9._-], and category names hold emoji
+  // and spaces, so spell anything else out as its code point. Lossless, so two
+  // envelopes never share a dismissal.
+  const id = Array.from(first.category, (c) => (/[A-Za-z0-9]/.test(c) ? c : `_${c.codePointAt(0)!.toString(16)}`)).join('')
   return {
     text: `${splitEmoji(first.category).text} runs out around ${formatDateShort(first.runsOutOn!).replace(' ', '\u00a0')}`,
     // ^ non-breaking, so a wrapped line never strands the month from its day.
-    key: `forecast-${(h >>> 0).toString(36)}-${first.runsOutOn}`,
+    key: `forecast-${id}-${first.runsOutOn}`,
   }
 }
 
