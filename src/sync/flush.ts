@@ -44,11 +44,16 @@ async function drain(): Promise<void> {
   if (!token || generation !== sessionGeneration()) return
 
   const entries = await pending.list(owner)
+  // Budgets that answered the subscription gate this drain. Only that budget's
+  // entries wait: a lapsed personal plan says nothing about a shared budget
+  // whose owner pays. Per drain, so a renewal syncs on the next trigger.
+  const gated = new Set<string>()
   let wrote = false
   try {
     for (const entry of entries) {
       if (generation !== sessionGeneration()) return
-      if (readOnlyBudgets.has(entry.spaceId ?? owner)) continue
+      const budget = entry.spaceId ?? owner
+      if (readOnlyBudgets.has(budget) || gated.has(budget)) continue
       try {
         await withExpenseLock(owner, entry.payload.client_id, async () => {
           if (generation !== sessionGeneration()) return
@@ -102,13 +107,16 @@ async function drain(): Promise<void> {
           continue
         }
         if (err instanceof HttpError) {
-          // The subscription gate, not a bad entry. Stop the whole drain and
-          // leave the queue untouched: every remaining entry would hit the same
-          // gate, and bumping attempts here would dead-letter everything the
+          // The subscription gate, not a bad entry. Leave this budget's entries
+          // untouched: bumping attempts here would dead-letter everything the
           // user logged offline about ninety seconds after their trial quietly
-          // expired. They renew, and the expenses are gone. The queue waits
-          // instead, and drains when access comes back.
-          if ([401, 403, 408, 429, SUBSCRIPTION_REQUIRED_STATUS].includes(err.status) || err.status >= 500) return
+          // expired. They renew, and the expenses are gone. They wait instead,
+          // and drain when access comes back. The other budgets carry on.
+          if (err.status === SUBSCRIPTION_REQUIRED_STATUS) {
+            gated.add(entry.spaceId ?? owner)
+            continue
+          }
+          if ([401, 403, 408, 429].includes(err.status) || err.status >= 500) return
           // This entry will never succeed as-is — bump it and move on to the
           // rest of the queue rather than blocking everything behind it.
           await pending.bumpAttempts(entry.payload.client_id, MAX_ATTEMPTS, owner)

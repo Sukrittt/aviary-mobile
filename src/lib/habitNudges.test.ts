@@ -11,6 +11,7 @@ jest.mock('expo-crypto', () => ({ randomUUID: jest.fn(() => `uuid-${Math.random(
 jest.mock('@/src/lib/analytics', () => ({ track: jest.fn() }))
 jest.mock('@/src/lib/currencyPreference', () => ({ readCurrencyPreference: () => Promise.resolve('INR') }))
 jest.mock('@/src/api/accessMode', () => ({ currentUserId: () => 'user-1', initAccessMode: jest.fn() }))
+jest.mock('@/src/lib/activeBudget', () => ({ activeBudgetId: () => 'sp_home' }))
 jest.mock('@/src/lib/pendingExpenses', () => ({ enqueue: jest.fn(() => Promise.resolve()) }))
 jest.mock('@/src/sync/flush', () => ({ flush: jest.fn(() => Promise.resolve()) }))
 const mockFetchCopy = jest.fn()
@@ -42,7 +43,7 @@ const mockNotifications = {
 }
 jest.mock('@/src/lib/notifications', () => ({ getNotifications: () => mockNotifications }))
 
-const nudge: NudgeData = { nudgeId: 'n1', uid: 'user-1', habitId: 'fun|football', item: 'Football', category: 'Fun', amountInr: 200, paymentMethod: 'bank' }
+const nudge: NudgeData = { nudgeId: 'n1', uid: 'user-1', spaceId: null, habitId: 'fun|football', item: 'Football', category: 'Fun', amountInr: 200, paymentMethod: 'bank' }
 const response = (actionIdentifier: string, data: NudgeData = nudge) =>
   ({ actionIdentifier, notification: { request: { identifier: data.nudgeId, content: { data } } } }) as never
 
@@ -64,9 +65,14 @@ beforeEach(() => {
 describe('handleHabitResponse', () => {
   it('logs straight from the button, using the nudge id as client_id', async () => {
     await handleHabitResponse(response('log'))
-    expect(enqueue).toHaveBeenCalledWith(expect.objectContaining({ item: 'Football', amount_inr: '200', category: 'Fun', client_id: 'n1' }), 'user-1')
+    expect(enqueue).toHaveBeenCalledWith(expect.objectContaining({ item: 'Football', amount_inr: '200', category: 'Fun', client_id: 'n1' }), 'user-1', false, 'user-1')
     expect(flush).toHaveBeenCalled()
     expect(mockNotifications.dismissNotificationAsync).toHaveBeenCalledWith('n1')
+  })
+
+  it('logs into the budget the habit was seen in, not whichever is open', async () => {
+    await handleHabitResponse(response('log', { ...nudge, nudgeId: 'n-home', spaceId: 'sp_home' }))
+    expect(enqueue).toHaveBeenCalledWith(expect.objectContaining({ client_id: 'n-home' }), 'user-1', false, 'sp_home')
   })
 
   it('logs once when the same tap arrives twice', async () => {
@@ -122,6 +128,7 @@ describe('refreshHabitNudges', () => {
     const call = mockNotifications.scheduleNotificationAsync.mock.calls[0][0] as unknown as { content: { title: string }; trigger: { date: Date } }
     expect(call.content.title).toBe('Football time?')
     expect(call.trigger.date).toEqual(new Date(2026, 9, 5, 19, 15))
+    expect(mockScheduled[0].content.data).toMatchObject({ uid: 'user-1', spaceId: 'sp_home' })
   })
 
   it('uses the AI copy once it arrives, and only asks once', async () => {

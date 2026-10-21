@@ -213,7 +213,18 @@ it('retryFailed puts a failed entry back in the queue under the same client_id, 
   await pending.retryFailed({ ...payload('c1'), item: 'Tea' })
   expect(await pending.listFailed()).toEqual([])
   const [entry] = await pending.list()
-  expect(entry).toMatchObject({ attempts: 0, payload: { client_id: 'c1', item: 'Tea' } })
+  expect(entry).toMatchObject({ attempts: 0, spaceId: 'user_a', payload: { client_id: 'c1', item: 'Tea' } })
+})
+
+it('retryFailed re-pins the entry to the budget on screen, so one from a budget since left can succeed', async () => {
+  setActiveBudget('sp_left')
+  await pending.enqueue(payload('c1'))
+  await pending.bumpAttempts('c1', 1)
+  setActiveBudget('sp_home')
+  const entry = await pending.retryFailed(payload('c1'))
+  expect(entry?.spaceId).toBe('sp_home')
+  expect((await pending.list())[0].spaceId).toBe('sp_home')
+  setActiveBudget(null)
 })
 
 it('discardFailed drops only the failed copy, and onChange hears every write', async () => {
