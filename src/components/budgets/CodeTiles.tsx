@@ -72,7 +72,7 @@ export function CodeTiles({ value, onChange, length, editable = true, autoFocus,
         autoCorrect={false}
         autoComplete="off"
         autoFocus={autoFocus}
-        maxLength={length}
+        // No maxLength: it would cut a pasted "AB-23 CD" before cleanCode strips the dash.
         editable={editable}
         caretHidden
         // No suggestion strip or composing underline: it's a code, not a word.

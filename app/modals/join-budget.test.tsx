@@ -95,6 +95,11 @@ it('words an invite with no inviter name without one', async () => {
   expect(await utils.findByText("You're in")).toBeTruthy()
 })
 
+it("doesn't cap what you paste, so a code with dashes or spaces still fills all six", () => {
+  const utils = setup()
+  expect(utils.getByLabelText('Invite code').props.maxLength).toBeUndefined()
+})
+
 it('says who is already in', () => {
   expect(whoIsIn(1, 'Priya')).toBe('Just Priya so far')
   expect(whoIsIn(1, null)).toBe('Just the owner so far')
