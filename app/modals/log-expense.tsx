@@ -563,7 +563,7 @@ function LogExpenseScreen() {
         },
       );
     }
-  }, [canSubmit, unusual, unusualWarnedFor, warnKey, base, amount, expectedVersion, isEdit, origId, origTimestamp, origItem, origAmountInr, item, savedItem, parsedAmount, date, category, notes, paymentMethod, accountId, accounts, editedDraft, router, addMutate, updateMutate, autoPicked, syncPhoto, photo, failedClientId, qc]);
+  }, [canSubmit, unusual, unusualWarnedFor, warnKey, base, expectedVersion, isEdit, origId, origTimestamp, origItem, origAmountInr, item, savedItem, parsedAmount, date, category, notes, paymentMethod, accountId, accounts, editedDraft, router, addMutate, updateMutate, autoPicked, syncPhoto, photo, failedClientId, qc]);
 
   // Publish only when the action or its visible state changes, and only while
   // focused: a prefilled log-expense (habit nudge) stacks over the launch one,

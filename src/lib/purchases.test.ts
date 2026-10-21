@@ -117,8 +117,10 @@ describe('restore identity', () => {
   beforeAll(() => {
     process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_KEY = 'test_key'
     jest.isolateModules(() => {
+      /* eslint-disable @typescript-eslint/no-require-imports -- isolateModules needs a fresh require */
       require('react-native').Platform.OS = 'android'
       const mod = require('./purchases') as typeof import('./purchases')
+      /* eslint-enable @typescript-eslint/no-require-imports */
       mod.initPurchases()
       configuredRestore = mod.restore
     })

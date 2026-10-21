@@ -83,6 +83,7 @@ const mockPush = jest.fn()
 const mockTip: { reason: 'batch' | 'gap' | null; close: jest.Mock } = { reason: null, close: jest.fn() }
 jest.mock('@/src/hooks/useCaptureTip', () => ({ useCaptureTip: () => mockTip }))
 let mockParams: Record<string, string> = {}
+/* eslint-disable @typescript-eslint/no-require-imports -- jest.mock factories are hoisted above imports */
 // One screen instance's params and focus; unset means the single focused screen most tests render.
 const mockScreen = require('react').createContext(null) as import('react').Context<{ params: Record<string, string>; focused: boolean } | null>
 jest.mock('expo-router', () => ({
@@ -90,6 +91,7 @@ jest.mock('expo-router', () => ({
   useLocalSearchParams: () => require('react').useContext(mockScreen)?.params ?? mockParams,
   useIsFocused: () => require('react').useContext(mockScreen)?.focused ?? true,
 }))
+/* eslint-enable @typescript-eslint/no-require-imports */
 
 // Mirror the screen and nav as siblings sharing the root submit context.
 function Harness() {
