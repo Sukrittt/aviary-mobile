@@ -436,9 +436,13 @@ function StatementPassword({ name, wrong, bottomInset, onSubmit, onPickAnother }
 }) {
   const { tokens, space, radius, type } = useTheme()
   const [password, setPassword] = useState('')
+  // Once per showing: a double tap, or Go plus the button, lands before the reading screen does. A wrong guess remounts this.
+  const sent = useRef(false)
   const caption = { color: tokens.text2, fontFamily: fontFamily.bodyMedium, fontSize: type.caption }
   const submit = () => {
-    if (password) onSubmit(password)
+    if (!password || sent.current) return
+    sent.current = true
+    onSubmit(password)
   }
   return (
     <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ padding: space.lg, paddingBottom: bottomInset + space.lg, gap: space.sm }}>

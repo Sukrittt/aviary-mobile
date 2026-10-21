@@ -252,7 +252,13 @@ it("asks for a locked pdf's password in place, and keeps the file through a wron
   expect(screen.queryByText("That didn't open it, try again.")).toBeNull()
 
   fireEvent.changeText(screen.getByLabelText('Password'), 'nope')
-  fireEvent.press(screen.getByText('Open it'))
+  // The button and the keyboard's Go both land before the reading screen renders; only one upload goes.
+  const field = screen.getByLabelText('Password')
+  const open = screen.getByText('Open it')
+  act(() => {
+    fireEvent.press(open)
+    fireEvent(field, 'submitEditing')
+  })
   expect(await screen.findByText("That didn't open it, try again.")).toBeTruthy()
   expect(screen.getByLabelText('Password').props.value).toBe('')
 
