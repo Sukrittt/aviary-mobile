@@ -72,14 +72,13 @@ View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { track } from "@/src/lib/analytics";
-import { currentUserId, isRefreshingToken } from "@/src/api/accessMode";
+import { isRefreshingToken } from "@/src/api/accessMode";
 import { tap } from "@/src/lib/haptics";
 import { Alert } from "@/src/components/ui/AlertHost";
 import { mintExpensePayload } from "@/src/api/expenses";
 import { discardFailed, retryFailed } from "@/src/lib/pendingExpenses";
 import { flush } from "@/src/sync/flush";
 import { insertExpense, queuedRow } from "@/src/lib/optimisticExpenses";
-import { activeBudgetId } from "@/src/lib/activeBudget";
 import { useQueryClient } from "@tanstack/react-query";
 import { BudgetIcon } from '@/src/components/budgets/BudgetIcon'
 import { BudgetSwitcherSheet } from '@/src/components/budgets/BudgetSwitcherSheet'
@@ -504,9 +503,9 @@ function LogExpenseScreen() {
         const payload = mintExpensePayload({ ...row, client_id: failedClientId });
         void retryFailed(payload).then((entry) => {
           // Same as a queued add: show it in the cached lists now (envelopes
-          // count it) rather than waiting for the drain's refetch. Only if it
-          // belongs to the budget on screen.
-          if (entry && entry.spaceId === (activeBudgetId() ?? currentUserId() ?? undefined)) insertExpense(qc, queuedRow(payload));
+          // count it) rather than waiting for the drain's refetch. The retry
+          // is re-pinned to the budget on screen, so it always belongs here.
+          if (entry) insertExpense(qc, queuedRow(payload));
           return flush();
         });
         setLogSuccess(true);
