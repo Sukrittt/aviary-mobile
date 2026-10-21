@@ -49,15 +49,17 @@ it('records the timing and status of every answered request', async () => {
   }))
   fetch.mockRestore()
 })
-it('does not call a timed-out or aborted request a lost connection', async () => {
+it('does not call a timed-out request a lost connection', async () => {
   ;(getValidToken as jest.Mock).mockResolvedValue('t')
-  const fetch = jest.spyOn(global, 'fetch')
-    .mockRejectedValueOnce(Object.assign(new Error('Aborted'), { name: 'AbortError' }))
-    .mockRejectedValueOnce(Object.assign(new Error('signal timed out'), { name: 'TimeoutError' }))
+  const controller = new AbortController()
+  controller.abort()
+  const timeout = jest.spyOn(AbortSignal, 'timeout').mockReturnValue(controller.signal)
+  const fetch = jest.spyOn(global, 'fetch').mockRejectedValueOnce(new Error('fetch failed: Canceled'))
   await expect(apiFetch('/api/category-map/suggest')).rejects.toThrow()
-  await expect(apiFetch('/api/category-map/suggest')).rejects.toThrow()
-  expect(setOnline).not.toHaveBeenCalledWith(false)
+  expect(setOnline).not.toHaveBeenCalledWith(false, expect.any(Function))
+  expect(track).toHaveBeenCalledWith('request_failed', expect.objectContaining({ aborted: true }))
   fetch.mockRestore()
+  timeout.mockRestore()
 })
 it('treats a request that could not reach the network as offline', async () => {
   ;(getValidToken as jest.Mock).mockResolvedValue('t')
@@ -125,4 +127,34 @@ describe('the active budget header', () => {
     expect(sent(fetch)['x-aviary-budget']).toBe('sp_home')
     fetch.mockRestore()
   })
+})
+
+// expo/fetch (Expo's global fetch since SDK 57) rejects an aborted request
+// with a plain Error, name "Error". Its name can't tell a timeout apart, so
+// apiFetch reads its own signal instead (PostHog 2026-10-21: every 15s
+// timeout reported as "Error" and flipped the app toward the offline screen).
+it('does not call an aborted expo/fetch request a lost connection', async () => {
+  ;(getValidToken as jest.Mock).mockResolvedValue('t')
+  const controller = new AbortController()
+  const fetch = jest.spyOn(global, 'fetch').mockImplementationOnce((_url, init) => new Promise((_resolve, reject) => {
+    const fail = () => reject(new Error('fetch failed: Canceled'))
+    if (init?.signal?.aborted) fail()
+    else init?.signal?.addEventListener('abort', fail)
+  }))
+  controller.abort()
+  await expect(apiFetch('/api/expenses', { signal: controller.signal })).rejects.toThrow()
+  expect(setOnline).not.toHaveBeenCalledWith(false, expect.any(Function))
+  expect(track).toHaveBeenCalledWith('request_failed', expect.objectContaining({ aborted: true, message: 'fetch failed: Canceled' }))
+  fetch.mockRestore()
+})
+
+it('reports what the app and network were doing when a request died', async () => {
+  ;(getValidToken as jest.Mock).mockResolvedValue('t')
+  const fetch = jest.spyOn(global, 'fetch').mockRejectedValueOnce(new TypeError('Network request failed'))
+  await expect(apiFetch('/api/expenses')).rejects.toThrow()
+  expect(track).toHaveBeenCalledWith('request_failed', expect.objectContaining({
+    aborted: false, in_flight: 1, app_state: expect.anything(), network: expect.any(String),
+    since_active_ms: expect.any(Number), since_launch_ms: expect.any(Number), since_network_change_ms: expect.any(Number),
+  }))
+  fetch.mockRestore()
 })
