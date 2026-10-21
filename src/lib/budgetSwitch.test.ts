@@ -1,7 +1,8 @@
-import { QueryClient, QueryObserver } from '@tanstack/react-query'
+import { QueryClient, QueryObserver, dehydrate } from '@tanstack/react-query'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { switchBudget } from './budgetSwitch'
-import { activeBudgetId, setActiveBudget } from './activeBudget'
+import { activeBudgetId, setActiveBudget, subscribeActiveBudget } from './activeBudget'
+import { persistOptions, queryPersister } from './queryPersist'
 import { setOnline } from './netStatus'
 
 // A plain in-memory mockStore standing in for the sealed one.
@@ -47,6 +48,20 @@ it('refreshes what a mounted screen shows, not just the cache', async () => {
   await new Promise((r) => setTimeout(r, 0))
   expect(observer.getCurrentResult().data).toEqual(['rows of sp_home'])
   unsubscribe()
+})
+
+it("never saves the budget being left under the opened one's key", async () => {
+  // Like PersistQueryClientProvider: every cache change saves a snapshot.
+  const unsubscribeCache = qc.getQueryCache().subscribe(() => {
+    void queryPersister.persistClient({ timestamp: Date.now(), buster: persistOptions.buster, clientState: dehydrate(qc, persistOptions.dehydrateOptions) })
+  })
+  // A screen re-rendering on the switch touches the cache mid-way.
+  const unsubscribeBudget = subscribeActiveBudget(() => qc.setQueryData(['user'], { name: 'touched' }))
+  qc.setQueryData(['budgets'], ['personal row'])
+  await switchBudget(qc, 'user_a', 'sp_home')
+  expect(qc.getQueryData(['budgets'])).toBeUndefined()
+  unsubscribeBudget()
+  unsubscribeCache()
 })
 
 it('keeps the budget list across a switch, so the switcher never blinks', async () => {

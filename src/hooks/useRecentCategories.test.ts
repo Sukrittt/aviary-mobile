@@ -1,6 +1,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react-native'
 import * as SecureStore from 'expo-secure-store'
 import { useRecentCategories } from './useRecentCategories'
+import { setActiveBudget } from '@/src/lib/activeBudget'
 
 jest.mock('expo-secure-store', () => ({
   getItemAsync: jest.fn(() => Promise.resolve(null)),
@@ -25,6 +26,7 @@ const del = SecureStore.deleteItemAsync as jest.Mock
 beforeEach(() => {
   jest.clearAllMocks()
   logoutHandler = null
+  setActiveBudget(null)
 })
 
 it('restores the stored recents on mount', async () => {
@@ -54,4 +56,17 @@ it('clears recents on logout so the next account starts fresh', async () => {
 
   await waitFor(() => expect(result.current.recents).toEqual([]))
   expect(del).toHaveBeenCalledWith('mc-recent-categories')
+})
+
+it('keeps each budget its own recents, and swaps them on a switch', async () => {
+  get.mockImplementation(async (key: string) => (key === 'mc-recent-categories-sp_trip' ? JSON.stringify(['Hotel']) : JSON.stringify(['Fuel'])))
+  const { result } = renderHook(() => useRecentCategories())
+  await waitFor(() => expect(result.current.recents).toEqual(['Fuel']))
+
+  act(() => setActiveBudget('sp_trip'))
+  await waitFor(() => expect(result.current.recents).toEqual(['Hotel']))
+
+  act(() => result.current.record('Snorkel'))
+  await waitFor(() => expect(set).toHaveBeenCalledWith('mc-recent-categories-sp_trip', JSON.stringify(['Snorkel', 'Hotel'])))
+  get.mockReset().mockResolvedValue(null)
 })

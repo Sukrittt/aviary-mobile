@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import * as SecureStore from "expo-secure-store";
 import { accessMode } from "@/src/api/accessMode";
 import { pushRecent } from "@/src/lib/recentCategories";
+import { activeBudgetId, subscribeActiveBudget } from "@/src/lib/activeBudget";
 
 const KEY = "mc-recent-categories";
 
@@ -13,37 +14,50 @@ const KEY = "mc-recent-categories";
  * category cache.
  */
 export function useRecentCategories() {
-  const [recents, setRecents] = useState<string[]>([]);
+  // One list per budget: another budget's categories mostly don't exist here.
+  // The personal budget keeps the original key.
+  const spaceId = useSyncExternalStore(subscribeActiveBudget, activeBudgetId);
+  const key = spaceId ? `${KEY}-${spaceId}` : KEY;
+  // Tagged with its budget, so a switch never shows the last budget's list.
+  const [stored, setStored] = useState<{ key: string; list: string[] }>({ key, list: [] });
+  const recents = stored.key === key ? stored.list : [];
   // Nothing is written until the stored value has landed — the initial empty
   // list would otherwise overwrite it on every mount.
   const hydrated = useRef(false);
 
   useEffect(() => {
-    SecureStore.getItemAsync(KEY)
+    // A read for the budget just left can land after this one's.
+    let current = true;
+    hydrated.current = false;
+    SecureStore.getItemAsync(key)
       .then((raw) => {
-        if (raw) setRecents(JSON.parse(raw) as string[]);
+        if (current && raw) setStored({ key, list: JSON.parse(raw) as string[] });
       })
       .catch(() => {})
       .finally(() => {
-        hydrated.current = true;
+        if (current) hydrated.current = true;
       });
 
     // Otherwise the next account signed into on this device inherits the
     // previous one's recently-used categories.
-    return accessMode.subscribeLogout(() => {
+    const unsubscribe = accessMode.subscribeLogout(() => {
       hydrated.current = false;
-      setRecents([]);
-      SecureStore.deleteItemAsync(KEY).catch(() => {});
+      setStored({ key, list: [] });
+      SecureStore.deleteItemAsync(key).catch(() => {});
     });
-  }, []);
+    return () => {
+      current = false;
+      unsubscribe();
+    };
+  }, [key]);
 
   function record(name: string) {
-    setRecents((prev) => {
-      const next = pushRecent(prev, name);
+    setStored((prev) => {
+      const next = pushRecent(prev.key === key ? prev.list : [], name);
       if (hydrated.current) {
-        SecureStore.setItemAsync(KEY, JSON.stringify(next)).catch(() => {});
+        SecureStore.setItemAsync(key, JSON.stringify(next)).catch(() => {});
       }
-      return next;
+      return { key, list: next };
     });
   }
 
