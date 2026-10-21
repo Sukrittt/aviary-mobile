@@ -38,7 +38,7 @@ beforeEach(async () => {
   await AsyncStorage.clear()
 })
 
-it('cleans what you type, previews the invite, joins, opens it and welcomes you once', async () => {
+it('cleans what you type, previews the invite, joins, opens it and welcomes you', async () => {
   ;(previewJoin as jest.Mock).mockResolvedValue(ok)
   const member = (userId: string, name: string, role: string) => ({ userId, name, avatarUrl: null, role, joinedAt: null })
   ;(getBudgets as jest.Mock).mockResolvedValue({
@@ -66,7 +66,6 @@ it('cleans what you type, previews the invite, joins, opens it and welcomes you 
   expect(utils.getByTestId('welcome-you')).toBeTruthy()
   fireEvent.press(utils.getByText("Let's go"))
   expect(mockBack).toHaveBeenCalled()
-  expect(await AsyncStorage.getItem('aviary-budget-intro:sp_home')).toBe('1')
 })
 
 it('still welcomes you when switching budgets swaps the cache out from under the preview', async () => {

@@ -4,7 +4,6 @@ import Reanimated, { FadeIn, ZoomIn, useReducedMotion } from 'react-native-reani
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { type Href, useLocalSearchParams, useRouter } from 'expo-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
@@ -26,7 +25,6 @@ import { tap } from '@/src/lib/haptics'
 const CODE_LENGTH = 6
 const FACE = 36
 const FACE_STEP = FACE - 8
-const introKey = (spaceId: string) => `aviary-budget-intro:${spaceId}`
 
 export function cleanCode(raw: string): string {
   return raw.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, CODE_LENGTH)
@@ -61,7 +59,7 @@ export function whoIsIn(members: number | undefined, inviter: string | null | un
 /**
  * Join someone's budget with the code from their invite. The code is
  * previewed first, so you see whose budget it is before you're in it. Then,
- * once per budget, a welcome: your face drops in next to everyone else's.
+ * after every join, a welcome: your face drops in next to everyone else's.
  */
 export default function JoinBudgetModal() {
   const { tokens } = useTheme()
@@ -111,12 +109,8 @@ export default function JoinBudgetModal() {
     await queryClient.refetchQueries({ queryKey: budgetsKey }).catch(() => {})
     const uid = currentUserId()
     if (uid) await switchBudget(queryClient, uid, spaceId)
-    const seen = showIntro ? await AsyncStorage.getItem(introKey(spaceId)).catch(() => '1') : '1'
-    if (seen) {
-      done(true)
-      return
-    }
-    void AsyncStorage.setItem(introKey(spaceId), '1').catch(() => {})
+    // Every real join gets the welcome, rejoins included; already being in it doesn't.
+    if (!showIntro) return done(true)
     setWelcome(budget ?? null)
   }
 
