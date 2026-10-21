@@ -221,7 +221,7 @@ it('says so when everything ticked was already there', async () => {
   }
 })
 
-it('turns away a file that is not a statement, and words a locked pdf', async () => {
+it('turns away a file that is not a statement, and words a scanned pdf', async () => {
   mockPickFile.mockResolvedValueOnce({ uri: 'file:///x.docx', name: 'x.docx' })
   const screen = renderWithProviders(<StatementScreen />)
   fireEvent.press(screen.getByText('Choose a statement'))
@@ -229,13 +229,47 @@ it('turns away a file that is not a statement, and words a locked pdf', async ()
   expect(mockRead).not.toHaveBeenCalled()
 
   const { StatementFailure } = jest.requireActual('@/src/api/statement')
-  mockRead.mockRejectedValueOnce(new StatementFailure('That PDF has a password. Download the statement as Excel or CSV from net banking and upload that instead.', 'That PDF is locked'))
+  mockRead.mockRejectedValueOnce(new StatementFailure("That PDF is a scan, so there's no text to read. Try screenshots of your payments instead.", "That's a scan", 'pdf_no_text'))
   fireEvent.press(screen.getByText('Choose a statement'))
-  expect(await screen.findByText(/That PDF has a password/)).toBeTruthy()
-  expect(screen.getByText('That PDF is locked')).toBeTruthy()
+  expect(await screen.findByText(/That PDF is a scan/)).toBeTruthy()
   expect(jest.requireMock('expo-haptics').notificationAsync).toHaveBeenCalledWith('error')
   // Try again goes back to the picker.
   fireEvent.press(screen.getByText('Try again'))
+  expect(screen.getByText('Choose a statement')).toBeTruthy()
+})
+
+it("asks for a locked pdf's password in place, and keeps the file through a wrong guess", async () => {
+  const file = { uri: 'file:///hdfc.pdf', name: 'hdfc.pdf', size: 1200 }
+  mockPickFile.mockResolvedValueOnce(file)
+  const { StatementFailure } = jest.requireActual('@/src/api/statement')
+  mockRead
+    .mockRejectedValueOnce(new StatementFailure('locked', 'That PDF is locked', 'pdf_locked'))
+    .mockRejectedValueOnce(new StatementFailure('wrong', 'Wrong password', 'pdf_password_wrong'))
+  const screen = renderWithProviders(<StatementScreen />)
+  fireEvent.press(screen.getByText('Choose a statement'))
+  expect(await screen.findByText('hdfc.pdf has a password')).toBeTruthy()
+  expect(screen.getByText('Used once to open the file. Never saved.')).toBeTruthy()
+  expect(screen.queryByText("That didn't open it, try again.")).toBeNull()
+
+  fireEvent.changeText(screen.getByLabelText('Password'), 'nope')
+  fireEvent.press(screen.getByText('Open it'))
+  expect(await screen.findByText("That didn't open it, try again.")).toBeTruthy()
+  expect(screen.getByLabelText('Password').props.value).toBe('')
+
+  fireEvent.changeText(screen.getByLabelText('Password'), '01011990')
+  fireEvent.press(screen.getByText('Open it'))
+  await screen.findByText('Check these, then log')
+  expect(mockRead.mock.calls.map((c) => c[0])).toEqual([{ file }, { file, password: 'nope' }, { file, password: '01011990' }])
+  expect(mockPickFile).toHaveBeenCalledTimes(1)
+})
+
+it('goes back to the picker from the password step', async () => {
+  mockPickFile.mockResolvedValueOnce({ uri: 'file:///hdfc.pdf', name: 'hdfc.pdf', size: 1200 })
+  const { StatementFailure } = jest.requireActual('@/src/api/statement')
+  mockRead.mockRejectedValueOnce(new StatementFailure('locked', 'That PDF is locked', 'pdf_locked'))
+  const screen = renderWithProviders(<StatementScreen />)
+  fireEvent.press(screen.getByText('Choose a statement'))
+  fireEvent.press(await screen.findByText('Pick another file'))
   expect(screen.getByText('Choose a statement')).toBeTruthy()
 })
 
