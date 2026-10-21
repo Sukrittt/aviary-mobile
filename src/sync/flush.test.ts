@@ -135,9 +135,22 @@ it('a 402 leaves the queue intact and burns no attempts', async () => {
 
   expect(pending.bumpAttempts).not.toHaveBeenCalled()
   expect(pending.remove).not.toHaveBeenCalled()
-  // Stops the whole drain: every remaining entry would hit the same gate, so
+  // Asks that budget once: every entry of it would hit the same gate, so
   // continuing is just noise against an API that is already saying no.
   expect(postExpensePayload).toHaveBeenCalledTimes(1)
+})
+
+it('a lapsed personal plan does not stall a shared budget the owner pays for', async () => {
+  ;(pending.list as jest.Mock).mockResolvedValue([entry('c1'), { ...entry('c2'), spaceId: 'sp_home' }, entry('c3')])
+  ;(postExpensePayload as jest.Mock).mockImplementation((_p, _g, budget: string) =>
+    budget === 'sp_home' ? Promise.resolve({ id: 'row-2', timestamp: 'ts' }) : Promise.reject(new HttpError(402, 'SUBSCRIPTION_REQUIRED')))
+
+  await flush()
+
+  expect(pending.remove).toHaveBeenCalledWith('c2', 'user_1')
+  expect(pending.remove).not.toHaveBeenCalledWith('c1', 'user_1')
+  expect(pending.bumpAttempts).not.toHaveBeenCalled()
+  expect(postExpensePayload).not.toHaveBeenCalledWith(expect.objectContaining({ client_id: 'c3' }), 1, 'user_1')
 })
 
 it('resumes draining the same entries once access is restored', async () => {
