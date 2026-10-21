@@ -7,14 +7,25 @@ import MoneyBrainModal from './money-brain'
 
 const mockPush = jest.fn()
 const mockDismissTo = jest.fn()
+const mockBack = jest.fn()
 let mockParams: Record<string, string> = {}
 const mockStreamChat = jest.fn()
 const mockUpdateProposalStatus = jest.fn().mockResolvedValue(null)
 let mockBrief: Record<string, unknown> = {}
 let mockSessions: unknown = undefined
 
+let mockActive: unknown = null
+jest.mock('@/src/hooks/useBudgetSpaces', () => ({
+  ...jest.requireActual('@/src/hooks/useBudgetSpaces'),
+  useBudgetSpaces: () => ({ active: mockActive, budgets: [], multi: true, count: 2, limit: 5, atLimit: false }),
+}))
+const READ_ONLY_BUDGET = {
+  id: 'b2', name: 'Studio', readOnly: true, ownerId: 'o1', role: 'member', personal: false,
+  members: [{ userId: 'o1', name: 'Priya Rao', avatarUrl: null, role: 'owner', joinedAt: null }],
+}
+
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: mockPush, back: jest.fn(), dismissTo: mockDismissTo }),
+  useRouter: () => ({ push: mockPush, back: mockBack, dismissTo: mockDismissTo }),
   useLocalSearchParams: () => mockParams,
 }))
 jest.mock('@/src/hooks/useBudgets', () => ({ useBudgets: () => ({ data: [] }) }))
@@ -67,6 +78,7 @@ const proposal: CaptureProposal = {
 
 beforeEach(() => {
   jest.clearAllMocks()
+  mockActive = null
   mockParams = {}
   mockSessions = undefined
   mockBrief = { data: undefined, isLoading: false, isError: false, error: null, refetch: jest.fn() }
@@ -86,6 +98,14 @@ it('opens as a focused composer in capture mode, without the brief', async () =>
   fireEvent.press(utils.getByText('dinner 1200 split 6'))
   expect(utils.getByPlaceholderText('What did you spend?').props.value).toBe('dinner 1200 split 6')
   expect(mockStreamChat).not.toHaveBeenCalled()
+})
+
+it('closes capture mode from the cross in the header', async () => {
+  mockParams = { capture: '1' }
+  const utils = renderWithProviders(<MoneyBrainModal />)
+
+  fireEvent.press(await utils.findByLabelText('Close'))
+  expect(mockBack).toHaveBeenCalled()
 })
 
 it("holds the brief's shape with skeletons while it loads, not a rotating caption", async () => {
@@ -373,4 +393,14 @@ it('keeps the new chat and its logged card when the first reply fails after the 
   await sendQuestion(utils, 'Try again')
   expect(mockStreamChat.mock.calls[1][0]).toBe('s1')
   await act(async () => { calls[1].resolve('s1') })
+})
+
+it('pauses Ask Aviary in a read-only budget: no composer, no suggested questions', async () => {
+  mockActive = READ_ONLY_BUDGET
+  mockBrief = { ...mockBrief, data: { narrative: 'Calm month.', cards: [], questions: ['Where did my money go?'], meta: { txnCountThisMonth: 3, totalSpent: 100, totalAssigned: 500, daysLeft: 10 } } }
+  const utils = renderWithProviders(<MoneyBrainModal />)
+  expect(await utils.findByTestId('ask-aviary-paused')).toBeTruthy()
+  expect(utils.getByText(/Ask Aviary is paused\./)).toBeTruthy()
+  expect(utils.queryByPlaceholderText('Ask about your money…')).toBeNull()
+  expect(utils.queryByText('Where did my money go?')).toBeNull()
 })

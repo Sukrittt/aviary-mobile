@@ -1,3 +1,4 @@
+import { useBudgetSpaces } from "@/src/hooks/useBudgetSpaces";
 import { expenseSuccessParams } from '@/src/lib/expenseSuccessParams'
 import { ExpenseNoticeScreen } from '@/src/features/log-expense/ExpenseNoticeScreen'
 import { liveAccounts, useAccounts } from "@/src/hooks/useAccounts";
@@ -47,7 +48,7 @@ import { useTheme } from "@/src/theme/ThemeProvider";
 import { fontFamily } from "@/src/theme/fonts";
 import { NAV_HEIGHT } from "@/src/theme/scale";
 import { useIsFocused,useLocalSearchParams,useRouter } from "expo-router";
-import { Camera, CaretDown, ChatText, Plus, Warning } from "@/src/components/shared/icons";
+import { Camera, CaretDown, ChatText, Plus, UploadSimple, Warning } from "@/src/components/shared/icons";
 import { useCaptureTip } from "@/src/hooks/useCaptureTip";
 import { useFeedOn } from "@/src/hooks/useActivityView";
 import { noteManualLog, type CaptureTipReason } from "@/src/lib/captureTip";
@@ -59,7 +60,6 @@ import { useBounce } from "@/src/hooks/useBounce";
 import Reanimated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { useCallback,useEffect,useMemo,useRef,useState } from "react";
 import {
-Alert,
 Animated,
 Image,
 Keyboard,
@@ -72,7 +72,17 @@ View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { track } from "@/src/lib/analytics";
+import { isRefreshingToken } from "@/src/api/accessMode";
 import { tap } from "@/src/lib/haptics";
+import { Alert } from "@/src/components/ui/AlertHost";
+import { mintExpensePayload } from "@/src/api/expenses";
+import { discardFailed, retryFailed } from "@/src/lib/pendingExpenses";
+import { flush } from "@/src/sync/flush";
+import { insertExpense, queuedRow } from "@/src/lib/optimisticExpenses";
+import { useQueryClient } from "@tanstack/react-query";
+import { BudgetIcon } from '@/src/components/budgets/BudgetIcon'
+import { BudgetSwitcherSheet } from '@/src/components/budgets/BudgetSwitcherSheet'
+import { withReadOnlyGate } from '@/src/components/budgets/ReadOnlyNotice'
 
 function str(v: string | string[] | undefined): string {
   return typeof v === "string" ? v : "";
@@ -105,6 +115,9 @@ function suggestCategory(
   return best;
 }
 
+// How long a save may hold the screen before it's reported as stuck.
+export const SAVE_STUCK_MS = 10_000;
+
 // Shortest description worth an AI call; "ba" is half a word, not an expense.
 const MIN_LLM_CHARS = 3;
 
@@ -124,7 +137,9 @@ const CAPTURE_TIP_COPY: Record<CaptureTipReason, { title: string; body: string }
   gap: { title: "Been a couple of days?", body: "Type whatever you remember in Ask Aviary, like “taxi 240, lunch 150”." },
 };
 
-export default function LogExpenseScreen() {
+export default withReadOnlyGate(LogExpenseScreen);
+
+function LogExpenseScreen() {
   const { formatAmountInput, formatMoney } = useCurrency()
 
   const { tokens, space, radius, type, motion } = useTheme();
@@ -137,6 +152,10 @@ export default function LogExpenseScreen() {
   const origId = str(params.id) || undefined;
   const origTimestamp = str(params.timestamp);
   const isEdit = origTimestamp !== "";
+  // Opened from Activity's "couldn't be saved" row: this entry is in the failed queue.
+  const failedClientId = str(params.failedClientId) || undefined;
+  const { multi: multiBudget, active: activeBudget } = useBudgetSpaces();
+  const [budgetSheet, setBudgetSheet] = useState(false);
   const cachedUser = useCachedUser();
   const feedOn = useFeedOn().on;
   const showIncome = !isEdit && !isHidden(cachedUser, "income");
@@ -152,6 +171,7 @@ export default function LogExpenseScreen() {
   const categoryMapQ = useCategoryMap();
   const expensesQ = useRecentExpenses();
   const addExpense = useAddExpense();
+  const qc = useQueryClient();
   const updateExpense = useUpdateExpense();
 
   const publishLogExpenseSubmit = useLogExpenseSubmitPublisher();
@@ -390,8 +410,22 @@ export default function LogExpenseScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [logSuccess]);
 
-  // Runs once the expense itself is saved. A photo failure never undoes that
-  // save; it only gets a friendly heads-up. Not queued offline in v1, so a
+  // A save that holds this screen past SAVE_STUCK_MS reports where it's
+  // waiting, so the next hang shows up in PostHog with its stage instead of
+  // as a quiet gap between events (2026-10-19). Unmounting cancels it.
+  const stuckStage = useRef<() => string>(() => "request");
+  stuckStage.current = () => (logSuccess ? "navigation" : isRefreshingToken() ? "token_refresh" : "request");
+  const holding = saving || logSuccess;
+  useEffect(() => {
+    if (!holding) return;
+    const timer = setTimeout(() => track("save_stuck", { stage: stuckStage.current(), mode: isEdit ? "edit" : "add" }), SAVE_STUCK_MS);
+    return () => clearTimeout(timer);
+  }, [holding, isEdit]);
+
+  // Runs once the expense itself is saved, in the background: the screen
+  // moves on without waiting, since an upload on a slow connection can take
+  // up to its 60s timeout. A photo failure never undoes that save; it only
+  // gets a friendly heads-up, even from the next screen. Not queued offline in v1, so a
   // create that landed in the pending queue (no server id yet) skips it.
   const syncPhoto = useCallback(async (id: string | undefined, queued: boolean) => {
     if (!photo && !(hasSavedPhoto && photoRemoved)) return;
@@ -419,8 +453,8 @@ export default function LogExpenseScreen() {
     }
     if (isEdit) {
       const updates = expenseChanges(base, { ...editedDraft, item: savedItem });
-      const finishEdit = async () => { await syncPhoto(origId, false); setLogSuccess(true); };
-      if (!Object.keys(updates).length) { void finishEdit(); return; }
+      const finishEdit = () => { void syncPhoto(origId, false); setLogSuccess(true); };
+      if (!Object.keys(updates).length) { finishEdit(); return; }
       updateMutate(
         {
           id: origId,
@@ -431,7 +465,7 @@ export default function LogExpenseScreen() {
           updates,
         },
         {
-          onSuccess: () => void finishEdit(),
+          onSuccess: finishEdit,
           onError: (err) => {
             if (err instanceof ExpenseWriteError) {
               if (err.status === 409 && err.current) {
@@ -444,25 +478,42 @@ export default function LogExpenseScreen() {
                 Keyboard.dismiss(); setDeleted(true); setShowDeletedNotice(true); setError(''); return;
               }
             }
-            setError(err instanceof Error ? err.message : "Could not save. Check your connection and try again.");
+            setError("Couldn't save your changes. Check your connection and try again.");
           },
         },
       );
     } else {
       // Kept (still auto-picked at save) or overridden (the user changed it).
       if (suggestedBy.current) track("ai_category_suggested", { accepted: autoPicked, source: suggestedBy.current, ms: pickMs.current });
+      const row = {
+        item: savedItem,
+        amount_inr: String(parsedAmount),
+        category,
+        date,
+        notes: notes.trim(),
+        // With an account, its type is the payment method, sent too so a
+        // queued create on an account archived since still funds the right envelope.
+        payment_method: accountId ? accounts.find((a) => a.id === accountId)?.type ?? paymentMethod : paymentMethod,
+        ...(accountId ? { account_id: accountId } : {}),
+        source: 'manual' as const,
+      };
+      // A create the sync gave up on goes back in the queue under its own
+      // client_id, fixes included, and the drain takes it from there.
+      if (failedClientId) {
+        const payload = mintExpensePayload({ ...row, client_id: failedClientId });
+        void retryFailed(payload).then((entry) => {
+          // Same as a queued add: show it in the cached lists now (envelopes
+          // count it) rather than waiting for the drain's refetch. The retry
+          // is re-pinned to the budget on screen, so it always belongs here.
+          if (entry) insertExpense(qc, queuedRow(payload));
+          return flush();
+        });
+        setLogSuccess(true);
+        return;
+      }
       addMutate(
         {
-          item: savedItem,
-          amount_inr: String(parsedAmount),
-          category,
-          date,
-          notes: notes.trim(),
-          // With an account, its type is the payment method, sent too so a
-          // queued create on an account archived since still funds the right envelope.
-          payment_method: accountId ? accounts.find((a) => a.id === accountId)?.type ?? paymentMethod : paymentMethod,
-          ...(accountId ? { account_id: accountId } : {}),
-          source: 'manual',
+          ...row,
           // A slow save finishes in the background instead of holding this
           // screen. Not with a photo: its upload needs the server id.
           instant: !photo,
@@ -473,10 +524,10 @@ export default function LogExpenseScreen() {
           // `timestamp` come back from the POST so Undo can address the row.
           // The replace itself is deferred: stash it and flip logSuccess so
           // the nav circle's save animation plays first (see the effect above).
-          onSuccess: async (res) => {
+          onSuccess: (res) => {
             clearLogExpenseDraft();
             noteManualLog();
-            await syncPhoto(res.id, res.pending);
+            void syncPhoto(res.id, res.pending);
             pendingAddNavRef.current = {
               pathname: "/modals/expense-added",
               params: expenseSuccessParams(res, {
@@ -512,7 +563,7 @@ export default function LogExpenseScreen() {
         },
       );
     }
-  }, [canSubmit, unusual, unusualWarnedFor, warnKey, base, amount, expectedVersion, isEdit, origId, origTimestamp, origItem, origAmountInr, item, savedItem, parsedAmount, date, category, notes, paymentMethod, accountId, accounts, editedDraft, router, addMutate, updateMutate, autoPicked, syncPhoto, photo]);
+  }, [canSubmit, unusual, unusualWarnedFor, warnKey, base, expectedVersion, isEdit, origId, origTimestamp, origItem, origAmountInr, item, savedItem, parsedAmount, date, category, notes, paymentMethod, accountId, accounts, editedDraft, router, addMutate, updateMutate, autoPicked, syncPhoto, photo, failedClientId, qc]);
 
   // Publish only when the action or its visible state changes, and only while
   // focused: a prefilled log-expense (habit nudge) stacks over the launch one,
@@ -591,6 +642,36 @@ export default function LogExpenseScreen() {
           </Reanimated.View>
         )}
       </View>
+
+      {multiBudget && activeBudget && (
+        // With 2+ budgets, always say which one this lands in. A new expense
+        // can switch budgets from here: the form stays, the category and
+        // account (which belong to the old budget) clear.
+        <View style={{ alignItems: "center", paddingHorizontal: space.lg }}>
+          <Pressable
+            testID="log-budget"
+            disabled={isEdit}
+            onPress={() => { tap(); setBudgetSheet(true); }}
+            hitSlop={8}
+            accessibilityRole={isEdit ? undefined : "button"}
+            accessibilityLabel={`${isEdit ? "In" : "Logging to"} ${activeBudget.name}`}
+            accessibilityHint={isEdit ? undefined : "Switch budgets"}
+            style={{ flexDirection: "row", alignItems: "center", gap: 4, maxWidth: "100%", paddingHorizontal: isEdit ? 0 : 10, paddingVertical: isEdit ? 0 : 4, borderRadius: radius.full, backgroundColor: isEdit ? "transparent" : fieldBg }}
+          >
+            <Text style={{ color: onAccentDim, fontFamily: fontFamily.bodySemiBold, fontSize: type.micro }}>{isEdit ? "In" : "Logging to"}</Text>
+            <BudgetIcon budget={activeBudget} size={type.micro} color={isEdit ? onAccentDim : "#ffffff"} />
+            <Text numberOfLines={1} style={{ flexShrink: 1, color: isEdit ? onAccentDim : "#ffffff", fontFamily: fontFamily.bodySemiBold, fontSize: type.micro }}>{activeBudget.name}</Text>
+            {!isEdit && <CaretDown size={type.micro} color="#ffffff" weight="bold" />}
+          </Pressable>
+        </View>
+      )}
+      {!isEdit && (
+        <BudgetSwitcherSheet
+          visible={budgetSheet}
+          onClose={() => setBudgetSheet(false)}
+          onSwitch={() => { setCategory(""); setCategoryTouched(false); setAutoPicked(false); setAccountPick(null); }}
+        />
+      )}
 
       {showCapture && captureTip.reason && nudge === 0 && unusualNudge === 0 && (
         // The moment it would help (src/lib/captureTip.ts): logging a few by
@@ -746,6 +827,36 @@ export default function LogExpenseScreen() {
           },
         ]}
       >
+        {failedClientId && (
+          <View style={{ gap: space.sm }}>
+            <Text style={{ color: tokens.onAccent, fontFamily: fontFamily.bodySemiBold, fontSize: type.body }}>
+              This one couldn&apos;t be saved. Fix anything that looks off, then try again.
+            </Text>
+            <View style={{ flexDirection: "row", gap: space.sm }}>
+              {[
+                { label: "Try again", onPress: handleSubmit },
+                {
+                  label: "Discard",
+                  onPress: () =>
+                    Alert.alert("Discard this expense?", "It never reached your account, so it's gone for good.", [
+                      { text: "Keep it", style: "cancel" },
+                      { text: "Discard", style: "destructive", onPress: () => void discardFailed(failedClientId).then(() => router.back(), () => Alert.alert("Couldn't discard this expense", "Try again in a moment.")) },
+                    ]),
+                },
+              ].map((b) => (
+                <Pressable
+                  key={b.label}
+                  accessibilityRole="button"
+                  disabled={holding}
+                  onPress={() => { tap(); b.onPress(); }}
+                  style={{ paddingHorizontal: space.md, paddingVertical: space.sm, borderRadius: radius.full, backgroundColor: fieldBg }}
+                >
+                  <Text style={{ color: tokens.onAccent, fontFamily: fontFamily.bodySemiBold }}>{b.label}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        )}
         {error !== "" && (
           <Text
             style={[
@@ -930,6 +1041,24 @@ export default function LogExpenseScreen() {
               ]}
             />
           </View>
+
+          {!isEdit && (
+            // Next to the photo field, which picks like bill scan: catching up
+            // on missed days from your own UPI or bank history. Not behind
+            // billScan, since new accounts start with that off.
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => {
+                setShowMore(false);
+                router.push("/modals/statement");
+              }}
+              disabled={!online}
+              style={{ flexDirection: "row", alignItems: "center", gap: space.sm, alignSelf: "flex-start", paddingHorizontal: space.md, paddingVertical: space.sm, borderRadius: radius.full, backgroundColor: tokens.inputBg, opacity: online ? 1 : 0.5 }}
+            >
+              <UploadSimple size={16} color={tokens.accentInk} />
+              <Text style={{ color: tokens.accentInk, fontFamily: fontFamily.bodySemiBold }}>Add from statement or screenshot</Text>
+            </Pressable>
+          )}
 
           {photoAllowed && (
             <ExpensePhotoField

@@ -4,7 +4,7 @@
 import { FlexWidget, OverlapWidget, SvgWidget, TextWidget } from 'react-native-android-widget'
 import type { ThemeTokens } from '@/src/theme/tokens'
 import { widgetFontFamily as fontFamily } from '@/src/theme/fonts'
-import { heroFontSize, widgetMood, withPerDay, type WidgetData } from './data'
+import { heroFontSize, widgetMood, withPerDay, withBudget, type WidgetData } from './data'
 import { WidgetSurface, color } from './surface'
 import { plusSvg } from './icons'
 import { birdFrames, birdSvg, FRAME_MS, heroTint, ringSvg } from './bird'
@@ -60,7 +60,7 @@ export function EnvelopeBarWidget({
               <SvgWidget svg={ringSvg({ mood, leftPct: data.leftPct, tokens }, '', 14)} style={{ width: 14, height: 14, marginRight: 5 }} />
               <FlexWidget style={{ flex: 1 }}>
                 <TextWidget
-                  text={withPerDay(data)}
+                  text={withBudget(data, withPerDay(data))}
                   truncate="END"
                   maxLines={1}
                   style={{ fontSize: 11, fontFamily: fontFamily.bodySemiBold, color: color(tokens.text2) }}

@@ -70,6 +70,16 @@ beforeEach(() => {
   mockCommit.mockResolvedValue({ importId: 'imp1', total: 9, groupCount: 2, categoryCount: 2, income: 3000 })
 })
 
+it('skips the start question when it was already answered, and Back starts fresh', () => {
+  const onFresh = jest.fn()
+  const utils = renderWithProviders(<ImportFlow skipAsk onFresh={onFresh} onDone={jest.fn()} onAlreadySetUp={jest.fn()} />)
+  expect(utils.queryByText('How do you want to start?')).toBeNull()
+  expect(utils.getByText('Where are you coming from?')).toBeTruthy()
+  expect(utils.getByLabelText('Step 1 of 3')).toBeTruthy()
+  fireEvent.press(utils.getByLabelText('Go back'))
+  expect(onFresh).toHaveBeenCalled()
+})
+
 it('starting fresh hands straight back to the usual setup', () => {
   const { getByText, onFresh } = render()
   expect(getByText('How do you want to start?')).toBeTruthy()

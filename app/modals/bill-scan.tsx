@@ -8,8 +8,8 @@ import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { usePrivacy } from '@/src/context/PrivacyContext'
 import { formatDate } from '@/src/lib/format'
-import { categoryTint, splitEmoji } from '@/src/lib/emoji'
-import { useCategoryIcons } from '@/src/hooks/useCategories'
+import { splitEmoji } from '@/src/lib/emoji'
+import { useCategoryIcons, useCategoryTint } from '@/src/hooks/useCategories'
 import { CATEGORY_ICON_COMPONENTS, CategoryIcon } from '@/src/components/shared/CategoryIcon'
 import { useBillScan } from '@/src/hooks/useBillScans'
 import { LoadingPhrase } from '@/src/components/shared/LoadingPhrase'
@@ -31,6 +31,7 @@ export default function BillScanModal() {
   const { formatCurrency } = useCurrency()
 
   const { tokens } = useTheme()
+  const tintOf = useCategoryTint()
   const { hideAmounts } = usePrivacy()
   const insets = useSafeAreaInsets()
   const router = useRouter()
@@ -42,7 +43,7 @@ export default function BillScanModal() {
   const scan = scanQ.data
   const category = splitEmoji(scan?.category ?? '')
   const categoryIcons = useCategoryIcons()
-  const tint = categoryTint(scan?.category ?? '', tokens)
+  const tint = tintOf(scan?.category ?? '')
   const shareGroups = groupByDivisor((scan?.items ?? []).filter(item => !isFeeLine(item.name)))
   const fees = scan ? round2(scan.items.filter(item => isFeeLine(item.name)).reduce((sum, item) => sum + item.price, 0) + feeDiff(scan.total, scan.items)) : 0
   const feesShare = scan ? round2(fees / scan.people_count) : 0

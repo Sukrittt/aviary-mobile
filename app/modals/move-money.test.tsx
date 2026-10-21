@@ -19,6 +19,16 @@ jest.mock('@/src/api/budgets', () => ({
 jest.mock('@/src/api/categories', () => ({ getCategories: jest.fn() }))
 jest.mock('@/src/api/groups', () => ({ getGroups: jest.fn() }))
 
+let mockActive: unknown = null
+jest.mock('@/src/hooks/useBudgetSpaces', () => ({
+  ...jest.requireActual('@/src/hooks/useBudgetSpaces'),
+  useBudgetSpaces: () => ({ active: mockActive, budgets: [], multi: true, count: 2, limit: 5, atLimit: false }),
+}))
+const READ_ONLY_BUDGET = {
+  id: 'b2', name: 'Studio', readOnly: true, ownerId: 'o1', role: 'member', personal: false,
+  members: [{ userId: 'o1', name: 'Priya Rao', avatarUrl: null, role: 'owner', joinedAt: null }],
+}
+
 const mockBack = jest.fn()
 let mockParams: Record<string, string> = {}
 let mockCanGoBack = true
@@ -52,10 +62,11 @@ function setup(overrides: Partial<typeof BASE_PARAMS> = {}, expenses: object[] =
   return renderWithProviders(<MoveMoneyModal />)
 }
 
-const BASE_PARAMS = { fromCategory: 'Electricity' }
+const BASE_PARAMS: { fromCategory: string; amount?: string } = { fromCategory: 'Electricity' }
 
 beforeEach(() => {
   jest.clearAllMocks()
+  mockActive = null
 })
 
 // Spending eats into each envelope so `available/assigned` differs: Travel
@@ -216,6 +227,37 @@ it('closes to Home when it was opened with nothing underneath', async () => {
     const { getByLabelText } = setup()
     await waitFor(() => expect(getByLabelText('Close')).toBeTruthy())
     fireEvent.press(getByLabelText('Close'))
+    expect(mockBack).not.toHaveBeenCalled()
+    expect(mockReplace).toHaveBeenCalledWith('/(tabs)')
+  } finally {
+    mockCanGoBack = true
+  }
+})
+
+it("opens on the amount the forecast's top-up asked for", async () => {
+  const { getByText, getByLabelText, queryByText } = setup({ amount: '750' })
+  await waitFor(() => expect(getByLabelText('1')).toBeTruthy())
+  expect(queryByText('Add an amount')).toBeNull()
+  fireEvent.press(getByText('Pick sources →'))
+  await waitFor(() => expect(getByText('SUGGESTED SOURCES')).toBeTruthy())
+})
+
+it('opens to the read-only notice in a read-only budget, and Got it goes back', async () => {
+  mockActive = READ_ONLY_BUDGET
+  const { getByTestId, getByText, queryByText } = setup()
+  expect(getByTestId('read-only-notice')).toBeTruthy()
+  expect(getByText("Priya's plan has lapsed. You can view and export everything; logging comes back once they renew.")).toBeTruthy()
+  expect(queryByText('Move money')).toBeNull()
+  fireEvent.press(getByText('Got it'))
+  expect(mockBack).toHaveBeenCalled()
+})
+
+it("Got it on the read-only notice lands on Home when there's nothing to go back to", async () => {
+  mockActive = READ_ONLY_BUDGET
+  mockCanGoBack = false
+  try {
+    const { getByText } = setup()
+    fireEvent.press(getByText('Got it'))
     expect(mockBack).not.toHaveBeenCalled()
     expect(mockReplace).toHaveBeenCalledWith('/(tabs)')
   } finally {

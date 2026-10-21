@@ -1,5 +1,5 @@
 import type { BillingStatus } from '@/src/api/billing'
-import { accessAllowed, billingVisible, isWebPlan, lockedCopy, planSummary, trialReminderBucket, yearlySavingsPercent, planPeriod, daysUntilLabel } from './billingStatus'
+import { accessAllowed, daysOnUs, needsSetup, billingVisible, isWebPlan, lockedCopy, planSummary, trialReminderBucket, yearlySavingsPercent, planPeriod, daysUntilLabel } from './billingStatus'
 
 const NOW = Date.parse('2026-10-01T00:00:00Z')
 const DAY = 86_400_000
@@ -85,16 +85,16 @@ describe('trialReminderBucket', () => {
 
 describe('copy', () => {
   it('names the trial in the plan summary', () => {
-    expect(planSummary(status({ trialDaysRemaining: 3 }))).toBe('Free trial · 3 days left')
+    expect(planSummary(status({ trialDaysRemaining: 3 }))).toBe('45 days on us · 3 days left')
   })
 
   it('keeps calling it a trial when a web plan is waiting on its first charge', () => {
     const scheduled = status({ mode: 'paid', store: 'web', renewalState: 'scheduled', autoRenew: true, paidExpiresAt: '2026-10-17T12:00:00Z' })
-    expect(planSummary(scheduled)).toMatch(/^Free trial · first charge /)
+    expect(planSummary(scheduled)).toMatch(/^45 days on us · first charge /)
   })
 
   it('explains a lapsed trial as a trial, even from a stale cached status', () => {
-    expect(lockedCopy(status({ mode: 'trial' })).title).toBe('Your free trial has ended')
+    expect(lockedCopy(status({ mode: 'trial' })).title).toBe('Your 45 days on us are up')
     expect(lockedCopy(status({ mode: 'expired', productId: 'envelope_individual' })).title).toBe('Your subscription has ended')
     expect(lockedCopy(status({ renewalState: 'on_hold' })).title).toBe("A payment didn't go through")
   })
@@ -142,5 +142,35 @@ describe('planPeriod and daysUntilLabel', () => {
     expect(daysUntilLabel(new Date(2026, 8, 18, 18, 5).toISOString(), now)).toBe('today')
     expect(daysUntilLabel(new Date(2026, 8, 19, 1, 0).toISOString(), now)).toBe('tomorrow')
     expect(daysUntilLabel(new Date(2026, 9, 18, 9, 0).toISOString(), now)).toBe('in 30 days')
+  })
+})
+
+describe('accessAllowed in a budget someone else pays for', () => {
+  it("stays open when the owner's plan covers it, whatever this person's own plan says", () => {
+    expect(accessAllowed({ allowed: false, enforced: true, mode: 'expired', covered: true } as never)).toBe(true)
+    expect(accessAllowed({ allowed: false, enforced: true, mode: 'expired', covered: false } as never)).toBe(false)
+  })
+})
+
+describe('needsSetup', () => {
+  it('sends an account with no trial back to setup', () => {
+    expect(needsSetup(status({ mode: 'setup_incomplete', allowed: false }))).toBe(true)
+  })
+
+  it("not a member whose budget someone else pays for: they joined from an invite and skip setup", () => {
+    expect(needsSetup(status({ mode: 'setup_incomplete', allowed: false, covered: true }))).toBe(false)
+  })
+
+  it('not while the status is unknown, or once there is a plan', () => {
+    expect(needsSetup(undefined)).toBe(false)
+    expect(needsSetup(status())).toBe(false)
+  })
+})
+
+describe('daysOnUs', () => {
+  it("says the trial's real length, 30 when the dates are missing", () => {
+    expect(daysOnUs({ trialStartedAt: '2026-08-01T00:00:00Z', trialEndsAt: '2026-08-31T00:00:00Z' })).toBe('30 days on us')
+    expect(daysOnUs({ trialStartedAt: '2026-08-01T00:00:00Z', trialEndsAt: '2026-09-15T00:00:00Z' })).toBe('45 days on us')
+    expect(daysOnUs({ trialStartedAt: null, trialEndsAt: null })).toBe('30 days on us')
   })
 })

@@ -17,24 +17,55 @@ export function splitEmoji(raw: string): { icon: string; text: string } {
 
 type TintTokens = Pick<ThemeTokens,
   'mint' | 'mintSoft' | 'violet' | 'violetSoft' | 'blue' | 'blueSoft' |
-  'accentInk' | 'accentSoft' | 'warnInk' | 'warnSoft' | 'coral' | 'coralSoft'>
+  'accentInk' | 'accentSoft' | 'warnInk' | 'warnSoft' | 'coral' | 'coralSoft' |
+  'pink' | 'pinkSoft' | 'indigo' | 'indigoSoft' | 'brown' | 'brownSoft' | 'slate' | 'slateSoft'>
 
-// A soft tint and the icon colour that sits on it, cycled by a hash of the
-// name's words (as on Web) so one category is never two colours.
-const TINTS: ((t: TintTokens) => { bg: string; ink: string })[] = [
-  (t) => ({ bg: t.mintSoft, ink: t.mint }),
-  (t) => ({ bg: t.violetSoft, ink: t.violet }),
-  (t) => ({ bg: t.blueSoft, ink: t.blue }),
-  (t) => ({ bg: t.accentSoft, ink: t.accentInk }),
-  (t) => ({ bg: t.warnSoft, ink: t.warnInk }),
-  (t) => ({ bg: t.coralSoft, ink: t.coral }),
+// A soft tint and the icon colour that sits on it, by the key a category or
+// group stores when the user picks a colour (Web's src/lib/categoryColors.ts).
+const TINTS = {
+  mint: (t: TintTokens) => ({ bg: t.mintSoft, ink: t.mint }),
+  violet: (t: TintTokens) => ({ bg: t.violetSoft, ink: t.violet }),
+  blue: (t: TintTokens) => ({ bg: t.blueSoft, ink: t.blue }),
+  accent: (t: TintTokens) => ({ bg: t.accentSoft, ink: t.accentInk }),
+  warn: (t: TintTokens) => ({ bg: t.warnSoft, ink: t.warnInk }),
+  coral: (t: TintTokens) => ({ bg: t.coralSoft, ink: t.coral }),
+  pink: (t: TintTokens) => ({ bg: t.pinkSoft, ink: t.pink }),
+  indigo: (t: TintTokens) => ({ bg: t.indigoSoft, ink: t.indigo }),
+  brown: (t: TintTokens) => ({ bg: t.brownSoft, ink: t.brown }),
+  slate: (t: TintTokens) => ({ bg: t.slateSoft, ink: t.slate }),
+}
+export type CategoryColor = keyof typeof TINTS
+/** Picker order, by hue (Web's src/lib/categoryColors.ts). */
+export const CATEGORY_COLORS: CategoryColor[] = [
+  'coral', 'accent', 'warn', 'mint', 'blue', 'indigo', 'violet', 'pink', 'brown', 'slate',
 ]
+/** Hash order: changing it recolours every category without a picked colour. */
+const HASH_COLORS: CategoryColor[] = ['mint', 'violet', 'blue', 'accent', 'warn', 'coral']
 
-export function categoryTint(name: string, tokens: TintTokens): { bg: string; ink: string } {
+export function isCategoryColor(value: unknown): value is CategoryColor {
+  return typeof value === 'string' && Object.hasOwn(TINTS, value)
+}
+
+export function colorTint(color: CategoryColor, tokens: TintTokens): { bg: string; ink: string } {
+  return TINTS[color](tokens)
+}
+
+/** A category's colour: the one the user picked, else one cycled by a hash of the name's words (as on Web). */
+export function categoryColor(name: string, color?: string): CategoryColor {
+  if (isCategoryColor(color)) return color
   const text = splitEmoji(name).text
   let hash = 0
   for (let i = 0; i < text.length; i++) hash = (hash * 31 + text.charCodeAt(i)) >>> 0
-  return TINTS[hash % TINTS.length](tokens)
+  return HASH_COLORS[hash % HASH_COLORS.length]
+}
+
+export function categoryTint(name: string, tokens: TintTokens, color?: string): { bg: string; ink: string } {
+  return TINTS[categoryColor(name, color)](tokens)
+}
+
+/** A group's colour: the one the user picked, else the accent every group tile wore before colours. */
+export function groupColor(color?: string): CategoryColor {
+  return isCategoryColor(color) ? color : 'accent'
 }
 
 // Light mode's inks are dark enough to carry an icon glyph but read loud as a

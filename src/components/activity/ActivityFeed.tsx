@@ -1,6 +1,9 @@
+import { useCategoryTint } from '@/src/hooks/useCategories'
 import { memo, useCallback, useMemo, useRef, useState, type ReactElement } from 'react'
 import { ActivityIndicator, FlatList, Image, Pressable, StyleSheet, Text, View, type RefreshControlProps } from 'react-native'
 import { CategoryIcon } from '@/src/components/shared/CategoryIcon'
+import { Icon } from '@/src/components/shared/Icon'
+import { MoneyWavy } from '@/src/components/shared/icons'
 import { FeedSkeleton } from '@/src/components/shared/TabSkeleton'
 import { DeletingRow } from '@/src/components/activity/DeletingRow'
 import { TransactionDetail, type CardRect } from '@/src/components/activity/TransactionDetail'
@@ -10,11 +13,11 @@ import { useCurrency } from '@/src/context/CurrencyContext'
 import { usePrivacy } from '@/src/context/PrivacyContext'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
-import { categoryTint, splitEmoji } from '@/src/lib/emoji'
-import { groupByDay, stablePhotoUrl, type FeedItem } from '@/src/lib/activityFeed'
+import { splitEmoji } from '@/src/lib/emoji'
+import { groupByDay, incomesInWindow, stablePhotoUrl, type FeedItem } from '@/src/lib/activityFeed'
 import { formatDayLabel } from '@/src/lib/date'
 import { EMPTY } from '@/src/lib/constants'
-import type { CategoryRow, ExpenseRow } from '@/src/types'
+import type { CategoryRow, ExpenseRow, IncomeRow } from '@/src/types'
 
 const FEED_PAGE_SIZE = 12
 
@@ -25,12 +28,15 @@ type FeedParams = { category?: string; account?: string; from?: string; to?: str
 /**
  * Activity's feed view: every expense as a post, photo first, newest at the
  * top, loading more as you scroll. Expenses without a photo stay a compact
- * card, just the header and notes, so photos stand out. Income stays in the
- * list view; this is the story of your spending. Tapping a card opens it
- * up into the expense's detail page.
+ * card, just the header and notes, so photos stand out. Income gets a compact
+ * card of its own, slotted in by date like the list. Tapping an expense opens
+ * it up into its detail page; tapping income opens Income.
  */
-export function ActivityFeed({ params, header, empty, categoryByName, accountNameOf, onOpenActions, onEdit, onDelete, isDeleting, onDeleteDone, refreshControl }: {
+export function ActivityFeed({ params, incomes, onOpenIncome, header, empty, categoryByName, accountNameOf, onOpenActions, onEdit, onDelete, isDeleting, onDeleteDone, refreshControl }: {
   params: FeedParams
+  /** Income already matched to the filters; the feed shows what falls in its loaded pages. */
+  incomes: readonly IncomeRow[]
+  onOpenIncome: () => void
   /** Search and filters, scrolled away with the feed like the list's. */
   header: ReactElement
   /** Shown when the filters match nothing. */
@@ -51,7 +57,12 @@ export function ActivityFeed({ params, header, empty, categoryByName, accountNam
   const navPad = useNavPadding()
   const feed = useExpensesFeed({ limit: FEED_PAGE_SIZE, ...params })
   const rows = useMemo(() => feed.data?.pages.flatMap((p) => p.rows) ?? EMPTY, [feed.data])
-  const items = useMemo(() => groupByDay(rows), [rows])
+  const hasNewer = feed.hasPreviousPage
+  const hasOlder = feed.hasNextPage
+  const items = useMemo(
+    () => groupByDay(rows, feed.isLoading ? EMPTY : incomesInWindow(incomes, rows, { hasNewer, hasOlder })),
+    [rows, incomes, hasNewer, hasOlder, feed.isLoading],
+  )
   const [detail, setDetail] = useState<{ txn: ExpenseRow; rect: CardRect; uri: string | null } | null>(null)
   const openDetail = useCallback((txn: ExpenseRow, rect: CardRect, uri: string | null) => setDetail({ txn, rect, uri }), [])
 
@@ -61,12 +72,16 @@ export function ActivityFeed({ params, header, empty, categoryByName, accountNam
     <>
       <FlatList
         data={items}
-        keyExtractor={(i: FeedItem) => (i.kind === 'day' ? `day-${i.date}` : `card-${cardKey(i.txn)}`)}
+        keyExtractor={(i: FeedItem) =>
+          i.kind === 'day' ? `day-${i.date}` : i.kind === 'income' ? `income-${i.income.id}` : `card-${cardKey(i.txn)}`
+        }
         renderItem={({ item }) =>
           item.kind === 'day' ? (
             <Text accessibilityRole="header" style={[styles.day, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold, marginTop: space.md }]}>
               {formatDayLabel(item.date)}
             </Text>
+          ) : item.kind === 'income' ? (
+            <IncomeCard income={item.income} account={accountNameOf(item.income.account_id)} onOpen={onOpenIncome} />
           ) : (
             <DeletingRow active={isDeleting(item.txn)} onDone={onDeleteDone}>
               <FeedCard
@@ -130,6 +145,37 @@ export function ActivityFeed({ params, header, empty, categoryByName, accountNam
   )
 }
 
+const IncomeCard = memo(function IncomeCard({ income, account, onOpen }: {
+  income: IncomeRow
+  account: string
+  onOpen: () => void
+}) {
+  const { tokens, space, radius } = useTheme()
+  const { hideAmounts } = usePrivacy()
+  const { formatCurrency } = useCurrency()
+  return (
+    <Pressable
+      onPress={onOpen}
+      accessibilityRole="button"
+      accessibilityLabel={`${income.label}, income. Open Income`}
+      style={[styles.card, styles.head, { backgroundColor: tokens.card, borderColor: tokens.border, borderRadius: radius.lg, marginTop: space.sm, padding: space.md, gap: space.md }]}
+    >
+      <View style={[styles.avatar, { backgroundColor: tokens.mintSoft }]}>
+        <Icon icon={MoneyWavy} size={16} color={tokens.mint} />
+      </View>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text numberOfLines={1} style={{ color: tokens.text, fontFamily: fontFamily.bodySemiBold, fontSize: 15 }}>{income.label}</Text>
+        <Text numberOfLines={1} style={{ color: tokens.text3, fontFamily: fontFamily.bodyMedium, fontSize: 12, marginTop: 2 }}>
+          Income{account ? ` · ${account}` : ''}
+        </Text>
+      </View>
+      <Text style={{ color: tokens.mint, fontFamily: fontFamily.bodySemiBold, fontSize: 15 }}>
+        +{formatCurrency(Number(income.amount) || 0, hideAmounts)}
+      </Text>
+    </Pressable>
+  )
+})
+
 // Memoised so opening one card's page doesn't re-render every card in the feed.
 const FeedCard = memo(function FeedCard({ txn, category, hidden, onOpenActions, onOpen }: {
   txn: ExpenseRow
@@ -139,9 +185,10 @@ const FeedCard = memo(function FeedCard({ txn, category, hidden, onOpenActions, 
   onOpen: (txn: ExpenseRow, rect: CardRect, uri: string | null) => void
 }) {
   const { tokens, space, radius } = useTheme()
+  const tintOf = useCategoryTint()
   const { hideAmounts } = usePrivacy()
   const { formatCurrency } = useCurrency()
-  const tint = categoryTint(txn.category, tokens)
+  const tint = tintOf(txn.category)
   const uri = useMemo(() => (txn.photo_url ? stablePhotoUrl(txn.photo_url) : null), [txn.photo_url])
   const cardRef = useRef<View>(null)
   function open() {

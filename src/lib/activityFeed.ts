@@ -1,21 +1,50 @@
-import type { ExpenseRow } from '@/src/types'
+import type { ExpenseRow, IncomeRow } from '@/src/types'
 
 export type FeedItem =
   | { kind: 'day'; date: string }
   | { kind: 'card'; txn: ExpenseRow }
+  | { kind: 'income'; income: IncomeRow }
 
-/** Rows arrive newest first; a day label goes ahead of each day's first card. */
-export function groupByDay(rows: readonly ExpenseRow[]): FeedItem[] {
+/**
+ * Rows arrive newest first; a day label goes ahead of each day's first card.
+ * Income is slotted in by date, ahead of that day's spends, like the list.
+ */
+export function groupByDay(rows: readonly ExpenseRow[], incomes: readonly IncomeRow[] = []): FeedItem[] {
+  const pending = [...incomes].sort((a, b) => b.date.localeCompare(a.date))
   const out: FeedItem[] = []
   let day = ''
-  for (const txn of rows) {
-    if (txn.date !== day) {
-      day = txn.date
-      out.push({ kind: 'day', date: day })
+  const push = (date: string, item: FeedItem) => {
+    if (date !== day) {
+      day = date
+      out.push({ kind: 'day', date })
     }
-    out.push({ kind: 'card', txn })
+    out.push(item)
   }
+  for (const txn of rows) {
+    while (pending.length > 0 && pending[0].date >= txn.date) {
+      const income = pending.shift()!
+      push(income.date, { kind: 'income', income })
+    }
+    push(txn.date, { kind: 'card', txn })
+  }
+  for (const income of pending) push(income.date, { kind: 'income', income })
   return out
+}
+
+/**
+ * The income that belongs in the feed's loaded window. The feed loads pages
+ * newest first and drops old ones, so income outside the loaded dates waits
+ * until scrolling brings its page in.
+ */
+export function incomesInWindow(
+  incomes: readonly IncomeRow[],
+  rows: readonly ExpenseRow[],
+  { hasNewer, hasOlder }: { hasNewer: boolean; hasOlder: boolean },
+): IncomeRow[] {
+  if (rows.length === 0) return hasNewer || hasOlder ? [] : [...incomes]
+  const newest = rows[0].date
+  const oldest = rows[rows.length - 1].date
+  return incomes.filter((i) => (!hasOlder || i.date >= oldest) && (!hasNewer || i.date < newest))
 }
 
 // Every feed refetch re-signs every photo, and a new URL is a cache miss, so

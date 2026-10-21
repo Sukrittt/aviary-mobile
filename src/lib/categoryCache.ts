@@ -1,4 +1,5 @@
 import { readEncrypted, writeEncrypted } from './encryptedStorage'
+import { budgetKeySuffix } from './activeBudget'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { currentUserId } from '@/src/api/accessMode'
 import type { CategoryRow } from '@/src/types'
@@ -7,7 +8,7 @@ const PREFIX = 'mc-category-cache'
 
 function key(): string | null {
   const uid = currentUserId()
-  return uid ? `${PREFIX}:${uid}` : null
+  return uid ? `${PREFIX}:${uid}${budgetKeySuffix()}` : null
 }
 
 /** Reads the last-known category list for the signed-in user, or null (guest, or never cached). */

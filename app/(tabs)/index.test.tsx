@@ -4,7 +4,7 @@ import { Animated, Linking, Platform } from 'react-native'
 import { act, fireEvent, waitFor } from '@testing-library/react-native'
 import * as SecureStore from 'expo-secure-store'
 import { Path } from 'react-native-svg'
-import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
+import { createTestQueryClient, renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { currentMonthKey, monthAbbrev } from '@/src/lib/envelope'
 import { getSystemStatus } from '@/src/api/systemStatus'
 import { lightTokens } from '@/src/theme/tokens'
@@ -21,6 +21,9 @@ jest.mock('expo-secure-store', () => ({
   deleteItemAsync: jest.fn(() => Promise.resolve()),
 }))
 
+// Home is memoized, so a refetch reaches it the way react-query's does: through
+// a subscription the hook reads, not a parent re-render.
+const mockRefetched = mockReact.createContext(0)
 let mockBudgets: { month: string; category: string; assigned: string; rolled_over: string }[] = []
 let mockBudgetsError: Error | null = null
 let mockUser: { onboardedAt?: string; getStartedAt?: string; manualTransactionCompletedAt?: string; guidedTourCompletedAt?: string; createdAt?: string; hiddenFeatures?: string[] } = {}
@@ -32,7 +35,10 @@ const mockMutate = jest.fn()
 const mockRefetch = jest.fn()
 
 jest.mock('@/src/hooks/useBudgets', () => ({
-  useBudgets: () => ({ data: mockBudgets, isLoading: false, error: mockBudgetsError, refetch: mockRefetch }),
+  useBudgets: () => {
+    mockReact.useContext(mockRefetched)
+    return { data: mockBudgets, isLoading: false, error: mockBudgetsError, refetch: mockRefetch }
+  },
 }))
 jest.mock('@/src/hooks/useExpenses', () => ({
   useRecentExpenses: () => ({ data: mockExpenses, isLoading: false, error: null, refetch: jest.fn() }),
@@ -43,6 +49,7 @@ jest.mock('@/src/hooks/useIncomes', () => ({ useRecurringIncomes: () => ({ data:
 jest.mock('@/src/hooks/useAccounts', () => ({ useAccounts: () => ({ data: [] }) }))
 jest.mock('@/src/hooks/useCategories', () => ({
   useCategories: () => ({ data: [{ name: 'Food', group: 'Everyday' }], isLoading: false, error: null, refetch: jest.fn() }),
+  useCategoryTint: () => () => ({ bg: '#eee', ink: '#333' }),
 }))
 jest.mock('@/src/hooks/useGroups', () => ({
   useGroups: () => ({ data: ['Everyday'], isLoading: false, error: null, refetch: jest.fn() }),
@@ -206,9 +213,9 @@ describe('HomeScreen · Ready to Assign', () => {
     // A budget save refetches into the same mounted screen; a rerender with new data stands in for it.
     let refetched = () => {}
     function Harness() {
-      const [, setTick] = useState(0)
+      const [tick, setTick] = useState(0)
       refetched = () => setTick((n) => n + 1)
-      return <HomeScreen />
+      return <mockRefetched.Provider value={tick}><HomeScreen /></mockRefetched.Provider>
     }
     const view = renderWithProviders(<Harness />)
     expect(view.queryByText('Every rupee has a job.')).toBeNull()
@@ -239,9 +246,9 @@ describe('HomeScreen · Ready to Assign', () => {
   it('holds a Ready to Assign change made while covered until Home is back in view', () => {
     let refetched = () => {}
     function Harness() {
-      const [, setTick] = useState(0)
+      const [tick, setTick] = useState(0)
       refetched = () => setTick((n) => n + 1)
-      return <HomeScreen />
+      return <mockRefetched.Provider value={tick}><HomeScreen /></mockRefetched.Provider>
     }
     const view = renderWithProviders(<Harness />)
     act(() => mockNav.emit('blur'))
@@ -253,6 +260,18 @@ describe('HomeScreen · Ready to Assign', () => {
     expect(view.getByLabelText('₹15,000')).toBeTruthy()
     act(() => mockNav.emit('focus'))
     expect(view.getByLabelText('₹12,000')).toBeTruthy()
+  })
+
+  it('catches up on a new month that started while another tab was in front', () => {
+    jest.useFakeTimers({ now: new Date(2026, 0, 31, 23, 0) })
+    const view = renderHome()
+    expect(view.getByText('Jan 2026')).toBeTruthy()
+    act(() => mockNav.emit('blur'))
+    jest.setSystemTime(new Date(2026, 1, 1, 9, 0))
+    act(() => mockNav.emit('focus'))
+    expect(view.getByText('Feb 2026')).toBeTruthy()
+    view.unmount()
+    jest.useRealTimers()
   })
 
   it('shows the month in the header', () => {
@@ -320,6 +339,18 @@ describe('HomeScreen · Ready to Assign', () => {
     expect(mockPush).toHaveBeenLastCalledWith('/modals/log-expense')
     fireEvent.press(getByText('Take a guided tour'))
     expect(mockPush).toHaveBeenLastCalledWith('/account/guided-tour')
+  })
+
+  it('in a read-only budget, shows the banner and drops Get started', async () => {
+    const queryClient = createTestQueryClient()
+    queryClient.setQueryData(['spaces'], {
+      count: 1, limit: 5, activeId: null,
+      budgets: [{ id: 'b1', name: 'Studio', emoji: '', role: 'member', ownerId: 'o1', currencyCode: 'INR', personal: true, readOnly: true,
+        members: [{ userId: 'o1', name: 'Priya Shah', avatarUrl: null, role: 'owner', joinedAt: null }] }],
+    })
+    const { findByTestId, queryByText } = renderWithProviders(<HomeScreen />, { queryClient })
+    expect(await findByTestId('read-only-banner')).toBeTruthy()
+    expect(queryByText('Get started')).toBeNull()
   })
 
   it('hides Get Started when skipped, and remembers it on this device', async () => {
@@ -504,7 +535,7 @@ describe('HomeScreen · one banner at a time', () => {
   it('shows the trial reminder over the rollover banner at 3 days left', async () => {
     mockBilling = trial(3)
     const { findByText, queryByText } = renderHome()
-    expect(await findByText(/Free trial · 3 days left/)).toBeTruthy()
+    expect(await findByText(/30 days on us · 3 days left/)).toBeTruthy()
     expect(queryByText(/went to savings last month/)).toBeNull()
   })
 
@@ -512,7 +543,7 @@ describe('HomeScreen · one banner at a time', () => {
     mockBilling = trial(7)
     const { findByText, queryByText } = renderHome()
     expect(await findByText(/went to savings last month/)).toBeTruthy()
-    expect(queryByText(/Free trial/)).toBeNull()
+    expect(queryByText(/30 days on us/)).toBeNull()
   })
 
   it('lets Nice dismiss the rollover banner', async () => {

@@ -1,6 +1,7 @@
 import { QueryClient } from '@tanstack/react-query'
 import { queryPersister, shouldPersistQuery } from './queryPersist'
 import { readEncrypted, writeEncrypted } from './encryptedStorage'
+import { setActiveBudget } from './activeBudget'
 
 jest.mock('./encryptedStorage', () => ({ readEncrypted: jest.fn(async () => null), writeEncrypted: jest.fn(async () => {}) }))
 
@@ -44,5 +45,21 @@ it('stores the snapshot through the encrypted store', async () => {
   expect(writeEncrypted).toHaveBeenCalledWith('rq-cache', expect.stringContaining('"buster":"b"'))
   await queryPersister.restoreClient()
   expect(readEncrypted).toHaveBeenCalledWith('rq-cache')
+  jest.useRealTimers()
+})
+
+it('a throttled save lands under the budget it was requested for, not the one switched to since', async () => {
+  jest.useFakeTimers()
+  const client = (buster: string) => ({ timestamp: 1, buster, clientState: { mutations: [], queries: [] } }) as never
+  void queryPersister.persistClient(client('a1'))
+  // Within the throttle window: queued, and runs after the switch below.
+  void queryPersister.persistClient(client('a2'))
+  setActiveBudget('sp_home')
+  await jest.advanceTimersByTimeAsync(2100)
+  expect(writeEncrypted).toHaveBeenCalledWith('rq-cache', expect.stringContaining('"buster":"a2"'))
+  expect(writeEncrypted).not.toHaveBeenCalledWith('rq-cache:sp_home', expect.anything())
+  await queryPersister.restoreClient()
+  expect(readEncrypted).toHaveBeenCalledWith('rq-cache:sp_home')
+  setActiveBudget(null)
   jest.useRealTimers()
 })

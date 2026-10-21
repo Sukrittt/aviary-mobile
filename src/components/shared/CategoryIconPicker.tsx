@@ -1,11 +1,15 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { View, Text, TextInput, Pressable, StyleSheet } from 'react-native'
+import * as Haptics from 'expo-haptics'
+import Reanimated, { useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from 'react-native-reanimated'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { MagnifyingGlass, PencilSimple } from './icons'
 import { CATEGORY_ICON_COMPONENTS } from './CategoryIcon'
 import { BottomSheet } from './Modal'
+import { PopOnChange } from './PopOnChange'
 import { searchCategoryIcons, type CategoryIconKey } from '@/src/lib/categoryIcons'
+import { CATEGORY_COLORS, colorTint, type CategoryColor } from '@/src/lib/emoji'
 
 /** "ForkKnife" → "Fork knife", for accessibility labels. */
 export function iconLabel(key: string): string {
@@ -46,19 +50,21 @@ export function CategoryIconPicker({ value, onChange, tint, disabled, children }
   return (
     <View>
       <View style={styles.row}>
-        <Pressable
-          onPress={() => setOpen(true)}
-          disabled={disabled}
-          accessibilityRole="button"
-          accessibilityLabel={`Icon: ${iconLabel(value)}. Change icon`}
-          accessibilityState={{ expanded: open }}
-          style={[styles.tile, { backgroundColor: tint.bg, borderColor: tokens.borderStrong }]}
-        >
-          <Current size={24} color={tint.ink} />
-          <View style={[styles.badge, { backgroundColor: tokens.card, borderColor: tokens.borderStrong }]}>
-            <PencilSimple size={10} weight="bold" color={tokens.text} />
-          </View>
-        </Pressable>
+        <PopOnChange value={tint.ink} style={styles.tileWrap}>
+          <Pressable
+            onPress={() => setOpen(true)}
+            disabled={disabled}
+            accessibilityRole="button"
+            accessibilityLabel={`Icon: ${iconLabel(value)}. Change icon`}
+            accessibilityState={{ expanded: open }}
+            style={[styles.tile, { backgroundColor: tint.bg, borderColor: tokens.borderStrong }]}
+          >
+            <Current size={24} color={tint.ink} />
+            <View style={[styles.badge, { backgroundColor: tokens.card, borderColor: tokens.borderStrong }]}>
+              <PencilSimple size={10} weight="bold" color={tokens.text} />
+            </View>
+          </Pressable>
+        </PopOnChange>
         {children}
       </View>
       <BottomSheet visible={open} onClose={close}>
@@ -105,9 +111,99 @@ export function CategoryIconPicker({ value, onChange, tint, disabled, children }
   )
 }
 
+const COLOR_LABELS: Record<CategoryColor, string> = {
+  mint: 'Green', violet: 'Purple', blue: 'Teal', accent: 'Orange', warn: 'Yellow', coral: 'Red',
+  pink: 'Pink', indigo: 'Indigo', brown: 'Brown', slate: 'Slate',
+}
+
+/** The tints, for picking a category's or group's colour. */
+export function ColorSwatches({ value, onChange, disabled }: {
+  value: CategoryColor
+  onChange: (color: CategoryColor) => void
+  disabled?: boolean
+}) {
+  // Animate the pick only once the user has made one, not on the sheet's open.
+  const [live, setLive] = useState(false)
+  return (
+    <View style={styles.swatches} accessibilityRole="radiogroup">
+      {CATEGORY_COLORS.map((color) => (
+        <Swatch
+          key={color}
+          color={color}
+          on={color === value}
+          live={live}
+          disabled={disabled}
+          onPress={() => {
+            if (color !== value) Haptics.selectionAsync().catch(() => {})
+            setLive(true)
+            onChange(color)
+          }}
+        />
+      ))}
+    </View>
+  )
+}
+
+const PICK_SPRING = { mass: 0.6, damping: 8, stiffness: 300 }
+
+/**
+ * One tint, a solid dot; the picked one wears a ring. A fresh pick springs back
+ * and ripples one ring out. Once, not a loop: a pulse that keeps going reads as
+ * "look at me".
+ */
+function Swatch({ color, on, live, disabled, onPress }: {
+  color: CategoryColor
+  on: boolean
+  live: boolean
+  disabled?: boolean
+  onPress: () => void
+}) {
+  const { tokens } = useTheme()
+  const { ink } = colorTint(color, tokens)
+  const scale = useSharedValue(1)
+  // 0 → 1 spreads the ring out and fades it; it rests at 1, invisible.
+  const ripple = useSharedValue(1)
+
+  useEffect(() => {
+    if (!on || !live) return
+    scale.value = withSequence(withTiming(0.85, { duration: 80 }), withSpring(1, PICK_SPRING))
+    ripple.value = 0
+    ripple.value = withTiming(1, { duration: 600 })
+  }, [on, live, scale, ripple])
+
+  const swatchStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }))
+  const rippleStyle = useAnimatedStyle(() => ({
+    opacity: 0.6 * (1 - ripple.value),
+    transform: [{ scale: 1 + 0.6 * ripple.value }],
+  }))
+
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityRole="radio"
+      accessibilityLabel={COLOR_LABELS[color]}
+      accessibilityState={{ selected: on }}
+      hitSlop={8}
+      style={styles.swatchCell}
+    >
+      <Reanimated.View style={[styles.swatch, { borderColor: on ? ink : 'transparent' }, swatchStyle]}>
+        <Reanimated.View pointerEvents="none" style={[styles.ripple, { borderColor: ink }, rippleStyle]} />
+        <View style={[styles.swatchDot, { backgroundColor: ink }]} />
+      </Reanimated.View>
+    </Pressable>
+  )
+}
+
 const styles = StyleSheet.create({
+  swatches: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 12 },
+  swatchCell: { width: '20%', alignItems: 'center' },
+  swatch: { width: 32, height: 32, borderRadius: 16, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  swatchDot: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  ripple: { position: 'absolute', top: -2, left: -2, right: -2, bottom: -2, borderRadius: 16, borderWidth: 2 },
+  tileWrap: { flexShrink: 0 },
   row: { flexDirection: 'row', gap: 10, alignItems: 'stretch' },
-  tile: { width: 52, minHeight: 56, borderRadius: 16, borderWidth: 1, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
+  tile: { flex: 1, width: 52, minHeight: 56, borderRadius: 16, borderWidth: 1, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   badge: { position: 'absolute', right: -5, bottom: -5, width: 20, height: 20, borderRadius: 10, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   title: { fontSize: 18, marginBottom: 12 },
   search: { flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderRadius: 12, paddingHorizontal: 12 },

@@ -24,6 +24,7 @@ import { splitEmoji } from '@/src/lib/emoji'
 import { CategoryIcon } from '@/src/components/shared/CategoryIcon'
 import { useCategoryIcons } from '@/src/hooks/useCategories'
 import { suggestPresets } from '@/src/lib/subscriptionPresets'
+import { withReadOnlyGate } from '@/src/components/budgets/ReadOnlyNotice'
 
 // House spring, reused from Modal.tsx's SHEET_TRANSITION — animates fields
 // sliding into place when the DatePicker above them opens/closes instead of snapping.
@@ -36,7 +37,7 @@ function str(v: string | string[] | undefined): string {
 }
 
 // Route-param driven per holding-action.tsx's pattern: {service} → edit mode, no params → add.
-export default function SubscriptionModal() {
+function SubscriptionModal() {
   const { currencySymbol, currencyCode } = useCurrency()
 
   const { tokens } = useTheme()
@@ -113,7 +114,7 @@ export default function SubscriptionModal() {
         },
         {
           onSuccess: () => setSaved(true),
-          onError: () => Alert.alert('Could not save subscription', 'Check your connection and try again.'),
+          onError: () => Alert.alert("Couldn't save this subscription", 'Check your connection and try again.'),
         },
       )
     } else {
@@ -132,7 +133,7 @@ export default function SubscriptionModal() {
             if (isReviewingSuggestion) acceptSuggestion(suggestionId)
             setSaved(true)
           },
-          onError: () => Alert.alert('Could not add subscription', 'Check your connection and try again.'),
+          onError: () => Alert.alert("Couldn't add this subscription", 'Check your connection and try again.'),
         },
       )
     }
@@ -141,7 +142,7 @@ export default function SubscriptionModal() {
   function handleReactivate() {
     reactivateSub.mutate(origService, {
       onSuccess: () => setSaved(true),
-      onError: () => Alert.alert('Could not reactivate subscription', 'Check your connection and try again.'),
+      onError: () => Alert.alert("Couldn't reactivate this subscription", 'Check your connection and try again.'),
     })
   }
 
@@ -153,7 +154,7 @@ export default function SubscriptionModal() {
       },
       onError: () => {
         setConfirmSheet(null)
-        Alert.alert('Could not cancel subscription', 'Check your connection and try again.')
+        Alert.alert("Couldn't cancel this subscription", 'Check your connection and try again.')
       },
     })
   }
@@ -166,7 +167,7 @@ export default function SubscriptionModal() {
       },
       onError: () => {
         setConfirmSheet(null)
-        Alert.alert('Could not delete subscription', 'Check your connection and try again.')
+        Alert.alert("Couldn't delete this subscription", 'Check your connection and try again.')
       },
     })
   }
@@ -350,7 +351,7 @@ export default function SubscriptionModal() {
         </Text>
         <Text style={[styles.sheetBody, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
           {confirmSheet === 'delete'
-            ? `Remove "${origService}"? This cannot be undone.`
+            ? `Remove "${origService}"? You can restore it from Archive.`
             : `Cancel ${origService}? You can reactivate it later.`}
         </Text>
         <View style={styles.sheetButtonRow}>
@@ -414,3 +415,5 @@ const styles = StyleSheet.create({
   sheetSaveButton: { flex: 1, minHeight: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center' },
   sheetSaveText: { fontSize: 14 },
 })
+
+export default withReadOnlyGate(SubscriptionModal)

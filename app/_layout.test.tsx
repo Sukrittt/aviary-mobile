@@ -75,6 +75,7 @@ jest.mock('expo-router', () => {
     useSegments: () => mockSegments,
     usePathname: () => mockPathname,
     useGlobalSearchParams: () => mockGlobalParams,
+    useNavigationContainerRef: () => ({ getRootState: () => undefined, dispatch: jest.fn() }),
   }
 })
 
@@ -94,6 +95,8 @@ jest.mock('@/src/lib/notifications', () => ({
 }))
 // Pulls in reanimated + the user/expenses queries; irrelevant to route gating.
 jest.mock('@/src/components/nav/TabBar', () => ({ TabBar: () => null }))
+// Its own tests cover it; here it'd need the real notifications module.
+jest.mock('@/src/components/budgets/BudgetAccessWatcher', () => ({ BudgetAccessWatcher: () => null }))
 
 jest.mock('@/src/api/accessMode', () => ({
   accessMode: {

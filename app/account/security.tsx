@@ -1,5 +1,6 @@
-import { clearAccess } from '@/src/api/accessMode'
-import { deleteAccount,resendEmailCode,revokeAllSessions,revokeSession } from '@/src/api/account'
+import { clearAccess, currentUserId } from '@/src/api/accessMode'
+import { deleteAccount,getSharedBudgets,resendEmailCode,revokeAllSessions,revokeSession,type SharedBudget } from '@/src/api/account'
+import { firstName, joinedOn } from '@/src/lib/budgetMembership'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { Icon } from '@/src/components/shared/Icon'
 import { BottomSheet } from '@/src/components/shared/Modal'
@@ -20,6 +21,11 @@ import { useRefresh } from '@/src/hooks/useRefresh'
 import { useBillingStatus } from '@/src/hooks/useBillingStatus'
 import { flushAnalytics, track } from '@/src/lib/analytics'
 import { isWebPlan } from '@/src/lib/billingStatus'
+import { BudgetIcon } from '@/src/components/budgets/BudgetIcon'
+
+/** Who a budget goes to. Unnamed members are told apart by the join date the member list shows. */
+const handOffName = (m: SharedBudget['members'][number]) =>
+  firstName(m.name) ?? (m.joinedAt ? `whoever joined ${joinedOn(m.joinedAt)}` : 'them')
 
 function sessionLabel(userAgent: string | null, authMethod: string): string {
   if (userAgent) return userAgent
@@ -51,6 +57,11 @@ export default function SecurityScreen() {
   const renewingSubscription = billing?.mode === 'paid' && billing.autoRenew
   const renewingOnWeb = renewingSubscription && isWebPlan(billing)
   const [deleteEmailDraft, setDeleteEmailDraft] = useState('')
+  // Shared budgets you own, asked about before the final confirm. A choice is the member who takes it over, or null to close it.
+  const [sharedBudgets, setSharedBudgets] = useState<SharedBudget[]>([])
+  const [handOff, setHandOff] = useState<Record<string, string | null>>({})
+  const [deleteStep, setDeleteStep] = useState<'budgets' | 'confirm'>('confirm')
+  const [checkingBudgets, setCheckingBudgets] = useState(false)
   const [signingOutAll, setSigningOutAll] = useState(false)
   const [revokingId, setRevokingId] = useState<string | null>(null)
 
@@ -130,15 +141,33 @@ export default function SecurityScreen() {
     ])
   }
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     setDeleteEmailDraft('')
+    setCheckingBudgets(true)
+    let shared: SharedBudget[]
+    try {
+      const me = currentUserId()
+      shared = (await getSharedBudgets())
+        .map((b) => ({ ...b, members: b.members.filter((m) => m.userId !== me) }))
+        // The personal budget is offered too: if someone shares it, its data can go to them.
+        .filter((b) => b.members.length > 0)
+    } catch {
+      Alert.alert("Couldn't delete your account", 'Check your connection and try again.')
+      return
+    } finally {
+      setCheckingBudgets(false)
+    }
+    setSharedBudgets(shared)
+    setHandOff(Object.fromEntries(shared.map((b) => [b.id, b.members[0].userId])))
+    setDeleteStep(shared.length ? 'budgets' : 'confirm')
     setConfirmingDelete(true)
   }
 
   const doDelete = async () => {
     setDeleting(true)
     try {
-      await deleteAccount(deleteEmailDraft.trim())
+      const transfers = Object.fromEntries(Object.entries(handOff).filter((e): e is [string, string] => e[1] !== null))
+      await deleteAccount(deleteEmailDraft.trim(), transfers)
       // Flushed before clearAccess, whose logout hook resets PostHog: this is
       // the last event this person will ever send.
       track('account_deleted')
@@ -148,7 +177,7 @@ export default function SecurityScreen() {
     } catch {
       setDeleting(false)
       setConfirmingDelete(false)
-      Alert.alert('Could not delete account', 'Check your connection and try again.')
+      Alert.alert("Couldn't delete your account", 'Check your connection and try again.')
     }
   }
 
@@ -205,7 +234,7 @@ export default function SecurityScreen() {
             <Pressable
               onPress={() =>
                 restoreAccountMutation.mutate(undefined, {
-                  onError: () => Alert.alert('Could not restore account', 'Check your connection and try again.'),
+                  onError: () => Alert.alert("Couldn't restore your account", 'Check your connection and try again.'),
                 })
               }
               disabled={restoreAccountMutation.isPending}
@@ -359,12 +388,12 @@ export default function SecurityScreen() {
             Removes categories, transactions and recaps. You have 7 days to sign back in and restore before it&apos;s gone for good.
           </Text>
           <Pressable
-            onPress={confirmDelete}
-            disabled={deleting}
-            style={[styles.dangerButton, { backgroundColor: tokens.coral, opacity: deleting ? 0.6 : 1 }]}
+            onPress={() => void confirmDelete()}
+            disabled={deleting || checkingBudgets}
+            style={[styles.dangerButton, { backgroundColor: tokens.coral, opacity: deleting || checkingBudgets ? 0.6 : 1 }]}
           >
             <Text style={[styles.dangerButtonText, { color: tokens.onAccent, fontFamily: fontFamily.bodyBold }]}>
-              {deleting ? 'Deleting…' : 'Delete account'}
+              {deleting ? 'Deleting…' : checkingBudgets ? 'One sec…' : 'Delete account'}
             </Text>
           </Pressable>
         </View>
@@ -378,59 +407,109 @@ export default function SecurityScreen() {
           setDeleteEmailDraft('')
         }}
       >
-        <Text style={[styles.sheetTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Delete account</Text>
-        <Text style={[styles.dangerBody, { color: tokens.text2, fontFamily: fontFamily.bodyMedium, marginTop: 8 }]}>
-          Removes categories, transactions and recaps. You have 7 days to sign back in and restore before it&apos;s gone for good. Type{' '}
-          <Text style={{ fontFamily: fontFamily.bodyBold, color: tokens.text }}>{user?.email}</Text> to confirm.
-        </Text>
-        {renewingOnWeb ? (
-          <Text style={[styles.dangerBody, { color: tokens.coral, fontFamily: fontFamily.bodyBold, marginTop: 12 }]}>
-            Your subscription is still active. Deleting your account cancels it, so you won&apos;t be charged again.
-          </Text>
-        ) : renewingSubscription ? (
-          <Text style={[styles.dangerBody, { color: tokens.coral, fontFamily: fontFamily.bodyBold, marginTop: 12 }]}>
-            Your subscription is still active. Deleting your account doesn&apos;t cancel it. Cancel in the Google Play Store first, or you&apos;ll keep being billed.
-          </Text>
-        ) : null}
-        <TextInput
-          value={deleteEmailDraft}
-          onChangeText={setDeleteEmailDraft}
-          placeholder={user?.email ?? ''}
-          placeholderTextColor={tokens.text3}
-          autoCapitalize="none"
-          autoCorrect={false}
-          keyboardType="email-address"
-          editable={!deleting}
-          style={[styles.sheetInput, { color: tokens.text, backgroundColor: tokens.inputBg, borderColor: tokens.borderStrong, fontFamily: fontFamily.bodyMedium, marginTop: 12 }]}
-        />
-        <View style={styles.sheetButtonRow}>
-          <Pressable
-            onPress={() => {
-              setConfirmingDelete(false)
-              setDeleteEmailDraft('')
-            }}
-            disabled={deleting}
-            style={[styles.sheetCancelButton, { opacity: deleting ? 0.5 : 1 }]}
-          >
-            <Text style={[styles.sheetCancelText, { color: tokens.text2, fontFamily: fontFamily.bodyBold }]}>Cancel</Text>
-          </Pressable>
-          <Pressable
-            onPress={doDelete}
-            disabled={deleting || !user?.email || deleteEmailDraft.trim().toLowerCase() !== user.email.toLowerCase()}
-            style={[
-              styles.sheetSaveButton,
-              styles.sheetDeleteButton,
-              {
-                backgroundColor: tokens.coral,
-                opacity: deleting || !user?.email || deleteEmailDraft.trim().toLowerCase() !== user.email.toLowerCase() ? 0.5 : 1,
-              },
-            ]}
-          >
-            <Text style={[styles.sheetSaveText, { color: tokens.onAccent, fontFamily: fontFamily.bodyBold }]}>
-              {deleting ? 'Deleting…' : 'Delete account'}
+        {deleteStep === 'budgets' ? (
+          <>
+            <Text style={[styles.sheetTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Your shared budgets</Text>
+            <Text style={[styles.dangerBody, { color: tokens.text2, fontFamily: fontFamily.bodyMedium, marginTop: 0 }]}>
+              Other people use these. Pick who gets each one, or close it.
             </Text>
-          </Pressable>
-        </View>
+            {sharedBudgets.map((b) => (
+              <View key={b.id} style={[styles.card, styles.handOffCard, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <BudgetIcon budget={b} size={18} color={tokens.text} />
+                  <Text style={[styles.rowLabel, { flexShrink: 1, color: tokens.text, fontFamily: fontFamily.bodyBold }]} numberOfLines={1}>{b.name}</Text>
+                </View>
+                {[...b.members.map((m) => ({ id: m.userId as string | null, label: `Hand it to ${handOffName(m)}` })), { id: null, label: 'Close it' }].map((o) => {
+                  const on = handOff[b.id] === o.id
+                  return (
+                    <Pressable
+                      key={o.id ?? 'close'}
+                      onPress={() => setHandOff((h) => ({ ...h, [b.id]: o.id }))}
+                      accessibilityRole="radio"
+                      accessibilityState={{ checked: on }}
+                      accessibilityLabel={`${b.name}: ${o.label}`}
+                      style={styles.handOffRow}
+                    >
+                      <View style={[styles.radio, { borderColor: on ? tokens.accent : tokens.borderStrong }]}>
+                        {on ? <View style={[styles.radioDot, { backgroundColor: tokens.accent }]} /> : null}
+                      </View>
+                      <Text style={[styles.rowLabel, { color: tokens.text, fontFamily: fontFamily.bodySemiBold, flex: 1 }]}>{o.label}</Text>
+                    </Pressable>
+                  )
+                })}
+                {handOff[b.id] === null ? (
+                  <Text style={[styles.rowHint, { color: tokens.coral, fontFamily: fontFamily.bodySemiBold }]}>
+                    Everyone in it loses access. It comes back if you restore your account within 7 days.
+                  </Text>
+                ) : null}
+              </View>
+            ))}
+            <View style={styles.sheetButtonRow}>
+              <Pressable onPress={() => setConfirmingDelete(false)} style={styles.sheetCancelButton}>
+                <Text style={[styles.sheetCancelText, { color: tokens.text2, fontFamily: fontFamily.bodyBold }]}>Cancel</Text>
+              </Pressable>
+              <Pressable onPress={() => setDeleteStep('confirm')} style={[styles.sheetSaveButton, styles.sheetDeleteButton, { backgroundColor: tokens.coral }]}>
+                <Text style={[styles.sheetSaveText, { color: tokens.onAccent, fontFamily: fontFamily.bodyBold }]}>Next</Text>
+              </Pressable>
+            </View>
+          </>
+        ) : (
+          <>
+            <Text style={[styles.sheetTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Delete account</Text>
+            <Text style={[styles.dangerBody, { color: tokens.text2, fontFamily: fontFamily.bodyMedium, marginTop: 8 }]}>
+              Removes categories, transactions and recaps. You have 7 days to sign back in and restore before it&apos;s gone for good. Type{' '}
+              <Text style={{ fontFamily: fontFamily.bodyBold, color: tokens.text }}>{user?.email}</Text> to confirm.
+            </Text>
+            {renewingOnWeb ? (
+              <Text style={[styles.dangerBody, { color: tokens.coral, fontFamily: fontFamily.bodyBold, marginTop: 12 }]}>
+                Your subscription is still active. Deleting your account cancels it, so you won&apos;t be charged again.
+              </Text>
+            ) : renewingSubscription ? (
+              <Text style={[styles.dangerBody, { color: tokens.coral, fontFamily: fontFamily.bodyBold, marginTop: 12 }]}>
+                Your subscription is still active. Deleting your account doesn&apos;t cancel it. Cancel in the Google Play Store first, or you&apos;ll keep being billed.
+              </Text>
+            ) : null}
+            <TextInput
+              value={deleteEmailDraft}
+              onChangeText={setDeleteEmailDraft}
+              placeholder={user?.email ?? ''}
+              placeholderTextColor={tokens.text3}
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="email-address"
+              editable={!deleting}
+              style={[styles.sheetInput, { color: tokens.text, backgroundColor: tokens.inputBg, borderColor: tokens.borderStrong, fontFamily: fontFamily.bodyMedium, marginTop: 12 }]}
+            />
+            <View style={styles.sheetButtonRow}>
+              <Pressable
+                onPress={() => {
+                  setConfirmingDelete(false)
+                  setDeleteEmailDraft('')
+                }}
+                disabled={deleting}
+                style={[styles.sheetCancelButton, { opacity: deleting ? 0.5 : 1 }]}
+              >
+                <Text style={[styles.sheetCancelText, { color: tokens.text2, fontFamily: fontFamily.bodyBold }]}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                onPress={doDelete}
+                disabled={deleting || !user?.email || deleteEmailDraft.trim().toLowerCase() !== user.email.toLowerCase()}
+                style={[
+                  styles.sheetSaveButton,
+                  styles.sheetDeleteButton,
+                  {
+                    backgroundColor: tokens.coral,
+                    opacity: deleting || !user?.email || deleteEmailDraft.trim().toLowerCase() !== user.email.toLowerCase() ? 0.5 : 1,
+                  },
+                ]}
+              >
+                <Text style={[styles.sheetSaveText, { color: tokens.onAccent, fontFamily: fontFamily.bodyBold }]}>
+                  {deleting ? 'Deleting…' : 'Delete account'}
+                </Text>
+              </Pressable>
+            </View>
+          </>
+        )}
       </BottomSheet>
 
       <BottomSheet visible={editingName} onClose={() => setEditingName(false)}>
@@ -520,4 +599,8 @@ const styles = StyleSheet.create({
   sheetDeleteButton: { flex: 1, marginTop: 0 },
   sheetCancelButton: { flex: 1, minHeight: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center' },
   sheetCancelText: { fontSize: 14 },
+  handOffCard: { padding: 14, marginTop: 12, gap: 4 },
+  handOffRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
+  radio: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  radioDot: { width: 10, height: 10, borderRadius: 5 },
 })

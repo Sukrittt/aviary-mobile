@@ -4,6 +4,8 @@ import { clearAccess, currentAccessToken, getValidToken, sessionGeneration, Sess
 import { setOnline, markSynced } from '@/src/lib/netStatus'
 import { markAccessBlocked, SUBSCRIPTION_REQUIRED_STATUS } from '@/src/lib/accessGate'
 import { track } from '@/src/lib/analytics'
+import { activeBudgetId, budgetHeaders, restoreActiveBudget } from '@/src/lib/activeBudget'
+import { emitBudgetAccess } from '@/src/lib/budgetAccess'
 
 // A dev build with no API URL set would otherwise silently point at
 // production data (see the fallback below) with no warning — fail loudly
@@ -39,6 +41,8 @@ export async function apiFetch(path: string, init?: RequestInit & { anonymous?: 
     throw err
   }
   if (expectedGeneration !== sessionGeneration()) throw new SessionChangedError()
+  // A cold start's first requests must name the budget the person was last in.
+  if (token) await restoreActiveBudget()
   const tokenMs = Date.now() - startedAt
   let resp: Response
   try {
@@ -51,7 +55,7 @@ export async function apiFetch(path: string, init?: RequestInit & { anonymous?: 
       // no special handling here.
       signal: init?.signal ?? AbortSignal.timeout(REQUEST_TIMEOUT_MS),
       headers: {
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(token ? { Authorization: `Bearer ${token}`, ...budgetHeaders(activeBudgetId()) } : {}),
         ...(init?.headers ?? {}),
       },
     })
@@ -87,8 +91,32 @@ export async function apiFetch(path: string, init?: RequestInit & { anonymous?: 
   // a screen to notice, is what makes the app react the moment the API stops
   // answering — the same contract as the 401 handling above, except this one
   // must never end the session: the sign-in is fine, the subscription is not.
-  if (resp.status === SUBSCRIPTION_REQUIRED_STATUS) markAccessBlocked()
+  if (resp.status === SUBSCRIPTION_REQUIRED_STATUS || resp.status === 403) {
+    const body = await peekErrorBody(resp)
+    // A shared budget whose owner's plan lapsed. This person's own access is
+    // fine, so it must not trip the subscription gate (and its paywall).
+    if (body?.error === 'BUDGET_READ_ONLY') {
+      emitBudgetAccess({ kind: 'read_only' })
+      throw new BudgetReadOnlyError()
+    }
+    // Thrown here so no wrapper's ": 403" message reaches the root layout's
+    // auth check, which would sign the person out over a lost budget.
+    if (body?.error === 'NOT_A_MEMBER') {
+      emitBudgetAccess({ kind: 'not_a_member', spaceId: typeof body.spaceId === 'string' ? body.spaceId : null })
+      throw new NotAMemberError()
+    }
+    if (resp.status === SUBSCRIPTION_REQUIRED_STATUS) markAccessBlocked()
+  }
   return resp
+}
+
+/** `{error, spaceId}` without consuming the body the caller still reads. */
+async function peekErrorBody(resp: Response): Promise<{ error?: unknown; spaceId?: unknown } | null> {
+  try {
+    return await resp.clone().json()
+  } catch {
+    return null
+  }
 }
 
 /**
@@ -144,6 +172,20 @@ function metricPath(path: string): string {
 export class HttpError extends Error {
   constructor(public status: number, message: string) {
     super(message)
+  }
+}
+
+/** A write into a shared budget that's read-only until its owner renews. */
+export class BudgetReadOnlyError extends HttpError {
+  constructor() {
+    super(SUBSCRIPTION_REQUIRED_STATUS, 'Budget is read-only')
+  }
+}
+
+/** A request naming a budget this person is no longer in. */
+export class NotAMemberError extends HttpError {
+  constructor() {
+    super(403, 'Not in this budget')
   }
 }
 

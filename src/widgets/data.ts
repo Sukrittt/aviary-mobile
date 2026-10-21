@@ -53,6 +53,13 @@ export interface WidgetData {
   perDay: string;
   /** Total left is below zero. */
   overspent: boolean;
+  /** With 2+ budgets, which one these numbers are ("🏠 Home"). Absent with one. */
+  budgetName?: string;
+}
+
+/** The widgets' small header label, led by the budget's name when there are 2+. */
+export function withBudget(data: Pick<WidgetData, "budgetName">, label: string): string {
+  return data.budgetName ? `${data.budgetName} · ${label}` : label;
 }
 
 /** The bird's mood on the widget, and the ring's color. */

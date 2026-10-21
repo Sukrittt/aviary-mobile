@@ -1,13 +1,15 @@
 import { useObserve,wrapRoot } from '@/src/lib/observe'
 import { readCurrencyPreference } from '@/src/lib/currencyPreference'
 import { CurrencyProvider } from '@/src/context/CurrencyProvider'
-import { accessMode,clearAccess,initAccessMode } from '@/src/api/accessMode'
+import { accessMode,clearAccess,currentUserId,initAccessMode } from '@/src/api/accessMode'
 import { getUser, syncTimezone, type UserProfile } from '@/src/api/account'
 import { onOnboarded } from '@/src/api/onboardingSignal'
 import { BirdLandingSplash } from '@/src/components/splash/BirdLandingSplash'
 import { CrashScreen } from '@/src/components/shared/CrashScreen'
 import { subscribeExchanging } from '@/src/api/useSignIn'
 import { AlertHost } from '@/src/components/ui/AlertHost'
+import { BudgetAccessWatcher } from '@/src/components/budgets/BudgetAccessWatcher'
+import { peekPendingJoinCode, takePendingJoinCode } from '@/src/lib/pendingJoin'
 import { PrivacyProvider } from '@/src/context/PrivacyContext'
 import { MaintenanceBanner } from '@/src/components/shared/MaintenanceBanner'
 import { LogExpenseNavigation } from '@/src/features/log-expense/LogExpenseNavigation'
@@ -29,11 +31,12 @@ import { useAppFonts } from '@/src/theme/fonts'
 import { ThemeProvider,useTheme } from '@/src/theme/ThemeProvider'
 import { WidgetSync, lockWidgets } from '@/src/widgets/WidgetSync'
 import { billingKey, useBillingStatus } from '@/src/hooks/useBillingStatus'
-import { accessAllowed } from '@/src/lib/billingStatus'
+import { accessAllowed, needsSetup } from '@/src/lib/billingStatus'
 import { onAiAllowanceExceeded } from '@/src/lib/aiAllowance'
 import { QueryClient, focusManager, useIsRestoring } from '@tanstack/react-query'
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client'
-import { PERSIST_MAX_AGE, persistOptions, queryPersister } from '@/src/lib/queryPersist'
+import { PERSIST_MAX_AGE, persistOptions, queryPersister, removeAllQuerySnapshots } from '@/src/lib/queryPersist'
+import { clearActiveBudget, forgetActiveBudgetUnlessOwnedBy, restoreActiveBudget } from '@/src/lib/activeBudget'
 import { setAudioModeAsync } from 'expo-audio'
 import { Stack,useGlobalSearchParams,usePathname,useRouter,useSegments,type ErrorBoundaryProps,type Href } from 'expo-router'
 import * as SplashScreen from 'expo-splash-screen'
@@ -124,8 +127,9 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
     // session. That's the same user as the cache restored from disk (logout
     // wipes both), so that one notification must not clear it.
     let restoringSession = true
-    initAccessMode().then((restored) => {
+    Promise.all([initAccessMode(), restoreActiveBudget()]).then(([restored]) => {
       restoringSession = false
+      forgetActiveBudgetUnlessOwnedBy(currentUserId())
       setHasSession(restored !== null)
       setAuthReady(true)
       // Hydrate the offline category picker instantly from disk. React Query revalidates in the background once online (staleTime
@@ -145,7 +149,10 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
       // keyed without a user id, so switching identity (guest <-> real,
       // or a different account) must drop it all or the new identity sees
       // the previous one's data until staleTime happens to expire.
-      if (!restoringSession) queryClient.clear()
+      if (!restoringSession) {
+        forgetActiveBudgetUnlessOwnedBy(currentUserId())
+        queryClient.clear()
+      }
       clearLogExpenseDraft()
       // Fire-and-forget: registration failures must never block app usage.
       if (m === 'real') registerForPushNotificationsAsync()
@@ -163,7 +170,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
       // account can sync them when it signs back in. lockWidgets also repaints
       // the home-screen widgets: WidgetSync is gone by now, so without it they
       // kept the old account's numbers until Android's 30-minute tick.
-      await Promise.allSettled([queryPersister.removeClient(), lockWidgets(preferenceRef.current), clearCategoryCache(), clearGroupCache(), unregisterDevicePushToken(token), cancelHabitNudges()])
+      await Promise.allSettled([clearActiveBudget(), removeAllQuerySnapshots(), lockWidgets(preferenceRef.current), clearCategoryCache(), clearGroupCache(), unregisterDevicePushToken(token), cancelHabitNudges()])
     })
     return () => {
       unsubscribe()
@@ -267,7 +274,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
   // No trial on the server means setup never finished, even if the fail-open
   // /api/user path above let the user past it. That's not a lapsed
   // subscription, so it goes back to setup, never to the Plan & billing lock.
-  const setupIncomplete = billing?.mode === 'setup_incomplete' && !billing.allowed
+  const setupIncomplete = needsSetup(billing)
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- the server's billing answer overrides the fail-open onboarding guess
     if (setupIncomplete) setOnboarded(false)
@@ -351,6 +358,13 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
     if (resolving || !hasSession) return
     if (segments[0] !== '(auth)' || authScreenMode === 'change-email') return
     if (router.canDismiss()) router.dismissAll()
+    // A new account that came in through an invite joins that budget instead
+    // of setting up one of its own (app/modals/join-budget.tsx, `fresh`).
+    const joinCode = !onboarded ? peekPendingJoinCode() : null
+    if (joinCode) {
+      router.replace(`/modals/join-budget?code=${takePendingJoinCode()}&fresh=1` as Href)
+      return
+    }
     router.replace((!onboarded ? '/setup' : justOnboarded ? '/account/trial-notice' : landOnHome ? '/(tabs)' : LOG_EXPENSE_PATH) as Href)
   }, [resolving, hasSession, onboarded, justOnboarded, landOnHome, segments, authScreenMode, router])
 
@@ -449,8 +463,12 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
           <Stack.Screen name="modals/recurring-expense" options={{ presentation: 'modal' }} />
           <Stack.Screen name="modals/recurring-income" options={{ presentation: 'modal' }} />
           <Stack.Screen name="modals/account" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="modals/new-budget" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="budget-members" options={{ presentation: 'card', animation: 'slide_from_right' }} />
           <Stack.Screen name="modals/bill-scan" options={{ presentation: 'modal' }} />
           <Stack.Screen name="modals/duplicates" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="modals/statement" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="modals/fresh-start" options={{ presentation: 'modal' }} />
           <Stack.Screen name="modals/balance-check" options={{ presentation: 'modal' }} />
           <Stack.Screen name="modals/money-brain" options={{ presentation: 'card', animation: 'slide_from_right' }} />
           <Stack.Screen name="modals/widget-preview" options={{ presentation: 'card', animation: 'slide_from_right' }} />
@@ -472,6 +490,11 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
           <Stack.Screen name="account/feedback" options={{ presentation: 'card', animation: 'slide_from_right' }} />
         </Stack.Protected>
 
+        {/* Signed in, set up or not: a brand-new account joins from here instead of running setup. */}
+        <Stack.Protected guard={!resolving && hasSession}>
+          <Stack.Screen name="modals/join-budget" options={{ presentation: 'modal' }} />
+        </Stack.Protected>
+
         {/* Ungated: these are reached both signed out (from welcome) and signed
             in (the change-email flow from Account & security). A guard can't
             read the `mode` param that distinguishes them — that param only
@@ -484,6 +507,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
       {splashUp ? null : <MaintenanceBanner />}
       {showSplash ? <View style={StyleSheet.absoluteFill}><BirdLandingSplash /></View> : null}
       <AlertHost />
+      {signedIn ? <BudgetAccessWatcher /> : null}
       {/* Same gate as the (tabs) Stack.Protected block above: fires the same
           budgets/expenses queries those screens already fetch, so it must only
           run once they're reachable — not on every cold boot regardless of

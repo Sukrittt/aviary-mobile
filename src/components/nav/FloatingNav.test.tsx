@@ -7,6 +7,7 @@ import {
   FloatingNav,
   navStateFor,
   nextNavCover,
+  tabsState,
   type NavCover,
   type NavRoute,
 } from './FloatingNav'
@@ -206,5 +207,17 @@ describe('nextNavCover', () => {
 
   it('leaves a nav-less screen opened from log-expense to the overlay', () => {
     expect(walk(['/', '/modals/log-expense', '/modals/scan-bill']).covered).toBe(false)
+  })
+})
+
+describe('tabsState', () => {
+  it('finds the tabs navigator under expo-router\'s root stack', () => {
+    const tabs = { key: 'tab-1', index: 0, routes: [{ name: 'index' }] }
+    expect(tabsState({ key: 'root', routes: [{ name: '__root', state: { key: 'stack', routes: [{ name: '(auth)/email' }, { name: '(tabs)', state: tabs }] } }] })).toBe(tabs)
+  })
+
+  it('is undefined while the tabs aren\'t mounted', () => {
+    expect(tabsState(undefined)).toBeUndefined()
+    expect(tabsState({ routes: [{ name: '__root', state: { routes: [{ name: '(auth)/welcome' }] } }] })).toBeUndefined()
   })
 })

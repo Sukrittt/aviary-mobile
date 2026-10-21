@@ -19,6 +19,8 @@ import { usePrivacy } from "@/src/context/PrivacyContext";
 import { fontFamily } from "@/src/theme/fonts";
 
 import { categoryTint, chartInk } from "@/src/lib/emoji";
+import { useCategoryColors } from "@/src/hooks/useCategories";
+import { useGroupColors } from "@/src/hooks/useGroups";
 import { PopIn } from "@/src/components/shared/PopIn";
 import { BottomSheet } from "@/src/components/shared/Modal";
 import { Button } from "@/src/components/ui/Button";
@@ -154,6 +156,8 @@ export function CategoryBreakdown({
   const { currencySymbol, formatCurrency } = useCurrency()
 
   const { tokens, scheme, space, radius, type } = useTheme();
+  const groupColors = useGroupColors();
+  const categoryColors = useCategoryColors();
   const { hideAmounts } = usePrivacy();
   const router = useRouter();
   const [expanded, setExpanded] = useState(false);
@@ -275,16 +279,19 @@ export function CategoryBreakdown({
   );
   const play = revealReady;
 
-  // Same name-hashed tint as the category's icon tile on Home, so a category
-  // is one colour everywhere instead of whatever its rank here happens to be.
+  // Same tint as the category's icon tile on Home (picked colour, else the
+  // name hash), so a category is one colour everywhere instead of whatever its
+  // rank here happens to be. A group without a picked colour keeps the hash:
+  // its tile's single accent default would paint the whole donut one colour.
   const tintByKey = useMemo(() => {
     const map = new Map<string, { bg: string; ink: string; chart: string }>();
     rows.forEach((row) => {
-      const tint = categoryTint(row.label, tokens);
+      const color = mode === "group" ? groupColors.get(row.key) : categoryColors.get(row.key);
+      const tint = categoryTint(row.label, tokens, color);
       map.set(row.key, { ...tint, chart: chartInk(tint.ink, scheme) });
     });
     return map;
-  }, [rows, tokens, scheme]);
+  }, [rows, tokens, scheme, mode, groupColors, categoryColors]);
 
   const segments = useMemo(() => {
     const big = displayRows.filter((r) => r.pct >= DONUT_TAIL_PCT);

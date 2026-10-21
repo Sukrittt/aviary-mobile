@@ -132,14 +132,14 @@ export function PlanPicker({
           <Text style={[styles.eyebrow, { color: tokens.accentInk, fontFamily: fontFamily.bodyExtraBold }]}>AVIARY PRO</Text>
           <Text style={[styles.title, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Try everything. Pay only if it sticks.</Text>
           <Text style={[styles.sub, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
-            {`Your trial ends on ${formatDate(trialEndsAt)}. Here's exactly what happens.`}
+            {`It's on us until ${formatDate(trialEndsAt)}. Here's exactly what happens.`}
           </Text>
         </View>
         <View>
           <Step index={0} tone="now" label="Today" body="Everything's still unlocked. Log, scan, ask, Wrapped. The lot." />
           {reminders.length ? <Step index={1} tone="later" label={reminders.join(' · ')} body="We'll nudge you again before anything changes." /> : null}
           {Number.isNaN(endMs) ? null : (
-            <Step index={reminders.length ? 2 : 1} tone="end" label={shortDate(endMs)} body={`Trial ends. Keep going from ${fromPrice}, or export your data free and leave. No hard feelings.`} last />
+            <Step index={reminders.length ? 2 : 1} tone="end" label={shortDate(endMs)} body={`Your time on us ends. Keep going from ${fromPrice}, or export your data free and leave. No hard feelings.`} last />
           )}
         </View>
       </>

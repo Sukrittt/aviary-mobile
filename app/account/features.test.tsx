@@ -48,7 +48,7 @@ describe('Features screen', () => {
     fireEvent.press(getByLabelText('Show Insights'))
     act(() => mutate.mock.calls[0][1].onError(new Error('offline')))
     expect(getByLabelText('Show Insights').props.accessibilityState.checked).toBe(true)
-    expect(Alert.alert).toHaveBeenCalledWith("Couldn't save", 'Check your connection and try again.')
+    expect(Alert.alert).toHaveBeenCalledWith("Couldn't save that setting", 'Check your connection and try again.')
   })
 
   it('starts a new account with only the core features on', () => {

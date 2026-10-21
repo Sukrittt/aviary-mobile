@@ -8,11 +8,11 @@ import { Numpad } from '@/src/components/ui/Numpad'
 import { useAmountEntry } from '@/src/components/ui/useAmountEntry'
 import { usePrivacy } from '@/src/context/PrivacyContext'
 import { useBudgets,useUpdateBudget } from '@/src/hooks/useBudgets'
-import { useCategories } from '@/src/hooks/useCategories'
+import { useCategories, useCategoryTint } from '@/src/hooks/useCategories'
 import { useRecentExpenses } from '@/src/hooks/useExpenses'
 import { useGroups } from '@/src/hooks/useGroups'
 import { EMPTY } from '@/src/lib/constants'
-import { categoryTint, splitEmoji } from '@/src/lib/emoji'
+import { splitEmoji } from '@/src/lib/emoji'
 import { categoryIconKey, type CategoryIconKey } from '@/src/lib/categoryIcons'
 import { CATEGORY_ICON_COMPONENTS } from '@/src/components/shared/CategoryIcon'
 import { computeEnvelopeState,currentMonthKey,prevMonthKey } from '@/src/lib/envelope'
@@ -30,6 +30,7 @@ import { ActivityIndicator,Animated,Pressable,ScrollView,StyleSheet,Text,View } 
 import Reanimated,{ FadeIn } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import * as Haptics from 'expo-haptics'
+import { withReadOnlyGate } from '@/src/components/budgets/ReadOnlyNotice'
 
 const AnimatedPressable = Reanimated.createAnimatedComponent(Pressable)
 
@@ -41,7 +42,7 @@ function str(v: string | string[] | undefined): string {
 
 /** Full-screen replacement for the old inline "Edit assigned amount" sheet
  * (see EnvelopeRow.tsx) — same layout as move-money.tsx's amount step. */
-export default function EditAssignedAmountModal() {
+function EditAssignedAmountModal() {
   const { tokens } = useTheme()
   const params = useLocalSearchParams()
   // Switchable in place from the envelope card, so assigning across several
@@ -128,6 +129,7 @@ function EditAmountBody({
   const { formatCurrency, formatAmountInput, formatMoney } = useCurrency()
 
   const { tokens, space, radius, type } = useTheme()
+  const tintOf = useCategoryTint()
   const { hideAmounts } = usePrivacy()
   const insets = useSafeAreaInsets()
   const router = useRouter()
@@ -172,7 +174,7 @@ function EditAmountBody({
       if (err instanceof BudgetWriteError && err.status === 409 && err.current) {
         setConflict(err.current)
       } else {
-        setError('Could not save. Check your connection and try again.')
+        setError("Couldn't save. Check your connection and try again.")
       }
       return false
     }
@@ -269,7 +271,7 @@ function EditAmountBody({
           disabled={saving || success}
           name={name}
           icon={iconKey}
-          tint={categoryTint(name, tokens)}
+          tint={tintOf(isCreditCardPayment ? name : category)}
           spent={spent}
           currentAssigned={baseAssigned}
           hideAmounts={hideAmounts}
@@ -489,3 +491,5 @@ const styles = StyleSheet.create({
   quickChip: { paddingVertical: 8, paddingHorizontal: 14, borderWidth: 1 },
   confirmButton: { paddingVertical: 15, alignItems: 'center', justifyContent: 'center' },
 })
+
+export default withReadOnlyGate(EditAssignedAmountModal)

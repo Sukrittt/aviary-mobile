@@ -1,9 +1,14 @@
 import { useCurrency } from '@/src/context/CurrencyContext'
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { View, Text, Pressable, ScrollView, RefreshControl, StyleSheet } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
-import { ArrowLeft, ArrowRight, Plus } from '@/src/components/shared/icons'
+import { useReadOnly } from '@/src/components/budgets/ReadOnlyNotice'
+import { ReadOnlyBanner } from '@/src/components/budgets/ReadOnlyBanner'
+import { ArrowLeft, ArrowRight, Plus, Trash } from '@/src/components/shared/icons'
+import { Toast } from '@/src/components/ui/Toast'
+import { getArchive, restoreArchivedItem } from '@/src/api/account'
+import { useQueryClient } from '@tanstack/react-query'
 import { Alert } from '@/src/components/ui/AlertHost'
 import { BottomSheet } from '@/src/components/shared/Modal'
 import { OfflineScreen } from '@/src/components/shared/OfflineScreen'
@@ -115,6 +120,11 @@ export default function InvestmentsScreen() {
   const holdingsQuery = useHoldings()
   const eventsQuery = useHoldingEvents()
   const deleteHolding = useDeleteHolding()
+  const { readOnly, blocked } = useReadOnly()
+  const qc = useQueryClient()
+  const [undoToast, setUndoToast] = useState({ n: 0, name: '' })
+  // pendingDelete stays set after its request goes, so this says whether it was sent.
+  const sentDeleteRef = useRef<string | null>(null)
 
   const [sheetHolding, setSheetHolding] = useState<HoldingRow | null>(null)
   // Set once the confirm sheet's Delete is tapped; drives the row's collapse
@@ -166,7 +176,7 @@ export default function InvestmentsScreen() {
   const isLoading = !FORCE_EMPTY_STATE_PREVIEW && (holdingsQuery.isLoading || eventsQuery.isLoading)
   const errorMessage = FORCE_EMPTY_STATE_PREVIEW ? null
     : holdingsQuery.error || eventsQuery.error ? "Couldn't load your investments. Check your connection and try again."
-    : deleteHolding.error ? "Couldn't delete that holding. Check your connection and try again."
+    : deleteHolding.error ? "Couldn't delete this holding. Check your connection and try again."
     : null
 
   function openAction(action: ActionType) {
@@ -183,27 +193,56 @@ export default function InvestmentsScreen() {
     router.push({ pathname: '/modals/add-holding', params: { name } })
   }
 
+  // No confirm: a deleted holding goes to Archive, and the toast's Undo brings it back.
   function confirmDelete() {
     if (!sheetHolding) return
     const name = sheetHolding.name
     setSheetHolding(null)
-    Alert.alert('Delete holding', `Remove "${name}"? This cannot be undone.`, [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Delete', style: 'destructive', onPress: () => setPendingDelete(name) },
-    ])
+    if (blocked()) return
+    // A delete still mid-collapse is sent now, or swapping the target would cancel it.
+    if (pendingDelete && pendingDelete !== name && sentDeleteRef.current !== pendingDelete) runDelete(pendingDelete)
+    setPendingDelete(name)
   }
 
   function runDelete(name: string) {
+    sentDeleteRef.current = name
     // Left set on success so the row stays collapsed until the refetch drops
     // it — clearing it here springs the row back to full height for a whole
     // round trip. On failure the row does come back, which is the signal.
-    deleteHolding.mutate(name, { onError: () => setPendingDelete(null) })
+    deleteHolding.mutate(name, {
+      onSuccess: () => setUndoToast((u) => ({ n: u.n + 1, name })),
+      onError: () => setPendingDelete((p) => (p === name ? null : p)),
+    })
+  }
+
+  async function undoDelete(name: string) {
+    setPendingDelete((p) => (p === name ? null : p))
+    try {
+      // The DELETE doesn't return an id. Names are unique among live holdings,
+      // so the newest archived one with this name is the one just deleted.
+      const match = (await getArchive())
+        .filter((a) => a.collection === 'holdings' && a.label === name)
+        .sort((a, b) => Date.parse(b.deletedAt) - Date.parse(a.deletedAt))[0]
+      if (!match) throw new Error('not archived')
+      await restoreArchivedItem('holdings', match.id)
+      await qc.invalidateQueries()
+    } catch {
+      Alert.alert("Couldn't restore this holding", 'You can still restore it from Archive.')
+    }
   }
 
   if (!online) return <OfflineScreen />
 
   return (
     <View style={[styles.container, { backgroundColor: tokens.bg, paddingTop: insets.top }]}>
+      <Toast
+        trigger={undoToast.n}
+        message={undoToast.name ? `Deleted ${undoToast.name}` : ''}
+        icon={Trash}
+        durationMs={5000}
+        action={undoToast.name ? { label: 'Undo', onPress: () => void undoDelete(undoToast.name) } : undefined}
+        style={{ top: insets.top + 12 }}
+      />
       <View style={[styles.header, { borderBottomColor: tokens.border }]}>
         <Pressable onPress={() => router.back()} hitSlop={12} style={[styles.backButton, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
           <Icon icon={ArrowLeft} size={20} color={tokens.text} />
@@ -211,12 +250,15 @@ export default function InvestmentsScreen() {
         <Text style={[styles.headerTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
           Investments
         </Text>
-        <Pressable onPress={() => router.push('/modals/add-holding')} hitSlop={12} style={styles.headerActionRow}>
-          <Icon icon={Plus} size={16} color={tokens.accent} />
-          <Text style={[styles.headerAction, { color: tokens.accent, fontFamily: fontFamily.bodySemiBold }]}>
-            Add
-          </Text>
-        </Pressable>
+        {/* Keeps the title centered once Add drops out. */}
+        {readOnly ? <View style={{ width: 36 }} /> : (
+          <Pressable onPress={() => router.push('/modals/add-holding')} hitSlop={12} style={styles.headerActionRow}>
+            <Icon icon={Plus} size={16} color={tokens.accent} />
+            <Text style={[styles.headerAction, { color: tokens.accent, fontFamily: fontFamily.bodySemiBold }]}>
+              Add
+            </Text>
+          </Pressable>
+        )}
       </View>
 
       {isLoading ? (
@@ -230,6 +272,7 @@ export default function InvestmentsScreen() {
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={tokens.accent} colors={[tokens.accent]} />
           }
         >
+          <ReadOnlyBanner />
           {errorMessage && (
             <Text style={[styles.errorText, { color: tokens.coral, fontFamily: fontFamily.bodyMedium }]}>
               {errorMessage}
@@ -284,7 +327,7 @@ export default function InvestmentsScreen() {
                 subject="holdings"
                 title="Room to grow"
                 description="No holdings yet. Add one to get started."
-                action={{ label: 'Add a holding', onPress: () => router.push('/modals/add-holding') }}
+                action={readOnly ? undefined : { label: 'Add a holding', onPress: () => router.push('/modals/add-holding') }}
               />
             </View>
           ) : (

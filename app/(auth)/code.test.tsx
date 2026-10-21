@@ -1,4 +1,4 @@
-import { fireEvent, waitFor } from '@testing-library/react-native'
+import { act, fireEvent, waitFor } from '@testing-library/react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { verifyEmailChange } from '@/src/api/account'
 import { verifyMagicAuthCode } from '@/src/api/magicAuth'
@@ -42,4 +42,21 @@ it('does not call a dropped connection a wrong code on email sign-in', async () 
 
   expect(await findByText("Couldn't check the code. Check your connection and try again.")).toBeTruthy()
   expect(queryByText('Wrong or expired code.')).toBeNull()
+})
+
+it('plays the success animation before the session lands and the guards redirect', async () => {
+  mockParams = { email: 'a@b.co' }
+  const signIn = jest.fn(() => Promise.resolve())
+  ;(verifyMagicAuthCode as jest.Mock).mockResolvedValue(signIn)
+  const { getByText, findByText } = renderWithProviders(<CodeScreen />)
+  jest.useFakeTimers()
+  try {
+    for (const d of '123456') fireEvent.press(getByText(d))
+    expect(await findByText('Code verified. Signing you in…')).toBeTruthy()
+    expect(signIn).not.toHaveBeenCalled()
+    act(() => jest.advanceTimersByTime(1100))
+    expect(signIn).toHaveBeenCalledTimes(1)
+  } finally {
+    jest.useRealTimers()
+  }
 })

@@ -1,7 +1,7 @@
 import { emitExpenseSynced } from './events'
 import { AppState } from 'react-native'
 import { getValidToken, currentUserId, sessionGeneration } from '@/src/api/accessMode'
-import { HttpError } from '@/src/api/client'
+import { BudgetReadOnlyError, HttpError, NotAMemberError } from '@/src/api/client'
 import { postExpensePayload } from '@/src/api/expenses'
 import * as pending from '@/src/lib/pendingExpenses'
 import { onOnlineTransition } from '@/src/lib/netStatus'
@@ -12,6 +12,11 @@ import { withExpenseLock } from './expenseLock'
 const MAX_ATTEMPTS = 3
 
 let inFlight: Promise<void> | null = null
+
+// Budgets that answered read-only. Their entries wait without a request, so a
+// background drain doesn't pop the read-only alert per row every 30s.
+// ponytail: kept until relaunch, so a renewal syncs on the next app start.
+const readOnlyBudgets = new Set<string>()
 
 /**
  * Drains the pending-expense queue one entry at a time, oldest first, through
@@ -39,10 +44,16 @@ async function drain(): Promise<void> {
   if (!token || generation !== sessionGeneration()) return
 
   const entries = await pending.list(owner)
+  // Budgets that answered the subscription gate this drain. Only that budget's
+  // entries wait: a lapsed personal plan says nothing about a shared budget
+  // whose owner pays. Per drain, so a renewal syncs on the next trigger.
+  const gated = new Set<string>()
   let wrote = false
   try {
     for (const entry of entries) {
       if (generation !== sessionGeneration()) return
+      const budget = entry.spaceId ?? owner
+      if (readOnlyBudgets.has(budget) || gated.has(budget)) continue
       try {
         await withExpenseLock(owner, entry.payload.client_id, async () => {
           if (generation !== sessionGeneration()) return
@@ -59,7 +70,8 @@ async function drain(): Promise<void> {
           if (generation !== sessionGeneration()) return
           await pending.setSubmitted(entry.payload.client_id, true, owner)
           if (generation !== sessionGeneration()) return
-          const result = await postExpensePayload(current.payload, generation).catch(async (err) => {
+          // The budget it was logged in, not whichever is active now.
+          const result = await postExpensePayload(current.payload, generation, current.spaceId ?? owner).catch(async (err) => {
             // A definitive rejection proves this attempt did not create a row,
             // but cannot disprove a commit from an earlier ambiguous attempt.
             if (current.submitted === false && generation === sessionGeneration() &&
@@ -81,14 +93,30 @@ async function drain(): Promise<void> {
         })
       } catch (err) {
         if (generation !== sessionGeneration()) return
+        if (err instanceof NotAMemberError) {
+          // Pinned to a budget this person has since left. Every retry gets the
+          // same answer, so set it aside now (it stays exportable) rather than
+          // let it stall the personal expenses queued behind it.
+          await pending.bumpAttempts(entry.payload.client_id, 1, owner)
+          continue
+        }
+        // That budget's owner lapsed; this person's own access is fine. Keep
+        // the entry for when they renew, and carry on with the rest.
+        if (err instanceof BudgetReadOnlyError) {
+          readOnlyBudgets.add(entry.spaceId ?? owner)
+          continue
+        }
         if (err instanceof HttpError) {
-          // The subscription gate, not a bad entry. Stop the whole drain and
-          // leave the queue untouched: every remaining entry would hit the same
-          // gate, and bumping attempts here would dead-letter everything the
+          // The subscription gate, not a bad entry. Leave this budget's entries
+          // untouched: bumping attempts here would dead-letter everything the
           // user logged offline about ninety seconds after their trial quietly
-          // expired. They renew, and the expenses are gone. The queue waits
-          // instead, and drains when access comes back.
-          if ([401, 403, 408, 429, SUBSCRIPTION_REQUIRED_STATUS].includes(err.status) || err.status >= 500) return
+          // expired. They renew, and the expenses are gone. They wait instead,
+          // and drain when access comes back. The other budgets carry on.
+          if (err.status === SUBSCRIPTION_REQUIRED_STATUS) {
+            gated.add(entry.spaceId ?? owner)
+            continue
+          }
+          if ([401, 403, 408, 429].includes(err.status) || err.status >= 500) return
           // This entry will never succeed as-is — bump it and move on to the
           // rest of the queue rather than blocking everything behind it.
           await pending.bumpAttempts(entry.payload.client_id, MAX_ATTEMPTS, owner)

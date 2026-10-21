@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { View, Text, ScrollView, Pressable, TextInput, RefreshControl, StyleSheet, Animated, PanResponder } from 'react-native'
 import type { LayoutChangeEvent } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -31,11 +31,12 @@ import {
   useDeleteCategory,
   useMoveCategory,
 } from '@/src/hooks/useCategories'
-import { useGroups, useGroupIcons, useAddGroup, useUpdateGroup, useDeleteGroup, useMoveGroup } from '@/src/hooks/useGroups'
-import { categoryTint, splitEmoji } from '@/src/lib/emoji'
+import { useGroups, useGroupIcons, useGroupColors, useAddGroup, useUpdateGroup, useDeleteGroup, useMoveGroup } from '@/src/hooks/useGroups'
+import { categoryColor, categoryTint, colorTint, groupColor, isCategoryColor, splitEmoji, type CategoryColor } from '@/src/lib/emoji'
 import { categoryIconKey, groupIconKey, type CategoryIconKey } from '@/src/lib/categoryIcons'
 import { CategoryIcon } from '@/src/components/shared/CategoryIcon'
-import { CategoryIconPicker } from '@/src/components/shared/CategoryIconPicker'
+import { CategoryIconPicker, ColorSwatches } from '@/src/components/shared/CategoryIconPicker'
+import { PopOnChange } from '@/src/components/shared/PopOnChange'
 import { EnvelopesSkeleton } from '@/src/components/shared/TabSkeleton'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { BottomSheet } from '@/src/components/shared/Modal'
@@ -50,6 +51,8 @@ import { ErrorScreen } from '@/src/components/shared/ErrorScreen'
 import { useOnline } from '@/src/lib/netStatus'
 import { dragShift, dragTarget, moveItem } from '@/src/lib/dragReorder'
 import { EmptyState } from '@/src/components/shared/EmptyState'
+import { ReadOnlyBanner } from '@/src/components/budgets/ReadOnlyBanner'
+import { useReadOnly } from '@/src/components/budgets/ReadOnlyNotice'
 import { FORCE_EMPTY_STATE_PREVIEW, emptyForPreview } from '@/src/lib/emptyStatePreview'
 
 function sortedPcts(pcts: number[]): number[] {
@@ -137,12 +140,15 @@ function DraggableCategoryList({
   tokens,
   onReorder,
   onMenu,
+  locked,
 }: {
   items: CategoryRow[]
   group: string
   tokens: ThemeTokens
   onReorder: (name: string, toIndex: number) => void
   onMenu: (name: string) => void
+  /** Read-only budget: no drag handles. */
+  locked?: boolean
 }) {
   const { scheme } = useTheme()
   // react-query's cache notifications land on a setTimeout(0), a tick after React's own
@@ -243,20 +249,22 @@ function DraggableCategoryList({
             ]}
           >
             <Pressable style={styles.catRowMain} onPress={() => onMenu(cat.name)}>
-              <View style={[styles.catIconChip, { backgroundColor: categoryTint(cat.name, tokens).bg }]}>
-                <CategoryIcon name={cat.name} icon={cat.icon} group={group} size={14} color={categoryTint(cat.name, tokens).ink} />
-              </View>
+              <PopOnChange value={`${cat.color}|${cat.icon}`} style={[styles.catIconChip, { backgroundColor: categoryTint(cat.name, tokens, cat.color).bg }]}>
+                <CategoryIcon name={cat.name} icon={cat.icon} group={group} size={14} color={categoryTint(cat.name, tokens, cat.color).ink} />
+              </PopOnChange>
               <Text
                 style={[styles.catName, { color: tokens.text, fontFamily: fontFamily.bodyBold }]}
                 numberOfLines={1}
               >
                 {splitEmoji(cat.name).text}
               </Text>
-              <View style={styles.catActions}>
-                <View {...responder.panHandlers} hitSlop={8} style={styles.dragHandle}>
-                  <Icon icon={Equals} size={14} color={scheme === 'dark' ? tokens.text2 : tokens.text3} />
+              {!locked && (
+                <View style={styles.catActions}>
+                  <View {...responder.panHandlers} hitSlop={8} style={styles.dragHandle}>
+                    <Icon icon={Equals} size={14} color={scheme === 'dark' ? tokens.text2 : tokens.text3} />
+                  </View>
                 </View>
-              </View>
+              )}
             </Pressable>
           </Animated.View>
         )
@@ -495,7 +503,7 @@ type SheetState =
   | { kind: 'addGroup' }
   | { kind: 'renameGroup'; name: string }
 
-export default function EnvelopesScreen() {
+function EnvelopesScreen() {
   const { tokens, scheme } = useTheme()
   // Handles, kebab and counts are too dim on the dark surface at text3; light text3 already passes.
   const dimInk = scheme === 'dark' ? tokens.text2 : tokens.text3
@@ -507,6 +515,7 @@ export default function EnvelopesScreen() {
   const categoriesQ = useCategories()
   const groupsQ = useGroups()
   const groupIcons = useGroupIcons()
+  const groupColors = useGroupColors()
   const addCategory = useAddCategory()
   const updateCategory = useUpdateCategory()
   const deleteCategory = useDeleteCategory()
@@ -515,6 +524,7 @@ export default function EnvelopesScreen() {
   const updateGroup = useUpdateGroup()
   const deleteGroup = useDeleteGroup()
   const moveGroup = useMoveGroup()
+  const { readOnly, blocked } = useReadOnly()
 
   const [collapsedGroups, setCollapsedGroups] = useCollapsedGroups('envelopes')
 
@@ -525,6 +535,9 @@ export default function EnvelopesScreen() {
   const [draftGroup, setDraftGroup] = useState('')
   // Null until the user picks one: a new category's icon follows its name.
   const [pickedIcon, setPickedIcon] = useState<CategoryIconKey | null>(null)
+  // Null until the user picks one (or the row already has one): until then the
+  // colour follows the name, as everywhere else.
+  const [pickedColor, setPickedColor] = useState<CategoryColor | null>(null)
   const [draftAlertPcts, setDraftAlertPcts] = useState<number[]>(DEFAULT_ALERT_PCTS)
   const [customAlertInput, setCustomAlertInput] = useState('')
   const [sheetError, setSheetError] = useState('')
@@ -600,7 +613,7 @@ export default function EnvelopesScreen() {
     setLiftedGroup(null)
     if (to !== from) {
       setGroupOrder((cur) => moveItem(cur, name, to))
-      moveGroup.mutate({ name, toIndex: to }, { onError: () => showToast('Could not save group order. Please try again.') })
+      moveGroup.mutate({ name, toIndex: to }, { onError: () => showToast("Couldn't save the group order. Check your connection and try again.") })
     }
     setDragPhase('settling')
   }
@@ -660,6 +673,7 @@ export default function EnvelopesScreen() {
     setDraftName('')
     setDraftGroup(group)
     setPickedIcon(null)
+    setPickedColor(null)
     setDraftAlertPcts(DEFAULT_ALERT_PCTS)
     setCustomAlertInput('')
     setSheetError('')
@@ -672,6 +686,7 @@ export default function EnvelopesScreen() {
     setDraftName(splitEmoji(name).text)
     setDraftGroup(cat?.group ?? '')
     setPickedIcon(categoryIconKey(name, cat?.icon, cat?.group))
+    setPickedColor(isCategoryColor(cat?.color) ? cat.color : null)
     setDraftAlertPcts(cat?.alertPcts ? sortedPcts(cat.alertPcts) : DEFAULT_ALERT_PCTS)
     setCustomAlertInput('')
     setSheetError('')
@@ -701,6 +716,8 @@ export default function EnvelopesScreen() {
   function openRenameGroup(name: string) {
     setDraftName(splitEmoji(name).text)
     setPickedIcon(groupIconKey(name, groupIcons.get(name)))
+    const color = groupColors.get(name)
+    setPickedColor(isCategoryColor(color) ? color : null)
     setSheetError('')
     setSheet({ kind: 'renameGroup', name })
   }
@@ -731,16 +748,17 @@ export default function EnvelopesScreen() {
     if (!composed) return
     try {
       if (sheet.kind === 'addCategory') {
-        await addCategory.mutateAsync({ name: composed, group: draftGroup, icon: draftIcon })
+        await addCategory.mutateAsync({ name: composed, group: draftGroup, icon: draftIcon, ...(pickedColor ? { color: pickedColor } : {}) })
       } else if (sheet.kind === 'renameCategory') {
         const current = categories.find((c) => c.name === sheet.name)
         const currentGroup = current?.group ?? ''
         const currentAlertPcts = current?.alertPcts ? sortedPcts(current.alertPcts) : DEFAULT_ALERT_PCTS
         const sortedDraft = sortedPcts(draftAlertPcts)
-        const updates: { newName?: string; group?: string; alertPcts?: number[] | null; icon?: string } = {}
+        const updates: { newName?: string; group?: string; alertPcts?: number[] | null; icon?: string; color?: string } = {}
         const newName = withOldEmoji(sheet.name, composed)
         if (newName !== sheet.name) updates.newName = newName
         if (draftIcon !== categoryIconKey(sheet.name, current?.icon, currentGroup)) updates.icon = draftIcon
+        if (pickedColor && pickedColor !== current?.color) updates.color = pickedColor
         if (draftGroup !== currentGroup) updates.group = draftGroup
         if (!pctArraysEqual(sortedDraft, currentAlertPcts)) {
           updates.alertPcts = pctArraysEqual(sortedDraft, DEFAULT_ALERT_PCTS) ? null : sortedDraft
@@ -753,11 +771,13 @@ export default function EnvelopesScreen() {
       } else {
         const newName = withOldEmoji(sheet.name, composed)
         const iconChanged = draftIcon !== groupIconKey(sheet.name, groupIcons.get(sheet.name))
-        if (newName !== sheet.name || iconChanged) {
+        const colorChanged = pickedColor !== null && pickedColor !== groupColors.get(sheet.name)
+        if (newName !== sheet.name || iconChanged || colorChanged) {
           await updateGroup.mutateAsync({
             name: sheet.name,
             ...(newName !== sheet.name ? { newName } : {}),
             ...(iconChanged ? { icon: draftIcon } : {}),
+            ...(colorChanged ? { color: pickedColor } : {}),
           })
         }
       }
@@ -789,9 +809,11 @@ export default function EnvelopesScreen() {
   }
   function openCategoryMenu(name: string) {
     tap()
+    if (blocked()) return
     setMenuTarget({ kind: 'category', name })
   }
   function openGroupMenu(name: string) {
+    if (blocked()) return
     setMenuTarget({ kind: 'group', name })
   }
 
@@ -821,6 +843,8 @@ export default function EnvelopesScreen() {
   const isCatSheet = sheet?.kind === 'addCategory' || sheet?.kind === 'renameCategory'
   const isRenameSheet = sheet?.kind === 'renameCategory' || sheet?.kind === 'renameGroup'
   const draftIcon: CategoryIconKey = pickedIcon ?? categoryIconKey(draftName, undefined, draftGroup)
+  // The same colour the row wears on the list, so the sheet's tile matches it.
+  const draftColor: CategoryColor = isCatSheet ? categoryColor(draftName, pickedColor ?? undefined) : groupColor(pickedColor ?? undefined)
   const sheetTitle =
     sheet?.kind === 'addCategory'
       ? 'Add category'
@@ -828,7 +852,7 @@ export default function EnvelopesScreen() {
         ? 'Edit category'
         : sheet?.kind === 'addGroup'
           ? 'Add group'
-          : 'Rename group'
+          : 'Edit group'
   const sheetHint = isCatSheet
     ? 'Categories live inside a group. Pick where this one belongs.'
     : 'Groups gather related categories: Food, Home, Transport.'
@@ -852,9 +876,10 @@ export default function EnvelopesScreen() {
     <>
       <Screen
         title="Categories"
-        actions={<IconButton icon={Plus} accessibilityLabel="New group" onPress={openAddGroup} />}
+        actions={readOnly ? undefined : <IconButton icon={Plus} accessibilityLabel="New group" onPress={openAddGroup} />}
         scroll={false}
       >
+        {readOnly && <View style={styles.readOnly}><ReadOnlyBanner /></View>}
         <View style={styles.metaRow}>
           <Text style={{ color: tokens.text3, fontSize: 12, fontFamily: fontFamily.bodySemiBold }}>
             {groups.length} group{groups.length === 1 ? '' : 's'} · {categories.length} categor
@@ -892,7 +917,7 @@ export default function EnvelopesScreen() {
               subject="envelopes"
               title="Your categories are waiting"
               description="Make a group, add a category, and give all your money a place to land."
-              action={{ label: "Create your first group", onPress: openAddGroup }}
+              action={readOnly ? undefined : { label: "Create your first group", onPress: openAddGroup }}
             />
           ) : (
             <>
@@ -904,7 +929,7 @@ export default function EnvelopesScreen() {
                 <DraggableGroupCard
                   key={key}
                   name={name}
-                  draggable={name !== ''}
+                  draggable={name !== '' && !readOnly}
                   drag={groupDrag}
                   listRef={listRef}
                   dragging={dragPhase !== 'idle'}
@@ -927,9 +952,12 @@ export default function EnvelopesScreen() {
                       <Pressable onPress={() => toggleGroup(key)} hitSlop={8} style={styles.chevronBtn}>
                         <GroupChevron collapsed={collapsed} color={tokens.text3} />
                       </Pressable>
-                      <View style={[styles.avatarChip, { backgroundColor: tokens.accentSoft }]}>
-                        <CategoryIcon kind="group" name={name} icon={groupIcons.get(name)} size={18} color={tokens.accentInk} />
-                      </View>
+                      <PopOnChange
+                        value={`${groupColors.get(name)}|${groupIcons.get(name)}`}
+                        style={[styles.avatarChip, { backgroundColor: colorTint(groupColor(groupColors.get(name)), tokens).bg }]}
+                      >
+                        <CategoryIcon kind="group" name={name} icon={groupIcons.get(name)} size={18} color={colorTint(groupColor(groupColors.get(name)), tokens).ink} />
+                      </PopOnChange>
                       <View style={styles.groupHeaderLeft}>
                         <Text
                           style={[styles.groupName, { color: tokens.text, fontFamily: fontFamily.bodyExtraBold }]}
@@ -942,7 +970,12 @@ export default function EnvelopesScreen() {
                         </Text>
                       </View>
                       {name !== '' && (
-                        <Pressable onPress={() => openGroupMenu(name)} hitSlop={8}>
+                        <Pressable
+                          onPress={() => openGroupMenu(name)}
+                          hitSlop={8}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Options for ${splitEmoji(name).text}`}
+                        >
                           <Icon icon={DotsThreeVertical} size={17} color={dimInk} />
                         </Pressable>
                       )}
@@ -957,9 +990,10 @@ export default function EnvelopesScreen() {
                       tokens={tokens}
                       onReorder={(catName, toIndex) => moveCategory.mutate({ name: catName, toIndex })}
                       onMenu={openCategoryMenu}
+                      locked={readOnly}
                     />
 
-                    {items.length === 0 ? (
+                    {readOnly ? null : items.length === 0 ? (
                       <Pressable
                         onPress={() => openAddCategory(name)}
                         style={[styles.addFirstCatBtn, { borderColor: tokens.borderStrong }]}
@@ -989,16 +1023,20 @@ export default function EnvelopesScreen() {
               </Reanimated.View>
 
               <Reanimated.View onLayout={footerFlip.onLayout} style={footerStyle}>
-                <Pressable
-                  onPress={openAddGroup}
-                  style={[styles.addGroupBtn, { borderColor: tokens.borderStrong }]}
-                >
-                  <Icon icon={Plus} size={14} color={tokens.text2} weight="bold" />
-                  <Text style={{ color: tokens.text2, fontSize: 13, fontFamily: fontFamily.bodyBold }}>New group</Text>
-                </Pressable>
-                <Text style={{ color: tokens.text3, fontSize: 12, textAlign: 'center', marginTop: 2, fontFamily: fontFamily.bodySemiBold }}>
-                  Tap a group to collapse · drag a handle to reorder
-                </Text>
+                {!readOnly && (
+                  <>
+                    <Pressable
+                      onPress={openAddGroup}
+                      style={[styles.addGroupBtn, { borderColor: tokens.borderStrong }]}
+                    >
+                      <Icon icon={Plus} size={14} color={tokens.text2} weight="bold" />
+                      <Text style={{ color: tokens.text2, fontSize: 13, fontFamily: fontFamily.bodyBold }}>New group</Text>
+                    </Pressable>
+                    <Text style={{ color: tokens.text3, fontSize: 12, textAlign: 'center', marginTop: 2, fontFamily: fontFamily.bodySemiBold }}>
+                      Tap a group to collapse · drag a handle to reorder
+                    </Text>
+                  </>
+                )}
               </Reanimated.View>
             </>
           )}
@@ -1023,11 +1061,17 @@ export default function EnvelopesScreen() {
           <CategoryIconPicker
             value={draftIcon}
             onChange={setPickedIcon}
-            tint={categoryTint(draftName, tokens)}
+            tint={colorTint(draftColor, tokens)}
             disabled={submitting}
           >
             {nameInput}
           </CategoryIconPicker>
+        )}
+        {sheet && sheet.kind !== 'addGroup' && (
+          <>
+            <Text style={[styles.sectionLabel, { color: tokens.text3 }]}>COLOR</Text>
+            <ColorSwatches value={draftColor} onChange={setPickedColor} disabled={submitting} />
+          </>
         )}
 
         {isCatSheet && (
@@ -1197,7 +1241,7 @@ export default function EnvelopesScreen() {
           {menuTarget ? splitEmoji(menuTarget.name).text : ''}
         </Text>
         <SheetOption
-          label={menuTarget?.kind === 'category' ? 'Edit' : 'Rename'}
+          label="Edit"
           color={tokens.text}
           onPress={() => {
             if (!menuTarget) return
@@ -1276,6 +1320,7 @@ function SheetOption({
 }
 
 const styles = StyleSheet.create({
+  readOnly: { marginBottom: 12 },
   metaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, paddingBottom: 12 },
   metaActions: { flexDirection: 'row', gap: 8 },
   scrollContent: { paddingVertical: 4, gap: GROUP_GAP },
@@ -1319,3 +1364,7 @@ const styles = StyleSheet.create({
   saveBtn: { flex: 1, paddingVertical: 15, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   toast: { position: 'absolute', left: 24, right: 24, alignItems: 'center', paddingVertical: 12, paddingHorizontal: 18, borderRadius: 100, borderWidth: 1 },
 })
+
+// memo: expo-router re-renders a tab's screen on every focus change with a
+// fresh props object, and a full EnvelopesScreen render held up each tab switch.
+export default memo(EnvelopesScreen)

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { View, Text, Pressable, ScrollView, Linking, ActivityIndicator, StyleSheet } from 'react-native'
+import { View, Text, Pressable, ScrollView, ActivityIndicator, StyleSheet } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { ArrowLeft, CaretRight, ArrowSquareOut, Question, Lock, SignOut, ArrowCounterClockwise, ShieldCheck, User, type PhosphorIcon } from '@/src/components/shared/icons'
@@ -10,17 +10,18 @@ import { track } from '@/src/lib/analytics'
 import { Icon } from '@/src/components/shared/Icon'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
-import { clearAccess, sessionId } from '@/src/api/accessMode'
+import { clearAccess, currentUserId, sessionId } from '@/src/api/accessMode'
 import { revokeSession } from '@/src/api/account'
 import { usePaywall } from '@/src/hooks/usePaywall'
-import { managementUrl } from '@/src/lib/purchases'
+import { openPlanManagement } from '@/src/components/shared/MaintenanceBanner'
 import { PACKAGE_TYPE } from 'react-native-purchases'
 import { formatDate, isWebPlan, lockedCopy, planSummary } from '@/src/lib/billingStatus'
-import { BASE_URL } from '@/src/api/client'
+import { useQueryClient } from '@tanstack/react-query'
+import { useBudgetSpaces } from '@/src/hooks/useBudgetSpaces'
+import { switchBudget } from '@/src/lib/budgetSwitch'
+import { firstName, ownerOf } from '@/src/lib/budgetMembership'
+import { BudgetIcon } from '@/src/components/budgets/BudgetIcon'
 
-const PLAY_SUBSCRIPTIONS_URL = 'https://play.google.com/store/account/subscriptions?package=com.sukrit04.envelope'
-/** Where a plan bought on the website is managed and cancelled: the web account page's subscription section. */
-const WEB_ACCOUNT_URL = `${BASE_URL}/account#subscription`
 
 /**
  * Plan & billing — and, while access is off, the whole app.
@@ -40,6 +41,14 @@ export default function PlanScreen() {
   const router = useRouter()
   const { status, isLoading, locked, showPlans, canBuy, paid, packagesQuery, busy, setBusy, buy, doRestore } = usePaywall()
   const inlinePlans = showPlans && (locked || status?.mode === 'expired')
+  // Budgets someone else pays for stay open to this person; only the lock on
+  // their own plan put them here, so give them a way through to those.
+  const queryClient = useQueryClient()
+  const shared = useBudgetSpaces().budgets.filter((b) => b.role === 'member' && !b.readOnly)
+  const openShared = (id: string) => {
+    const uid = currentUserId()
+    if (uid) void switchBudget(queryClient, uid, id)
+  }
   // Once per visit, the first moment plans are actually on screen.
   const paywallSeen = useRef(false)
   useEffect(() => {
@@ -55,13 +64,7 @@ export default function PlanScreen() {
     packagesQuery.data?.find((p) => p.packageType === PACKAGE_TYPE.ANNUAL)?.product.pricePerMonthString ??
     packagesQuery.data?.find((p) => p.packageType === PACKAGE_TYPE.MONTHLY)?.product.priceString
 
-  async function openManage() {
-    if (web) {
-      await Linking.openURL(WEB_ACCOUNT_URL)
-      return
-    }
-    await Linking.openURL((await managementUrl()) ?? PLAY_SUBSCRIPTIONS_URL)
-  }
+  const openManage = () => openPlanManagement(web)
 
   async function signOut() {
     setBusy('signout')
@@ -140,6 +143,36 @@ export default function PlanScreen() {
                 ) : null}
               </View>
             )}
+
+            {locked && shared.length > 0 ? (
+              <View style={{ gap: 8 }}>
+                <Text style={[styles.sectionLabel, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>Budgets shared with you</Text>
+                <View style={[styles.card, styles.list, styles.coveredCard, { backgroundColor: tokens.card, borderColor: tokens.accent }]}>
+                  {shared.map((b, i) => {
+                    const owner = firstName(ownerOf(b)?.name)
+                    return (
+                      <View key={b.id}>
+                        {i > 0 ? <View style={[styles.divider, { backgroundColor: tokens.border }]} /> : null}
+                        <Pressable onPress={() => openShared(b.id)} accessibilityRole="button" accessibilityLabel={`Open ${b.name}`} style={styles.row}>
+                          <View style={[styles.coveredTile, { backgroundColor: tokens.accentSoft }]}>
+                            <BudgetIcon budget={b} size={18} color={tokens.accentInk} />
+                          </View>
+                          <View style={{ flex: 1, marginLeft: 12, gap: 2 }}>
+                            <Text style={[styles.rowLabel, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>{b.name}</Text>
+                            <Text style={[styles.cardMeta, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>
+                              {owner ? `${owner} pays for this one` : 'Paid for by its owner'}, so it stays open to you.
+                            </Text>
+                          </View>
+                          <View style={[styles.coveredOpen, { backgroundColor: tokens.accent }]}>
+                            <Text style={[styles.badgeText, { color: tokens.onAccent, fontFamily: fontFamily.bodySemiBold }]}>Open</Text>
+                          </View>
+                        </Pressable>
+                      </View>
+                    )
+                  })}
+                </View>
+              </View>
+            ) : null}
 
             {inlinePlans ? (
               packagesQuery.data?.length ? (
@@ -235,4 +268,9 @@ const styles = StyleSheet.create({
   lockTitle: { fontSize: 19 },
   planRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 12 },
   footnote: { fontSize: 12, lineHeight: 17, paddingHorizontal: 4 },
+  sectionLabel: { fontSize: 12, letterSpacing: 0.6, textTransform: 'uppercase', paddingHorizontal: 4 },
+  coveredCard: { borderWidth: 1.5 },
+  coveredTile: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  coveredOpen: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, marginLeft: 8 },
+  badgeText: { fontSize: 12 },
 })

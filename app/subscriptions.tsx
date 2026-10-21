@@ -10,6 +10,8 @@ import { Icon } from '@/src/components/shared/Icon'
 import { useSubscriptions } from '@/src/hooks/useSubscriptions'
 import { useRefresh } from '@/src/hooks/useRefresh'
 import { SubscriptionsPanel } from '@/src/components/subscriptions/SubscriptionsPanel'
+import { useReadOnly } from '@/src/components/budgets/ReadOnlyNotice'
+import { ReadOnlyBanner } from '@/src/components/budgets/ReadOnlyBanner'
 
 export default function SubscriptionsScreen() {
   const { tokens } = useTheme()
@@ -18,6 +20,7 @@ export default function SubscriptionsScreen() {
   const router = useRouter()
   const { refreshing, onRefresh } = useRefresh()
   const { data: subscriptions = [], isLoading } = useSubscriptions()
+  const { readOnly } = useReadOnly()
 
   if (!online) return <OfflineScreen />
 
@@ -34,21 +37,25 @@ export default function SubscriptionsScreen() {
           <Icon icon={ArrowLeft} size={20} color={tokens.text} />
         </Pressable>
         <Text style={[styles.headerTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Subscriptions</Text>
-        <Pressable
-          onPress={() => router.push('/modals/subscription')}
-          style={[styles.addButton, { backgroundColor: tokens.card, borderColor: tokens.border }]}
-          accessibilityRole="button"
-          accessibilityLabel="Add subscription"
-        >
-          <Icon icon={Plus} size={16} color={tokens.text} />
-          <Text style={[styles.addText, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>Add</Text>
-        </Pressable>
+        {!readOnly && (
+          <Pressable
+            onPress={() => router.push('/modals/subscription')}
+            style={[styles.addButton, { backgroundColor: tokens.card, borderColor: tokens.border }]}
+            accessibilityRole="button"
+            accessibilityLabel="Add subscription"
+          >
+            <Icon icon={Plus} size={16} color={tokens.text} />
+            <Text style={[styles.addText, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>Add</Text>
+          </Pressable>
+        )}
       </View>
 
       <ScrollView
         contentContainerStyle={styles.body}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={tokens.accent} colors={[tokens.accent]} />}
       >
+        <ReadOnlyBanner />
+        {!readOnly && (
         <Pressable
           onPress={() => router.push({ pathname: '/account/recurring-suggestions', params: { kind: 'subscription' } })}
           style={[styles.findButton, { backgroundColor: tokens.card, borderColor: tokens.border }]}
@@ -62,6 +69,7 @@ export default function SubscriptionsScreen() {
             <Text style={[styles.findBody, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>Scan past expenses for services you already pay for</Text>
           </View>
         </Pressable>
+        )}
         <SubscriptionsPanel subscriptions={subscriptions} loading={isLoading} />
       </ScrollView>
     </View>

@@ -13,7 +13,7 @@ import { useUser, useUpdateUser } from '@/src/hooks/useUser'
 import { useRefresh } from '@/src/hooks/useRefresh'
 import type { UserProfile } from '@/src/api/account'
 import { isHidden } from '@/src/lib/features'
-import { useRecentExpenses } from '@/src/hooks/useExpenses'
+import { useOwnRecentExpenses } from '@/src/hooks/useHabitNudges'
 import { habitNudgesEnabled, setHabitNudgesEnabled } from '@/src/lib/habitNudges'
 
 const CADENCE_OPTIONS: { value: NonNullable<UserProfile['notifyCadence']>; label: string }[] = [
@@ -43,12 +43,12 @@ export default function NotificationsScreen() {
   const wrapped = user?.notifyWrapped ?? true
 
   // Device-local, unlike the switches above: habit nudges are scheduled on this phone.
-  const recent = useRecentExpenses()
+  const recent = useOwnRecentExpenses()
   const [habits, setHabits] = useState(true)
   useEffect(() => { habitNudgesEnabled().then(setHabits) }, [])
   const toggleHabits = (v: boolean) => {
     setHabits(v)
-    void setHabitNudgesEnabled(v, recent.data ?? [])
+    void setHabitNudgesEnabled(v, recent ?? [])
   }
 
   if (!online) return <OfflineScreen />

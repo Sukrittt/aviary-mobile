@@ -2,6 +2,7 @@ import { useCurrency } from '@/src/context/CurrencyContext'
 import { useMemo, useState } from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
+import { useReadOnly } from "@/src/components/budgets/ReadOnlyNotice";
 import { CaretRight } from "@/src/components/shared/icons";
 import Reanimated, {
   FadeIn,
@@ -302,6 +303,7 @@ function SubscriptionRowItem({
 export function SubscriptionsPanel({ subscriptions, loading }: Props) {
   const { tokens, space, type: t } = useTheme();
   const router = useRouter();
+  const { readOnly } = useReadOnly();
   const [cancelledExpanded, setCancelledExpanded] = useState(false);
 
   const rows = emptyForPreview(subscriptions);
@@ -382,7 +384,7 @@ export function SubscriptionsPanel({ subscriptions, loading }: Props) {
         subject="subscriptions"
         title="Keep tabs on your repeats"
         description="No subscriptions tracked yet."
-        action={{ label: "Add a subscription", onPress: () => openModal() }}
+        action={readOnly ? undefined : { label: "Add a subscription", onPress: () => openModal() }}
         style={{ marginTop: space.md }}
       />
     );

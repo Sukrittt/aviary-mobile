@@ -1,9 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister'
 import { defaultShouldDehydrateQuery, type Query } from '@tanstack/react-query'
+import type { Persister } from '@tanstack/react-query-persist-client'
 import * as Application from 'expo-application'
 import * as Updates from 'expo-updates'
 import { readEncrypted, writeEncrypted } from './encryptedStorage'
+import { budgetKeySuffix, restoreActiveBudget } from './activeBudget'
 
 // What a cold start paints from before the network answers. Screens still
 // refetch in the background (each hook's staleTime), so this is a fast first
@@ -21,6 +23,7 @@ const PERSISTED = new Set([
   'recurring-expenses',
   'category-map',
   'balance-check',
+  'spaces',
 ])
 
 export const PERSIST_MAX_AGE = 24 * 60 * 60_000
@@ -42,14 +45,46 @@ export function shouldPersistQuery(query: Query): boolean {
 
 // Expenses, budgets and holdings are financial data: sealed like the other
 // offline caches (see encryptedStorage). An unreadable snapshot reads as none.
-export const queryPersister = createAsyncStoragePersister({
-  key: 'rq-cache',
-  storage: {
-    getItem: (key) => readEncrypted<string>(key).catch(() => null),
-    setItem: (key, value) => writeEncrypted(key, value),
-    removeItem: (key) => AsyncStorage.removeItem(key),
+//
+// Query keys carry no budget, so each budget gets its own snapshot
+// (`rq-cache:<spaceId>`, plain `rq-cache` for the personal one) and a switch
+// swaps them (lib/budgetSwitch.ts). One persister per key: the library
+// throttles writes, so a save requested for budget A while the switch to B
+// is in flight must still land under A's key, not whichever is active when
+// the throttle fires. Reads wait for the last used budget so a cold start
+// restores the right one.
+const persisters = new Map<string, Persister>()
+function persisterFor(suffix: string): Persister {
+  let p = persisters.get(suffix)
+  if (!p) {
+    const key = `rq-cache${suffix}`
+    p = createAsyncStoragePersister({
+      key,
+      storage: {
+        getItem: () => readEncrypted<string>(key).catch(() => null),
+        setItem: (_, value) => writeEncrypted(key, value),
+        removeItem: () => AsyncStorage.removeItem(key),
+      },
+    })
+    persisters.set(suffix, p)
+  }
+  return p
+}
+
+export const queryPersister: Persister = {
+  persistClient: (client) => persisterFor(budgetKeySuffix()).persistClient(client),
+  restoreClient: async () => {
+    await restoreActiveBudget()
+    return persisterFor(budgetKeySuffix()).restoreClient()
   },
-})
+  removeClient: () => persisterFor(budgetKeySuffix()).removeClient(),
+}
+
+/** Sign-out: every budget's snapshot goes, not just the active one's. */
+export async function removeAllQuerySnapshots(): Promise<void> {
+  const keys = (await AsyncStorage.getAllKeys()).filter((k) => k === 'rq-cache' || k.startsWith('rq-cache:'))
+  await AsyncStorage.multiRemove(keys)
+}
 
 export const persistOptions = {
   persister: queryPersister,

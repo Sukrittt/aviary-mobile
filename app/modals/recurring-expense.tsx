@@ -25,6 +25,7 @@ import { CategoryPickerSheet } from '@/src/components/shared/CategoryPickerSheet
 import { splitEmoji } from '@/src/lib/emoji'
 import { CategoryIcon } from '@/src/components/shared/CategoryIcon'
 import { todayLocal } from '@/src/lib/date'
+import { withReadOnlyGate } from '@/src/components/budgets/ReadOnlyNotice'
 
 // House spring, reused from Modal.tsx's SHEET_TRANSITION — animates fields
 // sliding into place when a DatePicker above them opens/closes instead of snapping.
@@ -42,7 +43,7 @@ function str(v: string | string[] | undefined): string {
 }
 
 // Route-param driven, same as subscription.tsx: {id} → edit mode, no params → add.
-export default function RecurringExpenseModal() {
+function RecurringExpenseModal() {
   const { currencySymbol } = useCurrency()
 
   const { tokens } = useTheme()
@@ -164,7 +165,7 @@ export default function RecurringExpenseModal() {
     if (isEdit) {
       updateRecurring.mutate(
         { id, updates: fields },
-        { onSuccess, onError: () => Alert.alert("Couldn't save", 'Check your connection and try again.') },
+        { onSuccess, onError: () => Alert.alert("Couldn't save this recurring expense", 'Check your connection and try again.') },
       )
     } else {
       addRecurring.mutate(
@@ -174,7 +175,7 @@ export default function RecurringExpenseModal() {
             if (isReviewingSuggestion) acceptSuggestion(suggestionId)
             onSuccess()
           },
-          onError: () => Alert.alert("Couldn't add this", 'Check your connection and try again.'),
+          onError: () => Alert.alert("Couldn't add this recurring expense", 'Check your connection and try again.'),
         },
       )
     }
@@ -184,7 +185,7 @@ export default function RecurringExpenseModal() {
     const mutation = isActive ? pauseRecurring : resumeRecurring
     mutation.mutate(id, {
       onSuccess: () => setSaved(true),
-      onError: () => Alert.alert("Couldn't update this", 'Check your connection and try again.'),
+      onError: () => Alert.alert("Couldn't update this recurring expense", 'Check your connection and try again.'),
     })
   }
 
@@ -196,7 +197,7 @@ export default function RecurringExpenseModal() {
       },
       onError: () => {
         setConfirmSheet(null)
-        Alert.alert("Couldn't delete this", 'Check your connection and try again.')
+        Alert.alert("Couldn't delete this recurring expense", 'Check your connection and try again.')
       },
     })
   }
@@ -470,3 +471,5 @@ const styles = StyleSheet.create({
   sheetSaveButton: { flex: 1, minHeight: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center' },
   sheetSaveText: { fontSize: 14 },
 })
+
+export default withReadOnlyGate(RecurringExpenseModal)

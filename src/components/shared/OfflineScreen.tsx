@@ -9,7 +9,7 @@ import { fontFamily } from '@/src/theme/fonts'
 import { formatRelativeTime } from '@/src/lib/format'
 import { Button } from '@/src/components/ui/Button'
 import { LOG_EXPENSE_PATH } from '@/src/features/log-expense/SubmitContext'
-import { count as pendingCount } from '@/src/lib/pendingExpenses'
+import { useUnsyncedExpenses } from '@/src/hooks/useUnsyncedExpenses'
 import { readLastSynced } from '@/src/lib/netStatus'
 
 const RETRY_MS = 15_000
@@ -29,13 +29,12 @@ export function OfflineScreen() {
   const { tokens, space, radius } = useTheme()
   const insets = useSafeAreaInsets()
   const router = useRouter()
-  const [pending, setPending] = useState(0)
+  const { pending, failed } = useUnsyncedExpenses()
   const [lastSynced, setLastSynced] = useState<number | null>(null)
   const qc = useQueryClient()
   const retry = () => void qc.refetchQueries({ type: 'active' })
 
   useEffect(() => {
-    pendingCount().then(setPending)
     readLastSynced().then(setLastSynced)
   }, [])
 
@@ -72,6 +71,11 @@ export function OfflineScreen() {
       {pending > 0 && (
         <Text style={[styles.caption, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>
           {pending === 1 ? '1 expense waiting to sync' : `${pending} expenses waiting to sync`}
+        </Text>
+      )}
+      {failed.length > 0 && (
+        <Text style={[styles.caption, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>
+          {failed.length === 1 ? "1 expense couldn't be saved" : `${failed.length} expenses couldn't be saved`}
         </Text>
       )}
       {lastSynced != null && (

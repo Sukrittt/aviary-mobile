@@ -7,7 +7,7 @@ import { BirdLandingMark } from '@/src/components/splash/BirdLandingMark'
 import { Button } from '@/src/components/ui/Button'
 import { PopIn } from '@/src/components/shared/PopIn'
 import { useBillingStatus } from '@/src/hooks/useBillingStatus'
-import { formatDate } from '@/src/lib/billingStatus'
+import { formatDate, trialLengthDays } from '@/src/lib/billingStatus'
 
 /**
  * Shown once, right after budget setup finishes onboarding, so the trial's
@@ -44,7 +44,7 @@ export default function TrialNoticeScreen() {
 
         <PopIn play delay={80} style={{ gap: space.xs, alignItems: 'center' }}>
           <Text style={{ color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: type.title, textAlign: 'center' }}>
-            {"You're on the trial plan"}
+            {`Your first ${trialLengthDays(billing)} days, on us`}
           </Text>
           <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodySemiBold, fontSize: type.caption, textAlign: 'center', lineHeight: 20 }}>
             {billing?.trialEndsAt

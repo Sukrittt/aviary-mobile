@@ -10,6 +10,7 @@ import {
   type ViewStyle,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { useReadOnly } from "@/src/components/budgets/ReadOnlyNotice";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ArrowLeft, CaretRight, Plus, ArrowsClockwise } from "@/src/components/shared/icons";
 import Reanimated from "react-native-reanimated";
@@ -106,6 +107,7 @@ export default function RecurringExpensesScreen() {
   const router = useRouter();
   const { refreshing, onRefresh } = useRefresh();
   const recurringQ = useRecurringExpenses();
+  const { readOnly } = useReadOnly();
 
   const rows = emptyForPreview(recurringQ.data ?? []);
   const loading = !FORCE_EMPTY_STATE_PREVIEW && recurringQ.isLoading;
@@ -173,23 +175,25 @@ export default function RecurringExpensesScreen() {
               : `${active.length} active`}
           </Text>
         </View>
-        <Pressable
-          onPress={() => router.push("/modals/recurring-expense")}
-          style={[
-            styles.addButton,
-            { backgroundColor: tokens.card, borderColor: tokens.border },
-          ]}
-        >
-          <Icon icon={Plus} size={16} color={tokens.text} />
-          <Text
+        {!readOnly && (
+          <Pressable
+            onPress={() => router.push("/modals/recurring-expense")}
             style={[
-              styles.addText,
-              { color: tokens.text, fontFamily: fontFamily.bodySemiBold },
+              styles.addButton,
+              { backgroundColor: tokens.card, borderColor: tokens.border },
             ]}
           >
-            Add
-          </Text>
-        </Pressable>
+            <Icon icon={Plus} size={16} color={tokens.text} />
+            <Text
+              style={[
+                styles.addText,
+                { color: tokens.text, fontFamily: fontFamily.bodySemiBold },
+              ]}
+            >
+              Add
+            </Text>
+          </Pressable>
+        )}
       </View>
 
       <ScrollView
@@ -222,10 +226,10 @@ export default function RecurringExpensesScreen() {
               subject="recurring"
               title="Set it once, forget it"
               description="Rent, the gym, your phone bill. Add it here and we'll log it for you on every due date."
-              action={{ label: "Add a recurring expense", onPress: () => router.push("/modals/recurring-expense") }}
+              action={readOnly ? undefined : { label: "Add a recurring expense", onPress: () => router.push("/modals/recurring-expense") }}
               style={{ paddingVertical: 0 }}
             />
-            <FindRecurringEntry style={{ marginTop: 16, width: "100%" }} />
+            {!readOnly && <FindRecurringEntry style={{ marginTop: 16, width: "100%" }} />}
           </>
         ) : (
           <>
@@ -257,7 +261,7 @@ export default function RecurringExpensesScreen() {
               </View>
             )}
 
-            <FindRecurringEntry />
+            {!readOnly && <FindRecurringEntry />}
 
             {active.length > 0 ? (
               <Section title="Active">

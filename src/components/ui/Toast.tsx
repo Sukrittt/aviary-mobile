@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native'
+import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native'
 import Reanimated, {
   cancelAnimation,
   Easing,
@@ -44,11 +44,16 @@ export function Toast({
   trigger,
   icon: Icon,
   style,
+  action,
+  durationMs = VISIBLE_MS,
 }: {
   message: string
   trigger: number
   icon?: PhosphorIcon
   style?: StyleProp<ViewStyle>
+  /** A button on the pill, e.g. Undo. Tapping it hides the toast. */
+  action?: { label: string; onPress: () => void }
+  durationMs?: number
 }) {
   const { tokens, space, radius, type, elevation, motion } = useTheme()
   const reduceMotion = useReducedMotion()
@@ -95,10 +100,10 @@ export function Toast({
       bump.value = withSequence(withTiming(1.025, { duration: motion.fast }), withSpring(1, motion.springTight))
       badge.value = withSequence(withTiming(0.85, { duration: motion.fast }), withSpring(1, motion.springTight))
     }
-    const timer = setTimeout(() => setShown(false), VISIBLE_MS)
+    const timer = setTimeout(() => setShown(false), durationMs)
     return () => clearTimeout(timer)
     // Re-runs per trigger so a repeat tap wiggles and restarts the timer.
-  }, [shown, trigger, reduceMotion, progress, wiggle, bump, badge, motion])
+  }, [shown, trigger, reduceMotion, progress, wiggle, bump, badge, motion, durationMs])
 
   useEffect(() => () => {
     cancelAnimation(progress)
@@ -118,9 +123,9 @@ export function Toast({
   return (
     // Offscreen compositing fades the pill and its Android elevation shadow as
     // one layer; without it the shadow box lingers solid after the text fades.
-    <Reanimated.View pointerEvents="none" needsOffscreenAlphaCompositing style={[styles.wrap, style, animStyle]}>
+    <Reanimated.View pointerEvents={action && shown ? 'box-none' : 'none'} needsOffscreenAlphaCompositing style={[styles.wrap, style, animStyle]}>
       <View
-        accessible
+        accessible={!action}
         accessibilityRole="alert"
         accessibilityLiveRegion="polite"
         accessibilityElementsHidden={!shown}
@@ -151,6 +156,18 @@ export function Toast({
         >
           {text}
         </Text>
+        {action ? (
+          <Pressable
+            accessibilityRole="button"
+            hitSlop={8}
+            onPress={() => {
+              setShown(false)
+              action.onPress()
+            }}
+          >
+            <Text style={{ color: tokens.accent, fontFamily: fontFamily.bodyBold, fontSize: type.body }}>{action.label}</Text>
+          </Pressable>
+        ) : null}
       </View>
     </Reanimated.View>
   )

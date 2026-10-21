@@ -34,3 +34,11 @@ describe(`date-only strings in ${process.env.TZ}`, () => {
     expect(lastSpentLabel('2026-08-01')).toBe('1 Aug')
   })
 })
+
+describe(`join dates in ${process.env.TZ}`, () => {
+  it("names the day you joined where you are, not in UTC", () => {
+    const { joinedOn } = jest.requireActual('./budgetMembership')
+    // 20:00 UTC on the 19th is already the 20th in India.
+    expect(joinedOn('2026-10-19T20:00:00Z')).toBe(process.env.TZ === 'Asia/Kolkata' ? '20 Oct 2026' : '19 Oct 2026')
+  })
+})

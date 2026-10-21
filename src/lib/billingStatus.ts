@@ -14,6 +14,21 @@ export function isWebPlan(status: Pick<BillingStatus, 'store'> | undefined): boo
   return status?.store === 'web'
 }
 
+/**
+ * The trial's real length: early accounts got 45 days, and an admin can
+ * extend one. 30 when the dates aren't known. Mirrors Web's daysOnUs.
+ */
+export function trialLengthDays(status: Pick<BillingStatus, 'trialStartedAt' | 'trialEndsAt'> | undefined): number {
+  const start = Date.parse(status?.trialStartedAt ?? '')
+  const end = Date.parse(status?.trialEndsAt ?? '')
+  return Number.isFinite(start) && Number.isFinite(end) && end > start ? Math.round((end - start) / 86_400_000) : 30
+}
+
+/** "30 days on us", or 45, or however long this trial actually is. */
+export function daysOnUs(status: Pick<BillingStatus, 'trialStartedAt' | 'trialEndsAt'> | undefined): string {
+  return `${trialLengthDays(status)} days on us`
+}
+
 /** Reminder thresholds, in days remaining. Matches payment-subscriptions-plan.md. */
 export const REMINDER_DAYS = [7, 3, 1]
 
@@ -31,11 +46,22 @@ export const REMINDER_DAYS = [7, 3, 1]
  */
 export function accessAllowed(status: BillingStatus | undefined, now: number = Date.now()): boolean {
   if (!status) return true
+  // The open budget is someone else's, and their plan covers it.
+  if (status.covered) return true
   if (!status.allowed) return false
   if (!status.enforced) return true
   const knownEnd =
     status.mode === 'trial' ? status.trialEndsAt : status.mode === 'paid' && !status.autoRenew ? status.paidExpiresAt : null
   return !knownEnd || Date.parse(knownEnd) > now
+}
+
+/**
+ * No trial on the server means setup never finished. Not for a member of a
+ * budget someone else pays for: they joined from an invite and skip setup, so
+ * they never get a trial of their own.
+ */
+export function needsSetup(status: BillingStatus | undefined): boolean {
+  return status?.mode === 'setup_incomplete' && !status.allowed && !status.covered
 }
 
 /**
@@ -64,11 +90,11 @@ export function trialRemainingLabel(daysRemaining: number): string {
 export function planSummary(status: BillingStatus): string {
   switch (status.mode) {
     case 'trial':
-      return `Free trial · ${trialRemainingLabel(status.trialDaysRemaining)}`
+      return `${daysOnUs(status)} · ${trialRemainingLabel(status.trialDaysRemaining)}`
     case 'paid':
       if (status.renewalState === 'grace') return isWebPlan(status) ? 'Payment issue · retrying' : 'Payment issue · fix in Google Play'
       // Subscribed on the web mid-trial: nothing's charged until the trial ends.
-      if (status.renewalState === 'scheduled') return `Free trial · first charge ${formatDate(status.paidExpiresAt)}`
+      if (status.renewalState === 'scheduled') return `${daysOnUs(status)} · first charge ${formatDate(status.paidExpiresAt)}`
       return status.autoRenew ? `Renews ${formatDate(status.paidExpiresAt)}` : `Ends ${formatDate(status.paidExpiresAt)}`
     case 'expired':
       return status.trialEndsAt && !status.productId ? 'Trial ended' : 'Subscription ended'
@@ -101,7 +127,7 @@ export function lockedCopy(status: BillingStatus | undefined): { title: string; 
       return {
         // Keyed on "never bought", not mode: a trial that ran out while the app
         // was offline is still reported as mode 'trial' by the cached status.
-        title: status?.trialEndsAt && !status.productId ? 'Your free trial has ended' : 'Your subscription has ended',
+        title: status?.trialEndsAt && !status.productId ? `Your ${daysOnUs(status)} are up` : 'Your subscription has ended',
         body: 'Everything you logged is still here. Pick a plan to carry on.',
       }
   }

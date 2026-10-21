@@ -1,8 +1,12 @@
+import { AlertHost } from '@/src/components/ui/AlertHost'
 import { ExpenseWriteError } from '@/src/lib/expenseConflict'
-import { useState, type ReactNode } from 'react'
-import { act, fireEvent, waitFor } from '@testing-library/react-native'
+import { createContext, useContext, useState, type ReactNode } from 'react'
+import { act, fireEvent, waitFor, within } from '@testing-library/react-native'
+import { Image, StyleSheet } from 'react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import type { ExpensesPage, ExpensesPageParams } from '@/src/api/expenses'
+import AsyncStorage from '@react-native-async-storage/async-storage'
+import * as pending from '@/src/lib/pendingExpenses'
 import ActivityScreen from './activity'
 
 const mockUseExpensesPage = jest.fn()
@@ -27,6 +31,9 @@ jest.mock('@/src/hooks/useExpenses', () => ({
   useRecentExpenses: () => ({ data: mockRecent, isLoading: false, error: null }),
 }))
 
+const mockRestore = jest.fn()
+jest.mock('@/src/api/account', () => ({ ...jest.requireActual('@/src/api/account'), restoreArchivedItem: (...args: unknown[]) => mockRestore(...args) }))
+
 let mockIncomes: Record<string, unknown>[] = []
 jest.mock('@/src/hooks/useUser', () => ({ useUser: () => ({ data: mockUser }) }))
 let mockImporting = false
@@ -36,12 +43,18 @@ jest.mock('@/src/hooks/useAccounts', () => ({ useAccounts: () => ({ data: [] }),
 
 jest.mock('@/src/hooks/useCategories', () => ({
   useCategories: () => ({ data: [], isLoading: false, error: null }),
+  useCategoryTint: () => () => ({ bg: '#eee', ink: '#333' }),
 }))
 
 jest.mock('@/src/hooks/useGroups', () => ({
   useGroups: () => ({ data: [], isLoading: false, error: null }),
   useGroupIcons: () => new Map(),
 }))
+
+// One-person budget by default: who-logged-what stays out of the way.
+let mockSpaces: Record<string, unknown> = { budgets: [], active: null, multi: false }
+jest.mock('@/src/hooks/useBudgetSpaces', () => ({ useBudgetSpaces: () => mockSpaces }))
+jest.mock('@/src/api/accessMode', () => ({ ...jest.requireActual('@/src/api/accessMode'), currentUserId: () => 'u1' }))
 
 let mockOnline = true
 jest.mock('@/src/lib/netStatus', () => ({ useOnline: () => mockOnline, isOnline: () => mockOnline, readLastSynced: async () => null }))
@@ -109,6 +122,7 @@ beforeEach(() => {
   mockPush.mockReset()
   mockDuplicates = []
   mockOnline = true
+  mockSpaces = { budgets: [], active: null, multi: false }
 })
 
 it('shows duplicate review as a compact header action', () => {
@@ -234,7 +248,11 @@ it('pages through the Activity list via server-side pagination', () => {
 
 it('steps back to the new last page when its only row is deleted', () => {
   let pageCount = 3
+  // The screen is memoized, so the refetch reaches it the way react-query's
+  // does: through a subscription the hook reads, not a parent re-render.
+  const Refetched = createContext(0)
   mockUseExpensesPage.mockImplementation((params: ExpensesPageParams) => {
+    useContext(Refetched)
     if (params.limit === 1) return { data: pageResult({}), isLoading: false, error: null }
     const page = params.page
     return {
@@ -252,9 +270,9 @@ it('steps back to the new last page when its only row is deleted', () => {
 
   let refetch = () => {}
   function Harness() {
-    const [, setTick] = useState(0)
+    const [tick, setTick] = useState(0)
     refetch = () => setTick((n) => n + 1)
-    return <ActivityScreen />
+    return <Refetched.Provider value={tick}><ActivityScreen /></Refetched.Provider>
   }
   const { getByText, getByLabelText } = renderWithProviders(<Harness />)
   fireEvent.press(getByLabelText('Next page'))
@@ -280,18 +298,63 @@ jest.mock('@/src/components/activity/DeletingRow', () => ({
   },
 }))
 
-it.each([[409, 'This transaction was updated'], [404, 'This transaction is already deleted']])('opens a full-screen message on delete status %s', (status, title) => {
+// Taps a list row open into its detail page. Deleting from there closes the
+// page before handing off, so wait out its close.
+const rowRect = { currentTarget: { measureInWindow: (cb: (x: number, y: number, w: number, h: number) => void) => cb(0, 120, 390, 64) } }
+function openRow(screen: ReturnType<typeof renderWithProviders>, item: string) {
+  fireEvent.press(screen.getByText(item), rowRect)
+}
+async function deleteRow(screen: ReturnType<typeof renderWithProviders>, item: string) {
+  openRow(screen, item)
+  fireEvent.press(screen.getByLabelText('Delete'))
+  await act(() => new Promise((r) => setTimeout(r, 300)))
+}
+
+it.each([[409, 'This transaction was updated'], [404, 'This transaction is already deleted']])('opens a full-screen message on delete status %s', async (status, title) => {
   mockUseExpensesPage.mockReturnValue({ data: pageResult({}), isLoading: false, error: null })
   mockDelete.mockReset().mockImplementation((_params, options) => options.onError(new ExpenseWriteError(Number(status), 'Raw API error')))
   const screen = renderWithProviders(<ActivityScreen />)
-  fireEvent.press(screen.getByText('Item 1'))
-  fireEvent.press(screen.getByText('Delete'))
-  fireEvent.press(screen.getByText('Delete'))
+  await deleteRow(screen, 'Item 1')
   expect(screen.getByText(String(title))).toBeTruthy()
   expect(screen.queryByText('Raw API error')).toBeNull()
   fireEvent.press(screen.getByText('Back to transactions'))
   expect(screen.queryByText(String(title))).toBeNull()
   expect(mockDelete).toHaveBeenCalledTimes(1)
+})
+
+it('deletes without a confirm, then offers Undo that restores it from Archive', async () => {
+  mockUseExpensesPage.mockReturnValue({ data: pageResult({}), isLoading: false, error: null })
+  mockDelete.mockReset().mockImplementation((_params, options) => options.onSuccess())
+  mockRestore.mockReset().mockResolvedValue(undefined)
+  const screen = renderWithProviders(<ActivityScreen />)
+  await deleteRow(screen, 'Item 1')
+  expect(mockDelete).toHaveBeenCalledWith(expect.objectContaining({ id: 'row-1' }), expect.anything())
+  expect(screen.queryByText(/cannot be undone/)).toBeNull()
+  expect(screen.getByText('Deleted Item 1')).toBeTruthy()
+  fireEvent.press(screen.getByText('Undo'))
+  await waitFor(() => expect(mockRestore).toHaveBeenCalledWith('expenses', 'row-1'))
+})
+
+it('sends both deletes when a second starts while the first is still collapsing', async () => {
+  mockUseExpensesPage.mockReturnValue({ data: pageResult({ rows: [row(1, '2026-06-01'), row(2, '2026-06-02')], total: 2 }), isLoading: false, error: null })
+  mockDelete.mockReset()
+  const screen = renderWithProviders(<ActivityScreen />)
+  await deleteRow(screen, 'Item 1')
+  await deleteRow(screen, 'Item 2')
+  const ids = mockDelete.mock.calls.map(([vars]) => vars.id)
+  expect(ids.sort()).toEqual(['row-1', 'row-2'])
+})
+
+it('opens a tapped row into its detail page, with Edit handing off to the edit form', () => {
+  mockUseExpensesPage.mockReturnValue({ data: pageResult({}), isLoading: false, error: null })
+  mockPush.mockReset()
+  const screen = renderWithProviders(<ActivityScreen />)
+  openRow(screen, 'Item 1')
+  expect(screen.getByText('Category')).toBeTruthy()
+  expect(screen.getByLabelText('Close')).toBeTruthy()
+  fireEvent.press(screen.getByText('Edit'))
+  expect(mockPush).toHaveBeenCalledWith(expect.objectContaining({ pathname: '/modals/log-expense', params: expect.objectContaining({ id: 'row-1' }) }))
+  expect(screen.queryByText('Category')).toBeNull()
 })
 
 describe('multi-select delete', () => {
@@ -500,11 +563,124 @@ describe('feed view', () => {
     })
   })
 
-  it('deletes from the feed as soon as the delete is confirmed', () => {
+  it('deletes from the feed straight away, no confirm', () => {
     const screen = renderWithProviders(<ActivityScreen />)
     fireEvent(screen.getByLabelText('Item 1, Food. View details'), 'longPress')
     fireEvent.press(screen.getByText('Delete'))
-    fireEvent.press(screen.getAllByText('Delete').at(-1)!)
     expect(mockDelete).toHaveBeenCalledWith(expect.objectContaining({ id: 'row-1' }), expect.anything())
   })
+})
+
+describe('who logged what', () => {
+  const member = (userId: string, name: string, role: 'owner' | 'member') => ({ userId, name, avatarUrl: null, role, joinedAt: null })
+  const home = { id: 'sp_home', name: 'Home', emoji: '🏠', role: 'member', ownerId: 'u2', currencyCode: 'INR', personal: false, members: [member('u2', 'Priya', 'owner'), member('u1', 'Rahul', 'member')] }
+  const rows = [{ ...row(1, '2026-06-01'), created_by: null }, { ...row(2, '2026-06-01'), created_by: 'u1' }]
+
+  it('changes nothing in a one-person budget', () => {
+    mockUseExpensesPage.mockReturnValue({ data: pageResult({ rows, total: 2 }), isLoading: false, error: null })
+    const screen = renderWithProviders(<ActivityScreen />)
+    expect(screen.queryByText('Mine')).toBeNull()
+    expect(screen.queryByTestId('logged-by')).toBeNull()
+  })
+
+  it('marks each row with who logged it, and Mine keeps only yours', () => {
+    mockSpaces = { budgets: [home], active: home, multi: true }
+    mockUseExpensesPage.mockReturnValue({ data: pageResult({ rows, total: 2 }), isLoading: false, error: null })
+    const screen = renderWithProviders(<ActivityScreen />)
+    expect(screen.getByLabelText('Added by Priya')).toBeTruthy()
+    expect(screen.getByLabelText('Added by Rahul')).toBeTruthy()
+    // Everyone/Mine lives in the filter sheet, not on the page.
+    expect(screen.queryByText('Mine')).toBeNull()
+    fireEvent.press(screen.getByLabelText('Filter transactions'))
+    fireEvent.press(screen.getByText('Mine'))
+    expect(screen.queryByText('Item 1')).toBeNull()
+    expect(screen.getByText('Item 2')).toBeTruthy()
+    fireEvent.press(screen.getByLabelText('Remove Mine filter'))
+    expect(screen.getByText('Item 1')).toBeTruthy()
+  })
+
+  it('pins the face to the corner of the category icon, photo and all', () => {
+    const withPhoto = { ...home, members: [{ ...member('u2', 'Priya', 'owner'), avatarUrl: 'https://img/priya.png' }, member('u1', 'Rahul', 'member')] }
+    mockSpaces = { budgets: [withPhoto], active: withPhoto, multi: true }
+    mockUseExpensesPage.mockReturnValue({ data: pageResult({ rows, total: 2 }), isLoading: false, error: null })
+    const screen = renderWithProviders(<ActivityScreen />)
+    const priya = within(screen.getAllByTestId('row-icon')[0]).getByTestId('logged-by')
+    expect(StyleSheet.flatten(priya.props.style)).toMatchObject({ position: 'absolute' })
+    expect(screen.UNSAFE_getAllByType(Image).some((img) => img.props.source?.uri === 'https://img/priya.png')).toBe(true)
+  })
+
+  it('says who added it on the detail page', () => {
+    mockSpaces = { budgets: [home], active: home, multi: true }
+    mockUseExpensesPage.mockReturnValue({ data: pageResult({ rows, total: 2 }), isLoading: false, error: null })
+    const screen = renderWithProviders(<ActivityScreen />)
+    openRow(screen, 'Item 1')
+    expect(screen.getByText('Added by')).toBeTruthy()
+    expect(screen.getByText('Priya')).toBeTruthy()
+  })
+})
+
+describe('expenses that failed to sync', () => {
+  // The real queue (AsyncStorage is mocked in jest.setup.js), so this goes
+  // through the same failed list the drain writes to.
+  async function failOne(clientId: string) {
+    await pending.enqueue({ client_id: clientId, item: 'Chai', amount_inr: '20', category: 'Food', date: '2026-06-01', timestamp: '2026-06-01T10:00:00' }, 'u1', false, 'u1')
+    await pending.bumpAttempts(clientId, 1, 'u1')
+  }
+
+  beforeEach(async () => {
+    await AsyncStorage.clear()
+    mockUseExpensesPage.mockReturnValue({ data: pageResult({}), isLoading: false, error: null })
+  })
+
+  it('shows a row for them that opens the entry in Log Expense', async () => {
+    await failOne('c1')
+    await failOne('c2')
+    const screen = renderWithProviders(<ActivityScreen />)
+
+    fireEvent.press(await screen.findByText("2 expenses couldn't be saved"))
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/modals/log-expense',
+      params: expect.objectContaining({ failedClientId: 'c1', item: 'Chai', amountInr: '20', category: 'Food' }),
+    })
+  })
+
+  it('says nothing when none failed', async () => {
+    const screen = renderWithProviders(<ActivityScreen />)
+    await act(async () => {})
+    expect(screen.queryByText(/couldn't be saved/)).toBeNull()
+  })
+})
+
+describe('sync status while online', () => {
+  beforeEach(async () => {
+    await AsyncStorage.clear()
+    mockUseExpensesPage.mockReturnValue({ data: pageResult({}), isLoading: false, error: null })
+  })
+
+  it('shows how many are still syncing, and drops it once the queue drains', async () => {
+    const queued = (id: string) => ({ client_id: id, item: 'Chai', amount_inr: '20', category: 'Food', date: '2026-06-01', timestamp: '2026-06-01T10:00:00' })
+    await pending.enqueue(queued('c1'), 'u1', false, 'u1')
+    await pending.enqueue(queued('c2'), 'u1', false, 'u1')
+    const screen = renderWithProviders(<ActivityScreen />)
+    expect(await screen.findByText('Syncing 2…')).toBeTruthy()
+
+    await act(async () => {
+      await pending.remove('c1', 'u1')
+      await pending.remove('c2', 'u1')
+    })
+    await waitFor(() => expect(screen.queryByText(/Syncing/)).toBeNull())
+  })
+})
+
+it('in a read-only budget, shows the banner and says why instead of deleting', async () => {
+  const owner = { userId: 'u2', name: 'Priya Shah', avatarUrl: null, role: 'owner', joinedAt: null }
+  const studio = { id: 'sp_studio', name: 'Studio', emoji: '', role: 'member', ownerId: 'u2', currencyCode: 'INR', personal: false, members: [owner], readOnly: true }
+  mockSpaces = { budgets: [studio], active: studio, multi: false }
+  mockUseExpensesPage.mockReturnValue({ data: pageResult({}), isLoading: false, error: null })
+  mockDelete.mockReset()
+  const screen = renderWithProviders(<><AlertHost /><ActivityScreen /></>)
+  expect(screen.getByTestId('read-only-banner')).toBeTruthy()
+  await deleteRow(screen, 'Item 1')
+  expect(mockDelete).not.toHaveBeenCalled()
+  expect(screen.getByText('This budget is read-only')).toBeTruthy()
 })

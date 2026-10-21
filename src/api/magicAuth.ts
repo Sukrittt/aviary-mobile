@@ -21,21 +21,21 @@ export async function sendMagicAuthCode(email: string): Promise<boolean> {
   return resp.ok
 }
 
-/** Verifies the code and, on success, stores the resulting session. Resolves
- * false for a wrong code; throws on a transport failure, like send. */
-export async function verifyMagicAuthCode(email: string, code: string): Promise<boolean> {
+/** Verifies the code. Resolves null for a wrong code; throws on a transport
+ * failure, like send. On success resolves a function that stores the session,
+ * so the screen can play its success animation before the guards take over. */
+export async function verifyMagicAuthCode(email: string, code: string): Promise<(() => Promise<void>) | null> {
   const resp = await fetch(`${BASE_URL}/api/auth/magic-auth/verify`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, code, device: deviceLabel() }),
     signal: AbortSignal.timeout(TIMEOUT_MS),
   })
-  if (!resp.ok) return false
+  if (!resp.ok) return null
 
   const { accessToken, refreshToken } = (await resp.json()) as {
     accessToken: string
     refreshToken: string
   }
-  await persistSession({ accessToken, refreshToken, expiresAt: tokenExpiry(accessToken) })
-  return true
+  return () => persistSession({ accessToken, refreshToken, expiresAt: tokenExpiry(accessToken) })
 }

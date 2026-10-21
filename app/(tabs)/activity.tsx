@@ -1,3 +1,10 @@
+import { MoveExpenseSheet } from "@/src/components/budgets/MoveExpenseSheet";
+import { useBudgetSpaces } from "@/src/hooks/useBudgetSpaces";
+import { ReadOnlyBanner } from "@/src/components/budgets/ReadOnlyBanner";
+import { useReadOnly } from "@/src/components/budgets/ReadOnlyNotice";
+import { Avatar } from "@/src/components/budgets/MemberAvatars";
+import { firstName, loggedBy, onlyMine } from "@/src/lib/budgetMembership";
+import { currentUserId } from "@/src/api/accessMode";
 import { ExpenseNoticeScreen } from '@/src/features/log-expense/ExpenseNoticeScreen';
 import { useIncomes } from "@/src/hooks/useIncomes";
 import { liveAccounts, useAccounts } from "@/src/hooks/useAccounts";
@@ -5,7 +12,7 @@ import { AccountChips, accountName } from "@/src/components/shared/AccountChips"
 import { incomesForPage, periodEnd } from "@/src/lib/incomeActivity";
 import { ExpenseWriteError } from '@/src/lib/expenseConflict';
 import { useCurrency } from '@/src/context/CurrencyContext'
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -19,9 +26,11 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useRouter, useLocalSearchParams, useFocusEffect, type Href } from "expo-router";
 import * as Haptics from "expo-haptics";
 import { tap } from "@/src/lib/haptics";
-import { AnimatedPressable, usePressSpring } from "@/src/components/ui/Button";
-import { CaretLeft, CaretRight, Images, MoneyWavy, Rows, SlidersHorizontal, Trash, X } from "@/src/components/shared/icons";
+import { AnimatedPressable, IconButton, usePressSpring } from "@/src/components/ui/Button";
+import { CaretLeft, CaretRight, Images, MoneyWavy, Rows, SlidersHorizontal, Trash, WarningCircle, X } from "@/src/components/shared/icons";
 import { ActivityFeed } from "@/src/components/activity/ActivityFeed";
+import { TransactionDetail, type CardRect } from "@/src/components/activity/TransactionDetail";
+import { stablePhotoUrl } from "@/src/lib/activityFeed";
 import { useActivityView, useFeedOn } from "@/src/hooks/useActivityView";
 import { useFeedTip } from "@/src/hooks/useFeedTip";
 import { CaptureTipBubble } from "@/src/features/log-expense/CaptureTipBubble";
@@ -30,13 +39,12 @@ import { track } from "@/src/lib/analytics";
 import Reanimated, { FadeIn, FadeOut, LinearTransition } from "react-native-reanimated";
 import { Screen } from "@/src/components/ui/Screen";
 import { Chip } from "@/src/components/ui/Chip";
-import { IconButton } from "@/src/components/ui/Button";
 import { Icon } from "@/src/components/shared/Icon";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { usePrivacy } from "@/src/context/PrivacyContext";
 import { fontFamily } from "@/src/theme/fonts";
 
-import { categoryTint, splitEmoji } from "@/src/lib/emoji";
+import { splitEmoji } from "@/src/lib/emoji";
 import { CategoryIcon } from "@/src/components/shared/CategoryIcon";
 import {
   useExpensesPage,
@@ -44,7 +52,7 @@ import {
   useDuplicates,
   prefetchExpensesPage,
 } from "@/src/hooks/useExpenses";
-import { useCategories } from "@/src/hooks/useCategories";
+import { useCategories, useCategoryTint } from "@/src/hooks/useCategories";
 import { CategoryPickerSheet } from "@/src/components/shared/CategoryPickerSheet";
 import { BottomSheet } from "@/src/components/shared/Modal";
 import { DatePicker, type DateRange } from "@/src/components/shared/DatePicker";
@@ -59,6 +67,11 @@ import { EmptyState } from "@/src/components/shared/EmptyState";
 import type { ExpenseRow, IncomeRow } from "@/src/types";
 import { formatDayLabel, parseLocalDate, toLocalDateString } from "@/src/lib/date";
 import { useOnline } from "@/src/lib/netStatus";
+import { restoreArchivedItem } from "@/src/api/account";
+import { Alert } from "@/src/components/ui/AlertHost";
+import { Toast } from "@/src/components/ui/Toast";
+import { useUnsyncedExpenses } from "@/src/hooks/useUnsyncedExpenses";
+import { LOG_EXPENSE_PATH } from "@/src/features/log-expense/SubmitContext";
 import { EMPTY } from "@/src/lib/constants";
 import { useImportInProgress } from '@/src/components/home/ImportBanner'
 import { FORCE_EMPTY_STATE_PREVIEW, emptyForPreview } from "@/src/lib/emptyStatePreview";
@@ -99,16 +112,18 @@ function keyOf(t: ExpenseRow): string {
   return t.id || `t-${t.timestamp}-${t.item}`;
 }
 
-export default function ActivityScreen() {
+function ActivityScreen() {
   const { formatCurrency } = useCurrency()
 
   const { tokens, scheme, space } = useTheme();
+  const tintOf = useCategoryTint();
   const insets = useSafeAreaInsets();
   const categoryRowPress = usePressSpring();
   const { refreshing, onRefresh } = useRefresh();
   const { hideAmounts } = usePrivacy();
   const router = useRouter();
   const online = useOnline();
+  const unsynced = useUnsyncedExpenses();
 
   const categoriesQ = useCategories();
   const categoryByName = useMemo(
@@ -173,12 +188,25 @@ export default function ActivityScreen() {
   // Row supports swipe-left (delete) / swipe-right (edit) via SwipeableRow;
   // tap still opens this Edit/Delete action sheet as a non-swipe fallback.
   const [sheetTxn, setSheetTxn] = useState<ExpenseRow | null>(null);
-  const [deleteTxn, setDeleteTxn] = useState<ExpenseRow | null>(null);
-  // Set once the confirm sheet's Delete is tapped; drives the row's collapse
+  // "Move to another budget", offered only with 2+ budgets.
+  const [moveTxn, setMoveTxn] = useState<ExpenseRow | null>(null);
+  // List view's tapped row, opened into the same detail page as a feed card.
+  const [detail, setDetail] = useState<{ txn: ExpenseRow; rect: CardRect } | null>(null);
+  const { multi: multiBudget, active: activeBudget } = useBudgetSpaces();
+  const { readOnly, blocked } = useReadOnly();
+  // Who logged what: only in a budget with 2+ people. One person, no change.
+  const shared = (activeBudget?.members.length ?? 0) > 1;
+  const [mineOnly, setMineOnly] = useState(false);
+  // Deleted rows go to Archive, so a delete needs no confirm: Undo restores it.
+  const [undoToast, setUndoToast] = useState<{ n: number; txn: ExpenseRow | null }>({ n: 0, txn: null });
+  // Set once Delete is tapped; drives the row's collapse
   // animation in DeletingRow. The actual mutate() call is deferred until that
   // animation finishes (see its onDone), so the refetch-driven removal never
   // pops a still-visible row.
   const [pendingDelete, setPendingDelete] = useState<ExpenseRow | null>(null);
+  // pendingDelete stays set after its request goes (until the refetch drops
+  // the row), so this says whether it was already sent.
+  const [sentDeleteRef] = useState<{ current: string | null }>(() => ({ current: null }));
   // Multi-select: a long-press starts it, and clearing the last row ends it.
   const [selectedKeys, setSelectedKeys] = useState<ReadonlySet<string>>(() => new Set());
   const selecting = selectedKeys.size > 0;
@@ -213,7 +241,8 @@ export default function ActivityScreen() {
   }, [customRange, period, selectedDate]);
   const categoryFilterLabel = selectedCategory ? splitEmoji(selectedCategory).text : null;
   const accountFilterLabel = selectedAccount ? accountName(accountsQ.data, selectedAccount) || "Account" : null;
-  const hasActiveFilters = Boolean(timeFilterLabel || categoryFilterLabel || accountFilterLabel);
+  const mineFilterOn = shared && !feedView && mineOnly;
+  const hasActiveFilters = Boolean(timeFilterLabel || categoryFilterLabel || accountFilterLabel || mineFilterOn);
   const importing = useImportInProgress();
 
   const clearTimeFilter = useCallback(() => {
@@ -226,6 +255,7 @@ export default function ActivityScreen() {
     clearTimeFilter();
     setSelectedCategory("");
     setSelectedAccount("");
+    setMineOnly(false);
   }, [clearTimeFilter]);
   // Currently swiped-open row's close/reset fns + key — snapped shut on blur so the
   // edit/delete panel is never left revealed when the user returns to this tab. Blur uses
@@ -295,9 +325,11 @@ export default function ActivityScreen() {
   // Where this page's income starts: the oldest date on the page before it
   // (src/lib/incomeActivity.ts). Already cached from visiting that page.
   const prevPageQ = useExpensesPage({ ...pageParams, page: Math.max(1, page - 1) });
-  const filtered = emptyForPreview(expensesQ.data?.rows ?? EMPTY).filter(
+  const pageExpenses = emptyForPreview(expensesQ.data?.rows ?? EMPTY).filter(
     (t) => !removedKeys.has(keyOf(t)),
   );
+  // ponytail: Mine filters the loaded page client-side, so totals and page counts stay everyone's. Server filter if that confuses.
+  const filtered = shared && mineOnly ? onlyMine(pageExpenses, activeBudget, currentUserId()) : pageExpenses;
   const selectedTxns = filtered.filter((t) => selectedKeys.has(keyOf(t)));
   // keepPreviousData shows the old page's rows while the new one loads; they
   // aren't what the filter asked for, so nothing gets picked or deleted then.
@@ -324,6 +356,21 @@ export default function ActivityScreen() {
           account: selectedAccount || undefined,
         });
   const listItems = mergeByDate(filtered, visibleIncomes);
+  // The feed pages on its own, so it gets every matching income and places
+  // each by the dates it has loaded.
+  const feedIncomes =
+    selectedCategory || FORCE_EMPTY_STATE_PREVIEW
+      ? EMPTY
+      : incomesForPage(incomesQ.data ?? [], {
+          from: from ?? "0000-01-01",
+          to: to && !selectedDate ? periodEnd(period, to) : to ?? "9999-12-31",
+          pageMin: null,
+          prevPageMin: null,
+          page: 1,
+          isLastPage: true,
+          q: search,
+          account: selectedAccount || undefined,
+        });
   // ponytail: with search + period "all" + no category, the server can't
   // filter item/notes in Mongo (they're encrypted) and falls back to an
   // unbounded JS scan for that one combo — same as this screen's own
@@ -409,11 +456,22 @@ export default function ActivityScreen() {
 
   function confirmDelete(t: ExpenseRow) {
     setSheetTxn(null);
-    setDeleteTxn(t);
+    if (blocked()) return;
+    // One row collapses at a time. A delete still mid-collapse is sent now,
+    // or swapping the target would quietly cancel it.
+    if (pendingDelete && keyOf(pendingDelete) !== keyOf(t) && sentDeleteRef.current !== keyOf(pendingDelete)) runDelete(pendingDelete);
+    setPendingDelete(t);
+  }
+
+  function undoDelete(id: string) {
+    setPendingDelete((p) => (p?.id === id ? null : p));
+    restoreArchivedItem("expenses", id)
+      .then(() => qc.invalidateQueries())
+      .catch(() => Alert.alert("Couldn't restore this", "You can still restore it from Archive."));
   }
 
   function runDelete(t: ExpenseRow) {
-    setDeleteTxn(null);
+    sentDeleteRef.current = keyOf(t);
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(
       () => {},
     );
@@ -428,8 +486,9 @@ export default function ActivityScreen() {
       // Left set on success so the row stays collapsed until the refetch drops
       // it — clearing it here springs the row back to full height for a whole
       // round trip. On failure the row does come back, which is the signal.
-      { onError: (err) => {
-        setPendingDelete(null);
+      { onSuccess: () => setUndoToast((u) => ({ n: u.n + 1, txn: t })),
+        onError: (err) => {
+        setPendingDelete((p) => (p && keyOf(p) === keyOf(t) ? null : p));
         setDeleteNotice({ status: err instanceof ExpenseWriteError ? err.status : undefined });
       } },
     );
@@ -535,12 +594,51 @@ export default function ActivityScreen() {
       description={hasActiveFilters || search.trim() ? "No transactions for this filter." : "Log your first expense. We'll keep the little details here."}
       action={hasActiveFilters || search.trim()
         ? { label: "Clear filters", onPress: () => { clearAllFilters(); setSearch(""); } }
-        : { label: "Log an expense", onPress: () => router.push("/modals/log-expense") }}
+        : readOnly ? undefined : { label: "Log an expense", onPress: () => router.push("/modals/log-expense") }}
     />
   );
   // Search and filters, shared by both views.
+  // Given up on by the sync, so it's nowhere else in Activity. Stays until the
+  // user retries or discards it: never dropped on their behalf.
+  const firstFailed = unsynced.failed[0]?.payload;
+  const failedRow = firstFailed ? (
+    <Pressable
+      accessibilityRole="button"
+      onPress={() => {
+        tap();
+        router.push({
+          pathname: LOG_EXPENSE_PATH,
+          params: {
+            failedClientId: firstFailed.client_id,
+            item: firstFailed.item,
+            amountInr: firstFailed.amount_inr,
+            category: firstFailed.category,
+            date: firstFailed.date,
+            notes: firstFailed.notes ?? "",
+            paymentMethod: firstFailed.payment_method ?? "",
+            ...(firstFailed.account_id ? { accountId: firstFailed.account_id } : {}),
+          },
+        });
+      }}
+      style={[styles.row, styles.failedRow, { backgroundColor: tokens.coralSoft, marginBottom: space.md }]}
+    >
+      <Icon icon={WarningCircle} size={20} color={tokens.coral} />
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text style={[styles.rowItem, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>
+          {unsynced.failed.length === 1 ? "1 expense couldn't be saved" : `${unsynced.failed.length} expenses couldn't be saved`}
+        </Text>
+        <Text style={[styles.rowMeta, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
+          Tap to fix it and try again, or discard it.
+        </Text>
+      </View>
+      <Icon icon={CaretRight} size={16} color={tokens.text3} />
+    </Pressable>
+  ) : null;
+
   const controls = (
     <>
+      {readOnly && <View style={styles.readOnly}><ReadOnlyBanner /></View>}
+      {failedRow}
       <View style={styles.searchRow}>
         <TextInput
           value={search}
@@ -563,7 +661,6 @@ export default function ActivityScreen() {
           onPress={() => setCategorySheetOpen(true)}
         />
       </View>
-
       {hasActiveFilters ? (
         <Reanimated.View
           entering={FadeIn.duration(150)}
@@ -623,11 +720,21 @@ export default function ActivityScreen() {
                 onRemove={() => setSelectedAccount("")}
               />
             ) : null}
+            {mineFilterOn ? (
+              <AppliedFilterChip
+                label="Mine"
+                accessibilityLabel="Remove Mine filter"
+                onRemove={() => setMineOnly(false)}
+              />
+            ) : null}
           </Reanimated.View>
         </Reanimated.View>
       ) : null}
     </>
   );
+
+  // A row still in the offline queue has no server copy, so nothing in Archive to bring back.
+  const undoId = undoToast.txn?.id;
 
   return (
     <>
@@ -650,7 +757,7 @@ export default function ActivityScreen() {
                 color={tokens.coral}
                 accessibilityLabel="Delete selected"
                 onPress={() => {
-                  if (!selectionLocked && selectedTxns.length) setConfirmBulk(true);
+                  if (!selectionLocked && selectedTxns.length && !blocked()) setConfirmBulk(true);
                 }}
               />
               <IconButton
@@ -663,6 +770,12 @@ export default function ActivityScreen() {
             </>
           ) : (
             <>
+              {/* Quiet on purpose: the queue drains itself, this only says it's on it. */}
+              {unsynced.pending > 0 && (
+                <Text style={[styles.syncing, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>
+                  Syncing {unsynced.pending}…
+                </Text>
+              )}
               {duplicateCount > 0 && (
                 <Chip
                   selected
@@ -697,6 +810,8 @@ export default function ActivityScreen() {
         {feedView ? (
           <ActivityFeed
             params={feedParams}
+            incomes={feedIncomes}
+            onOpenIncome={() => router.push("/account/income")}
             header={controls}
             empty={emptyState}
             categoryByName={categoryByName}
@@ -747,23 +862,32 @@ export default function ActivityScreen() {
                 );
               }
               const txn = entry.txn;
-              const tint = categoryTint(txn.category, tokens);
+              const tint = tintOf(txn.category);
               const cat = categoryByName.get(txn.category);
               const isSelected = selectedKeys.has(keyOf(txn));
+              const who = shared ? loggedBy(txn, activeBudget) : undefined;
               const content = (
                 <Pressable
-                  onPress={() => (selecting ? toggleSelected(txn) : setSheetTxn(txn))}
+                  onPress={(e) => {
+                    if (selecting) return toggleSelected(txn);
+                    e.currentTarget.measureInWindow((x, y, width, height) => setDetail({ txn, rect: { x, y, width, height } }));
+                  }}
                   onLongPress={() => {
                     if (!selecting) toggleSelected(txn);
                   }}
                   disabled={selectionLocked}
                   accessibilityState={selecting ? { selected: isSelected } : undefined}
-                  style={[styles.row, { backgroundColor: tokens.bg }]}
+                  style={[styles.row, { backgroundColor: tokens.bg, opacity: detail && keyOf(detail.txn) === keyOf(txn) ? 0 : 1 }]}
                 >
                   <SelectTint selected={isSelected} style={styles.rowTint} />
                   <SelectCheck selecting={selecting} selected={isSelected} gap={ROW_GAP} inset={SELECT_INSET} />
-                  <View style={[styles.icon, { backgroundColor: tint.bg }]}>
+                  <View testID="row-icon" style={[styles.icon, { backgroundColor: tint.bg }]}>
                     <CategoryIcon name={txn.category} icon={cat?.icon} group={cat?.group} size={16} color={tint.ink} />
+                    {who ? (
+                      <View testID="logged-by" accessibilityLabel={`Added by ${firstName(who.name) ?? "someone"}`} style={styles.loggedBy}>
+                        <Avatar name={who.name} avatarUrl={who.avatarUrl} size={20} />
+                      </View>
+                    ) : null}
                   </View>
                   <View style={{ flex: 1, minWidth: 0 }}>
                     <Text
@@ -916,6 +1040,25 @@ export default function ActivityScreen() {
         </>
         )}
 
+        {detail && (
+          <TransactionDetail
+            txn={detail.txn}
+            from={detail.rect}
+            photoUri={detail.txn.photo_url ? stablePhotoUrl(detail.txn.photo_url) : null}
+            category={categoryByName.get(detail.txn.category)}
+            account={accountName(accountsQ.data, detail.txn.account_id)}
+            addedBy={shared ? addedByName(loggedBy(detail.txn, activeBudget)) : undefined}
+            onClosed={() => setDetail(null)}
+            onEdit={(t) => {
+              setDetail(null);
+              openEdit(t);
+            }}
+            onDelete={confirmDelete}
+          />
+        )}
+
+        <MoveExpenseSheet expense={moveTxn} onClose={() => setMoveTxn(null)} />
+
         <BottomSheet
           visible={sheetTxn !== null}
           onClose={() => setSheetTxn(null)}
@@ -929,11 +1072,26 @@ export default function ActivityScreen() {
           >
             {sheetTxn?.item}
           </Text>
+          {shared && sheetTxn ? (
+            <Text style={[styles.addedBy, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>
+              {addedByLabel(loggedBy(sheetTxn, activeBudget))}
+            </Text>
+          ) : null}
           <SheetOption
             label="Edit"
             color={tokens.text}
             onPress={() => sheetTxn && openEdit(sheetTxn)}
           />
+          {multiBudget && sheetTxn?.id ? (
+            <SheetOption
+              label="Move to another budget"
+              color={tokens.text}
+              onPress={() => {
+                setSheetTxn(null);
+                if (!blocked()) setMoveTxn(sheetTxn);
+              }}
+            />
+          ) : null}
           <SheetOption
             label="Delete"
             color={tokens.coral}
@@ -943,43 +1101,6 @@ export default function ActivityScreen() {
             label="Cancel"
             color={tokens.text2}
             onPress={() => setSheetTxn(null)}
-          />
-        </BottomSheet>
-
-        <BottomSheet
-          visible={deleteTxn !== null}
-          onClose={() => setDeleteTxn(null)}
-        >
-          <Text
-            style={[
-              styles.confirmTitle,
-              { color: tokens.text, fontFamily: fontFamily.displaySemiBold },
-            ]}
-          >
-            Delete transaction
-          </Text>
-          <Text
-            style={[
-              styles.confirmBody,
-              { color: tokens.text2, fontFamily: fontFamily.bodyMedium },
-            ]}
-            numberOfLines={2}
-          >
-            Remove &quot;{deleteTxn?.item}&quot;? This cannot be undone.
-          </Text>
-          <SheetOption
-            label="Delete"
-            color={tokens.coral}
-            onPress={() => {
-              if (!deleteTxn) return;
-              setPendingDelete(deleteTxn);
-              setDeleteTxn(null);
-            }}
-          />
-          <SheetOption
-            label="Cancel"
-            color={tokens.text2}
-            onPress={() => setDeleteTxn(null)}
           />
         </BottomSheet>
 
@@ -1104,6 +1225,12 @@ export default function ActivityScreen() {
               />
             </View>
           )}
+          {shared && !feedView && (
+            <View style={[styles.accountFilter, styles.whoRow, { borderTopColor: tokens.border }]}>
+              <Chip label="Everyone" selected={!mineOnly} onPress={() => setMineOnly(false)} />
+              <Chip label="Mine" selected={mineOnly} onPress={() => setMineOnly(true)} />
+            </View>
+          )}
         </BottomSheet>
 
         <CategoryPickerSheet
@@ -1130,6 +1257,14 @@ export default function ActivityScreen() {
           onDismiss={() => feedTip.close("dismiss")}
         />
       )}
+      <Toast
+        trigger={undoToast.n}
+        message={undoToast.txn ? `Deleted ${undoToast.txn.item}` : ""}
+        icon={Trash}
+        durationMs={5000}
+        action={undoId ? { label: "Undo", onPress: () => undoDelete(undoId) } : undefined}
+        style={{ top: insets.top + 12 }}
+      />
     </>
   );
 }
@@ -1175,6 +1310,14 @@ function AppliedFilterChip({
   );
 }
 
+function addedByName(who: { userId: string; name: string | null } | undefined): string {
+  return who?.userId === currentUserId() ? "you" : firstName(who?.name) ?? "someone";
+}
+
+function addedByLabel(who: { userId: string; name: string | null } | undefined): string {
+  return `Added by ${addedByName(who)}`;
+}
+
 function SheetOption({
   label,
   color,
@@ -1215,6 +1358,7 @@ function mergeByDate(expenses: ExpenseRow[], incomes: IncomeRow[]): ListItem[] {
 const styles = StyleSheet.create({
   accountFilter: { borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 14, marginTop: 4 },
   scrollContent: { gap: 4 },
+  readOnly: { marginBottom: 8 },
   scrollContentGrow: { flexGrow: 1 },
   searchRow: {
     flexDirection: "row",
@@ -1307,6 +1451,8 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
   },
   rowTint: { borderRadius: 14 },
+  failedRow: { borderRadius: 14, paddingHorizontal: 14 },
+  syncing: { fontSize: 12, alignSelf: "center" },
   icon: {
     width: 40,
     height: 40,
@@ -1314,6 +1460,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  // Matches web's .txn-author: the face sits on the icon's corner, so the amounts stay in one column.
+  loggedBy: { position: "absolute", right: -6, bottom: -6 },
   rowItem: { fontSize: 15 },
   rowMeta: { fontSize: 12, marginTop: 2 },
   rowAmount: { fontSize: 15 },
@@ -1323,6 +1471,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     paddingTop: 4,
   },
+  whoRow: { flexDirection: "row", gap: 8 },
+  addedBy: { fontSize: 12, marginTop: -4, marginBottom: 8 },
   sheetTitle: {
     fontSize: 12,
     textTransform: "uppercase",
@@ -1335,3 +1485,7 @@ const styles = StyleSheet.create({
   sheetOption: { paddingVertical: 14, alignItems: "center" },
   sheetOptionText: { fontSize: 16 },
 });
+
+// memo: expo-router re-renders a tab's screen on every focus change with a
+// fresh props object, and a full ActivityScreen render held up each tab switch.
+export default memo(ActivityScreen);

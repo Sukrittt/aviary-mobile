@@ -1,16 +1,17 @@
+import { useCategoryTint } from '@/src/hooks/useCategories'
 import { useEffect, useRef, useState } from 'react'
 import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native'
 import Animated, { Easing, interpolate, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import * as Haptics from 'expo-haptics'
-import { Bank, CalendarBlank, Clock, PencilSimple, Tag, Trash, X } from '@/src/components/shared/icons'
+import { Bank, CalendarBlank, Clock, PencilSimple, Tag, Trash, User, X } from '@/src/components/shared/icons'
 import { CategoryIcon } from '@/src/components/shared/CategoryIcon'
 import { Button } from '@/src/components/ui/Button'
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { usePrivacy } from '@/src/context/PrivacyContext'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
-import { categoryTint, splitEmoji } from '@/src/lib/emoji'
+import { splitEmoji } from '@/src/lib/emoji'
 import { formatTime, parseLocalDate, toLocalDateString } from '@/src/lib/date'
 import type { CategoryRow, ExpenseRow } from '@/src/types'
 import type { PhosphorIcon } from '@/src/components/shared/icons'
@@ -27,24 +28,27 @@ const CLOSE_MS = 260
  * them. Closing shrinks it back into the card. Delete closes first and hands
  * off, so the card's collapse plays where the user can see it.
  */
-export function TransactionDetail({ txn, from, photoUri, category, account, onClosed, onEdit, onDelete }: {
+export function TransactionDetail({ txn, from, photoUri, category, account, addedBy, onClosed, onEdit, onDelete }: {
   txn: ExpenseRow
   from: CardRect
   photoUri: string | null
   category?: CategoryRow
   /** The account's name, '' when the expense has none. */
   account: string
+  /** Who logged it, in a shared budget: "you" or their first name. */
+  addedBy?: string
   /** The page is gone; drop it. */
   onClosed: () => void
   onEdit: (txn: ExpenseRow) => void
   onDelete: (txn: ExpenseRow) => void
 }) {
   const { tokens, space, radius } = useTheme()
+  const tintOf = useCategoryTint()
   const { hideAmounts } = usePrivacy()
   const { formatCurrency } = useCurrency()
   const insets = useSafeAreaInsets()
   const { width: screenW, height: screenH } = useWindowDimensions()
-  const tint = categoryTint(txn.category, tokens)
+  const tint = tintOf(txn.category)
   const [viewing, setViewing] = useState(false)
   const progress = useSharedValue(0)
   const closing = useRef(false)
@@ -107,6 +111,7 @@ export function TransactionDetail({ txn, from, photoUri, category, account, onCl
         }]
       : []),
     { icon: Bank, label: 'Account', value: account || 'Not set' },
+    ...(addedBy ? [{ icon: User, label: 'Added by', value: addedBy }] : []),
   ]
 
   return (

@@ -9,6 +9,7 @@ import { updateBudget } from '@/src/api/budgets'
 import { addGroup } from '@/src/api/groups'
 import { addCategory } from '@/src/api/categories'
 import { ImportFailure } from '@/src/api/imports'
+import { track } from '@/src/lib/analytics'
 
 // Setup finished on another device (say, the web) while this one sat mid-wizard.
 // Saving here must not write a second budget over it.
@@ -72,6 +73,27 @@ it('a not-yet-onboarded account still saves as usual', async () => {
   fireEvent.press(getByText('Finish setup'))
   await waitFor(() => expect(completeOnboarding).toHaveBeenCalled(), { timeout: 3000 })
   expect(Alert.alert).not.toHaveBeenCalled()
+})
+
+it('a retry after this device\'s own lost completion finishes setup, not "another device"', async () => {
+  // First save: completion lands on the server but its response is lost, and so is the confirming read.
+  jest.mocked(getUser)
+    .mockResolvedValueOnce({ email: 'a@b.com', emailVerified: true, onboardedAt: null } as never)
+    .mockRejectedValueOnce(new Error('offline'))
+    .mockResolvedValue({ email: 'a@b.com', emailVerified: true, onboardedAt: '2026-10-19T09:00:00.000Z' } as never)
+  jest.mocked(completeOnboarding).mockRejectedValueOnce(new Error('response lost'))
+  const { getByText, findByText } = renderWithProviders(<SetupScreen />)
+  fireEvent.press(getByText('I’m starting fresh'))
+  fireEvent.press(getByText('Continue'))
+  fireEvent.press(getByText('Continue'))
+  fireEvent.press(getByText('₹50,000'))
+  fireEvent.press(getByText('Finish setup'))
+  await findByText(/Couldn't confirm your setup/, undefined, { timeout: 3000 })
+
+  fireEvent.press(getByText('Finish setup'))
+  await waitFor(() => expect(track).toHaveBeenCalledWith('onboarding_completed', expect.objectContaining({ recovered_after_error: true })), { timeout: 3000 })
+  expect(Alert.alert).not.toHaveBeenCalled()
+  expect(onFinished).not.toHaveBeenCalledWith({ elsewhere: true })
 })
 
 it('an import refused as already onboarded goes Home instead of a dead-end message', async () => {

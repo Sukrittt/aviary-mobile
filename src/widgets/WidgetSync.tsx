@@ -11,6 +11,7 @@ import { Platform } from "react-native";
 import { requestWidgetUpdate } from "react-native-android-widget";
 import type { WidgetInfo } from "react-native-android-widget";
 import { useBudgets } from "@/src/hooks/useBudgets";
+import { useBudgetSpaces } from "@/src/hooks/useBudgetSpaces";
 import { useRecentExpenses } from "@/src/hooks/useExpenses";
 import { useCategories } from "@/src/hooks/useCategories";
 import { useGroups } from "@/src/hooks/useGroups";
@@ -34,6 +35,8 @@ const HOUR_MS = 60 * 60 * 1000;
 
 export function WidgetSync() {
   const { currencyCode } = useCurrency()
+  const { multi, active } = useBudgetSpaces()
+  const budgetName = multi && active ? active.name : undefined
   const { preference } = useTheme();
   const budgetsQ = useBudgets();
   const expensesQ = useRecentExpenses();
@@ -54,13 +57,10 @@ export function WidgetSync() {
       categoriesQ.data ?? [],
       groupsQ.data ?? [],
     );
-    const data = toWidgetData(
-      state,
-      expensesQ.data,
-      daysLeftInMonth(),
-      todayLocal(),
-      currencyCode,
-    );
+    const data = {
+      ...toWidgetData(state, expensesQ.data, daysLeftInMonth(), todayLocal(), currencyCode),
+      ...(budgetName ? { budgetName } : {}),
+    };
     // updatedAt is Date.now(), so it's bucketed by the hour: still refreshed
     // often enough that the widget never trips its day-old "stale" state.
     const key = JSON.stringify([
@@ -116,6 +116,7 @@ export function WidgetSync() {
     groupsQ.data,
     preference,
     currencyCode,
+    budgetName,
   ]);
 
   return null;

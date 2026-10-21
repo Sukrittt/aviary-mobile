@@ -322,7 +322,24 @@ export function PlanPickerSkeleton({ timeline }: { timeline: boolean }) {
   )
 }
 
+/** Join a budget, while the code is looked up: the invite card's hero, title, line and button. */
+export function InviteSkeleton() {
+  return (
+    <Pulse label="Looking up your invite">
+      <View style={styles.invite}>
+        <Bone w={72} h={72} r={36} />
+        <Bone w="70%" h={20} style={styles.inviteTitle} />
+        <Bone w="50%" h={14} />
+        <Bone h={52} r={14} style={styles.inviteButton} />
+      </View>
+    </Pulse>
+  )
+}
+
 const styles = StyleSheet.create({
+  invite: { alignItems: 'center', gap: 10, paddingTop: 22, paddingHorizontal: 16 },
+  inviteTitle: { marginTop: 6 },
+  inviteButton: { marginTop: 8 },
   flex: { flex: 1 },
   headerMonth: { alignItems: 'center', gap: 4 },
   slimRta: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14 },

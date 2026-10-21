@@ -7,11 +7,11 @@ import { useAmountEntry } from '@/src/components/ui/useAmountEntry'
 import { useProgressWidth } from '@/src/components/ui/useProgressWidth'
 import { usePrivacy } from '@/src/context/PrivacyContext'
 import { useBudgets,useTransferBudget } from '@/src/hooks/useBudgets'
-import { useCategories } from '@/src/hooks/useCategories'
+import { useCategories, useCategoryTint } from '@/src/hooks/useCategories'
 import { useRecentExpenses } from '@/src/hooks/useExpenses'
 import { useGroups } from '@/src/hooks/useGroups'
 import { EMPTY } from '@/src/lib/constants'
-import { categoryTint, splitEmoji } from '@/src/lib/emoji'
+import { splitEmoji } from '@/src/lib/emoji'
 import { categoryIconKey, type CategoryIconKey } from '@/src/lib/categoryIcons'
 import { CATEGORY_ICON_COMPONENTS, CategoryIcon } from '@/src/components/shared/CategoryIcon'
 import { computeEnvelopeState,currentMonthKey } from '@/src/lib/envelope'
@@ -26,6 +26,10 @@ import { ActivityIndicator,Animated,KeyboardAvoidingView,Platform,Pressable,Scro
 import Reanimated, { FadeIn,FadeOut,LinearTransition,ZoomIn } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import * as Haptics from 'expo-haptics'
+import { withReadOnlyGate } from '@/src/components/budgets/ReadOnlyNotice'
+import { BudgetReadOnlyError } from '@/src/api/client'
+import { useBudgetSpaces } from '@/src/hooks/useBudgetSpaces'
+import { READ_ONLY_TITLE, readOnlyCopy } from '@/src/lib/budgetMembership'
 
 const RTA_SENTINEL = '__ready_to_assign__'
 const MAX_AUTO_SOURCES = 3
@@ -57,11 +61,12 @@ interface SourceItem {
   score: number
 }
 
-export default function MoveMoneyModal() {
+function MoveMoneyModal() {
   const { formatAmountInput, formatCurrency, formatMoney } = useCurrency()
 
   const { tokens, space, radius, type } = useTheme()
   const { hideAmounts } = usePrivacy()
+  const { active } = useBudgetSpaces()
   const insets = useSafeAreaInsets()
   const router = useRouter()
   const params = useLocalSearchParams()
@@ -69,6 +74,8 @@ export default function MoveMoneyModal() {
   // its call site (app/(tabs)/index.tsx) it's actually the RECIPIENT — mirrors
   // Web's MoveMoneyModal `targetCategory` prop. The source(s) are chosen below.
   const targetCategoryName = str(params.fromCategory)
+  // Insights' forecast "Top up ₹X" passes the shortfall it showed, so the numpad opens on it.
+  const prefill = /^\d+$/.test(str(params.amount)) ? str(params.amount) : ''
 
   const budgetsQ = useBudgets()
   const expensesQ = useRecentExpenses()
@@ -100,7 +107,7 @@ export default function MoveMoneyModal() {
 
   const [step, setStep] = useState<'amount' | 'sources'>('amount')
   const [allocs, setAllocs] = useState<Record<string, number>>({})
-  const { amount: amountStr, setAmount: setAmountStr, pushDigit, handleBackspace, shake } = useAmountEntry(isOverspent ? String(Math.round(shortfall)) : '', { onChange: () => setAllocs({}) })
+  const { amount: amountStr, setAmount: setAmountStr, pushDigit, handleBackspace, shake } = useAmountEntry(prefill || (isOverspent ? String(Math.round(shortfall)) : ''), { onChange: () => setAllocs({}) })
   const [query, setQuery] = useState('')
   const [error, setError] = useState('')
   const [moveSuccess, setMoveSuccess] = useState(false)
@@ -204,9 +211,11 @@ export default function MoveMoneyModal() {
     } catch (err) {
       const msg = err instanceof Error ? err.message : ''
       setError(
-        msg.includes('no budget row for')
+        err instanceof BudgetReadOnlyError
+          ? `${READ_ONLY_TITLE}. ${readOnlyCopy(active)}`
+          : msg.includes('no budget row for')
           ? 'One of these categories changed since you opened this screen. Go back and try again.'
-          : 'Could not pull money. Check your connection and try again.',
+          : "Couldn't pull money. Check your connection and try again.",
       )
     }
   }
@@ -518,9 +527,10 @@ function DestinationCard({
   type: Record<string, number>
 }) {
   const { formatCurrency } = useCurrency()
+  const tintOf = useCategoryTint()
 
   const { text } = splitEmoji(targetCategoryName)
-  const tint = categoryTint(targetCategoryName, tokens)
+  const tint = tintOf(targetCategoryName)
   return (
     <View style={[styles.destCard, { backgroundColor: tokens.card, borderColor: tokens.border, borderRadius: radius.lg, padding: space.md, gap: space.md }]}>
       <View style={[styles.destIcon, { backgroundColor: tint.bg, borderRadius: radius.md }]}>
@@ -732,3 +742,5 @@ function SourceIcon({ icon, size, color }: { icon: CategoryIconKey; size: number
   const Icon = CATEGORY_ICON_COMPONENTS[icon]
   return <Icon size={size} color={color} />
 }
+
+export default withReadOnlyGate(MoveMoneyModal)

@@ -37,6 +37,12 @@ export const posthog = new PostHog(process.env.EXPO_PUBLIC_POSTHOG_KEY ?? '', {
  * month. Add a name here first, then call track().
  */
 export type AppEvent =
+  // Fill the gap: the catch-up sheet after two or more days without a log.
+  // `option` is the step picked (or dismiss); counts only, never payees or amounts.
+  | 'gap_sheet_choice'
+  | 'statement_read'
+  | 'statement_logged'
+  | 'fresh_start_logged'
   // Sign-in. `method` is 'google' or 'email'; `reason` is a fixed slug, never
   // the raw error text.
   | 'sign_in_started'
@@ -72,6 +78,9 @@ export type AppEvent =
   | 'expense_deleted'
   // `from` is 'log' (the log screen).
   | 'expense_photo_added'
+  // The log screen held a save past 10s. `stage` is what it waited on:
+  // 'token_refresh', 'request' or 'navigation'. `mode` is 'add' or 'edit'.
+  | 'save_stuck'
   // Activity's List / Feed switch. `view` is the one switched to.
   | 'activity_view_changed'
   | 'ai_category_suggested'

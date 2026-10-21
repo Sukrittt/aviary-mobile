@@ -8,6 +8,7 @@ import {
   StyleSheet,
 } from "react-native";
 import { useRouter } from "expo-router";
+import { useReadOnly } from "@/src/components/budgets/ReadOnlyNotice";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ArrowLeft, CaretRight } from "@/src/components/shared/icons";
 import Reanimated from "react-native-reanimated";
@@ -56,6 +57,7 @@ export default function BillScansScreen() {
   const online = useOnline();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { readOnly } = useReadOnly();
   const { refreshing, onRefresh } = useRefresh();
   const scansQ = useBillScans();
 
@@ -149,7 +151,7 @@ export default function BillScansScreen() {
             subject="scans"
             title="No scans yet"
             description="Scan a bill and it'll show up here, photo and all."
-            action={{ label: "Scan a bill", onPress: () => router.push("/modals/bill-scan") }}
+            action={readOnly ? undefined : { label: "Scan a bill", onPress: () => router.push("/modals/bill-scan") }}
             style={{ paddingVertical: 0 }}
           />
         ) : (

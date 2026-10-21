@@ -1,8 +1,9 @@
 import { useCurrency } from '@/src/context/CurrencyContext'
+import { todayLocal } from '@/src/lib/date'
 import { currencyUnit } from '@/src/lib/currencies'
 import { useRecurringIncomes } from '@/src/hooks/useIncomes'
 import { useAccounts } from '@/src/hooks/useAccounts'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { View, Text, Pressable, RefreshControl, StyleSheet, Linking, Platform } from 'react-native'
 import { useQuery } from '@tanstack/react-query'
 import { useRouter, useNavigation, useFocusEffect } from 'expo-router'
@@ -15,6 +16,7 @@ import { SlideStrip } from '@/src/components/shared/SlideStrip'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { track } from '@/src/lib/analytics'
 import { BottomSheet } from '@/src/components/shared/Modal'
+import { GapSheet } from '@/src/components/home/GapSheet'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { usePrivacy } from '@/src/context/PrivacyContext'
 import { fontFamily } from '@/src/theme/fonts'
@@ -37,7 +39,8 @@ import { useRefresh } from '@/src/hooks/useRefresh'
 import { useCollapsedGroups } from '@/src/hooks/useCollapsedGroups'
 import { useDismissedRolloverBanner } from '@/src/hooks/useDismissedRolloverBanner'
 import { useBillingStatus } from '@/src/hooks/useBillingStatus'
-import { trialReminderBucket, trialRemainingLabel } from '@/src/lib/billingStatus'
+import { GraceBanner } from '@/src/components/shared/MaintenanceBanner'
+import { daysOnUs, trialReminderBucket, trialRemainingLabel } from '@/src/lib/billingStatus'
 import { BALANCE_CHECK_ENABLED, BalanceCheckCard } from '@/src/components/balance/BalanceCheckCard'
 import { EnvelopeGroup } from '@/src/components/envelope/EnvelopeGroup'
 import { Screen } from '@/src/components/ui/Screen'
@@ -49,6 +52,9 @@ import { OfflineScreen } from '@/src/components/shared/OfflineScreen'
 import { ErrorScreen } from '@/src/components/shared/ErrorScreen'
 import { useOnline } from '@/src/lib/netStatus'
 import { BirdLandingMark, type BirdLandingMarkHandle } from '@/src/components/splash/BirdLandingMark'
+import { BudgetChip } from '@/src/components/budgets/BudgetChip'
+import { ReadOnlyBanner } from '@/src/components/budgets/ReadOnlyBanner'
+import { useBudgetSpaces } from '@/src/hooks/useBudgetSpaces'
 import { getSystemStatus } from '@/src/api/systemStatus'
 import { isVersionNewer } from '@/src/lib/version'
 import appJson from '@/app.json'
@@ -57,6 +63,7 @@ import { useFeatureNudge } from '@/src/hooks/useFeatureNudge'
 import { firstBanner } from '@/src/lib/homeBanner'
 import { Alert } from '@/src/components/ui/AlertHost'
 import { isHidden } from '@/src/lib/features'
+import { ForecastLine } from '@/src/components/home/ForecastLine'
 import { GetStartedCard } from '@/src/components/home/GetStartedCard'
 import { ImportBanner } from '@/src/components/home/ImportBanner'
 import { paydayLabel, startingBalanceHref, upcomingMonthlyPay } from '@/src/lib/upcomingPay'
@@ -68,7 +75,7 @@ import { FORCE_EMPTY_STATE_PREVIEW, emptyForPreview } from '@/src/lib/emptyState
  * which envelopes are in trouble. The trend chart, heatmap and subscriptions
  * moved to /insights — six modules on one scroll left nothing room to be large.
  */
-export default function HomeScreen() {
+function HomeScreen() {
   const { formatCurrency, currencyCode } = useCurrency()
 
   const { tokens, space, type, radius } = useTheme()
@@ -117,6 +124,10 @@ export default function HomeScreen() {
   useAccounts()
   const monthlySchedules = (schedulesQ.data ?? []).filter((r) => r.frequency === 'monthly' && r.status === 'active')
   const birdMarkRef = useRef<BirdLandingMarkHandle>(null)
+  // With 2+ budgets the bird mark becomes the budget switcher. One budget: unchanged.
+  const { multi: multiBudget, active: activeBudget } = useBudgetSpaces()
+  // Read-only budget: no setup checklist or gap prompt, both lead only to writes.
+  const readOnly = !!activeBudget?.readOnly
 
   const budgets = emptyForPreview(budgetsQ.data ?? EMPTY)
   const expenses = emptyForPreview(expensesQ.data ?? EMPTY)
@@ -173,10 +184,13 @@ export default function HomeScreen() {
   const [displayedReadyToAssign, setDisplayedReadyToAssign] = useState(envelopeState.readyToAssign)
   const [, setFocusTick] = useState(0)
   const rtaPending = displayedReadyToAssign !== envelopeState.readyToAssign
+  // The month and days left are read off the clock on render, so a day that
+  // turned over while Home sat behind another tab needs a render too.
+  const renderedDay = todayLocal()
   useFocusEffect(
     useCallback(() => {
-      if (rtaPending) setFocusTick((n) => n + 1)
-    }, [rtaPending]),
+      if (rtaPending || todayLocal() !== renderedDay) setFocusTick((n) => n + 1)
+    }, [rtaPending, renderedDay]),
   )
   // Adjusting state during render (not in an effect) so the sync happens in
   // the same commit as the value that triggered it, with no extra render.
@@ -307,7 +321,7 @@ export default function HomeScreen() {
   return (
     <>
       <Screen
-        title={
+        title={multiBudget ? <BudgetChip /> : (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Aviary app icon"
@@ -318,7 +332,7 @@ export default function HomeScreen() {
           >
             <BirdLandingMark ref={birdMarkRef} size={40} color={tokens.accent} autoplay={false} perched />
           </Pressable>
-        }
+        )}
         center={
           <View style={styles.headerMonth}>
             <Text style={{ color: tokens.accentInk, fontSize: type.bodyLg, fontFamily: fontFamily.displaySemiBold }}>{`${monthAbbrev(month)} ${month.slice(0, 4)}`}</Text>
@@ -333,6 +347,7 @@ export default function HomeScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={tokens.accent} colors={[tokens.accent]} />
         }
       >
+        <ReadOnlyBanner />
         {/* Ready to Assign is the one number the envelope method is about, so it
             is the hero rather than one tile among four, until it's zero. */}
         {rtaSettled ? (
@@ -427,6 +442,8 @@ export default function HomeScreen() {
         {/* Outside firstBanner: it only ever shows for someone who just imported. */}
         <ImportBanner />
 
+        <ForecastLine />
+
         {banner === 'update' && androidUpdate && (
           <Card style={styles.rolloverCard} elevated={false}>
             <Text style={{ color: tokens.text, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold, flex: 1 }}>
@@ -442,7 +459,7 @@ export default function HomeScreen() {
           <Card style={styles.rolloverCard} elevated={false}>
             <Pressable onPress={() => router.push('/account/plan')} style={{ flex: 1 }}>
               <Text style={{ color: tokens.text, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>
-                Free trial · {trialRemainingLabel(billing.trialDaysRemaining).toLowerCase()}. See plans and prices.
+                {daysOnUs(billing)} · {trialRemainingLabel(billing.trialDaysRemaining).toLowerCase()}. See plans and prices.
               </Text>
             </Pressable>
             <Pressable onPress={() => setTrialDismissed(true)} hitSlop={8}>
@@ -500,7 +517,7 @@ export default function HomeScreen() {
           </Reanimated.View>
         )}
 
-        {showGetStarted && (
+        {showGetStarted && !readOnly && (
           <Reanimated.View
             entering={FadeInDown.duration(420).springify().damping(22).stiffness(200)}
             exiting={FadeOut.duration(200)}
@@ -586,6 +603,7 @@ export default function HomeScreen() {
           </Pressable>
         </View>}
       </Screen>
+      {!readOnly && <GapSheet lastSpent={lastSpent} />}
       {/* No room for a pencil on the hero, so tapping it opens this. With RTA
           often at 0, the title is the only place Home shows income. */}
       <BottomSheet visible={incomeSheetOpen} onClose={() => setIncomeSheetOpen(false)}>
@@ -611,6 +629,7 @@ export default function HomeScreen() {
           </Pressable>
         ))}
       </BottomSheet>
+      <GraceBanner status={billing} />
     </>
   )
 }
@@ -635,3 +654,7 @@ const styles = StyleSheet.create({
   emptyEnvelopesBody: { flex: 1, justifyContent: 'center' },
   insightsLink: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4, paddingVertical: 14 },
 })
+
+// memo: expo-router re-renders a tab's screen on every focus change with a
+// fresh props object, and a full HomeScreen render held up each tab switch.
+export default memo(HomeScreen)

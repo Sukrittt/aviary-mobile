@@ -1,4 +1,4 @@
-import { splitEmoji, categoryTint, chartInk } from './emoji'
+import { splitEmoji, categoryTint, categoryColor, groupColor, chartInk } from './emoji'
 
 describe('splitEmoji', () => {
   it('splits a leading emoji from text', () => {
@@ -24,6 +24,7 @@ describe('categoryTint', () => {
   const tokens = {
     mint: 'm', mintSoft: 'ms', violet: 'v', violetSoft: 'vs', blue: 'b', blueSoft: 'bs',
     accentInk: 'a', accentSoft: 'as', warnInk: 'w', warnSoft: 'ws', coral: 'c', coralSoft: 'cs',
+    pink: 'p', pinkSoft: 'ps', indigo: 'i', indigoSoft: 'is', brown: 'br', brownSoft: 'brs', slate: 's', slateSoft: 'ss',
   }
 
   it('gives the same name the same tint', () => {
@@ -32,6 +33,17 @@ describe('categoryTint', () => {
 
   it('ignores a leading emoji', () => {
     expect(categoryTint('🛒 Groceries', tokens)).toEqual(categoryTint('Groceries', tokens))
+  })
+
+  it('wears a picked colour over the name hash, and ignores an unknown one', () => {
+    expect(categoryTint('Rent', tokens, 'coral')).toEqual({ bg: 'cs', ink: 'c' })
+    expect(categoryColor('Rent', 'red')).toBe(categoryColor('Rent'))
+  })
+
+  it("defaults a group to the accent, the colour its tile always wore", () => {
+    expect(groupColor()).toBe('accent')
+    expect(groupColor('mint')).toBe('mint')
+    expect(groupColor('#fff')).toBe('accent')
   })
 
   it('pairs a soft background with its ink', () => {

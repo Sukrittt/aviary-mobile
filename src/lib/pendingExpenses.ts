@@ -2,13 +2,16 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import { readEncrypted, writeEncrypted } from './encryptedStorage'
 import { currentUserId } from '@/src/api/accessMode'
 import type { ExpensePayload } from '@/src/api/expenses'
+import { activeBudgetId } from './activeBudget'
 
 const PREFIX = 'mc-pending-expenses'
 const FAILED_PREFIX = 'mc-failed-expenses'
 const RECEIPT_PREFIX = 'mc-expense-sync-receipts'
 
 // Missing on legacy entries: conservatively assume a POST may have committed.
-export type PendingExpense = { payload: ExpensePayload; attempts: number; submitted?: boolean }
+// `spaceId`: the budget active when this was logged, so a switch before the
+// flush can't move it. Missing on entries queued before budgets: personal.
+export type PendingExpense = { payload: ExpensePayload; attempts: number; submitted?: boolean; spaceId?: string }
 export type SyncReceipt = {
   clientId: string
   id?: string
@@ -31,8 +34,22 @@ async function read(k: string): Promise<PendingExpense[]> {
   return (await readEncrypted<PendingExpense[]>(k)) ?? []
 }
 
+// Screens showing the queue (Activity's sync chip and failed row, the offline
+// screen) re-read on every write instead of guessing when a drain is done.
+const changeListeners = new Set<() => void>()
+export function onChange(listener: () => void): () => void {
+  changeListeners.add(listener)
+  return () => { changeListeners.delete(listener) }
+}
+function notifyChange() {
+  for (const listener of changeListeners) {
+    try { listener() } catch { /* A screen must never break a queue write. */ }
+  }
+}
+
 async function write(k: string, entries: PendingExpense[]): Promise<void> {
   await writeEncrypted(k, entries)
+  notifyChange()
 }
 
 // Every mutation is serialized through one promise chain — an enqueue racing
@@ -47,12 +64,12 @@ function serialize<T>(fn: () => Promise<T>): Promise<T> {
 }
 
 /** Queues a create for later sync. No-op when signed out as guest (nothing to namespace it by). */
-export function enqueue(payload: ExpensePayload, owner = currentUserId(), submitted = false): Promise<void> {
+export function enqueue(payload: ExpensePayload, owner = currentUserId(), submitted = false, spaceId = activeBudgetId() ?? owner): Promise<void> {
   return serialize(async () => {
     const k = key(owner)
     if (!k) return
     const entries = await read(k)
-    entries.push({ payload, attempts: 0, submitted })
+    entries.push({ payload, attempts: 0, submitted, spaceId: spaceId ?? undefined })
     await write(k, entries)
   })
 }
@@ -149,6 +166,7 @@ export function clearAll(owner = currentUserId()): Promise<void> {
   return serialize(async () => {
     if (!owner) return
     await AsyncStorage.multiRemove([key(owner)!, failedKey(owner)!, `${RECEIPT_PREFIX}:${owner}`])
+    notifyChange()
   })
 }
 
@@ -156,6 +174,40 @@ export function listFailed(owner = currentUserId()): Promise<PendingExpense[]> {
   return serialize(async () => {
     const fk = failedKey(owner)
     return fk ? read(fk) : []
+  })
+}
+
+/**
+ * Puts a failed entry back in the queue with fresh attempts, keeping its
+ * client_id so the server still sees one create however many times it lands.
+ * `payload` carries the user's fixes from Log Expense, and the entry moves to
+ * `spaceId`, the budget Log Expense showed (its categories were used); a
+ * retry pinned to a budget this person has left could never succeed.
+ * Resolves with the requeued entry, or undefined if it was already gone.
+ */
+export function retryFailed(payload: ExpensePayload, owner = currentUserId(), spaceId = activeBudgetId() ?? owner): Promise<PendingExpense | undefined> {
+  return serialize(async () => {
+    const k = key(owner)
+    const fk = failedKey(owner)
+    if (!k || !fk) return undefined
+    const failed = await read(fk)
+    const entry = failed.find((e) => e.payload.client_id === payload.client_id)
+    if (!entry) return undefined
+    const next: PendingExpense = { ...entry, payload, attempts: 0, spaceId: spaceId ?? undefined }
+    // Queue first, same reason as bumpAttempts: a failure in between must leave a copy.
+    const entries = await read(k)
+    await write(k, [...entries.filter((e) => e.payload.client_id !== payload.client_id), next])
+    await write(fk, failed.filter((e) => e.payload.client_id !== payload.client_id))
+    return next
+  })
+}
+
+/** The user chose to throw a failed entry away. Never called on its own. */
+export function discardFailed(clientId: string, owner = currentUserId()): Promise<void> {
+  return serialize(async () => {
+    const fk = failedKey(owner)
+    if (!fk) return
+    await write(fk, (await read(fk)).filter((e) => e.payload.client_id !== clientId))
   })
 }
 

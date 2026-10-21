@@ -19,6 +19,7 @@ import {
   type HoldingDraft,
 } from '@/src/lib/holdingConflict'
 import type { HoldingRow } from '@/src/types'
+import { withReadOnlyGate } from '@/src/components/budgets/ReadOnlyNotice'
 
 const TYPES = ['Equity', 'FD', 'Mutual Fund', 'Gold', 'Crypto', 'Bonds', 'Other']
 
@@ -31,7 +32,7 @@ function str(v: string | string[] | undefined): string {
 // recurring_amount — never `value` — so a holding's base balance stays put
 // and the monthly amount accrues on top of it (matches applyHoldingAction's
 // additive 'contribution' case on the backend).
-export default function AddHoldingModal() {
+function AddHoldingModal() {
   const { currencySymbol } = useCurrency()
 
   const { tokens } = useTheme()
@@ -126,8 +127,8 @@ export default function AddHoldingModal() {
               return
             }
             Alert.alert(
-              'Could not save changes',
-              error instanceof Error ? error.message : 'Check your connection and try again.',
+              "Couldn't save your changes",
+              'Check your connection and try again.',
             )
           },
         },
@@ -143,7 +144,7 @@ export default function AddHoldingModal() {
         },
         {
           onSuccess: () => setSaved(true),
-          onError: () => Alert.alert('Could not add holding', 'Check your connection and try again.'),
+          onError: () => Alert.alert("Couldn't add this holding", 'Check your connection and try again.'),
         },
       )
     }
@@ -373,3 +374,5 @@ const styles = StyleSheet.create({
   confirmButton: { borderRadius: 14, paddingVertical: 15, alignItems: 'center', justifyContent: 'center', marginTop: 4 },
   confirmText: { fontSize: 16 },
 })
+
+export default withReadOnlyGate(AddHoldingModal)

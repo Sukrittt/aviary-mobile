@@ -21,6 +21,12 @@ jest.mock('@/src/lib/purchases', () => ({
   managementUrl: () => Promise.resolve(null),
 }))
 
+let mockBudgets: unknown[] = []
+jest.mock('@/src/hooks/useBudgetSpaces', () => ({ useBudgetSpaces: () => ({ budgets: mockBudgets }) }))
+const mockSwitch = jest.fn(async (..._args: unknown[]) => {})
+jest.mock('@/src/lib/budgetSwitch', () => ({ switchBudget: (...args: unknown[]) => mockSwitch(...args) }))
+jest.mock('@/src/api/accessMode', () => ({ currentUserId: () => 'me', sessionId: () => null, clearAccess: jest.fn(), accessMode: { subscribeLogout: () => () => {}, subscribe: () => () => {} } }))
+
 let mockStatus: BillingStatus | undefined
 jest.mock('@/src/hooks/useBillingStatus', () => ({
   useBillingStatus: () => ({ data: mockStatus, isLoading: false }),
@@ -31,7 +37,7 @@ const base: BillingStatus = {
   mode: 'trial',
   allowed: true,
   enforced: true,
-  trialStartedAt: '2026-09-01T00:00:00Z',
+  trialStartedAt: '2099-09-16T00:00:00Z',
   trialEndsAt: '2099-10-16T00:00:00Z',
   trialDaysRemaining: 12,
   productId: null,
@@ -45,6 +51,7 @@ const base: BillingStatus = {
 
 beforeEach(() => {
   jest.clearAllMocks()
+  mockBudgets = []
   mockCanGoBack = true
   mockPurchasable = false
 })
@@ -53,7 +60,7 @@ it('shows the trial countdown without the lock-screen exits', () => {
   mockStatus = base
   const { getByText, queryByText } = renderWithProviders(<PlanScreen />)
 
-  expect(getByText('Free trial · 12 days left')).toBeTruthy()
+  expect(getByText('30 days on us · 12 days left')).toBeTruthy()
   expect(queryByText(/Export it free/)).toBeNull()
 })
 
@@ -62,7 +69,7 @@ it('gives an expired account every exit the plan promises', () => {
   mockStatus = { ...base, mode: 'expired', allowed: false, trialDaysRemaining: 0 }
   const { getByText } = renderWithProviders(<PlanScreen />)
 
-  expect(getByText('Your free trial has ended')).toBeTruthy()
+  expect(getByText('Your 30 days on us are up')).toBeTruthy()
   expect(getByText('Restore purchases')).toBeTruthy()
   expect(getByText('Sign out')).toBeTruthy()
 
@@ -70,6 +77,25 @@ it('gives an expired account every exit the plan promises', () => {
   expect(mockPush).toHaveBeenCalledWith('/account/data')
   fireEvent.press(getByText('Manage or delete account'))
   expect(mockPush).toHaveBeenCalledWith('/account/security')
+})
+
+it('offers a locked account the budgets someone else pays for', () => {
+  // A member whose own trial lapsed lands here with their personal budget
+  // open. Without a way through, the budget the owner paid for is unreachable.
+  const studio = { id: 'sp_studio', name: 'Studio', emoji: '✈️', role: 'member', ownerId: 'user_a', personal: false, members: [{ userId: 'user_a', name: 'Sukrit Saha', avatarUrl: null, role: 'owner', joinedAt: null }] }
+  mockBudgets = [
+    { id: 'me', name: 'Personal', emoji: '🐦', role: 'owner', ownerId: 'me', personal: true, members: [] },
+    studio,
+    { ...studio, id: 'sp_lapsed', name: 'Lapsed', readOnly: true },
+  ]
+  mockStatus = { ...base, mode: 'expired', allowed: false, trialDaysRemaining: 0 }
+  const { getByText, getByLabelText, queryByText } = renderWithProviders(<PlanScreen />)
+
+  expect(getByText('Budgets shared with you')).toBeTruthy()
+  expect(getByText(/Sukrit pays for this one/)).toBeTruthy()
+  expect(queryByText('Lapsed')).toBeNull()
+  fireEvent.press(getByLabelText('Open Studio'))
+  expect(mockSwitch).toHaveBeenCalledWith(expect.anything(), 'me', 'sp_studio')
 })
 
 it('shows a paying account its plan, renewal and what it includes', () => {

@@ -27,6 +27,7 @@ import { getBudgets } from '@/src/api/budgets'
 import { EMPTY } from '@/src/lib/constants'
 import { computeEnvelopeState, currentMonthKey } from '@/src/lib/envelope'
 import { startingBalanceHref } from '@/src/lib/upcomingPay'
+import { withReadOnlyGate } from '@/src/components/budgets/ReadOnlyNotice'
 
 // House spring, same as recurring-expense.tsx.
 const FIELD_TRANSITION = LinearTransition.springify().damping(64).stiffness(700)
@@ -45,7 +46,7 @@ function str(v: string | string[] | undefined): string {
  */
 const buzzError = () => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {})
 
-export default function RecurringIncomeModal() {
+function RecurringIncomeModal() {
   const { currencySymbol } = useCurrency()
   const { tokens } = useTheme()
   const insets = useSafeAreaInsets()
@@ -128,16 +129,16 @@ export default function RecurringIncomeModal() {
       setSaved(true)
     }
     if (isEdit) {
-      update.mutate({ id, updates: fields }, { onSuccess, onError: () => { buzzError(); Alert.alert("Couldn't save", 'Check your connection and try again.') } })
+      update.mutate({ id, updates: fields }, { onSuccess, onError: () => { buzzError(); Alert.alert("Couldn't save this income", 'Check your connection and try again.') } })
     } else {
-      add.mutate(fields, { onSuccess, onError: () => { buzzError(); Alert.alert("Couldn't add this", 'Check your connection and try again.') } })
+      add.mutate(fields, { onSuccess, onError: () => { buzzError(); Alert.alert("Couldn't add this income", 'Check your connection and try again.') } })
     }
   }
 
   function handleTogglePause() {
     update.mutate(
       { id, updates: { status: isActive ? 'paused' : 'active' } },
-      { onSuccess: () => setSaved(true), onError: () => { buzzError(); Alert.alert("Couldn't update this", 'Check your connection and try again.') } },
+      { onSuccess: () => setSaved(true), onError: () => { buzzError(); Alert.alert("Couldn't update this income", 'Check your connection and try again.') } },
     )
   }
 
@@ -150,7 +151,7 @@ export default function RecurringIncomeModal() {
       onError: () => {
         setConfirmDelete(false)
         buzzError()
-        Alert.alert("Couldn't delete this", 'Check your connection and try again.')
+        Alert.alert("Couldn't delete this income", 'Check your connection and try again.')
       },
     })
   }
@@ -350,3 +351,5 @@ const styles = StyleSheet.create({
   sheetSaveButton: { flex: 1, minHeight: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center' },
   sheetSaveText: { fontSize: 14 },
 })
+
+export default withReadOnlyGate(RecurringIncomeModal)

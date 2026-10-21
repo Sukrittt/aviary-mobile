@@ -1,16 +1,20 @@
 import { ExpenseWriteError } from '@/src/lib/expenseConflict'
 import type { ExpenseRow } from '@/src/types'
 import { Alert, Modal } from 'react-native'
-import { act, fireEvent, waitFor } from '@testing-library/react-native'
+import { act, fireEvent, waitFor, within } from '@testing-library/react-native'
+import * as pending from '@/src/lib/pendingExpenses'
+import { Alert as AppAlert } from '@/src/components/ui/AlertHost'
+import * as accessMode from '@/src/api/accessMode'
 import { createTestQueryClient, renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { userKey } from '@/src/hooks/useUser'
 import { accountsKey } from '@/src/hooks/useAccounts'
+import { posthog } from '@/src/lib/analytics'
 import { deleteExpensePhoto, getExpensePhotoUrl, getRecentExpenses, postExpensePayload, updateExpense, uploadExpensePhoto } from '@/src/api/expenses'
 import { setOnline } from '@/src/lib/netStatus'
 import { addCategory, getCategories } from '@/src/api/categories'
 import { getGroups } from '@/src/api/groups'
 import { getCategoryMap, suggestCategoryLLM } from '@/src/api/categoryMap'
-import LogExpenseScreen from './log-expense'
+import LogExpenseScreen, { SAVE_STUCK_MS } from './log-expense'
 import { clearLogExpenseDraft, getLogExpenseDraft } from '@/src/features/log-expense/draft'
 import { MIN_SPIN_MS, SETTLE_MS } from '@/src/features/log-expense/AutoCategoryPill'
 import { todayLocal } from '@/src/lib/date'
@@ -31,6 +35,7 @@ jest.mock('@/src/features/log-expense/AutoCategoryPill', () => {
   }
 })
 
+jest.mock('@/src/sync/flush', () => ({ flush: jest.fn(async () => {}) }))
 jest.mock('@/src/api/expenses', () => ({
   getRecentExpenses: jest.fn(),
   postExpensePayload: jest.fn(),
@@ -48,6 +53,10 @@ jest.mock('expo-image-picker', () => ({
   launchCameraAsync: (opts: unknown) => mockLaunchCamera(opts),
   launchImageLibraryAsync: (opts: unknown) => mockLaunchLibrary(opts),
 }))
+const personal = { id: 'u1', name: 'Personal', emoji: '🐦', role: 'owner', ownerId: 'u1', currencyCode: 'INR', personal: true, members: [] }
+let mockBudgetList = { budgets: [personal], count: 1, limit: 5, activeId: 'u1' }
+jest.mock('@/src/api/spaces', () => ({ getBudgets: jest.fn(async () => mockBudgetList) }))
+
 jest.mock('@/src/api/categories', () => ({
   getCategories: jest.fn(),
   addCategory: jest.fn(),
@@ -74,6 +83,7 @@ const mockPush = jest.fn()
 const mockTip: { reason: 'batch' | 'gap' | null; close: jest.Mock } = { reason: null, close: jest.fn() }
 jest.mock('@/src/hooks/useCaptureTip', () => ({ useCaptureTip: () => mockTip }))
 let mockParams: Record<string, string> = {}
+/* eslint-disable @typescript-eslint/no-require-imports -- jest.mock factories are hoisted above imports */
 // One screen instance's params and focus; unset means the single focused screen most tests render.
 const mockScreen = require('react').createContext(null) as import('react').Context<{ params: Record<string, string>; focused: boolean } | null>
 jest.mock('expo-router', () => ({
@@ -81,6 +91,7 @@ jest.mock('expo-router', () => ({
   useLocalSearchParams: () => require('react').useContext(mockScreen)?.params ?? mockParams,
   useIsFocused: () => require('react').useContext(mockScreen)?.focused ?? true,
 }))
+/* eslint-enable @typescript-eslint/no-require-imports */
 
 // Mirror the screen and nav as siblings sharing the root submit context.
 function Harness() {
@@ -90,6 +101,10 @@ function Harness() {
   ;(globalThis as any).__onInvalid = onInvalid
   return null
 }
+
+beforeEach(() => {
+  mockBudgetList = { budgets: [personal], count: 1, limit: 5, activeId: 'u1' }
+})
 
 function setup(params: Record<string, string> = {}, expenses: ExpenseRow[] = [], categories = [{ name: 'Groceries', group: 'Food' }], { coldAccounts = false, activityFeed = true, words = {} as Record<string, string>, mapPending = false } = {}) {
   mockParams = params
@@ -255,7 +270,7 @@ it('saves a blank "What was it for?" under the category name', async () => {
     jest.advanceTimersByTime(950)
   })
 
-  expect(postExpensePayload).toHaveBeenCalledWith(expect.objectContaining({ item: 'Groceries', category: 'Groceries' }), 0)
+  expect(postExpensePayload).toHaveBeenCalledWith(expect.objectContaining({ item: 'Groceries', category: 'Groceries' }), 0, undefined)
   expect(mockReplace).toHaveBeenCalledWith(expect.objectContaining({ params: expect.objectContaining({ item: 'Groceries' }) }))
 })
 
@@ -507,7 +522,7 @@ it('adds up an amount on the keypad and saves the total', async () => {
     await Promise.resolve()
     await Promise.resolve()
   })
-  expect(postExpensePayload).toHaveBeenCalledWith(expect.objectContaining({ amount_inr: '10.25' }), 0)
+  expect(postExpensePayload).toHaveBeenCalledWith(expect.objectContaining({ amount_inr: '10.25' }), 0, undefined)
 })
 
 it('keeps a half-filled expense across leaving and coming back, until it is logged', async () => {
@@ -523,7 +538,7 @@ it('keeps a half-filled expense across leaving and coming back, until it is logg
     await Promise.resolve()
     await Promise.resolve()
   })
-  expect(postExpensePayload).toHaveBeenCalledWith(expect.objectContaining({ item: 'Milk', amount_inr: '450', category: 'Groceries' }), 0)
+  expect(postExpensePayload).toHaveBeenCalledWith(expect.objectContaining({ item: 'Milk', amount_inr: '450', category: 'Groceries' }), 0, undefined)
   second.unmount()
 
   expect(setup().queryByDisplayValue('Milk')).toBeNull()
@@ -555,7 +570,7 @@ it('creates a category from a populated picker, closes the modal and uses it for
   fireEvent.changeText(utils.getByPlaceholderText('New category name'), '  🏋️ Gym  ')
   fireEvent.press(utils.getByText('Food'))
   await act(async () => { fireEvent.press(utils.getByLabelText('Save category')) })
-  expect(addCategory).toHaveBeenCalledWith('🏋️ Gym', 'Food', 'Barbell')
+  expect(addCategory).toHaveBeenCalledWith('🏋️ Gym', 'Food', 'Barbell', undefined)
   expect(utils.getByText('Saving…')).toBeTruthy()
   // The category refetch stays unresolved: selection must appear immediately.
   ;(getCategories as jest.Mock).mockImplementation(() => new Promise(() => {}))
@@ -565,7 +580,7 @@ it('creates a category from a populated picker, closes the modal and uses it for
   expect(utils.getByLabelText('Category: Gym')).toBeTruthy()
   expect(utils.getByPlaceholderText('What was it for?').props.value).toBe('Milk')
   await act(async () => { (globalThis as any).__submit() })
-  expect(postExpensePayload).toHaveBeenCalledWith(expect.objectContaining({ item: 'Milk', amount_inr: '450', category: '🏋️ Gym' }), 0)
+  expect(postExpensePayload).toHaveBeenCalledWith(expect.objectContaining({ item: 'Milk', amount_inr: '450', category: '🏋️ Gym' }), 0, undefined)
 })
 
 it('keeps category creation errors in the modal and lets the user retry', async () => {
@@ -610,7 +625,7 @@ it('offers category creation when there are no categories yet', async () => {
   fireEvent.press(utils.getByLabelText('Add category in picker'))
   fireEvent.changeText(utils.getByPlaceholderText('New category name'), 'First category')
   await act(async () => { fireEvent.press(utils.getByLabelText('Save category')) })
-  expect(addCategory).toHaveBeenCalledWith('First category', '', 'Wallet')
+  expect(addCategory).toHaveBeenCalledWith('First category', '', 'Wallet', undefined)
   expect(utils.getByLabelText('Category: First category')).toBeTruthy()
 })
 
@@ -876,8 +891,36 @@ describe('photo', () => {
     expect(mockReplace).toHaveBeenCalledWith(expect.objectContaining({ pathname: '/modals/expense-added' }))
   })
 
+  it('moves on to the success screen without waiting for the photo upload', async () => {
+    ;(postExpensePayload as jest.Mock).mockResolvedValue({ id: 'srv1', timestamp: '2026-09-04T01:24:00' })
+    ;(uploadExpensePhoto as jest.Mock).mockReturnValue(new Promise(() => {}))
+    const utils = setup()
+    await fillValidForm(utils)
+    await openMore(utils)
+    await pickFromLibrary(utils)
+    await submitAndSettle()
+
+    expect(uploadExpensePhoto).toHaveBeenCalledWith('srv1', 'QUJD', 'image/jpeg')
+    expect(mockReplace).toHaveBeenCalledWith(expect.objectContaining({ pathname: '/modals/expense-added' }))
+  })
+
+  it('reports a save that holds the screen past 10s, with the stage it waits on', async () => {
+    ;(postExpensePayload as jest.Mock).mockReturnValue(new Promise(() => {}))
+    const utils = setup()
+    await fillValidForm(utils)
+    await openMore(utils)
+    await pickFromLibrary(utils)
+    await submitAndSettle()
+    expect(posthog.capture).not.toHaveBeenCalledWith('save_stuck', expect.anything())
+
+    await act(async () => {
+      jest.advanceTimersByTime(SAVE_STUCK_MS)
+    })
+    expect(posthog.capture).toHaveBeenCalledWith('save_stuck', { stage: 'request', mode: 'add' })
+  })
+
   it('keeps the expense saved and says so kindly when the upload fails', async () => {
-    const alert = jest.spyOn(Alert, 'alert').mockImplementation(() => {})
+    const alert = jest.spyOn(AppAlert, 'alert').mockImplementation(() => {})
     ;(postExpensePayload as jest.Mock).mockResolvedValue({ id: 'srv1', timestamp: '2026-09-04T01:24:00' })
     ;(uploadExpensePhoto as jest.Mock).mockRejectedValue(new Error('Failed to upload photo: 413'))
     const utils = setup()
@@ -983,4 +1026,36 @@ it('keeps the keyword pick steady while typing on, so the pill does not land aga
   await act(async () => { await Promise.resolve() })
   expect(mockPillSelected).not.toContain(null)
   expect(utils.getByLabelText('Category: Groceries, picked for you')).toBeTruthy()
+})
+
+describe('which budget it logs to', () => {
+  it('says nothing about budgets with just the one', async () => {
+    const utils = setup()
+    await waitFor(() => expect(utils.getByText('Log expense')).toBeTruthy())
+    expect(utils.queryByTestId('log-budget')).toBeNull()
+  })
+
+  it('names the budget with 2+, so nothing lands in the wrong one', async () => {
+    mockBudgetList = { budgets: [personal, { ...personal, id: 'sp_home', name: 'Home', emoji: '🏠', personal: false }], count: 2, limit: 5, activeId: 'u1' }
+    const utils = setup()
+    await waitFor(() => expect(within(utils.getByTestId('log-budget')).getByText('Logging to')).toBeTruthy())
+    expect(within(utils.getByTestId('log-budget')).getByText('Personal')).toBeTruthy()
+    expect(utils.getByTestId('budget-icon-Bird')).toBeTruthy()
+  })
+})
+
+describe('an expense the sync gave up on', () => {
+  it('Try again re-queues it under the same client_id instead of posting a new one', async () => {
+    jest.spyOn(accessMode, 'currentUserId').mockReturnValue('u1')
+    await pending.enqueue({ client_id: 'c-failed', item: 'Milk', amount_inr: '450', category: 'Groceries', date: '2026-06-01', timestamp: '2026-06-01T10:00:00' }, 'u1', false, 'u1')
+    await pending.bumpAttempts('c-failed', 1, 'u1')
+    const utils = setup({ failedClientId: 'c-failed', item: 'Milk', amountInr: '450', category: 'Groceries', date: '2026-06-01' })
+
+    await act(async () => { fireEvent.press(await utils.findByText('Try again')) })
+
+    await waitFor(async () => expect(await pending.listFailed('u1')).toEqual([]))
+    const queued = await pending.list('u1')
+    expect(queued.map((e) => e.payload.client_id)).toEqual(['c-failed'])
+    expect(postExpensePayload).not.toHaveBeenCalled()
+  })
 })

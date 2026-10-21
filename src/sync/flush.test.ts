@@ -3,7 +3,7 @@ import { waitFor } from '@testing-library/react-native'
 import { subscribeExpenseQuerySync } from './querySync'
 import { onExpenseSynced, emitExpenseSynced } from './events'
 import { getValidToken, sessionGeneration, currentUserId } from '@/src/api/accessMode'
-import { HttpError } from '@/src/api/client'
+import { BudgetReadOnlyError, HttpError, NotAMemberError } from '@/src/api/client'
 import { postExpensePayload } from '@/src/api/expenses'
 import * as pending from '@/src/lib/pendingExpenses'
 import { flush } from './flush'
@@ -23,6 +23,8 @@ jest.mock('@/src/api/client', () => ({
       this.status = status
     }
   },
+  NotAMemberError: class NotAMemberError extends Error { status = 403 },
+  BudgetReadOnlyError: class BudgetReadOnlyError extends Error { status = 402 },
 }))
 
 jest.mock('@/src/api/expenses', () => ({
@@ -133,9 +135,22 @@ it('a 402 leaves the queue intact and burns no attempts', async () => {
 
   expect(pending.bumpAttempts).not.toHaveBeenCalled()
   expect(pending.remove).not.toHaveBeenCalled()
-  // Stops the whole drain: every remaining entry would hit the same gate, so
+  // Asks that budget once: every entry of it would hit the same gate, so
   // continuing is just noise against an API that is already saying no.
   expect(postExpensePayload).toHaveBeenCalledTimes(1)
+})
+
+it('a lapsed personal plan does not stall a shared budget the owner pays for', async () => {
+  ;(pending.list as jest.Mock).mockResolvedValue([entry('c1'), { ...entry('c2'), spaceId: 'sp_home' }, entry('c3')])
+  ;(postExpensePayload as jest.Mock).mockImplementation((_p, _g, budget: string) =>
+    budget === 'sp_home' ? Promise.resolve({ id: 'row-2', timestamp: 'ts' }) : Promise.reject(new HttpError(402, 'SUBSCRIPTION_REQUIRED')))
+
+  await flush()
+
+  expect(pending.remove).toHaveBeenCalledWith('c2', 'user_1')
+  expect(pending.remove).not.toHaveBeenCalledWith('c1', 'user_1')
+  expect(pending.bumpAttempts).not.toHaveBeenCalled()
+  expect(postExpensePayload).not.toHaveBeenCalledWith(expect.objectContaining({ client_id: 'c3' }), 1, 'user_1')
 })
 
 it('resumes draining the same entries once access is restored', async () => {
@@ -262,4 +277,51 @@ it('coalesces a successful batch into one completion signal', async () => {
     expect(listener).toHaveBeenCalledTimes(1)
     expect(listener).toHaveBeenCalledWith({ owner: 'user_1', generation: 1 })
   } finally { unsubscribe() }
+})
+
+describe('budget routing', () => {
+  it('posts each queued expense to the budget stamped at enqueue time', async () => {
+    ;(pending.list as jest.Mock).mockResolvedValue([{ ...entry('c1'), spaceId: 'sp_home' }])
+    ;(postExpensePayload as jest.Mock).mockResolvedValue({ id: 'row-1', timestamp: 'ts' })
+
+    await flush()
+
+    expect(postExpensePayload).toHaveBeenCalledWith(expect.objectContaining({ client_id: 'c1' }), 1, 'sp_home')
+  })
+
+  it('posts an entry queued before budgets existed to the personal budget, whatever is active now', async () => {
+    ;(pending.list as jest.Mock).mockResolvedValue([entry('c1')])
+    ;(postExpensePayload as jest.Mock).mockResolvedValue({ id: 'row-1', timestamp: 'ts' })
+
+    await flush()
+
+    expect(postExpensePayload).toHaveBeenCalledWith(expect.objectContaining({ client_id: 'c1' }), 1, 'user_1')
+  })
+
+  it('sets aside an entry pinned to a budget you left and drains the rest', async () => {
+    ;(pending.list as jest.Mock).mockResolvedValue([{ ...entry('c1'), spaceId: 'sp_home' }, entry('c2')])
+    ;(postExpensePayload as jest.Mock)
+      .mockRejectedValueOnce(new NotAMemberError())
+      .mockResolvedValueOnce({ id: 'row-2', timestamp: 'ts' })
+
+    await flush()
+
+    expect(pending.bumpAttempts).toHaveBeenCalledWith('c1', 1, 'user_1')
+    expect(pending.remove).toHaveBeenCalledWith('c2', 'user_1')
+  })
+
+  it('keeps a read-only budget\'s entries queued, asks about it once, and drains the rest', async () => {
+    ;(pending.list as jest.Mock).mockResolvedValue([{ ...entry('c1'), spaceId: 'sp_ro' }, { ...entry('c3'), spaceId: 'sp_ro' }, entry('c2')])
+    ;(postExpensePayload as jest.Mock)
+      .mockRejectedValueOnce(new BudgetReadOnlyError())
+      .mockResolvedValueOnce({ id: 'row-2', timestamp: 'ts' })
+
+    await flush()
+
+    expect(postExpensePayload).toHaveBeenCalledTimes(2)
+    expect(postExpensePayload).not.toHaveBeenCalledWith(expect.objectContaining({ client_id: 'c3' }), 1, 'sp_ro')
+    expect(pending.bumpAttempts).not.toHaveBeenCalled()
+    expect(pending.remove).toHaveBeenCalledWith('c2', 'user_1')
+    expect(pending.remove).not.toHaveBeenCalledWith('c1', 'user_1')
+  })
 })
