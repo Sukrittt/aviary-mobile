@@ -5,7 +5,7 @@ import { apiFetch } from './client'
 
 type Direction = 'negative_spend' | 'positive_spend'
 export type ImportAccountType = 'bank' | 'cash' | 'credit_card'
-export type SkipReason = 'transfer' | 'opening_balance' | 'fill' | 'other_currency' | 'unparseable' | 'zero' | 'future'
+export type SkipReason = 'transfer' | 'opening_balance' | 'fill' | 'other_currency' | 'unparseable' | 'zero' | 'future' | 'after_start'
 
 export interface ImportReview {
   importId: string
@@ -27,6 +27,8 @@ export interface ImportReview {
   droppedAccounts: string[]
   salary: { label: string; amount: number; day: number } | null
   budgetTotal: number
+  /** Set for a later import (a budget that's already set up): where the history stops, and the envelopes it can land in. */
+  later?: { cutoff: string | null; categories: string[] } | null
 }
 
 export interface CommitEdits {
@@ -129,4 +131,25 @@ export async function getImportStatus(): Promise<ImportStatus> {
 
 export function continueImport(importId: string, retry = false): Promise<unknown> {
   return call('/api/import/continue', jsonInit({ importId, ...(retry ? { retry: true } : {}) }))
+}
+
+/** One committed import, for Settings' history. Web's lib/import/undo.ts. */
+export interface ImportHistoryItem {
+  importId: string
+  app: string
+  status: 'importing' | 'done' | 'failed'
+  total: number
+  done: number
+  failed: number
+  committedAt: string | null
+}
+
+export async function getPastImports(): Promise<ImportHistoryItem[]> {
+  const resp = await apiFetch('/api/import/history')
+  if (!resp.ok) throw new Error(`Failed to load imports: ${resp.status}`)
+  return ((await resp.json()) as { imports: ImportHistoryItem[] }).imports
+}
+
+export function undoImport(importId: string): Promise<unknown> {
+  return call('/api/import/undo', jsonInit({ importId }))
 }

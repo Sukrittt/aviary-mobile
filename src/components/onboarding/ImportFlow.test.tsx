@@ -298,3 +298,61 @@ it('asks for the file the picked app exports, and keeps a button in thumb reach'
   fireEvent.press(getByText('Choose your file'))
   expect(mockPick).toHaveBeenCalled()
 })
+
+describe('later, from Settings', () => {
+  const later: ImportReview = {
+    ...review,
+    salary: null,
+    budgetTotal: 0,
+    skipped: { after_start: 4 },
+    otherCurrencies: [],
+    groups: ['Bills'],
+    categories: [
+      { source: 'Bills', name: 'Bills', group: 'Bills', monthly: 0 },
+      { source: 'Gifts', name: 'Gifts', group: 'Bills', monthly: 0 },
+    ],
+    later: { cutoff: '2026-10-03', categories: ['Bills', 'Groceries'] },
+  }
+
+  function toLaterReview() {
+    mockPreview.mockResolvedValue(later)
+    const utils = renderWithProviders(<ImportFlow skipAsk budgetName="Home" onFresh={jest.fn()} onDone={jest.fn()} onAlreadySetUp={jest.fn()} />)
+    fireEvent.press(utils.getByLabelText('Monefy'))
+    fireEvent.press(utils.getByLabelText('Choose your export file'))
+    return utils
+  }
+
+  it('says what comes in and why it stops there, without the setup steps', async () => {
+    const utils = toLaterReview()
+    expect(await utils.findByText(/^We’ll add 9 entries from before 3 Oct/)).toBeTruthy()
+    expect(utils.getByText('Going into Home')).toBeTruthy()
+    expect(utils.getByText('4 rows from 3 Oct on stay out, so nothing’s counted twice.')).toBeTruthy()
+    expect(utils.queryByText('YOUR INCOME')).toBeNull()
+    expect(utils.queryByText(/Your money’s in/)).toBeNull()
+    expect(utils.getByLabelText('Envelope for Bills, Bills')).toBeTruthy()
+    expect(utils.getByLabelText('Envelope for Gifts, New envelope')).toBeTruthy()
+  })
+
+  it('puts a leftover category into an existing envelope and sends no salary', async () => {
+    const utils = toLaterReview()
+    fireEvent.press(await utils.findByLabelText('Envelope for Gifts, New envelope'))
+    fireEvent.press(utils.getByText('Groceries'))
+    expect(utils.getByLabelText('Envelope for Gifts, Groceries')).toBeTruthy()
+    fireEvent.press(utils.getByText('Bring it in'))
+    await waitFor(() => expect(mockCommit).toHaveBeenCalled())
+    expect(mockCommit.mock.calls[0][1]).toMatchObject({
+      salary: null,
+      categories: [{ source: 'Bills', name: 'Bills', group: 'Bills' }, { source: 'Gifts', name: 'Groceries', group: 'Bills' }],
+    })
+  })
+
+  it('won’t bring in a file with nothing from before the first entry', async () => {
+    mockPreview.mockResolvedValue({ ...later, counts: { expense: 0, income: 0, from: '', to: '' } })
+    const utils = renderWithProviders(<ImportFlow skipAsk onFresh={jest.fn()} onDone={jest.fn()} onAlreadySetUp={jest.fn()} />)
+    fireEvent.press(utils.getByLabelText('Monefy'))
+    fireEvent.press(utils.getByLabelText('Choose your export file'))
+    expect(await utils.findByText('Nothing in this file is from before 3 Oct, when you started in Aviary.')).toBeTruthy()
+    fireEvent.press(utils.getByText('Bring it in'))
+    expect(mockCommit).not.toHaveBeenCalled()
+  })
+})
