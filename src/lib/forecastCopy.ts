@@ -14,15 +14,25 @@ export function aboutAmount(n: number): number {
   return Math.round(n / step) * step || 0
 }
 
-/** The one line on Home, or null when there's no forecast yet. */
-export function forecastHeadline(f: Forecast, money: Money): string | null {
-  if (!f.basis || f.totalLeft === null) return null
+/**
+ * Home's heads-up when an envelope runs dry before month end, or null when
+ * nothing does. `key` changes with the envelope or the date, so a dismissed
+ * warning comes back once the forecast moves.
+ */
+export function runOutWarning(f: Forecast): { text: string; key: string } | null {
+  if (!f.basis) return null
   const first = f.envelopes
     .filter((e) => e.runsOutOn)
     .sort((a, b) => a.runsOutOn!.localeCompare(b.runsOutOn!))[0]
-  if (first) return `${splitEmoji(first.category).text} runs out around ${formatDateShort(first.runsOutOn!)}`
-  const total = aboutAmount(f.totalLeft)
-  return total < 0 ? `About ${money(-total)} over by month end` : `About ${money(total)} left at month end`
+  if (!first) return null
+  // SecureStore keys allow only [A-Za-z0-9._-], and category names hold emoji and spaces.
+  let h = 0
+  for (const c of first.category) h = (h * 31 + c.codePointAt(0)!) | 0
+  return {
+    text: `${splitEmoji(first.category).text} runs out around ${formatDateShort(first.runsOutOn!).replace(' ', '\u00a0')}`,
+    // ^ non-breaking, so a wrapped line never strands the month from its day.
+    key: `forecast-${(h >>> 0).toString(36)}-${first.runsOutOn}`,
+  }
 }
 
 /** "₹X is already spoken for next month", or null with nothing scheduled. */
