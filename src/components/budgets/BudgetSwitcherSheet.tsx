@@ -4,11 +4,11 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { BottomSheet } from '@/src/components/shared/Modal'
-import { Check, GearSix, Lock, Plus, UserPlus } from '@/src/components/shared/icons'
+import { ArrowCounterClockwise, Check, GearSix, Lock, Plus, Trash, UserPlus } from '@/src/components/shared/icons'
 import { Button } from '@/src/components/ui/Button'
 import { budgetsKey, useBudgetList, useBudgetSpaces } from '@/src/hooks/useBudgetSpaces'
 import { useBillingStatus } from '@/src/hooks/useBillingStatus'
-import { restoreBudget } from '@/src/api/spaces'
+import { purgeBudget, restoreBudget } from '@/src/api/spaces'
 import { Alert } from '@/src/components/ui/AlertHost'
 import { switchBudget } from '@/src/lib/budgetSwitch'
 import { currentUserId } from '@/src/api/accessMode'
@@ -38,6 +38,22 @@ export function BudgetSwitcherSheet({ visible, onClose, onSwitch }: { visible: b
     restoreBudget(id)
       .then(() => queryClient.invalidateQueries({ queryKey: budgetsKey }))
       .catch(() => Alert.alert("Couldn't bring it back", 'Check your connection and try again.'))
+  }
+
+  const purge = (id: string, name: string) => {
+    tap()
+    Alert.alert(`Delete ${name} for good?`, "Its expenses, categories and members go with it. You can't undo this.", [
+      { text: 'Keep it', style: 'cancel' },
+      {
+        text: 'Delete for good',
+        style: 'destructive',
+        onPress: () => {
+          purgeBudget(id)
+            .then(() => queryClient.invalidateQueries({ queryKey: budgetsKey }))
+            .catch(() => Alert.alert("Couldn't delete it", 'Check your connection and try again.'))
+        },
+      },
+    ])
   }
 
   const open = (id: string) => {
@@ -115,8 +131,11 @@ export function BudgetSwitcherSheet({ visible, onClose, onSwitch }: { visible: b
         <View key={d.id} style={[styles.row, styles.deleted, { borderColor: tokens.border }]}>
           <BudgetIcon budget={d} size={24} color={tokens.text3} />
           <Text numberOfLines={1} style={[styles.name, styles.rowMain, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>{`${d.name} · Deleted`}</Text>
-          <Pressable onPress={() => restore(d.id)} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Restore ${d.name}`}>
-            <Text style={[styles.name, { color: tokens.accentInk, fontFamily: fontFamily.bodySemiBold }]}>Restore</Text>
+          <Pressable onPress={() => restore(d.id)} hitSlop={10} accessibilityRole="button" accessibilityLabel={`Restore ${d.name}`}>
+            <ArrowCounterClockwise size={20} color={tokens.accentInk} />
+          </Pressable>
+          <Pressable onPress={() => purge(d.id, d.name)} hitSlop={10} accessibilityRole="button" accessibilityLabel={`Delete ${d.name} for good`}>
+            <Trash size={20} color={tokens.text2} />
           </Pressable>
         </View>
       ))}
