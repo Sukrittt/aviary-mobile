@@ -357,6 +357,21 @@ function ActivityScreen() {
           account: selectedAccount || undefined,
         });
   const listItems = mergeByDate(filtered, visibleIncomes);
+  // The feed pages on its own, so it gets every matching income and places
+  // each by the dates it has loaded.
+  const feedIncomes =
+    selectedCategory || FORCE_EMPTY_STATE_PREVIEW
+      ? EMPTY
+      : incomesForPage(incomesQ.data ?? [], {
+          from: from ?? "0000-01-01",
+          to: to && !selectedDate ? periodEnd(period, to) : to ?? "9999-12-31",
+          pageMin: null,
+          prevPageMin: null,
+          page: 1,
+          isLastPage: true,
+          q: search,
+          account: selectedAccount || undefined,
+        });
   // ponytail: with search + period "all" + no category, the server can't
   // filter item/notes in Mongo (they're encrypted) and falls back to an
   // unbounded JS scan for that one combo — same as this screen's own
@@ -796,6 +811,8 @@ function ActivityScreen() {
         {feedView ? (
           <ActivityFeed
             params={feedParams}
+            incomes={feedIncomes}
+            onOpenIncome={() => router.push("/account/income")}
             header={controls}
             empty={emptyState}
             categoryByName={categoryByName}

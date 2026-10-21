@@ -22,7 +22,7 @@ const mockDeleteAsk = jest.fn()
 
 function Harness({ onOpenActions }: { onOpenActions: jest.Mock }) {
   return (
-    <ActivityFeed params={{}} header={<Text>header</Text>} empty={<Text>nothing here</Text>} categoryByName={new Map()}
+    <ActivityFeed params={{}} incomes={[]} onOpenIncome={() => {}} header={<Text>header</Text>} empty={<Text>nothing here</Text>} categoryByName={new Map()}
       accountNameOf={(id) => (id === 'acc1' ? 'HDFC Savings' : '')} onOpenActions={onOpenActions} onEdit={mockEdit} onDelete={mockDeleteAsk}
       isDeleting={() => false} onDeleteDone={() => {}} refreshControl={<RefreshControl refreshing={false} />} />
   )
