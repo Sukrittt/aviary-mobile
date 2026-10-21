@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type StyleProp, type ViewStyle } from 'react-native'
+import { KeyboardAvoidingView, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, type StyleProp, type TextStyle, type ViewStyle } from 'react-native'
 import Animated, { FadeIn, FadeInDown, useAnimatedStyle, useReducedMotion, useSharedValue, withSpring, withTiming } from 'react-native-reanimated'
 import * as Haptics from 'expo-haptics'
 import { ArrowLeft, CaretDown, CaretRight, Check, FileText, Plus, SealCheck } from '@/src/components/shared/icons'
@@ -8,6 +8,8 @@ import { CurrencyScope, useCurrency } from '@/src/context/CurrencyContext'
 import { LoadingCaption } from '@/src/components/shared/LoadingCaption'
 import { LoadingPhrase } from '@/src/components/shared/LoadingPhrase'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
+import { CategoryIcon } from '@/src/components/shared/CategoryIcon'
+import { splitEmoji } from '@/src/lib/emoji'
 import { BottomSheet } from '@/src/components/shared/Modal'
 import { PopIn } from '@/src/components/shared/PopIn'
 import { StepDot } from '@/src/components/onboarding/StepDot'
@@ -18,7 +20,7 @@ import { pickFile } from '@/src/lib/filePicker'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { commitImport, ImportFailure, previewImport, recomputeImport, type CommitResult, type ImportAccountType, type ImportReview } from '@/src/api/imports'
-import { commitSteps, countsLine, directionCopy, importErrorCopy, ordinal, precheckFile, shortDate, skippedCopy } from './importCopy'
+import { commitSteps, countsLine, directionCopy, entryCount, importErrorCopy, laterLine, ordinal, precheckFile, shortDate, skippedCopy } from './importCopy'
 
 /**
  * "How do you want to start?": the first onboarding step, and the import that follows
@@ -86,7 +88,7 @@ const APPS: AppChoice[] = [
 const OTHER: AppChoice = { id: 'other', name: 'Another app or a spreadsheet', file: 'csv or xlsx', how: ['Any file with a date, an amount and a description works.', 'One row per transaction.'] }
 
 /** The app a file came from, by the id the server detected. Null for a spreadsheet or an app without a preset. Web's appName. */
-function appName(id: string): string | null {
+export function appName(id: string): string | null {
   return APPS.find((a) => a.id === id)?.name ?? null
 }
 
@@ -116,7 +118,10 @@ export interface ImportDone {
 // device. There's nothing to fix here, so the screen hands the user on.
 // skipAsk: the "How do you want to start?" question was already answered (a new
 // budget's own choice), so it opens on the app list and Back from there is onFresh.
-export function ImportFlow({ onFresh, onDone, onAlreadySetUp, skipAsk = false }: { onFresh: () => void; onDone: (done: ImportDone) => void; onAlreadySetUp: () => void; skipAsk?: boolean }) {
+// budgetName: shown on a later import's review (one into a budget that's set up),
+// so the history visibly lands in the right budget.
+// children: under the app list, where Settings shows past imports.
+export function ImportFlow({ onFresh, onDone, onAlreadySetUp, skipAsk = false, budgetName, children }: { onFresh: () => void; onDone: (done: ImportDone) => void; onAlreadySetUp: () => void; skipAsk?: boolean; budgetName?: string; children?: React.ReactNode }) {
   const { tokens } = useTheme()
   const stages = skipAsk ? STAGES.slice(1) : STAGES
   const [stage, setStage] = useState<Stage>(stages[0])
@@ -192,6 +197,7 @@ export function ImportFlow({ onFresh, onDone, onAlreadySetUp, skipAsk = false }:
             <Pressable accessibilityRole="button" onPress={() => pick(OTHER)} hitSlop={8} style={styles.textAction}>
               <Text style={[styles.textActionLabel, { color: tokens.accentInk, fontFamily: fontFamily.bodyBold }]}>Using something else? Pick any csv or xlsx</Text>
             </Pressable>
+            {children}
           </ScrollView>
         </Animated.View>
       )}
@@ -209,7 +215,7 @@ export function ImportFlow({ onFresh, onDone, onAlreadySetUp, skipAsk = false }:
 
       {stage === 'review' && review && (
         <CurrencyScope code={review.currency}>
-          <Review review={review} picked={app} onReview={(r) => setReview((prev) => ({ ...r, filename: prev?.filename ?? r.filename }))} onDone={onDone} onAlreadySetUp={onAlreadySetUp} />
+          <Review review={review} picked={app} budgetName={budgetName} onReview={(r) => setReview((prev) => ({ ...r, filename: prev?.filename ?? r.filename }))} onDone={onDone} onAlreadySetUp={onAlreadySetUp} />
         </CurrencyScope>
       )}
     </>
@@ -346,7 +352,7 @@ function Upload({ app, onPreview, onAlreadySetUp }: { app: AppChoice; onPreview:
 type CategoryEdit = ImportReview['categories'][number]
 type AccountEdit = ImportReview['accounts'][number]
 
-function Review({ review, picked, onReview, onDone, onAlreadySetUp }: { review: ImportReview; picked: AppChoice | null; onReview: (r: ImportReview) => void; onDone: (done: ImportDone) => void; onAlreadySetUp: () => void }) {
+function Review({ review, picked, budgetName, onReview, onDone, onAlreadySetUp }: { review: ImportReview; picked: AppChoice | null; budgetName?: string; onReview: (r: ImportReview) => void; onDone: (done: ImportDone) => void; onAlreadySetUp: () => void }) {
   const { tokens } = useTheme()
   const { formatMoney } = useCurrency()
   const from = appName(review.app) ?? (picked && picked.id !== 'other' ? picked.name : null)
@@ -360,6 +366,8 @@ function Review({ review, picked, onReview, onDone, onAlreadySetUp }: { review: 
   const [currencyOpen, setCurrencyOpen] = useState(false)
   // The envelope whose group is being picked, by source.
   const [groupFor, setGroupFor] = useState<string | null>(null)
+  // A later import: the category whose envelope is being picked, by source.
+  const [targetFor, setTargetFor] = useState<string | null>(null)
   const [recomputing, setRecomputing] = useState(false)
   const [phase, setPhase] = useState<'idle' | 'saving' | 'success'>('idle')
   // The same save state as the wizard's Finish setup: a fill that grows under a
@@ -432,17 +440,24 @@ function Review({ review, picked, onReview, onDone, onAlreadySetUp }: { review: 
     if (groupFor) editCat(groupFor, { group: name })
   }
 
-  const salaryAmount = Math.round(Number(salary) * 100) / 100
+  // A later import: history only, into envelopes the budget mostly has already.
+  const later = review.later ?? null
+  // Picked "New envelope" on purpose: stays new even while its name still matches one they have, so it can be renamed.
+  const [chosenNew, setChosenNew] = useState<ReadonlySet<string>>(new Set())
+  const isNew = (c: CategoryEdit) => chosenNew.has(c.source) || !later?.categories.includes(c.name)
+  const nothing = !!later && entryCount(review.counts) === 0
+  const salaryAmount = later ? 0 : Math.round(Number(salary) * 100) / 100
   const hasSalary = salaryAmount > 0
   const budgetTotal = cats.reduce((sum, c) => sum + c.monthly, 0)
   const tooManyBanks = accounts.filter((a) => a.type === 'bank').length > MAX_BANK_ACCOUNTS
   const busy = phase !== 'idle' || recomputing
   const picking = cats.find((c) => c.source === groupFor)
-  const steps = commitSteps(cats.length, accounts.length, hasSalary)
+  const targeting = cats.find((c) => c.source === targetFor)
+  const steps = later ? ['Getting your history ready…'] : commitSteps(cats.length, accounts.length, hasSalary)
   const saveStep = steps[Math.min(steps.length - 1, Math.floor((saveProgress / CREEP_MAX) * steps.length))]
 
   const commit = async () => {
-    if (busy || tooManyBanks) return
+    if (busy || tooManyBanks || nothing) return
     tap()
     setPhase('saving')
     setError('')
@@ -482,7 +497,8 @@ function Review({ review, picked, onReview, onDone, onAlreadySetUp }: { review: 
           </Text>
         </PopIn>
         <Title>Here’s what we found</Title>
-        <Blurb>{countsLine(review.counts)}</Blurb>
+        <Blurb>{later ? laterLine(review) : countsLine(review.counts)}</Blurb>
+        {later && budgetName ? <Text style={[styles.note, styles.goingInto, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>{`Going into ${budgetName}`}</Text> : null}
       </Animated.View>
       <ScrollView
         ref={scroll}
@@ -512,14 +528,68 @@ function Review({ review, picked, onReview, onDone, onAlreadySetUp }: { review: 
           ))}
         </Section>
 
-        <Section delay={80}>
-          <View style={styles.line}>
-            <Text style={[styles.lineText, text]}>Your money’s in {currencyInfo(review.currency).name} · {review.currency}</Text>
-            <Action label="Change" onPress={() => setCurrencyOpen(true)} disabled={busy} />
-          </View>
-        </Section>
+        {!later && (
+          <Section delay={80}>
+            <View style={styles.line}>
+              <Text style={[styles.lineText, text]}>Your money’s in {currencyInfo(review.currency).name} · {review.currency}</Text>
+              <Action label="Change" onPress={() => setCurrencyOpen(true)} disabled={busy} />
+            </View>
+          </Section>
+        )}
 
-        <Section delay={120} heading="Your envelopes">
+        {later && !nothing && (
+          <Section delay={120} heading="Where these go">
+            <Text style={[styles.note, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>We matched what we could by name. Put the rest in an envelope you have, or make a new one.</Text>
+            {cats.map((c) => (
+              <View key={c.source} style={[styles.editRow, { borderColor: tokens.border }]}>
+                <Text numberOfLines={1} style={[styles.input, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>{c.source}</Text>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Envelope for ${c.source}, ${isNew(c) ? 'New envelope' : bare(c.name)}`}
+                  onPress={() => {
+                    Haptics.selectionAsync().catch(() => {})
+                    setTargetFor(c.source)
+                  }}
+                  hitSlop={4}
+                  style={[styles.groupPill, { backgroundColor: isNew(c) ? tokens.accentSoft : tokens.pillBg, borderColor: tokens.border }]}
+                >
+                  {isNew(c) ? (
+                    <Text numberOfLines={1} style={[styles.groupPillText, { color: tokens.accentInk, fontFamily: fontFamily.bodySemiBold }]}>New envelope</Text>
+                  ) : (
+                    <Named name={c.name} icon={later.icons.categories[c.name]} color={tokens.text2} style={[styles.groupPillText, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]} />
+                  )}
+                  <CaretDown size={12} color={tokens.text3} weight="bold" />
+                </Pressable>
+                {isNew(c) && (
+                  <View style={styles.newEnvelope}>
+                    <TextInput
+                      value={c.name}
+                      maxLength={60}
+                      accessibilityLabel={`Name for ${c.source}`}
+                      onChangeText={(name) => editCat(c.source, { name })}
+                      style={[styles.input, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}
+                    />
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`Group for ${c.source}, ${bare(c.group)}`}
+                      onPress={() => {
+                        Haptics.selectionAsync().catch(() => {})
+                        setGroupFor(c.source)
+                      }}
+                      hitSlop={4}
+                      style={[styles.groupPill, { backgroundColor: tokens.pillBg, borderColor: tokens.border }]}
+                    >
+                      <Named kind="group" name={c.group} icon={later.icons.groups[c.group]} color={tokens.text2} style={[styles.groupPillText, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]} />
+                      <CaretDown size={12} color={tokens.text3} weight="bold" />
+                    </Pressable>
+                  </View>
+                )}
+              </View>
+            ))}
+          </Section>
+        )}
+
+        {!later && <Section delay={120} heading="Your envelopes">
           {cats.map((c) => (
             <View key={c.source} style={[styles.editRow, { borderColor: tokens.border }]}>
               <TextInput
@@ -550,7 +620,7 @@ function Review({ review, picked, onReview, onDone, onAlreadySetUp }: { review: 
               Your file doesn’t have categories, so every spend starts in this one envelope. Rename it here, or split it up later from Categories.
             </Text>
           )}
-        </Section>
+        </Section>}
 
         {accounts.length > 0 && (
           <Section delay={160} heading="Your accounts">
@@ -598,7 +668,7 @@ function Review({ review, picked, onReview, onDone, onAlreadySetUp }: { review: 
           </Section>
         )}
 
-        <Section delay={200} heading="Your income">
+        {!later && <Section delay={200} heading="Your income">
           <Text style={[styles.lineText, text]}>
             {review.salary
               ? `We think your salary is ${formatMoney(review.salary.amount)} on about the ${ordinal(review.salary.day)}.`
@@ -634,9 +704,9 @@ function Review({ review, picked, onReview, onDone, onAlreadySetUp }: { review: 
               </Pressable>
             </View>
           </View>
-        </Section>
+        </Section>}
 
-        <Section delay={240}>
+        {!later && <Section delay={240}>
           <Text style={[styles.lineText, text]}>We’ll set each envelope to what you spent on it in a typical month. Change any of them later.</Text>
           {hasSalary && (
             <Text style={[styles.lineText, { color: budgetTotal <= salaryAmount ? tokens.mint : tokens.coral, fontFamily: fontFamily.bodySemiBold }]}>
@@ -645,7 +715,7 @@ function Review({ review, picked, onReview, onDone, onAlreadySetUp }: { review: 
                 : `That’s ${formatMoney(budgetTotal)} a month, ${formatMoney(budgetTotal - salaryAmount)} more than comes in.`}
             </Text>
           )}
-        </Section>
+        </Section>}
       </ScrollView>
 
       {error !== '' && (
@@ -656,14 +726,14 @@ function Review({ review, picked, onReview, onDone, onAlreadySetUp }: { review: 
 
       <Pressable
         onPress={commit}
-        disabled={busy || tooManyBanks}
+        disabled={busy || tooManyBanks || nothing}
         accessibilityRole="button"
-        accessibilityLabel={phase === 'success' ? 'You’re set up' : phase === 'saving' ? saveStep : undefined}
-        accessibilityState={{ disabled: busy || tooManyBanks, busy: phase === 'saving' }}
+        accessibilityLabel={phase === 'success' ? (later ? 'It’s on its way' : 'You’re set up') : phase === 'saving' ? saveStep : undefined}
+        accessibilityState={{ disabled: busy || tooManyBanks || nothing, busy: phase === 'saving' }}
         style={[
           styles.cta,
           {
-            backgroundColor: phase === 'success' ? tokens.successBg : phase === 'saving' || tooManyBanks ? tokens.inputBg : tokens.accent,
+            backgroundColor: phase === 'success' ? tokens.successBg : phase === 'saving' || tooManyBanks || nothing ? tokens.inputBg : tokens.accent,
             opacity: recomputing ? 0.6 : 1,
           },
         ]}
@@ -676,8 +746,8 @@ function Review({ review, picked, onReview, onDone, onAlreadySetUp }: { review: 
             <LoadingPhrase phrases={[saveStep]} color={tokens.text3} style={[styles.ctaText, styles.ctaPhrase, { fontFamily: fontFamily.displaySemiBold }]} />
           </>
         ) : (
-          <Text style={[styles.ctaText, { color: tooManyBanks ? tokens.text3 : tokens.onAccent, fontFamily: fontFamily.displaySemiBold }]}>
-            Looks right, set me up
+          <Text style={[styles.ctaText, { color: tooManyBanks || nothing ? tokens.text3 : tokens.onAccent, fontFamily: fontFamily.displaySemiBold }]}>
+            {later ? 'Bring it in' : 'Looks right, set me up'}
           </Text>
         )}
       </Pressable>
@@ -727,6 +797,48 @@ function Review({ review, picked, onReview, onDone, onAlreadySetUp }: { review: 
         </View>
       </BottomSheet>
 
+      <BottomSheet visible={!!targeting} onClose={() => setTargetFor(null)}>
+        {targeting && later && (
+          <View style={styles.sheet}>
+            <View style={[styles.grabber, { backgroundColor: tokens.borderStrong }]} />
+            <Text style={[styles.sheetTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>{`Where should ${targeting.source} go?`}</Text>
+            <ScrollView style={styles.targetList} contentContainerStyle={styles.sheet}>
+              {[null, ...later.categories].map((name) => {
+                const on = name === null ? isNew(targeting) : !isNew(targeting) && targeting.name === name
+                return (
+                  <Pressable
+                    key={name ?? '__new__'}
+                    accessibilityRole="radio"
+                    accessibilityState={{ checked: on }}
+                    onPress={() => {
+                      Haptics.selectionAsync().catch(() => {})
+                      editCat(targeting.source, { name: name ?? targeting.source })
+                      setChosenNew((prev) => {
+                        const next = new Set(prev)
+                        if (name === null) next.add(targeting.source)
+                        else next.delete(targeting.source)
+                        return next
+                      })
+                      setTargetFor(null)
+                    }}
+                    style={[styles.groupOption, { backgroundColor: on ? tokens.accentSoft : tokens.card, borderColor: on ? tokens.accent : tokens.border }]}
+                  >
+                    {name === null ? (
+                      <Text style={[styles.fill, styles.groupOptionText, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>New envelope</Text>
+                    ) : (
+                      <View style={styles.fill}>
+                        <Named name={name} icon={later.icons.categories[name]} color={tokens.text2} style={[styles.groupOptionText, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]} />
+                      </View>
+                    )}
+                    {on && <Check size={16} color={tokens.accent} weight="bold" />}
+                  </Pressable>
+                )
+              })}
+            </ScrollView>
+          </View>
+        )}
+      </BottomSheet>
+
       <BottomSheet visible={!!picking} onClose={() => setGroupFor(null)}>
         {picking && (
           <View style={styles.sheet}>
@@ -746,7 +858,13 @@ function Review({ review, picked, onReview, onDone, onAlreadySetUp }: { review: 
                   }}
                   style={[styles.groupOption, { backgroundColor: on ? tokens.accentSoft : tokens.card, borderColor: on ? tokens.accent : tokens.border }]}
                 >
-                  <Text style={[styles.fill, styles.groupOptionText, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>{g}</Text>
+                  {later ? (
+                    <View style={styles.fill}>
+                      <Named kind="group" name={g} icon={later.icons.groups[g]} color={tokens.text2} style={[styles.groupOptionText, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]} />
+                    </View>
+                  ) : (
+                    <Text style={[styles.fill, styles.groupOptionText, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>{g}</Text>
+                  )}
                   {on && <Check size={16} color={tokens.accent} weight="bold" />}
                 </Pressable>
               )
@@ -778,6 +896,19 @@ function Review({ review, picked, onReview, onDone, onAlreadySetUp }: { review: 
         )}
       </BottomSheet>
     </KeyboardAvoidingView>
+  )
+}
+
+/** A name as the rest of the app shows it: without the emoji some older names start with. */
+const bare = (name: string) => splitEmoji(name).text || name
+
+/** An envelope or group as Envelopes shows it: our icon, then its bare name. Never the name's emoji. */
+function Named({ name, icon, kind = 'category', color, style }: { name: string; icon?: string; kind?: 'category' | 'group'; color: string; style: StyleProp<TextStyle> }) {
+  return (
+    <View style={styles.named}>
+      <CategoryIcon kind={kind} name={name} icon={icon} size={14} color={color} />
+      <Text numberOfLines={1} style={style}>{bare(name)}</Text>
+    </View>
   )
 }
 
@@ -1000,5 +1131,9 @@ const styles = StyleSheet.create({
   sheetTitle: { fontSize: 17, marginBottom: 4 },
   groupOption: { flexDirection: 'row', alignItems: 'center', paddingVertical: 13, paddingHorizontal: 14, borderRadius: 14, borderWidth: 1 },
   groupOptionText: { fontSize: 14 },
+  goingInto: { marginTop: 6 },
+  named: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 },
+  newEnvelope: { flexBasis: '100%', flexDirection: 'row', alignItems: 'center', gap: 8 },
+  targetList: { maxHeight: 420 },
   addGroup: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 12, paddingHorizontal: 14, borderRadius: 100, borderWidth: 1, borderStyle: 'dashed' },
 })

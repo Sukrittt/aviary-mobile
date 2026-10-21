@@ -66,6 +66,7 @@ export type AppEvent =
   | 'import_previewed'
   | 'import_direction_flipped'
   | 'import_committed'
+  | 'import_undone'
   | 'import_done'
   | 'import_failed'
   | 'tour_started'
