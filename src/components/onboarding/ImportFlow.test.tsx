@@ -362,6 +362,7 @@ describe('later, from Settings', () => {
     fireEvent.press(utils.getByLabelText('Monefy'))
     fireEvent.press(utils.getByLabelText('Choose your export file'))
     expect(await utils.findByText('Nothing in this file is from before 3 Oct, when you started in Aviary.')).toBeTruthy()
+    expect(utils.queryByText('WHERE THESE GO')).toBeNull()
     fireEvent.press(utils.getByText('Bring it in'))
     expect(mockCommit).not.toHaveBeenCalled()
   })

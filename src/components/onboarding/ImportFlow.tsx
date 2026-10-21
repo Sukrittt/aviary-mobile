@@ -535,7 +535,7 @@ function Review({ review, picked, budgetName, onReview, onDone, onAlreadySetUp }
           </Section>
         )}
 
-        {later && (
+        {later && !nothing && (
           <Section delay={120} heading="Where these go">
             <Text style={[styles.note, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>We matched what we could by name. Put the rest in an envelope you have, or make a new one.</Text>
             {cats.map((c) => (
