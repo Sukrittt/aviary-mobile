@@ -458,6 +458,8 @@ function ActivityScreen() {
 
   function startDelete(t: ExpenseRow) {
     setDeleteTxn(null);
+    // Access can change while the sheet is open.
+    if (blocked()) return;
     // One row collapses at a time. A delete still mid-collapse is sent now,
     // or swapping the target would quietly cancel it.
     if (pendingDelete && keyOf(pendingDelete) !== keyOf(t) && sentDeleteRef.current !== keyOf(pendingDelete)) runDelete(pendingDelete);
