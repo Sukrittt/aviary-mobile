@@ -346,6 +346,16 @@ describe('later, from Settings', () => {
     })
   })
 
+  it('a category picked as a new envelope stays new even with a matching name, so it can be renamed', async () => {
+    const utils = toLaterReview()
+    fireEvent.press(await utils.findByLabelText('Envelope for Bills, Bills'))
+    fireEvent.press(utils.getAllByText('New envelope').at(-1)!)
+    fireEvent.changeText(utils.getByLabelText('Name for Bills'), 'Old bills')
+    fireEvent.press(utils.getByText('Bring it in'))
+    await waitFor(() => expect(mockCommit).toHaveBeenCalled())
+    expect(mockCommit.mock.calls[0][1].categories[0]).toEqual({ source: 'Bills', name: 'Old bills', group: 'Bills' })
+  })
+
   it('won’t bring in a file with nothing from before the first entry', async () => {
     mockPreview.mockResolvedValue({ ...later, counts: { expense: 0, income: 0, from: '', to: '' } })
     const utils = renderWithProviders(<ImportFlow skipAsk onFresh={jest.fn()} onDone={jest.fn()} onAlreadySetUp={jest.fn()} />)

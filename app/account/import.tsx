@@ -43,8 +43,19 @@ export default function ImportScreen() {
 function PastImports() {
   const { tokens } = useTheme()
   const queryClient = useQueryClient()
-  const { data } = useQuery({ queryKey: pastImportsKey, queryFn: getPastImports })
+  const { data, isError, refetch, isRefetching } = useQuery({ queryKey: pastImportsKey, queryFn: getPastImports })
   const [undoing, setUndoing] = useState<string | null>(null)
+  // A failed load mustn't look like no imports: that's where Undo lives.
+  if (isError) {
+    return (
+      <View style={[styles.row, styles.past, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
+        <Text style={[styles.rowText, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>We couldn’t load your past imports.</Text>
+        <Pressable accessibilityRole="button" disabled={isRefetching} onPress={() => void refetch()} hitSlop={8} style={[styles.undo, { backgroundColor: tokens.accentSoft }]}>
+          <Text style={[styles.undoText, { color: tokens.accentInk, fontFamily: fontFamily.bodyBold }]}>{isRefetching ? 'Trying…' : 'Try again'}</Text>
+        </Pressable>
+      </View>
+    )
+  }
   if (!data?.length) return null
 
   const undo = async (item: ImportHistoryItem) => {

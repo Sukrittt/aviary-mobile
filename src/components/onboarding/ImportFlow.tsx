@@ -440,7 +440,9 @@ function Review({ review, picked, budgetName, onReview, onDone, onAlreadySetUp }
 
   // A later import: history only, into envelopes the budget mostly has already.
   const later = review.later ?? null
-  const isNew = (c: CategoryEdit) => !later?.categories.includes(c.name)
+  // Picked "New envelope" on purpose: stays new even while its name still matches one they have, so it can be renamed.
+  const [chosenNew, setChosenNew] = useState<ReadonlySet<string>>(new Set())
+  const isNew = (c: CategoryEdit) => chosenNew.has(c.source) || !later?.categories.includes(c.name)
   const nothing = !!later && entryCount(review.counts) === 0
   const salaryAmount = later ? 0 : Math.round(Number(salary) * 100) / 100
   const hasSalary = salaryAmount > 0
@@ -796,7 +798,7 @@ function Review({ review, picked, budgetName, onReview, onDone, onAlreadySetUp }
             <Text style={[styles.sheetTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>{`Where should ${targeting.source} go?`}</Text>
             <ScrollView style={styles.targetList} contentContainerStyle={styles.sheet}>
               {[null, ...later.categories].map((name) => {
-                const on = name === null ? isNew(targeting) : targeting.name === name
+                const on = name === null ? isNew(targeting) : !isNew(targeting) && targeting.name === name
                 return (
                   <Pressable
                     key={name ?? '__new__'}
@@ -805,6 +807,12 @@ function Review({ review, picked, budgetName, onReview, onDone, onAlreadySetUp }
                     onPress={() => {
                       Haptics.selectionAsync().catch(() => {})
                       editCat(targeting.source, { name: name ?? targeting.source })
+                      setChosenNew((prev) => {
+                        const next = new Set(prev)
+                        if (name === null) next.add(targeting.source)
+                        else next.delete(targeting.source)
+                        return next
+                      })
                       setTargetFor(null)
                     }}
                     style={[styles.groupOption, { backgroundColor: on ? tokens.accentSoft : tokens.card, borderColor: on ? tokens.accent : tokens.border }]}

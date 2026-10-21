@@ -53,3 +53,10 @@ it('says so in its own words when the undo fails', async () => {
   await act(async () => buttons.find((b) => b.text === 'Undo import')!.onPress!())
   expect(mockAlert).toHaveBeenCalledWith('Couldn’t undo that import', 'Only the budget’s owner can bring history into it.')
 })
+
+it('says when past imports didn’t load, with a way to try again', async () => {
+  mockPast.mockRejectedValueOnce(new Error('503')).mockResolvedValue([{ importId: 'a', app: 'ynab', status: 'done', total: 5, done: 5, failed: 0, committedAt: null }])
+  const utils = renderWithProviders(<ImportScreen />)
+  fireEvent.press(await utils.findByText('Try again'))
+  expect(await utils.findByLabelText(/^Undo import, YNAB/)).toBeTruthy()
+})
