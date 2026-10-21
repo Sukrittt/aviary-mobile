@@ -33,6 +33,7 @@
     "expo-observe": "~57.0.23",
     "expo-router": "~57.0.12",
     "expo-secure-store": "~57.0.1",
+    "expo-share-intent": "^8.0.1",
     "expo-sharing": "~57.0.13",
     "expo-splash-screen": "~57.0.6",
     "expo-status-bar": "~57.0.1",

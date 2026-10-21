@@ -44,6 +44,7 @@ category names, notification text or raw error messages in any property.
 | `envelope_created` | `grouped` |
 | `duplicates_resolved` | `action`: deleted, kept_both |
 | `bill_scan_started` / `bill_scanned` / `bill_scan_failed` | `items_count` / `reason`: ai_allowance, error |
+| `share_read` / `upi_share_tip_shown` | `kind`: text, image · `read` · `dupe` (a payment shared in from a UPI app) |
 | `money_brain_opened` | |
 | `money_brain_query` | `source`: chip, typed |
 | `money_brain_answered` | `ok`, `seconds`, `reason` |

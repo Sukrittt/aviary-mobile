@@ -1,6 +1,6 @@
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Animated, View, Text, StyleSheet } from "react-native";
+import { Animated, Platform, View, Text, StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import Reanimated, { FadeIn, FadeInDown } from "react-native-reanimated";
@@ -39,6 +39,8 @@ import {
   fillSoftColorStops,
 } from "@/src/components/envelope/ProgressBar";
 import { LOG_EXPENSE_PATH } from "@/src/features/log-expense/SubmitContext";
+import { takeUpiShareTip } from "@/src/features/share/upiShareTip";
+import { track } from "@/src/lib/analytics";
 
 /** Reveal stagger, in ms from mount. The tick (Lottie) runs its own internal
  *  timing and needs no entry here. `cardFooter` (the days-left/pace row) is
@@ -209,6 +211,8 @@ export default function ExpenseAddedScreen() {
   const paymentMethod = str(params.paymentMethod);
   const accountId = str(params.accountId);
   const amount = Number(str(params.amount)) || 0;
+  const shared = str(params.shared) === "1";
+  const paidWith = str(params.paidWith) || paymentMethod;
   // Older servers return no timestamp on POST, which left the stamp line blank.
   // log-expense sends the moment it navigated as a fallback; it is only ever
   // displayed — Undo still addresses the row by `timestamp`, empty or not.
@@ -322,6 +326,20 @@ export default function ExpenseAddedScreen() {
     () => noticedLine(weeklyRepeat(expensesQ.data ?? [], { id: id || undefined, timestamp: timestamp || undefined, item, date, amount }).count),
     [expensesQ.data, id, timestamp, item, date, amount],
   );
+
+  // Once, after a first bank (likely UPI) log: logging the next one can start from the payment app.
+  const [upiTip, setUpiTip] = useState(false);
+  useEffect(() => {
+    let live = true;
+    void takeUpiShareTip({ android: Platform.OS === "android", paidWith, shared }).then((show) => {
+      if (!show || !live) return;
+      setUpiTip(true);
+      track("upi_share_tip_shown");
+    });
+    return () => { live = false; };
+    // Decided once per screen, on what was just logged.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const undoingPending = undoPendingExpense.isPending;
 
@@ -437,6 +455,17 @@ export default function ExpenseAddedScreen() {
             >
               <Text style={{ color: tokens.text, fontFamily: fontFamily.bodyBold, fontSize: type.body, textAlign: "center" }}>
                 {noticed}
+              </Text>
+            </Reanimated.View>
+          )}
+
+          {upiTip && (
+            <Reanimated.View
+              entering={FadeInDown.delay(STAGGER.detail + 160).duration(420)}
+              style={[styles.noticed, { backgroundColor: tokens.mintSoft }]}
+            >
+              <Text style={{ color: tokens.text, fontFamily: fontFamily.bodyBold, fontSize: type.body, textAlign: "center" }}>
+                Paid with UPI? Share the success screen to Aviary.
               </Text>
             </Reanimated.View>
           )}

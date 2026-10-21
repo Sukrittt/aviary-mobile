@@ -42,6 +42,9 @@ export type AppEvent =
   | 'gap_sheet_choice'
   | 'statement_read'
   | 'statement_logged'
+  // A payment shared in from a UPI app. `kind` text or image, `read` whether an amount came out, `dupe` if it looked logged already.
+  | 'share_read'
+  | 'upi_share_tip_shown'
   | 'fresh_start_logged'
   // Sign-in. `method` is 'google' or 'email'; `reason` is a fixed slug, never
   // the raw error text.
