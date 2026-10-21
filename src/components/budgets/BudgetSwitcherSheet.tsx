@@ -49,8 +49,9 @@ export function BudgetSwitcherSheet({ visible, onClose, onSwitch }: { visible: b
         style: 'destructive',
         onPress: () => {
           purgeBudget(id)
-            .then(() => queryClient.invalidateQueries({ queryKey: budgetsKey }))
             .catch(() => Alert.alert("Couldn't delete it", 'Check your connection and try again.'))
+            // Even on a failure: a timeout can land after the server already purged it.
+            .finally(() => queryClient.invalidateQueries({ queryKey: budgetsKey }))
         },
       },
     ])
