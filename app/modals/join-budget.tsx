@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { View, Text, TextInput, Pressable, ScrollView, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native'
+import { View, Text, Pressable, ScrollView, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native'
+import Reanimated, { FadeInUp, ZoomIn, useReducedMotion } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { type Href, useLocalSearchParams, useRouter } from 'expo-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
@@ -12,11 +13,17 @@ import { budgetsKey, useBudgetSpaces } from '@/src/hooks/useBudgetSpaces'
 import { switchBudget } from '@/src/lib/budgetSwitch'
 import { signalOnboarded } from '@/src/api/onboardingSignal'
 import { currentUserId } from '@/src/api/accessMode'
-import { MAX_MEMBERS } from '@/src/lib/budgetMembership'
+import { MAX_MEMBERS, firstName } from '@/src/lib/budgetMembership'
 import { BudgetIcon } from '@/src/components/budgets/BudgetIcon'
-import { HandPointing } from '@/src/components/shared/icons'
+import { CodeTiles } from '@/src/components/budgets/CodeTiles'
+import { Avatar } from '@/src/components/budgets/MemberAvatars'
+import { ChipSplash } from '@/src/components/budgets/ChipSplash'
+import { HandPointing, Users } from '@/src/components/shared/icons'
+import { tap } from '@/src/lib/haptics'
 
 const CODE_LENGTH = 6
+const FACE = 36
+const FACE_STEP = FACE - 8
 const introKey = (spaceId: string) => `aviary-budget-intro:${spaceId}`
 
 export function cleanCode(raw: string): string {
@@ -39,10 +46,16 @@ export function blockedReason(invite: JoinPreview, refused: string | null | unde
   return null
 }
 
+/** How many people are already in the budget you're about to join. */
+export function whoIsIn(members: number | undefined, inviter: string | null | undefined): string | null {
+  if (!members) return null
+  return members === 1 ? `Just ${inviter || 'the owner'} so far` : `${members} people already in`
+}
+
 /**
  * Join someone's budget with the code from their invite. The code is
- * previewed first, so you see whose budget it is before you're in it; then
- * two short cards, once per budget, on how sharing works.
+ * previewed first, so you see whose budget it is before you're in it. Then,
+ * once per budget, a welcome: your face drops in next to everyone else's.
  */
 export default function JoinBudgetModal() {
   const { tokens } = useTheme()
@@ -55,7 +68,10 @@ export default function JoinBudgetModal() {
   const { budgets, limit, atLimit } = useBudgetSpaces()
   const [code, setCode] = useState(() => cleanCode(params.code ?? ''))
   const [joined, setJoined] = useState<string | null>(null)
-  const [intro, setIntro] = useState<0 | 1 | null>(null)
+  // Kept from the preview: switching into the budget swaps the query cache, preview included.
+  const [welcome, setWelcome] = useState<JoinPreview['budget'] | null>(null)
+  const [splash, setSplash] = useState(false)
+  const reduceMotion = useReducedMotion()
 
   const complete = code.length === CODE_LENGTH
   const preview = useQuery({ queryKey: ['join', code], queryFn: () => previewJoin(code), enabled: complete, staleTime: 30_000 })
@@ -71,6 +87,7 @@ export default function JoinBudgetModal() {
   // undefined: not tried yet. null: refused for no reason we have words for.
   const refused = join.error ? (join.error instanceof BudgetRefusedError ? join.error.code : null) : undefined
   const blocked = invite && !alreadyIn ? blockedReason(invite, refused, { limit, atLimit }) : null
+  const wrongCode = invite?.status === 'not_found' || refused === 'NOT_FOUND'
 
   // Leave the modal. A new account has nothing under it: joining makes them
   // set up (the budget they joined is), and backing out means their own setup.
@@ -92,8 +109,18 @@ export default function JoinBudgetModal() {
       return
     }
     void AsyncStorage.setItem(introKey(spaceId), '1').catch(() => {})
-    setIntro(0)
+    setWelcome(budget ?? null)
   }
+
+  // Your face lands, then the burst around it.
+  useEffect(() => {
+    if (!welcome || reduceMotion) return
+    const timer = setTimeout(() => {
+      tap()
+      setSplash(true)
+    }, 420)
+    return () => clearTimeout(timer)
+  }, [welcome, reduceMotion])
 
   // The shared success beat, then into the budget.
   useEffect(() => {
@@ -105,34 +132,56 @@ export default function JoinBudgetModal() {
 
   const header = (
     <View style={[styles.header, { paddingTop: insets.top + 8, borderBottomColor: tokens.border }]}>
-      <Pressable onPress={() => done(intro !== null)} hitSlop={12} disabled={!!joined && intro === null}>
-        <Text style={[styles.headerAction, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>{intro === null ? 'Cancel' : 'Close'}</Text>
+      <Pressable onPress={() => done(!!welcome)} hitSlop={12} disabled={!!joined && !welcome}>
+        <Text style={[styles.headerAction, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>{welcome ? 'Close' : 'Cancel'}</Text>
       </Pressable>
       <Text style={[styles.headerTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Join a budget</Text>
       <View style={{ width: 52 }} />
     </View>
   )
 
-  if (intro !== null && budget) {
-    const cards = [
-      { icon: <BudgetIcon budget={budget} size={40} color={tokens.accentInk} />, title: `You and ${invite?.inviter ?? 'the owner'} share this budget`, body: "Everything anyone logs lands here, and you'll see who added what." },
-      { icon: <HandPointing size={40} color={tokens.accentInk} />, title: 'Switch budgets from here', body: 'Tap the budget name at the top of Home to hop between your budgets.' },
-    ]
-    const card = cards[intro]
+  if (welcome) {
+    const budget = welcome
+    // The list was refetched before this shows, so it has everyone, you included.
+    const joinedBudget = budgets.find((b) => b.id === budget.id)
+    const uid = currentUserId()
+    const me = joinedBudget?.members.find((m) => m.userId === uid)
+    const others = (joinedBudget?.members ?? []).filter((m) => m.userId !== uid).slice(0, 4)
+    const name = firstName(me?.name)
     return (
       <View style={[styles.container, { backgroundColor: tokens.bg }]}>
         {header}
-        <View style={[styles.body, styles.introBody]} testID={`budget-intro-${intro}`}>
-          {card.icon}
-          <Text style={[styles.introTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>{card.title}</Text>
-          <Text style={[styles.introText, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>{card.body}</Text>
-          <Text style={[styles.hint, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>{`${intro + 1} of ${cards.length}`}</Text>
+        <View style={[styles.body, styles.introBody]} testID="budget-welcome">
+          <View style={[styles.hero, { backgroundColor: tokens.accentSoft }]}>
+            <BudgetIcon budget={budget} size={40} color={tokens.accentInk} />
+          </View>
+          <Text style={[styles.introTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>{name ? `You're in, ${name}` : "You're in"}</Text>
+          <Text style={[styles.introText, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
+            {`Everything anyone logs in ${budget.name} lands here, and you'll see who added what.`}
+          </Text>
+          <View style={styles.faces}>
+            {others.map((m, i) => (
+              <View key={m.userId} style={{ marginLeft: i === 0 ? 0 : -8 }}>
+                <Avatar name={m.name} avatarUrl={m.avatarUrl} size={FACE} />
+              </View>
+            ))}
+            <Reanimated.View testID="welcome-you" entering={reduceMotion ? undefined : ZoomIn.delay(200).springify().damping(12)} style={{ marginLeft: others.length ? -8 : 0 }}>
+              <Avatar name={me?.name ?? 'You'} avatarUrl={me?.avatarUrl ?? null} size={FACE} />
+            </Reanimated.View>
+            {splash && (
+              <ChipSplash center={{ x: others.length * FACE_STEP + FACE / 2, y: FACE / 2 }} color={tokens.accent} softColor={tokens.accentInk} onDone={() => setSplash(false)} />
+            )}
+          </View>
+          <View style={[styles.tip, { backgroundColor: tokens.pillBg }]}>
+            <HandPointing size={18} color={tokens.accentInk} />
+            <Text style={[styles.tipText, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>Tap the budget at the top of Home to switch.</Text>
+          </View>
           <Pressable
-            onPress={() => (intro === 0 ? setIntro(1) : done(true))}
+            onPress={() => done(true)}
             accessibilityRole="button"
             style={[styles.confirmButton, { backgroundColor: tokens.accent, alignSelf: 'stretch' }]}
           >
-            <Text style={[styles.confirmText, { color: tokens.onAccent, fontFamily: fontFamily.bodyBold }]}>{intro === 0 ? 'Next' : 'Got it'}</Text>
+            <Text style={[styles.confirmText, { color: tokens.onAccent, fontFamily: fontFamily.bodyBold }]}>{"Let's go"}</Text>
           </Pressable>
         </View>
       </View>
@@ -144,22 +193,18 @@ export default function JoinBudgetModal() {
       {header}
       <ScrollView contentContainerStyle={[styles.body, { paddingBottom: insets.bottom + 32 }]} keyboardShouldPersistTaps="handled">
         <View style={styles.field}>
-          <Text style={[styles.fieldLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>Invite code</Text>
-          <TextInput
+          <Text style={[styles.headline, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Got an invite?</Text>
+          <CodeTiles
             value={code}
-            onChangeText={(t) => {
+            onChange={(t) => {
               join.reset()
               setCode(cleanCode(t))
             }}
-            placeholder="ABC123"
-            placeholderTextColor={tokens.text3}
-            autoCapitalize="characters"
-            autoCorrect={false}
+            length={CODE_LENGTH}
             autoFocus={!params.code}
-            maxLength={CODE_LENGTH}
             editable={!joined}
-            accessibilityLabel="Invite code"
-            style={[styles.codeInput, { backgroundColor: tokens.inputBg, borderColor: tokens.border, color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}
+            error={wrongCode}
+            shakeFor={wrongCode ? code : ''}
           />
         </View>
 
@@ -172,11 +217,19 @@ export default function JoinBudgetModal() {
             <Text style={[styles.cardText, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>{blocked}</Text>
           </View>
         ) : budget ? (
-          <View style={[styles.card, { backgroundColor: tokens.pillBg }]}>
-            <BudgetIcon budget={budget} size={32} color={tokens.text} />
+          <Reanimated.View key={budget.id} entering={reduceMotion ? undefined : FadeInUp.springify().damping(16)} style={[styles.card, styles.invite, { backgroundColor: tokens.pillBg }]}>
+            <View style={[styles.hero, { backgroundColor: tokens.accentSoft }]}>
+              <BudgetIcon budget={budget} size={36} color={tokens.accentInk} />
+            </View>
             <Text style={[styles.cardTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
-              {alreadyIn ? `You're already in ${budget.name}` : `Join ${budget.name} budget?`}
+              {alreadyIn ? `You're already in ${budget.name}` : invite?.inviter ? `${invite.inviter} invited you to ${budget.name}` : `You're invited to ${budget.name}`}
             </Text>
+            {!alreadyIn && whoIsIn(invite?.members, invite?.inviter) ? (
+              <View style={styles.whoIn}>
+                <Users size={16} color={tokens.text3} />
+                <Text style={[styles.cardText, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>{whoIsIn(invite?.members, invite?.inviter)}</Text>
+              </View>
+            ) : null}
             <Text style={[styles.cardText, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
               {alreadyIn ? 'Open it and pick up where you left off.' : 'Your own budget stays exactly as it is.'}
             </Text>
@@ -194,9 +247,9 @@ export default function JoinBudgetModal() {
                 </Text>
               )}
             </Pressable>
-          </View>
+          </Reanimated.View>
         ) : (
-          <Text style={[styles.note, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>{"It's the 6 letters and numbers in the invite you got."}</Text>
+          <Text style={[styles.note, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>{"Pop in the 6 letters and numbers from the invite you got."}</Text>
         )}
       </ScrollView>
     </KeyboardAvoidingView>
@@ -216,9 +269,14 @@ const styles = StyleSheet.create({
   headerAction: { fontSize: 14, width: 52 },
   headerTitle: { fontSize: 16 },
   body: { padding: 20, gap: 18 },
-  field: { gap: 8 },
-  fieldLabel: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5 },
-  codeInput: { borderWidth: 1, borderRadius: 14, paddingHorizontal: 14, paddingVertical: 14, fontSize: 28, letterSpacing: 6, textAlign: 'center' },
+  field: { gap: 16, paddingTop: 8 },
+  headline: { fontSize: 24, textAlign: 'center' },
+  hero: { width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center' },
+  invite: { paddingTop: 22, gap: 10 },
+  whoIn: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  faces: { flexDirection: 'row', alignItems: 'center', marginVertical: 8 },
+  tip: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10 },
+  tipText: { fontSize: 13 },
   note: { fontSize: 13, lineHeight: 18, textAlign: 'center' },
   card: { borderRadius: 16, padding: 16, gap: 8, alignItems: 'center' },
   cardTitle: { fontSize: 18, textAlign: 'center' },
@@ -228,5 +286,4 @@ const styles = StyleSheet.create({
   introBody: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },
   introTitle: { fontSize: 22, textAlign: 'center' },
   introText: { fontSize: 15, lineHeight: 22, textAlign: 'center' },
-  hint: { fontSize: 12 },
 })

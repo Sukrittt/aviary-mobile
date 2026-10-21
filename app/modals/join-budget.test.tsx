@@ -1,9 +1,10 @@
 import { act, fireEvent, waitFor } from '@testing-library/react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import * as Haptics from 'expo-haptics'
 import { renderWithProviders, createTestQueryClient } from '@/src/test-utils/renderWithProviders'
-import JoinBudgetModal from './join-budget'
+import JoinBudgetModal, { whoIsIn } from './join-budget'
 import { budgetsKey } from '@/src/hooks/useBudgetSpaces'
-import { BudgetRefusedError, joinBudget, previewJoin } from '@/src/api/spaces'
+import { BudgetRefusedError, getBudgets, joinBudget, previewJoin } from '@/src/api/spaces'
 import { switchBudget } from '@/src/lib/budgetSwitch'
 import { signalOnboarded } from '@/src/api/onboardingSignal'
 
@@ -32,16 +33,24 @@ function setup({ count = 1, budgets = [personal] as unknown[] } = {}) {
 
 beforeEach(async () => {
   jest.clearAllMocks()
+  ;(getBudgets as jest.Mock).mockResolvedValue({ budgets: [], count: 1, limit: 5, activeId: 'u1' })
   mockParams = {}
   await AsyncStorage.clear()
 })
 
-it('cleans what you type, previews the invite, joins, opens it and shows the intro once', async () => {
+it('cleans what you type, previews the invite, joins, opens it and welcomes you once', async () => {
   ;(previewJoin as jest.Mock).mockResolvedValue(ok)
+  const member = (userId: string, name: string, role: string) => ({ userId, name, avatarUrl: null, role, joinedAt: null })
+  ;(getBudgets as jest.Mock).mockResolvedValue({
+    budgets: [personal, { ...personal, id: 'sp_home', name: 'Home', personal: false, members: [member('u2', 'Priya Shah', 'owner'), member('u1', 'Rahul Rao', 'member')] }],
+    count: 2, limit: 5, activeId: 'u1',
+  })
   const utils = setup()
   fireEvent.changeText(utils.getByLabelText('Invite code'), 'ab-12 cd')
   expect(utils.getByLabelText('Invite code').props.value).toBe('AB12CD')
-  expect(await utils.findByText('Join Home budget?')).toBeTruthy()
+  expect(['A', 'B', '1', '2', 'C', 'D'].map((c, i) => utils.getByTestId(`code-tile-${i}`).findByProps({ children: c }))).toHaveLength(6)
+  expect(await utils.findByText('Priya invited you to Home')).toBeTruthy()
+  expect(utils.getByText('2 people already in')).toBeTruthy()
   expect(utils.getByText('Your own budget stays exactly as it is.')).toBeTruthy()
   expect(previewJoin).toHaveBeenCalledWith('AB12CD')
 
@@ -51,17 +60,18 @@ it('cleans what you type, previews the invite, joins, opens it and shows the int
   await act(async () => { jest.advanceTimersByTime(1200) })
   jest.useRealTimers()
   await waitFor(() => expect(switchBudget).toHaveBeenCalledWith(expect.anything(), 'u1', 'sp_home'))
-  expect(await utils.findByText('You and Priya share this budget')).toBeTruthy()
-  expect(utils.getByText("Everything anyone logs lands here, and you'll see who added what.")).toBeTruthy()
-  fireEvent.press(utils.getByText('Next'))
-  expect(utils.getByText('Switch budgets from here')).toBeTruthy()
-  fireEvent.press(utils.getByText('Got it'))
+  expect(await utils.findByText("You're in, Rahul")).toBeTruthy()
+  expect(utils.getByText("Everything anyone logs in Home lands here, and you'll see who added what.")).toBeTruthy()
+  expect(utils.getByText('P')).toBeTruthy()
+  expect(utils.getByTestId('welcome-you')).toBeTruthy()
+  fireEvent.press(utils.getByText("Let's go"))
   expect(mockBack).toHaveBeenCalled()
   expect(await AsyncStorage.getItem('aviary-budget-intro:sp_home')).toBe('1')
 })
 
-it('calls an owner with no name "the owner", not "them"', async () => {
-  ;(previewJoin as jest.Mock).mockResolvedValue({ ...ok, inviter: null })
+it('still welcomes you when switching budgets swaps the cache out from under the preview', async () => {
+  ;(previewJoin as jest.Mock).mockResolvedValue(ok)
+  ;(switchBudget as jest.Mock).mockImplementationOnce(async (qc) => qc.removeQueries({ queryKey: ['join'] }))
   const utils = setup()
   fireEvent.changeText(utils.getByLabelText('Invite code'), 'AB12CD')
   jest.useFakeTimers()
@@ -69,14 +79,43 @@ it('calls an owner with no name "the owner", not "them"', async () => {
   await waitFor(() => expect(joinBudget).toHaveBeenCalled())
   await act(async () => { jest.advanceTimersByTime(1200) })
   jest.useRealTimers()
-  expect(await utils.findByText('You and the owner share this budget')).toBeTruthy()
+  expect(await utils.findByTestId('budget-welcome')).toBeTruthy()
+})
+
+it('words an invite with no inviter name without one', async () => {
+  ;(previewJoin as jest.Mock).mockResolvedValue({ ...ok, inviter: null })
+  const utils = setup()
+  fireEvent.changeText(utils.getByLabelText('Invite code'), 'AB12CD')
+  expect(await utils.findByText("You're invited to Home")).toBeTruthy()
+  jest.useFakeTimers()
+  fireEvent.press(utils.getByText('Join Home'))
+  await waitFor(() => expect(joinBudget).toHaveBeenCalled())
+  await act(async () => { jest.advanceTimersByTime(1200) })
+  jest.useRealTimers()
+  expect(await utils.findByText("You're in")).toBeTruthy()
+})
+
+it('says who is already in', () => {
+  expect(whoIsIn(1, 'Priya')).toBe('Just Priya so far')
+  expect(whoIsIn(1, null)).toBe('Just the owner so far')
+  expect(whoIsIn(4, 'Priya')).toBe('4 people already in')
+  expect(whoIsIn(undefined, 'Priya')).toBeNull()
+})
+
+it('shakes with an error buzz on a code that matches nothing', async () => {
+  const buzz = jest.spyOn(Haptics, 'notificationAsync').mockResolvedValue()
+  ;(previewJoin as jest.Mock).mockResolvedValue({ status: 'not_found' })
+  const utils = setup()
+  fireEvent.changeText(utils.getByLabelText('Invite code'), 'AB12CD')
+  expect(await utils.findByText("That code doesn't match an invite. Check it and try again.")).toBeTruthy()
+  expect(buzz).toHaveBeenCalledWith(Haptics.NotificationFeedbackType.Error)
 })
 
 it('opens a link with the code already in', async () => {
   mockParams = { code: 'zz99zz' }
   ;(previewJoin as jest.Mock).mockResolvedValue(ok)
   const utils = setup()
-  expect(await utils.findByText('Join Home budget?')).toBeTruthy()
+  expect(await utils.findByText('Priya invited you to Home')).toBeTruthy()
   expect(previewJoin).toHaveBeenCalledWith('ZZ99ZZ')
 })
 
@@ -117,7 +156,7 @@ it("lets a brand-new account join instead of setting up, and sends it to setup i
   mockParams = { code: 'AB12CD', fresh: '1' }
   ;(previewJoin as jest.Mock).mockResolvedValue(ok)
   const utils = setup()
-  expect(await utils.findByText('Join Home budget?')).toBeTruthy()
+  expect(await utils.findByText('Priya invited you to Home')).toBeTruthy()
   fireEvent.press(utils.getByText('Cancel'))
   expect(mockReplace).toHaveBeenCalledWith('/setup')
   expect(signalOnboarded).not.toHaveBeenCalled()
@@ -127,9 +166,9 @@ it("lets a brand-new account join instead of setting up, and sends it to setup i
   await waitFor(() => expect(joinBudget).toHaveBeenCalled())
   await act(async () => { jest.advanceTimersByTime(1200) })
   jest.useRealTimers()
-  fireEvent.press(await utils.findByText('Next'))
+  const go = await utils.findByText("Let's go")
   jest.useFakeTimers()
-  fireEvent.press(utils.getByText('Got it'))
+  fireEvent.press(go)
   act(() => { jest.runAllTimers() })
   jest.useRealTimers()
   expect(signalOnboarded).toHaveBeenCalledWith({ elsewhere: true })
