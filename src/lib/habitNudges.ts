@@ -4,6 +4,7 @@ import * as TaskManager from 'expo-task-manager'
 import { router } from 'expo-router'
 import type * as NotificationsType from 'expo-notifications'
 import { currentUserId, initAccessMode } from '@/src/api/accessMode'
+import { activeBudgetId } from '@/src/lib/activeBudget'
 import { mintExpensePayload } from '@/src/api/expenses'
 import { readEncrypted, writeEncrypted } from '@/src/lib/encryptedStorage'
 import { enqueue } from '@/src/lib/pendingExpenses'
@@ -50,6 +51,8 @@ export type NudgeData = {
   nudgeId: string
   /** The account that scheduled it. A nudge still in the shade after a sign-out must not log into the next account. */
   uid: string
+  /** The budget the habit was seen in, so the quick-log lands there and not in whichever is open when it's tapped. Null is personal. */
+  spaceId: string | null
   habitId: string
   item: string
   category: string
@@ -155,6 +158,7 @@ export function refreshHabitNudges(rows: ExpenseRow[], now = new Date()): Promis
       const data: NudgeData = {
         nudgeId,
         uid,
+        spaceId: activeBudgetId(),
         habitId: habit.id,
         item: habit.item,
         category: habit.category,
@@ -256,7 +260,7 @@ async function quickLog(data: NudgeData, uid: string, Notifications: typeof Noti
     client_id: data.nudgeId,
   }
   try {
-    await enqueue(payload, uid)
+    await enqueue(payload, uid, false, data.spaceId ?? uid)
   } catch (err) {
     // Nothing saved: let the button work again rather than swallow the spend.
     await unclaim(uid, data.nudgeId)
