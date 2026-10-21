@@ -6,6 +6,7 @@ import { AccountChips } from "@/src/components/shared/AccountChips";
 import { defaultAccountFor } from "@/src/lib/defaultAccount";
 import { ExpenseConflictReview } from '@/src/features/log-expense/ExpenseConflictReview'
 import { ExpensePhotoField, pickPhoto, type PickedPhoto } from '@/src/features/log-expense/ExpensePhotoField'
+import { takeSharedPhoto } from '@/src/lib/pendingShare'
 import { AutoCategoryPill, MIN_SPIN_MS, PILL_MAX_WIDTH } from '@/src/features/log-expense/AutoCategoryPill'
 import { createThinkingGate, type ThinkingGate } from '@/src/lib/thinkingGate'
 import { ExpenseWriteError, expenseChanges, expenseDraft, paymentMethodOf, rebaseExpenseDraft, type ExpenseDraft, type PaymentMethod } from '@/src/lib/expenseConflict'
@@ -223,7 +224,11 @@ function LogExpenseScreen() {
   // needs the row's server id to address the photo at all.
   const photoAllowed = !isEdit || !!origId;
   const hasSavedPhoto = isEdit && str(params.hasPhoto) === "1";
-  const [photo, setPhoto] = useState<PickedPhoto | null>(null);
+  // Shared from a UPI app (app/modals/shared-payment.tsx): what it found is in the params, and
+  // a screenshot it couldn't read comes attached. `dupe` when it looks logged already.
+  const shared = str(params.shared) === "1";
+  const sharedDupe = shared && str(params.dupe) === "1";
+  const [photo, setPhoto] = useState<PickedPhoto | null>(() => (shared ? takeSharedPhoto() : null));
   const [photoRemoved, setPhotoRemoved] = useState(false);
   const savedPhotoQ = useExpensePhotoUrl(origId, hasSavedPhoto);
   const savePhoto = useSaveExpensePhoto();
@@ -530,15 +535,18 @@ function LogExpenseScreen() {
             void syncPhoto(res.id, res.pending);
             pendingAddNavRef.current = {
               pathname: "/modals/expense-added",
-              params: expenseSuccessParams(res, {
-                item: savedItem,
-                amount: String(parsedAmount),
-                category,
-                date,
-                notes: notes.trim(),
-                paymentMethod,
-                ...(accountId ? { accountId } : {}),
-              }),
+              params: {
+                ...expenseSuccessParams(res, {
+                  item: savedItem,
+                  amount: String(parsedAmount),
+                  category,
+                  date,
+                  notes: notes.trim(),
+                  paymentMethod,
+                  ...(accountId ? { accountId } : {}),
+                }),
+                ...(shared ? { shared: "1" } : {}),
+              },
             };
             setLogSuccess(true);
           },
@@ -563,7 +571,7 @@ function LogExpenseScreen() {
         },
       );
     }
-  }, [canSubmit, unusual, unusualWarnedFor, warnKey, base, expectedVersion, isEdit, origId, origTimestamp, origItem, origAmountInr, item, savedItem, parsedAmount, date, category, notes, paymentMethod, accountId, accounts, editedDraft, router, addMutate, updateMutate, autoPicked, syncPhoto, photo, failedClientId, qc]);
+  }, [canSubmit, unusual, unusualWarnedFor, warnKey, base, expectedVersion, isEdit, origId, origTimestamp, origItem, origAmountInr, item, savedItem, parsedAmount, date, category, notes, paymentMethod, accountId, accounts, editedDraft, router, addMutate, updateMutate, autoPicked, syncPhoto, photo, failedClientId, qc, shared]);
 
   // Publish only when the action or its visible state changes, and only while
   // focused: a prefilled log-expense (habit nudge) stacks over the launch one,
@@ -856,6 +864,17 @@ function LogExpenseScreen() {
               ))}
             </View>
           </View>
+        )}
+        {sharedDupe && error === "" && (
+          <Text
+            testID="shared-dupe"
+            style={[
+              styles.error,
+              { color: tokens.onAccent, fontFamily: fontFamily.bodySemiBold },
+            ]}
+          >
+            Looks already logged. Add it again only if you paid twice.
+          </Text>
         )}
         {error !== "" && (
           <Text

@@ -163,6 +163,13 @@
       ],
       "expo-localization",
       [
+        "expo-share-intent",
+        {
+          "disableIOS": true,
+          "androidIntentFilters": ["text/*", "image/*"]
+        }
+      ],
+      [
         "expo-build-properties",
         {
           "android": {

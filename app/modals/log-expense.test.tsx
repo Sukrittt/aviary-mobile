@@ -1,4 +1,5 @@
 import { ExpenseWriteError } from '@/src/lib/expenseConflict'
+import { setSharedPhoto } from '@/src/lib/pendingShare'
 import type { ExpenseRow } from '@/src/types'
 import { Alert, Modal } from 'react-native'
 import { act, fireEvent, waitFor, within } from '@testing-library/react-native'
@@ -1057,5 +1058,33 @@ describe('an expense the sync gave up on', () => {
     const queued = await pending.list('u1')
     expect(queued.map((e) => e.payload.client_id)).toEqual(['c-failed'])
     expect(postExpensePayload).not.toHaveBeenCalled()
+  })
+})
+
+describe('shared from a UPI app', () => {
+  it('opens filled in and says when it looks logged already', async () => {
+    const utils = setup({ shared: '1', dupe: '1', item: 'Swiggy', amountInr: '1200', category: 'Groceries' })
+    expect(utils.getByDisplayValue('Swiggy')).toBeTruthy()
+    expect(utils.getByTestId('shared-dupe')).toHaveTextContent('Looks already logged. Add it again only if you paid twice.')
+  })
+
+  it('says nothing about duplicates for a fresh payment', () => {
+    expect(setup({ shared: '1', item: 'Swiggy', amountInr: '1200' }).queryByTestId('shared-dupe')).toBeNull()
+  })
+
+  it('attaches a screenshot it couldn’t read, and tells the success screen it came in by sharing', async () => {
+    setSharedPhoto({ uri: 'file:///gpay.jpg', base64: 'QUJD', mimeType: 'image/jpeg' })
+    ;(postExpensePayload as jest.Mock).mockResolvedValue({ id: 'srv1', timestamp: '2026-09-04T01:24:00' })
+    const utils = setup({ shared: '1' })
+    expect(utils.getByLabelText('Photo added. View or change it')).toBeTruthy()
+    await fillValidForm(utils)
+    await act(async () => {
+      ;(globalThis as any).__submit()
+      for (let i = 0; i < 10; i++) await Promise.resolve()
+    })
+    await act(async () => {
+      jest.advanceTimersByTime(1100)
+    })
+    expect(mockReplace).toHaveBeenCalledWith(expect.objectContaining({ params: expect.objectContaining({ shared: '1' }) }))
   })
 })

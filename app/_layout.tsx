@@ -9,6 +9,7 @@ import { CrashScreen } from '@/src/components/shared/CrashScreen'
 import { subscribeExchanging } from '@/src/api/useSignIn'
 import { AlertHost } from '@/src/components/ui/AlertHost'
 import { BudgetAccessWatcher } from '@/src/components/budgets/BudgetAccessWatcher'
+import { ShareCatcher, ShareOpener } from '@/src/components/share/ShareIntake'
 import { peekPendingJoinCode, takePendingJoinCode } from '@/src/lib/pendingJoin'
 import { PrivacyProvider } from '@/src/context/PrivacyContext'
 import { MaintenanceBanner } from '@/src/components/shared/MaintenanceBanner'
@@ -450,6 +451,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
           <Stack.Screen name="modals/expense-added" options={{ presentation: 'card', animation: 'fade' }} />
           <Stack.Screen name="modals/expense-failed" options={{ presentation: 'card', animation: 'fade' }} />
           <Stack.Screen name="modals/scan-bill" options={{ presentation: 'card', animation: 'fade' }} />
+          <Stack.Screen name="modals/shared-payment" options={{ presentation: 'card', animation: 'fade' }} />
           <Stack.Screen name="modals/move-money" options={{ presentation: 'modal' }} />
           <Stack.Screen name="modals/edit-assigned-amount" options={{ presentation: 'modal' }} />
           <Stack.Screen name="modals/edit-ready-to-assign" options={{ presentation: 'modal' }} />
@@ -508,6 +510,8 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
       {showSplash ? <View style={StyleSheet.absoluteFill}><BirdLandingSplash /></View> : null}
       <AlertHost />
       {signedIn ? <BudgetAccessWatcher /> : null}
+      <ShareCatcher />
+      {signedIn && accessOk ? <ShareOpener /> : null}
       {/* Same gate as the (tabs) Stack.Protected block above: fires the same
           budgets/expenses queries those screens already fetch, so it must only
           run once they're reachable — not on every cold boot regardless of
