@@ -269,6 +269,25 @@ it("asks for a locked pdf's password in place, and keeps the file through a wron
   expect(mockPickFile).toHaveBeenCalledTimes(1)
 })
 
+it('stays on the password when a retry hits the rate limit, so the file is kept', async () => {
+  const file = { uri: 'file:///hdfc.pdf', name: 'hdfc.pdf', size: 1200 }
+  mockPickFile.mockResolvedValueOnce(file)
+  const { StatementFailure } = jest.requireActual('@/src/api/statement')
+  mockRead
+    .mockRejectedValueOnce(new StatementFailure('locked', 'That PDF is locked', 'pdf_locked'))
+    .mockRejectedValueOnce(new StatementFailure('Give it a minute.', 'One moment', 'rate_limited'))
+  const screen = renderWithProviders(<StatementScreen />)
+  fireEvent.press(screen.getByText('Choose a statement'))
+  fireEvent.changeText(await screen.findByLabelText('Password'), '01011990')
+  fireEvent.press(screen.getByText('Open it'))
+  expect(await screen.findByText('Give it a minute.')).toBeTruthy()
+  fireEvent.changeText(screen.getByLabelText('Password'), '01011990')
+  fireEvent.press(screen.getByText('Open it'))
+  await screen.findByText('Check these, then log')
+  expect(mockRead).toHaveBeenLastCalledWith({ file, password: '01011990' })
+  expect(mockPickFile).toHaveBeenCalledTimes(1)
+})
+
 it('goes back to the picker from the password step', async () => {
   mockPickFile.mockResolvedValueOnce({ uri: 'file:///hdfc.pdf', name: 'hdfc.pdf', size: 1200 })
   const { StatementFailure } = jest.requireActual('@/src/api/statement')

@@ -76,7 +76,7 @@ function StatementScreen() {
   const qc = useQueryClient()
   const [phase, setPhase] = useState<'pick' | 'reading' | 'password' | 'review' | 'error' | 'done'>('pick')
   // A locked pdf waiting on its password. The file stays so a wrong guess isn't a re-pick; the password lives only in the field.
-  const [locked, setLocked] = useState<{ file: PickedFile; wrong: boolean } | null>(null)
+  const [locked, setLocked] = useState<{ file: PickedFile; wrong: boolean; error: string } | null>(null)
   const [proposal, setProposal] = useState<StatementProposal | null>(null)
   const [rows, setRows] = useState<Record<string, RowState>>({})
   const [error, setError] = useState('')
@@ -112,7 +112,14 @@ function StatementScreen() {
     } catch (err) {
       if ('file' in input && err instanceof StatementFailure && (err.code === 'pdf_locked' || err.code === 'pdf_password_wrong')) {
         if (err.code === 'pdf_password_wrong') failedBuzz()
-        setLocked({ file: input.file, wrong: err.code === 'pdf_password_wrong' })
+        setLocked({ file: input.file, wrong: err.code === 'pdf_password_wrong', error: '' })
+        setPhase('password')
+        return
+      }
+      if ('file' in input && input.password && err instanceof StatementFailure && (err.code === 'rate_limited' || err.code === 'offline')) {
+        // Worth another go with the same file, so stay on the password, not the error screen whose Try again starts over.
+        failedBuzz()
+        setLocked({ file: input.file, wrong: false, error: err.message })
         setPhase('password')
         return
       }
@@ -313,6 +320,7 @@ function StatementScreen() {
         <StatementPassword
           name={locked.file.name}
           wrong={locked.wrong}
+          error={locked.error}
           bottomInset={insets.bottom}
           onSubmit={(password) => void read({ file: locked.file, password }, 'file')}
           onPickAnother={() => setPhase('pick')}
@@ -427,9 +435,10 @@ const STEPS = [
 ] as const
 
 /** A locked pdf's password, asked for in place. Sent once with the file, never kept. */
-function StatementPassword({ name, wrong, bottomInset, onSubmit, onPickAnother }: {
+function StatementPassword({ name, wrong, error, bottomInset, onSubmit, onPickAnother }: {
   name: string
   wrong: boolean
+  error: string
   bottomInset: number
   onSubmit: (password: string) => void
   onPickAnother: () => void
@@ -480,7 +489,9 @@ function StatementPassword({ name, wrong, bottomInset, onSubmit, onPickAnother }
           fontSize: type.body,
         }}
       />
-      {wrong && <Text accessibilityRole="alert" style={{ ...caption, color: tokens.coral }}>That didn&apos;t open it, try again.</Text>}
+      {(wrong || error !== '') && (
+        <Text accessibilityRole="alert" style={{ ...caption, color: tokens.coral }}>{wrong ? "That didn't open it, try again." : error}</Text>
+      )}
       <Text style={caption}>Usually your date of birth (DDMMYYYY), customer ID, or the format your bank&apos;s email mentions.</Text>
       <Text style={caption}>Used once to open the file. Never saved.</Text>
       <Pressable
