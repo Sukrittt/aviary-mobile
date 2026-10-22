@@ -99,6 +99,7 @@ function HomeScreen() {
   // stored as dismissed once that's done.
   const [rolloverSeen, setRolloverSeen] = useState(false)
   const [rolloverLeaving, setRolloverLeaving] = useState(false)
+  const [rollReplays, setRollReplays] = useState(0)
   useEffect(() => {
     if (!rolloverSeen) return
     const t = setTimeout(() => setRolloverLeaving(true), 1100)
@@ -225,6 +226,13 @@ function HomeScreen() {
       .filter((g) => g.envelopes.length > 0)
   }, [envelopeState])
 
+  // Rows that carried something roll in one after another, top to bottom.
+  const rollOrder = useMemo(() => {
+    const order = new Map<string, number>()
+    for (const e of groupedEnvelopes.flatMap((g) => g.envelopes)) if (e.rolledOver) order.set(e.category, order.size)
+    return order
+  }, [groupedEnvelopes])
+
   // The credit card payoff envelope stays off Home; it lives under Categories.
   const envelopesEmpty = groupedEnvelopes.length === 0
 
@@ -275,6 +283,9 @@ function HomeScreen() {
     ['nudge', !!featureNudge.nudge && !showGetStarted, false],
   ])
   const nudge = banner === 'nudge' ? featureNudge.nudge : null
+  // Each bump rolls the carry into the Left pills: once when the strip first
+  // shows, again whenever it's tapped. Nothing to roll once it's gone.
+  const rollPlay = banner === 'rollover' ? rollReplays + 1 : 0
 
   function handleEditAmount(category: string) {
     router.push({ pathname: '/modals/edit-assigned-amount', params: { category } })
@@ -481,9 +492,12 @@ function HomeScreen() {
             {rollover && (
               // Same size and green as the settled Ready to Assign row, as the old savings note was.
               <Card style={[styles.rolloverCard, styles.slimRta, { backgroundColor: tokens.pillGoodBg, borderColor: 'transparent' }]} elevated={false}>
-                <Text numberOfLines={1} style={{ color: tokens.text, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold, flex: 1 }}>
-                  🌱 {rollover}
-                </Text>
+                {/* The line replays the categories' roll-in, for anyone who missed it. */}
+                <Pressable accessibilityRole="button" accessibilityHint="Shows it again" onPress={() => { tap(); setRollReplays((n) => n + 1) }} style={{ flex: 1 }}>
+                  <Text numberOfLines={1} style={{ color: tokens.text, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>
+                    🌱 {rollover}
+                  </Text>
+                </Pressable>
                 <Pressable accessibilityRole="button" accessibilityLabel="Nice" onPress={() => setRolloverSeen(true)} disabled={rolloverSeen} hitSlop={12}>
                   {rolloverSeen ? (
                     <CheckIcon color={tokens.mint} size={18} />
@@ -597,6 +611,8 @@ function HomeScreen() {
                   expanded={!collapsedGroups.has(group)}
                   onToggle={toggleGroup}
                   onSheetOpenChange={handleSheetOpenChange}
+                  rollPlay={rollPlay}
+                  rollOrder={rollOrder}
                 />
               ))}
             </View>

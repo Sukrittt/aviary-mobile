@@ -58,3 +58,14 @@ it('taps when the row opens its sheet', () => {
   expect(impact).toHaveBeenCalledWith(Haptics.ImpactFeedbackStyle.Rigid)
   impact.mockRestore()
 })
+
+describe('EnvelopeRow carry', () => {
+  it('keeps a line only for a shortfall; what rolled in is already in Left', () => {
+    const short = row({ assigned: 8000, spent: 0, available: 7450, rolledOver: -550, spentPct: 0 })
+    expect(short.getByText(/short from/)).toBeTruthy()
+    short.unmount()
+    const ahead = row({ assigned: 12000, spent: 0, available: 14050, rolledOver: 2050, spentPct: 0 })
+    expect(ahead.queryByText(/from /)).toBeNull()
+    expect(ahead.getByText('₹14,050')).toBeTruthy()
+  })
+})

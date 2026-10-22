@@ -15,6 +15,7 @@ import { tap } from '@/src/lib/haptics'
 import { currentMonthKey, type Envelope } from '@/src/lib/envelope'
 import { rolledOverLine } from '@/src/lib/rollover'
 import type { ThemeTokens } from '@/src/theme/tokens'
+import { RollingAmount } from './RollingAmount'
 
 const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
@@ -61,6 +62,10 @@ interface Props {
    * an edit's odometer roll plays on reveal instead of finishing unseen
    * behind the sheet. Optional: only Home's rows need to report this. */
   onSheetOpenChange?: (open: boolean) => void
+  /** Bump to roll last month's carry into the Left pill (see RollingAmount). 0 shows it settled. */
+  rollPlay?: number
+  /** This row's wait in the top-to-bottom roll. */
+  rollDelayMs?: number
 }
 
 /** A single envelope row + its tap-to-open action sheet (move money / edit amount / view transactions). */
@@ -73,6 +78,8 @@ export function EnvelopeRow({
   onEditAmount,
   onViewTransactions,
   onSheetOpenChange,
+  rollPlay = 0,
+  rollDelayMs = 0,
 }: Props) {
   const { formatCurrency } = useCurrency()
 
@@ -123,22 +130,24 @@ export function EnvelopeRow({
             {unbudgeted ? 'Not budgeted · ' : ''}Last spent {lastSpentLabel(envelope.lastSpentDate)}
           </Text>
         )}
-        {envelope.rolledOver !== 0 && (
+        {/* Only a shortfall keeps a line: it's the one to fix. What rolled in
+            shows as the Left pill counting up, and the strip has the total. */}
+        {envelope.rolledOver < 0 && (
           <Text style={[styles.metaLine, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>
             {rolledOverLine(envelope.rolledOver, currentMonthKey(), (n) => formatCurrency(n, hideAmounts))}
           </Text>
         )}
       </Pressable>
       <View style={styles.availableCol}>
-        <View style={[styles.availablePill, { backgroundColor: pill.bg }]}>
-          <Text
-            style={[styles.available, { color: pill.color, fontFamily: fontFamily.bodySemiBold }]}
-            numberOfLines={1}
-            adjustsFontSizeToFit
-          >
-            {formatCurrency(envelope.available, hideAmounts)}
-          </Text>
-        </View>
+        <RollingAmount
+          style={[styles.availablePill, { backgroundColor: pill.bg }]}
+          textStyle={[styles.available, { color: pill.color, fontFamily: fontFamily.bodySemiBold }]}
+          from={envelope.available - envelope.rolledOver}
+          to={envelope.available}
+          play={hideAmounts ? 0 : rollPlay}
+          delayMs={rollDelayMs}
+          format={(n) => formatCurrency(n, hideAmounts)}
+        />
       </View>
 
       <BottomSheet visible={sheetOpen} onClose={closeSheet}>
