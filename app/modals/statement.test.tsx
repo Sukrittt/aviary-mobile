@@ -111,7 +111,7 @@ it('picking a category ticks the row it belongs to', async () => {
   fireEvent.press(screen.getByLabelText('Pick a category for Chai'))
   fireEvent.press(screen.getByText('pick-food'))
   expect(screen.getByLabelText(/Add Chai/).props.accessibilityState).toMatchObject({ checked: true })
-  expect(screen.getByText(/^Slide to log 2 · /)).toBeTruthy()
+  expect(screen.getByLabelText(/^Slide to log 2 · /)).toBeTruthy()
 })
 
 it('ends on what got filled in, then closes or goes to Activity', async () => {

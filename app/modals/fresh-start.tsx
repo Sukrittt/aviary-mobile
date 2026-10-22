@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router'
-import { CaretDown, Plus, X } from '@/src/components/shared/icons'
+import { CaretDown, MoneyWavy, Plus, X } from '@/src/components/shared/icons'
 import { CategoryPickerSheet } from '@/src/components/shared/CategoryPickerSheet'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { Icon } from '@/src/components/shared/Icon'
@@ -77,136 +77,140 @@ function FreshStartScreen() {
   }
 
   return (
-    <ScrollView
-      style={[styles.screen, { backgroundColor: tokens.bg }]}
-      contentContainerStyle={{ paddingTop: insets.top + space.sm, paddingBottom: insets.bottom + space.lg, paddingHorizontal: space.lg, gap: space.lg }}
-      keyboardShouldPersistTaps="handled"
-      automaticallyAdjustKeyboardInsets
-    >
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Close"
-        onPress={() => router.back()}
-        disabled={busy}
-        hitSlop={12}
-        style={[styles.close, { backgroundColor: tokens.card, borderColor: tokens.border, borderRadius: radius.full }]}
+    <KeyboardAvoidingView style={[styles.screen, { backgroundColor: tokens.bg }]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+      <ScrollView
+        style={styles.screen}
+        contentContainerStyle={{ paddingTop: insets.top + space.sm, paddingBottom: space.lg, paddingHorizontal: space.lg, gap: space.lg }}
+        keyboardShouldPersistTaps="handled"
       >
-        <X size={16} color={tokens.text} />
-      </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Close"
+          onPress={() => router.back()}
+          disabled={busy}
+          hitSlop={12}
+          style={[styles.close, { backgroundColor: tokens.card, borderColor: tokens.border, borderRadius: radius.full }]}
+        >
+          <X size={16} color={tokens.text} />
+        </Pressable>
 
-      <View style={{ gap: space.xs }}>
-        <Text style={{ color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: type.title }}>Roughly how much did you spend while away?</Text>
-        <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodyMedium, fontSize: type.caption }}>
-          {split
-            ? "A ballpark per category is fine. Each goes in as one expense today, so every category's money left stays right."
-            : "A ballpark is fine. It goes in as one expense today, so what's left stays right and your history stays as it was."}
-        </Text>
-      </View>
-
-      {split ? (
-        <View style={{ gap: space.sm }}>
-          {split.map((row, i) => (
-            <View key={row.category} style={[styles.splitRow, { backgroundColor: tokens.inputBg, borderRadius: radius.lg, paddingLeft: space.md, paddingRight: space.xs, gap: space.sm }]}>
-              <Text numberOfLines={1} style={{ flex: 1, color: tokens.text, fontFamily: fontFamily.bodySemiBold, fontSize: type.body }}>{splitEmoji(row.category).text}</Text>
-              <View style={[styles.splitAmount, { backgroundColor: tokens.card, borderRadius: radius.md, paddingHorizontal: space.sm }]}>
-                <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodySemiBold, fontSize: type.body }}>{currencyPrefix}</Text>
-                <TextInput
-                  value={row.amount}
-                  onChangeText={(t) => setSplit(split.map((r, j) => (j === i ? { ...r, amount: cleanAmount(t) } : r)))}
-                  keyboardType="decimal-pad"
-                  autoFocus={i === split.length - 1}
-                  placeholder="0"
-                  placeholderTextColor={tokens.text3}
-                  editable={!busy}
-                  maxLength={11}
-                  accessibilityLabel={`Rough amount for ${splitEmoji(row.category).text}`}
-                  style={{ flex: 1, textAlign: 'right', color: tokens.text, fontFamily: fontFamily.bodySemiBold, fontSize: type.body, paddingVertical: space.sm }}
-                />
-              </View>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`Remove ${splitEmoji(row.category).text}`}
-                onPress={() => setSplit(split.filter((_, j) => j !== i))}
-                disabled={busy}
-                hitSlop={8}
-                style={styles.remove}
-              >
-                <X size={14} color={tokens.text3} />
-              </Pressable>
-            </View>
-          ))}
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => setPicking(true)}
-            disabled={busy}
-            style={[styles.category, { borderStyle: 'dashed', borderColor: tokens.borderStrong, borderRadius: radius.lg, padding: space.md, gap: space.sm }]}
-          >
-            <Icon icon={Plus} size={14} color={tokens.text2} />
-            <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodySemiBold, fontSize: type.body }}>{split.length ? 'Add another category' : 'Add a category'}</Text>
-          </Pressable>
-          <Pressable accessibilityRole="button" onPress={() => setSplit(null)} disabled={busy} hitSlop={8}>
-            <Text style={{ color: tokens.accentInk, fontFamily: fontFamily.bodySemiBold, fontSize: type.caption }}>Use one total instead</Text>
-          </Pressable>
+        <View style={{ gap: space.xs }}>
+          <Text style={{ color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: type.title }}>Roughly how much did you spend while away?</Text>
+          <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodyMedium, fontSize: type.caption }}>
+            {split
+              ? "A ballpark per category is fine. Each goes in as one expense today, so every category's money left stays right."
+              : "A ballpark is fine. It goes in as one expense today, so what's left stays right and your history stays as it was."}
+          </Text>
         </View>
-      ) : (
-      <>
 
-      <View style={[styles.amount, { backgroundColor: tokens.inputBg, borderRadius: radius.lg, paddingHorizontal: space.md, gap: space.xs }]}>
-        <Text style={{ color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: 28 }}>{currencyPrefix}</Text>
-        <TextInput
-          value={amount}
-          onChangeText={(t) => setAmount(cleanAmount(t))}
-          keyboardType="decimal-pad"
-          autoFocus
-          placeholder="0"
-          placeholderTextColor={tokens.text3}
-          editable={!busy}
-          maxLength={11}
-          accessibilityLabel="Rough total"
-          style={{ flex: 1, color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: 28, paddingVertical: space.md }}
-        />
-      </View>
-
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={category ? `Category: ${category}. Change it` : 'Pick a category'}
-        onPress={() => setPicking(true)}
-        disabled={busy}
-        style={[styles.category, { backgroundColor: tokens.card, borderColor: tokens.border, borderRadius: radius.lg, padding: space.md }]}
-      >
-        <Text style={{ flex: 1, color: category ? tokens.text : tokens.text2, fontFamily: fontFamily.bodySemiBold, fontSize: type.body }}>
-          {category ? splitEmoji(category).text : 'Which category should it come out of?'}
-        </Text>
-        <Icon icon={CaretDown} size={14} color={tokens.text3} />
-      </Pressable>
-      <Pressable accessibilityRole="button" onPress={() => setSplit(category ? [{ amount, category }] : [])} disabled={busy} hitSlop={8} style={{ marginTop: -space.sm }}>
-        <Text style={{ color: tokens.accentInk, fontFamily: fontFamily.bodySemiBold, fontSize: type.caption }}>Split across categories</Text>
-      </Pressable>
-      </>
-      )}
-
-      {error !== '' && <Text accessibilityRole="alert" style={{ color: tokens.coral, fontFamily: fontFamily.bodyMedium, fontSize: type.caption }}>{error}</Text>}
-
-      {/* Right under the fields, not pinned to the bottom: the number pad stays up while you type. */}
-      {phase === 'idle' ? (
-        <SlideToConfirm label={expenses && expenses.length > 1 ? `Slide to log ${expenses.length} expenses` : 'Slide to log it'} onConfirm={save} disabled={!expenses} />
-      ) : (
-      <Pressable
-        accessibilityRole="button"
-        onPress={save}
-        disabled={!expenses || busy}
-        style={[styles.primary, { backgroundColor: phase === 'success' ? tokens.successBg : tokens.accent, borderRadius: radius.full, opacity: phase === 'saving' ? 0.5 : 1 }]}
-      >
-        {phase === 'success' ? (
-          <CheckIcon color={tokens.onSuccess} />
+        {split ? (
+          <View style={{ gap: space.sm }}>
+            {split.map((row, i) => (
+              <View key={row.category} style={[styles.splitRow, { backgroundColor: tokens.inputBg, borderRadius: radius.lg, paddingLeft: space.md, paddingRight: space.xs, gap: space.sm }]}>
+                <Text numberOfLines={1} style={{ flex: 1, color: tokens.text, fontFamily: fontFamily.bodySemiBold, fontSize: type.body }}>{splitEmoji(row.category).text}</Text>
+                <View style={[styles.splitAmount, { backgroundColor: tokens.card, borderRadius: radius.md, paddingHorizontal: space.sm }]}>
+                  <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodySemiBold, fontSize: type.body }}>{currencyPrefix}</Text>
+                  <TextInput
+                    value={row.amount}
+                    onChangeText={(t) => setSplit(split.map((r, j) => (j === i ? { ...r, amount: cleanAmount(t) } : r)))}
+                    keyboardType="decimal-pad"
+                    autoFocus={i === split.length - 1}
+                    placeholder="0"
+                    placeholderTextColor={tokens.text3}
+                    editable={!busy}
+                    maxLength={11}
+                    accessibilityLabel={`Rough amount for ${splitEmoji(row.category).text}`}
+                    style={{ flex: 1, textAlign: 'right', color: tokens.text, fontFamily: fontFamily.bodySemiBold, fontSize: type.body, paddingVertical: space.sm }}
+                  />
+                </View>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Remove ${splitEmoji(row.category).text}`}
+                  onPress={() => setSplit(split.filter((_, j) => j !== i))}
+                  disabled={busy}
+                  hitSlop={8}
+                  style={styles.remove}
+                >
+                  <X size={14} color={tokens.text3} />
+                </Pressable>
+              </View>
+            ))}
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setPicking(true)}
+              disabled={busy}
+              style={[styles.category, { borderStyle: 'dashed', borderColor: tokens.borderStrong, borderRadius: radius.lg, padding: space.md, gap: space.sm }]}
+            >
+              <Icon icon={Plus} size={14} color={tokens.text2} />
+              <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodySemiBold, fontSize: type.body }}>{split.length ? 'Add another category' : 'Add a category'}</Text>
+            </Pressable>
+            <Pressable accessibilityRole="button" onPress={() => setSplit(null)} disabled={busy} hitSlop={8}>
+              <Text style={{ color: tokens.accentInk, fontFamily: fontFamily.bodySemiBold, fontSize: type.caption }}>Use one total instead</Text>
+            </Pressable>
+          </View>
         ) : (
-          <Text style={{ color: tokens.onAccent, fontFamily: fontFamily.bodyBold, fontSize: type.body }}>Logging…</Text>
+        <>
+
+        <View style={[styles.amount, { backgroundColor: tokens.inputBg, borderRadius: radius.lg, paddingHorizontal: space.md, gap: space.xs }]}>
+          <Text style={{ color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: 28 }}>{currencyPrefix}</Text>
+          <TextInput
+            value={amount}
+            onChangeText={(t) => setAmount(cleanAmount(t))}
+            keyboardType="decimal-pad"
+            autoFocus
+            placeholder="0"
+            placeholderTextColor={tokens.text3}
+            editable={!busy}
+            maxLength={11}
+            accessibilityLabel="Rough total"
+            style={{ flex: 1, color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: 28, paddingVertical: space.md }}
+          />
+        </View>
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={category ? `Category: ${category}. Change it` : 'Pick a category'}
+          onPress={() => setPicking(true)}
+          disabled={busy}
+          style={[styles.category, { backgroundColor: tokens.card, borderColor: tokens.border, borderRadius: radius.lg, padding: space.md }]}
+        >
+          <Text style={{ flex: 1, color: category ? tokens.text : tokens.text2, fontFamily: fontFamily.bodySemiBold, fontSize: type.body }}>
+            {category ? splitEmoji(category).text : 'Which category should it come out of?'}
+          </Text>
+          <Icon icon={CaretDown} size={14} color={tokens.text3} />
+        </Pressable>
+        <Pressable accessibilityRole="button" onPress={() => setSplit(category ? [{ amount, category }] : [])} disabled={busy} hitSlop={8} style={{ marginTop: -space.sm }}>
+          <Text style={{ color: tokens.accentInk, fontFamily: fontFamily.bodySemiBold, fontSize: type.caption }}>Split across categories</Text>
+        </Pressable>
+        </>
         )}
-      </Pressable>
-      )}
-      <Pressable accessibilityRole="button" onPress={() => router.back()} disabled={busy} style={styles.secondary}>
-        <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodySemiBold, fontSize: type.body }}>No idea</Text>
-      </Pressable>
+
+      </ScrollView>
+
+      {/* Pinned to the bottom, under the thumb, and lifted above the number pad while it's up. */}
+      <View style={{ paddingHorizontal: space.lg, paddingTop: space.sm, paddingBottom: insets.bottom + space.sm, gap: space.sm }}>
+        {error !== '' && <Text accessibilityRole="alert" style={{ color: tokens.coral, fontFamily: fontFamily.bodyMedium, fontSize: type.caption }}>{error}</Text>}
+
+        {phase === 'idle' ? (
+          <SlideToConfirm icon={MoneyWavy} label={expenses && expenses.length > 1 ? `Slide to log ${expenses.length} expenses` : 'Slide to log it'} onConfirm={save} disabled={!expenses} />
+        ) : (
+        <Pressable
+          accessibilityRole="button"
+          onPress={save}
+          disabled={!expenses || busy}
+          style={[styles.primary, { backgroundColor: phase === 'success' ? tokens.successBg : tokens.accent, borderRadius: radius.full, opacity: phase === 'saving' ? 0.5 : 1 }]}
+        >
+          {phase === 'success' ? (
+            <CheckIcon color={tokens.onSuccess} />
+          ) : (
+            <Text style={{ color: tokens.onAccent, fontFamily: fontFamily.bodyBold, fontSize: type.body }}>Logging…</Text>
+          )}
+        </Pressable>
+        )}
+        <Pressable accessibilityRole="button" onPress={() => router.back()} disabled={busy} style={styles.secondary}>
+          <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodySemiBold, fontSize: type.body }}>No idea</Text>
+        </Pressable>
+      </View>
 
       <CategoryPickerSheet
         visible={picking}
@@ -220,7 +224,7 @@ function FreshStartScreen() {
         title="Category"
         noneLabel="No category"
       />
-    </ScrollView>
+    </KeyboardAvoidingView>
   )
 }
 
