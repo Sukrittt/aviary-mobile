@@ -1,4 +1,5 @@
-import { Text } from 'react-native'
+import { useState } from 'react'
+import { Modal, Text } from 'react-native'
 import { fireEvent } from '@testing-library/react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { BottomSheet } from './Modal'
@@ -60,5 +61,33 @@ describe('BottomSheet', () => {
       </BottomSheet>,
     )
     expect(getByTestId('bottom-sheet-card').props.layout).toBeUndefined()
+  })
+
+  // Regression: animationType="slide" moved the whole modal, so the dim rode up
+  // with the card like a curtain. The backdrop and card now animate on their own.
+  it("doesn't let RN slide the modal (and its dim) as one block", () => {
+    const { UNSAFE_getByType } = renderWithProviders(
+      <BottomSheet visible onClose={jest.fn()}>
+        <Text>Sheet content</Text>
+      </BottomSheet>,
+    )
+    expect(UNSAFE_getByType(Modal).props.animationType).toBe('none')
+  })
+
+  it('unmounts its content once the close animation finishes', () => {
+    // rerender() would drop renderWithProviders' ThemeProvider, so the sheet
+    // closes through state, the way callers close it.
+    function Harness() {
+      const [open, setOpen] = useState(true)
+      return (
+        <BottomSheet visible={open} onClose={() => setOpen(false)}>
+          <Text onPress={() => setOpen(false)}>Done</Text>
+        </BottomSheet>
+      )
+    }
+    const { getByText, queryByText } = renderWithProviders(<Harness />)
+    // The reanimated mock settles withTiming at once and fires its callback.
+    fireEvent.press(getByText('Done'))
+    expect(queryByText('Done')).toBeNull()
   })
 })
