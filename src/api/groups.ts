@@ -34,13 +34,15 @@ export async function getGroupColors(): Promise<[string, string][]> {
   return (await getGroupRows()).flatMap((r): [string, string][] => (r.color ? [[r.name, r.color]] : []))
 }
 
-export async function addGroup(name: string): Promise<void> {
+/** POST only takes the name, so a picked icon or colour follows as an update. */
+export async function addGroup(name: string, style: { icon?: string; color?: string } = {}): Promise<void> {
   const resp = await apiFetch('/api/groups', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name }),
   })
   if (!resp.ok) throw new Error(await apiErrorMessage(resp, 'Failed to add group'))
+  if (style.icon || style.color) await updateGroup(name, style)
 }
 
 export async function updateGroup(name: string, updates: { newName?: string; icon?: string; color?: string }): Promise<void> {
