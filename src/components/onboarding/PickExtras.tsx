@@ -75,7 +75,8 @@ export function PickExtras() {
       if (picked) setPhase('saved')
     } catch {
       Alert.alert("Couldn't save your extras", 'Turn them on anytime from You, then Features.')
-      if (picked) setPhase('open')
+      // Back on screen either way: the choice didn't stick, so the card's job isn't done.
+      setPhase('open')
     }
   }
 

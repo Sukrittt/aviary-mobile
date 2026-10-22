@@ -30,7 +30,7 @@ import Animated, {
 import { useTheme } from "@/src/theme/ThemeProvider";
 import type { ThemeTokens } from "@/src/theme/tokens";
 import { fontFamily } from "@/src/theme/fonts";
-import { Numpad } from "@/src/components/ui/Numpad";
+import { Numpad, typeDigits } from "@/src/components/ui/Numpad";
 import { StepDot } from "@/src/components/onboarding/StepDot";
 import { PickRow } from "@/src/components/onboarding/PickRow";
 import { SetupDone } from "@/src/components/onboarding/SetupDone";
@@ -525,7 +525,7 @@ function CurrencyWizard({
   };
 
   const pressIncomeDigit = (d: string) => {
-    setIncome((prev) => (prev + d).replace(/^0+/, "").slice(0, 9));
+    setIncome((prev) => typeDigits(prev, d, 9));
     setTick((t) => t + 1);
     setDir(1);
     setDelta(0);
@@ -586,7 +586,7 @@ function CurrencyWizard({
     if (!activeKey) return;
     editedSplit.current = true;
     const nextBuf =
-      k === "del" ? buf.slice(0, -1) : (buf + k).replace(/^0+/, "").slice(0, 8);
+      k === "del" ? buf.slice(0, -1) : typeDigits(buf, k, 8);
     setBuf(nextBuf);
     setAmounts((prev) => ({ ...prev, [activeKey]: Number(nextBuf || 0) }));
   };

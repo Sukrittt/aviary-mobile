@@ -5,7 +5,7 @@ import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from '
 import * as Haptics from 'expo-haptics'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
-import { Numpad } from '@/src/components/ui/Numpad'
+import { Numpad, typeDigits } from '@/src/components/ui/Numpad'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { CATEGORY_ICON_COMPONENTS } from '@/src/components/shared/CategoryIcon'
 import { availablePill } from '@/src/components/envelope/EnvelopeRow'
@@ -160,7 +160,7 @@ export function FirstExpense({
       <Numpad
         extraKey="00"
         disabled={saving || saved}
-        onDigit={(d) => press((amount + d).replace(/^0+/, '').slice(0, 8), 1)}
+        onDigit={(d) => press(typeDigits(amount, d, 8), 1)}
         onBackspace={() => press(amount.slice(0, -1), -1)}
         onClear={() => press('', -1)}
       />

@@ -26,6 +26,16 @@ const CALC_WIDTH = 56
  * of operators (and '.'), all sent through onDigit, so a split bill can be
  * added up right on the amount.
  */
+/**
+ * The amount after typing `d` (one digit, or the two of the 00 key), leading
+ * zeros dropped. A key that would go past `max` digits is ignored whole:
+ * cutting 00 down to one zero at the cap logged a tenth of what was typed.
+ */
+export function typeDigits(prev: string, d: string, max: number): string {
+  const next = (prev + d).replace(/^0+/, '')
+  return next.length > max ? prev : next
+}
+
 export function Numpad({
   onDigit,
   onBackspace,

@@ -97,3 +97,11 @@ it('locks the rows once a save has started, so a late flip is never left unsaved
   expect(getByLabelText('Turn on Scan a bill').props.accessibilityState).toMatchObject({ checked: false, disabled: true })
   expect(mockMutate).toHaveBeenCalledTimes(1)
 })
+
+it('comes back when Not now fails to save', async () => {
+  mockMutate.mockRejectedValueOnce(new Error('offline'))
+  const { getByText, findByText } = renderWithProviders(<PickExtras />)
+  fireEvent.press(getByText('Not now'))
+  await waitFor(() => expect(Alert.alert).toHaveBeenCalled())
+  expect(await findByText('Want any extras?')).toBeTruthy()
+})
