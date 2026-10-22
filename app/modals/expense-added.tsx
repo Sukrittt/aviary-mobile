@@ -249,6 +249,8 @@ export default function ExpenseAddedScreen() {
   }, [chime]);
 
   const envelope = useMemo(() => {
+    // The counter seeds once, so it waits for the carry rather than tick from a no-carry balance.
+    if (carryQ.isLoading) return undefined;
     const state = computeEnvelopeState(
       budgetsQ.data ?? [],
       expensesQ.data ?? [],
@@ -259,7 +261,7 @@ export default function ExpenseAddedScreen() {
       carryQ.data,
     );
     return state.envelopes.find((e) => e.category === category);
-  }, [budgetsQ.data, carryQ.data, expensesQ.data, categoriesQ.data, groupsQ.data, category]);
+  }, [budgetsQ.data, carryQ.data, carryQ.isLoading, expensesQ.data, categoriesQ.data, groupsQ.data, category]);
 
   // The refetch this mutation triggered may not have landed yet — if the new row
   // isn't in the list, the envelope hasn't been charged for it. Subtract by hand so

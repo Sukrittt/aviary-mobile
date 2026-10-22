@@ -49,7 +49,8 @@ export function WidgetSync() {
   const lastDrawn = useRef("");
 
   useEffect(() => {
-    if (Platform.OS !== "android" || !budgetsQ.data || !expensesQ.data) return;
+    // Without the carry every balance is off; keep the last good snapshot instead.
+    if (Platform.OS !== "android" || !budgetsQ.data || !expensesQ.data || !carryQ.data) return;
 
     const state = computeEnvelopeState(
       budgetsQ.data,

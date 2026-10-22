@@ -178,7 +178,7 @@ function EditReadyToAssignBody({
     setIncomeBase(latestBase);
     setBaseIncome(latestIncome);
     setExpectedVersion(conflict.version);
-    if (!keepDraft) setAmountText(amountSeed(latestIncome - totalAssigned));
+    if (!keepDraft) setAmountText(amountSeed(latestIncome + carried - totalAssigned));
     setConflict(null);
     setError("");
   }
@@ -198,7 +198,7 @@ function EditReadyToAssignBody({
           title="Edit Ready to Assign"
           heading="Ready to Assign was updated"
           label="Ready to Assign"
-          latestAmount={(Number(conflict.assigned) || 0) + (Number(conflict.extra) || 0) - totalAssigned}
+          latestAmount={(Number(conflict.assigned) || 0) + (Number(conflict.extra) || 0) + carried - totalAssigned}
           draftAmount={value}
           onChoose={reviewLatest}
           onClose={() => {

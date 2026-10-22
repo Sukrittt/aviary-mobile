@@ -41,7 +41,7 @@ export default function WidgetPreviewScreen() {
   const categoriesQ = useCategories();
   const groupsQ = useGroups();
 
-  const ready = budgetsQ.data && expensesQ.data;
+  const ready = budgetsQ.data && expensesQ.data && !carryQ.isLoading;
 
   return (
     <View style={[styles.screen, { backgroundColor: tokens.bg }]}>

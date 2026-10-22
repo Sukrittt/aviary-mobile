@@ -79,7 +79,6 @@ function MoveMoneyModal() {
   const prefill = /^\d+$/.test(str(params.amount)) ? str(params.amount) : ''
 
   const budgetsQ = useBudgets()
-  const carryQ = useCarry(currentMonthKey())
   const expensesQ = useRecentExpenses()
   const categoriesQ = useCategories()
   const groupsQ = useGroups()
@@ -91,6 +90,8 @@ function MoveMoneyModal() {
   const iconByName = useMemo(() => new Map(categories.map((c) => [c.name, categoryIconKey(c.name, c.icon, c.group)])), [categories])
   const groups = groupsQ.data ?? EMPTY
   const month = useMemo(() => currentMonthKey(), [])
+  // Keyed on the frozen month, so a modal left open past midnight on the last day stays consistent.
+  const carryQ = useCarry(month)
 
   const envelopeState = useMemo(
     () => computeEnvelopeState(budgets, expenses, month, categories, groups, undefined, carryQ.data),

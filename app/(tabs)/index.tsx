@@ -295,7 +295,7 @@ function HomeScreen() {
 
   const isLoading = !FORCE_EMPTY_STATE_PREVIEW && (budgetsQ.isLoading || expensesQ.isLoading || categoriesQ.isLoading || groupsQ.isLoading || carryQ.isLoading)
   // A failed refresh keeps the last good data, so only a query with nothing to show is an error.
-  const hasError = !FORCE_EMPTY_STATE_PREVIEW && [budgetsQ, expensesQ, categoriesQ, groupsQ].some((q) => q.error && q.data === undefined)
+  const hasError = !FORCE_EMPTY_STATE_PREVIEW && [budgetsQ, expensesQ, categoriesQ, groupsQ, carryQ].some((q) => q.error && q.data === undefined)
 
   if (isLoading) {
     return <HomeSkeleton />
@@ -315,6 +315,7 @@ function HomeScreen() {
           expensesQ.refetch()
           categoriesQ.refetch()
           groupsQ.refetch()
+          carryQ.refetch()
         }}
       />
     )

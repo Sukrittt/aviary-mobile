@@ -35,13 +35,15 @@ let mockSuggestions: { suggestions: { kind: string }[] } | undefined
 const mockMutate = jest.fn()
 const mockRefetch = jest.fn()
 let mockCarry: { ready_to_assign: number; rolled_over: Record<string, number> } | undefined
+let mockCarryError: Error | null = null
+const mockCarryRefetch = jest.fn()
 
 jest.mock('@/src/hooks/useBudgets', () => ({
   useBudgets: () => {
     mockReact.useContext(mockRefetched)
     return { data: mockBudgets, isLoading: false, error: mockBudgetsError, refetch: mockRefetch }
   },
-  useCarry: () => ({ data: mockCarry, isLoading: false }),
+  useCarry: () => ({ data: mockCarry, isLoading: false, error: mockCarryError, refetch: mockCarryRefetch }),
 }))
 // The real hook, with an open budget to key the rollover card's dismissal by when a test sets one.
 let mockActiveSpace: { id: string; name: string; personal: boolean } | null = null
@@ -138,6 +140,7 @@ describe('HomeScreen · Ready to Assign', () => {
     mockPush.mockClear()
     mockBudgetsError = null
     mockCarry = undefined
+    mockCarryError = null
     mockActiveSpace = null
     mockUser = { onboardedAt: '2026-10-01T00:00:00.000Z', getStartedAt: '2026-10-01T00:00:00.000Z' }
     mockRefetch.mockClear()
@@ -478,6 +481,14 @@ describe('HomeScreen · Ready to Assign', () => {
     expect(mockRefetch).toHaveBeenCalled()
   })
 
+  it('shows the error screen, not balances without the carry, when the carry fails to load', () => {
+    mockCarryError = new Error('503')
+    const { getByText } = renderHome()
+    expect(getByText("Couldn't load your budget")).toBeTruthy()
+    fireEvent.press(getByText('Try again'))
+    expect(mockCarryRefetch).toHaveBeenCalled()
+  })
+
   it('keeps the budget on screen when a refresh fails', () => {
     mockBudgetsError = new Error('network error')
     const { queryByText } = renderHome()
@@ -497,6 +508,7 @@ describe('HomeScreen · minimum version banner', () => {
     Object.defineProperty(Platform, 'OS', { configurable: true, value: 'android' })
     mockBudgetsError = null
     mockCarry = undefined
+    mockCarryError = null
     mockActiveSpace = null
     mockBudgets = [{ month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' }]
   })
@@ -539,6 +551,7 @@ describe('HomeScreen · one banner at a time', () => {
     mockMutate.mockClear()
     mockBudgetsError = null
     mockCarry = undefined
+    mockCarryError = null
     mockActiveSpace = null
     mockUser = { createdAt: NEW_ACCOUNT }
     mockExpenses = []

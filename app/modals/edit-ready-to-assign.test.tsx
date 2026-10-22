@@ -136,3 +136,18 @@ it("won't act on balances without last month's carry", async () => {
   const { findByText } = renderWithProviders(<EditReadyToAssignModal />)
   expect(await findByText("Couldn't load your balances. Check your connection and try again.")).toBeTruthy()
 })
+
+it('counts last month\'s carry in the latest Ready to Assign after a conflict', async () => {
+  ;(getCarry as jest.Mock).mockResolvedValueOnce({ ready_to_assign: 1000, rolled_over: {} })
+  ;(updateBudget as jest.Mock).mockRejectedValueOnce(new BudgetWriteError(409, 'changed', {
+    month: MONTH, category: '__income__', assigned: '25000', rolled_over: '0', version: 2,
+  }))
+  const utils = setup()
+  await waitFor(() => expect(utils.getByLabelText('₹16,000')).toBeTruthy())
+  await typeAmount(utils.getByLabelText, '30000')
+  await act(async () => { fireEvent.press(utils.getByText('Save')) })
+  // 25,000 income + 1,000 carried - 5,000 assigned.
+  expect(await waitFor(() => utils.getByLabelText('Ready to Assign, latest saved: ₹21,000'))).toBeTruthy()
+  fireEvent.press(utils.getByRole('button', { name: 'Use latest instead' }))
+  expect(utils.getByLabelText('₹21,000')).toBeTruthy()
+})
