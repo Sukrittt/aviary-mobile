@@ -73,7 +73,8 @@ View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { track } from "@/src/lib/analytics";
-import { isRefreshingToken } from "@/src/api/accessMode";
+import { currentUserId, isRefreshingToken } from "@/src/api/accessMode";
+import { activeBudgetId } from "@/src/lib/activeBudget";
 import { tap } from "@/src/lib/haptics";
 import { Alert } from "@/src/components/ui/AlertHost";
 import { mintExpensePayload } from "@/src/api/expenses";
@@ -155,7 +156,7 @@ function LogExpenseScreen() {
   const isEdit = origTimestamp !== "";
   // Opened from Activity's "couldn't be saved" row: this entry is in the failed queue.
   const failedClientId = str(params.failedClientId) || undefined;
-  const { multi: multiBudget, active: activeBudget } = useBudgetSpaces();
+  const { multi: multiBudget, active: activeBudget, budgets: memberBudgets } = useBudgetSpaces();
   const [budgetSheet, setBudgetSheet] = useState(false);
   const cachedUser = useCachedUser();
   const feedOn = useFeedOn().on;
@@ -508,11 +509,11 @@ function LogExpenseScreen() {
       // client_id, fixes included, and the drain takes it from there.
       if (failedClientId) {
         const payload = mintExpensePayload({ ...row, client_id: failedClientId });
-        void retryFailed(payload).then((entry) => {
+        void retryFailed(payload, memberBudgets.length ? memberBudgets.map((b) => b.id) : undefined).then((entry) => {
           // Same as a queued add: show it in the cached lists now (envelopes
-          // count it) rather than waiting for the drain's refetch. The retry
-          // is re-pinned to the budget on screen, so it always belongs here.
-          if (entry) insertExpense(qc, queuedRow(payload));
+          // count it) rather than waiting for the drain's refetch. Only if it
+          // belongs to the budget on screen.
+          if (entry && (entry.spaceId ?? currentUserId()) === (activeBudgetId() ?? currentUserId())) insertExpense(qc, queuedRow(payload));
           return flush();
         });
         setLogSuccess(true);
@@ -575,7 +576,7 @@ function LogExpenseScreen() {
         },
       );
     }
-  }, [canSubmit, unusual, unusualWarnedFor, warnKey, base, expectedVersion, isEdit, origId, origTimestamp, origItem, origAmountInr, item, savedItem, parsedAmount, date, category, notes, paymentMethod, accountId, accounts, editedDraft, router, addMutate, updateMutate, autoPicked, syncPhoto, photo, failedClientId, qc, shared]);
+  }, [canSubmit, unusual, unusualWarnedFor, warnKey, base, expectedVersion, isEdit, origId, origTimestamp, origItem, origAmountInr, item, savedItem, parsedAmount, date, category, notes, paymentMethod, accountId, accounts, editedDraft, router, addMutate, updateMutate, autoPicked, syncPhoto, photo, failedClientId, qc, shared, memberBudgets]);
 
   // Publish only when the action or its visible state changes, and only while
   // focused: a prefilled log-expense (habit nudge) stacks over the launch one,

@@ -180,12 +180,15 @@ export function listFailed(owner = currentUserId()): Promise<PendingExpense[]> {
 /**
  * Puts a failed entry back in the queue with fresh attempts, keeping its
  * client_id so the server still sees one create however many times it lands.
- * `payload` carries the user's fixes from Log Expense, and the entry moves to
- * `spaceId`, the budget Log Expense showed (its categories were used); a
- * retry pinned to a budget this person has left could never succeed.
+ * `payload` carries the user's fixes from Log Expense. The entry stays in its
+ * own budget while this person is still in it (`memberIds`, the budgets they
+ * can open), so a personal expense retried from a shared budget stays private.
+ * Only one from a budget they've left moves to `spaceId`, the budget Log
+ * Expense showed: pinned there it could never succeed. Unknown membership
+ * keeps it where it was.
  * Resolves with the requeued entry, or undefined if it was already gone.
  */
-export function retryFailed(payload: ExpensePayload, owner = currentUserId(), spaceId = activeBudgetId() ?? owner): Promise<PendingExpense | undefined> {
+export function retryFailed(payload: ExpensePayload, memberIds?: string[], owner = currentUserId(), spaceId = activeBudgetId() ?? owner): Promise<PendingExpense | undefined> {
   return serialize(async () => {
     const k = key(owner)
     const fk = failedKey(owner)
@@ -193,7 +196,8 @@ export function retryFailed(payload: ExpensePayload, owner = currentUserId(), sp
     const failed = await read(fk)
     const entry = failed.find((e) => e.payload.client_id === payload.client_id)
     if (!entry) return undefined
-    const next: PendingExpense = { ...entry, payload, attempts: 0, spaceId: spaceId ?? undefined }
+    const left = memberIds && entry.spaceId && entry.spaceId !== owner && !memberIds.includes(entry.spaceId)
+    const next: PendingExpense = { ...entry, payload, attempts: 0, spaceId: left ? spaceId ?? undefined : entry.spaceId }
     // Queue first, same reason as bumpAttempts: a failure in between must leave a copy.
     const entries = await read(k)
     await write(k, [...entries.filter((e) => e.payload.client_id !== payload.client_id), next])
