@@ -1,3 +1,4 @@
+import { rolledOverLine } from '@/src/lib/rollover'
 import { CarryFailed } from '@/src/components/shared/CarryFailed'
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
@@ -442,23 +443,12 @@ function EnvelopeCard({
       <View style={{ flex: 1, gap: 2 }}>
         <Text style={[styles.destLabel, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold, fontSize: type.micro }]}>EDITING</Text>
         <Text style={{ color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: type.body }}>{name}</Text>
-        {rolledOver === 0 ? (
-          <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodyMedium, fontSize: type.caption }}>
-            {formatCurrency(spent, hideAmounts)} spent · {formatCurrency(currentAssigned, hideAmounts)} assigned
-          </Text>
-        ) : (
-          // With money carried in, "assigned" alone no longer explains what's left.
-          [
-            ['Assigned this month', currentAssigned],
-            ['Carried from last month', rolledOver],
-            ['Spent', spent],
-            ['Available', Math.round((currentAssigned + rolledOver - spent) * 100) / 100],
-          ].map(([label, amount]) => (
-            <Text key={label} style={{ color: tokens.text2, fontFamily: fontFamily.bodyMedium, fontSize: type.caption }}>
-              {label} · {formatCurrency(amount as number, hideAmounts)}
-            </Text>
-          ))
-        )}
+        <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodyMedium, fontSize: type.caption }}>
+          {rolledOver === 0
+            ? `${formatCurrency(spent, hideAmounts)} spent · ${formatCurrency(currentAssigned, hideAmounts)} assigned`
+            // With money carried in, what's available is the number that matters, and the carry says why.
+            : `${formatCurrency(Math.round((currentAssigned + rolledOver - spent) * 100) / 100, hideAmounts)} available · ${rolledOverLine(rolledOver, currentMonthKey(), (n) => formatCurrency(n, hideAmounts))}`}
+        </Text>
       </View>
       <CaretDown size={18} color={tokens.text3} style={{ marginRight: space.sm }} />
     </AnimatedPressable>

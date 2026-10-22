@@ -467,10 +467,10 @@ export default function ExpenseAddedScreen() {
           {upiTip && (
             <Reanimated.View
               entering={FadeInDown.delay(STAGGER.detail + 160).duration(420)}
-              style={[styles.noticed, { backgroundColor: tokens.mintSoft }]}
+              style={[styles.noticed, { backgroundColor: tokens.successBg }]}
             >
-              <Text style={{ color: tokens.text, fontFamily: fontFamily.bodyBold, fontSize: type.body, textAlign: "center" }}>
-                Paid with UPI? Share the success screen to Aviary.
+              <Text numberOfLines={1} adjustsFontSizeToFit style={{ color: tokens.onSuccess, fontFamily: fontFamily.bodyBold, fontSize: type.body, textAlign: "center" }}>
+                Paid with UPI? Share the screen to Aviary.
               </Text>
             </Reanimated.View>
           )}

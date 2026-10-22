@@ -21,7 +21,7 @@ import { useTheme } from '@/src/theme/ThemeProvider'
 import { usePrivacy } from '@/src/context/PrivacyContext'
 import { fontFamily } from '@/src/theme/fonts'
 import { useBudgets, useCarry } from '@/src/hooks/useBudgets'
-import { carriedReadyLine, rolloverCard } from '@/src/lib/rollover'
+import { rolloverCard } from '@/src/lib/rollover'
 import { useLastSpent, useRecentExpenses } from '@/src/hooks/useExpenses'
 import { useCategories } from '@/src/hooks/useCategories'
 import { useGroupIcons, useGroups } from '@/src/hooks/useGroups'
@@ -166,7 +166,6 @@ function HomeScreen() {
 
   // What last month left behind, said once at the start of the month.
   const rollover = rolloverCard(carryQ.data, month, (n) => formatCurrency(n, hideAmounts))
-  const carriedReady = carriedReadyLine(envelopeState.carriedReadyToAssign, month, (n) => formatCurrency(n, hideAmounts))
 
   // An edit that changes Ready to Assign (Move Money, or an envelope's action
   // sheet here) resolves and refetches while the screen that made the change
@@ -436,9 +435,6 @@ function HomeScreen() {
               </Text>
               <Icon icon={CaretRight} size={14} color={envelopeState.income === 0 ? tokens.accentInk : tokens.text2} />
             </AnimatedPressable>
-            {carriedReady && (
-              <Text style={{ color: tokens.text2, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold, marginTop: 6 }}>{carriedReady}</Text>
-            )}
           </View>
         )}
 
@@ -483,25 +479,16 @@ function HomeScreen() {
             }}
           >
             {rollover && (
-              <Card style={[styles.rolloverCard, { backgroundColor: tokens.pillGoodBg, borderColor: 'transparent' }]} elevated={false}>
-                <View style={{ flex: 1, gap: 2 }}>
-                  <Text style={{ color: tokens.text, fontSize: type.body, fontFamily: fontFamily.bodySemiBold }}>{rollover.title}</Text>
-                  {rollover.lines.map((line) => (
-                    <Text key={line} style={{ color: tokens.text2, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>{line}</Text>
-                  ))}
-                </View>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Got it"
-                  onPress={() => setRolloverSeen(true)}
-                  disabled={rolloverSeen}
-                  hitSlop={12}
-                  style={[styles.rolloverButton, { backgroundColor: rolloverSeen ? tokens.successBg : tokens.inputBg, borderRadius: radius.full }]}
-                >
+              // Same size and green as the settled Ready to Assign row, as the old savings note was.
+              <Card style={[styles.rolloverCard, styles.slimRta, { backgroundColor: tokens.pillGoodBg, borderColor: 'transparent' }]} elevated={false}>
+                <Text numberOfLines={1} style={{ color: tokens.text, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold, flex: 1 }}>
+                  🌱 {rollover}
+                </Text>
+                <Pressable accessibilityRole="button" accessibilityLabel="Nice" onPress={() => setRolloverSeen(true)} disabled={rolloverSeen} hitSlop={12}>
                   {rolloverSeen ? (
-                    <CheckIcon color={tokens.onSuccess} size={18} />
+                    <CheckIcon color={tokens.mint} size={18} />
                   ) : (
-                    <Text style={{ color: tokens.text, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>Got it</Text>
+                    <Text style={{ color: tokens.mint, fontSize: type.caption, fontFamily: fontFamily.bodyExtraBold }}>Nice</Text>
                   )}
                 </Pressable>
               </Card>
@@ -668,7 +655,6 @@ const styles = StyleSheet.create({
   slimAmount: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   headerMonth: { alignItems: 'center' },
   rolloverCard: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  rolloverButton: { minWidth: 76, height: 34, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center' },
   cardHeadRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   cardTitle: {},
   emptyEnvelopesCard: { minHeight: 360 },

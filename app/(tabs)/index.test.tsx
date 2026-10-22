@@ -5,8 +5,7 @@ import { act, fireEvent, waitFor } from '@testing-library/react-native'
 import * as SecureStore from 'expo-secure-store'
 import { Path } from 'react-native-svg'
 import { createTestQueryClient, renderWithProviders } from '@/src/test-utils/renderWithProviders'
-import { currentMonthKey, monthAbbrev, prevMonthKey } from '@/src/lib/envelope'
-import { monthName } from '@/src/lib/rollover'
+import { currentMonthKey, monthAbbrev } from '@/src/lib/envelope'
 import { getSystemStatus } from '@/src/api/systemStatus'
 import { lightTokens } from '@/src/theme/tokens'
 import appJson from '@/app.json'
@@ -566,7 +565,7 @@ describe('HomeScreen · one banner at a time', () => {
     ]
   })
 
-  const ROLLED = `${monthName(prevMonthKey(MONTH))} rolled into ${monthName(MONTH)}`
+  const ROLLED = /rolled over|short from|rolled into Ready to Assign/
   const space = () => { mockActiveSpace = { id: 'space-1', name: 'Me', personal: true } }
 
   it('shows the trial reminder over the rollover card at 3 days left', async () => {
@@ -582,11 +581,10 @@ describe('HomeScreen · one banner at a time', () => {
     mockBilling = trial(7)
     space()
     mockCarry = { ready_to_assign: 5000, rolled_over: { Food: 95, Rent: -20 } }
-    const { findByText, getByText, queryByText } = renderHome()
-    expect(await findByText(ROLLED)).toBeTruthy()
-    expect(getByText('₹95 carried across 1 envelope · ₹5,000 to Ready to Assign')).toBeTruthy()
-    expect(getByText('₹20 short in 1 envelope')).toBeTruthy()
-    expect(getByText(`includes ₹5,000 from ${monthName(prevMonthKey(MONTH))}`)).toBeTruthy()
+    const { findByText, queryByText } = renderHome()
+    expect(await findByText('🌱 ₹5,095 rolled over · ₹20 short')).toBeTruthy()
+    // The strip says it all, so the hero has no separate carried line.
+    expect(queryByText(/includes ₹/)).toBeNull()
     expect(queryByText(/30 days on us/)).toBeNull()
   })
 
@@ -596,7 +594,7 @@ describe('HomeScreen · one banner at a time', () => {
     mockCarry = { ready_to_assign: 0, rolled_over: {} }
     const { findByText, queryByText } = renderHome()
     await findByText('Categories')
-    expect(queryByText(/rolled into/)).toBeNull()
+    expect(queryByText(ROLLED)).toBeNull()
   })
 
   it('lets Got it dismiss the rollover card once for this budget and month', async () => {
@@ -605,7 +603,7 @@ describe('HomeScreen · one banner at a time', () => {
     mockCarry = { ready_to_assign: 5000, rolled_over: {} }
     const { findByText, getByLabelText, queryByText } = renderHome()
     expect(await findByText(ROLLED)).toBeTruthy()
-    fireEvent.press(getByLabelText('Got it'))
+    fireEvent.press(getByLabelText('Nice'))
     await waitFor(() => expect(queryByText(ROLLED)).toBeNull(), { timeout: 4000 })
     const key = `mc-rollover-dismissed-space-1-${MONTH}`
     // SecureStore rejects any key outside [A-Za-z0-9._-], and a rejected read never lets the card show.
