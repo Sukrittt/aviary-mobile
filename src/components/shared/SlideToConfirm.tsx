@@ -64,6 +64,12 @@ export function SlideToConfirm({ label, onConfirm, disabled = false, icon: KnobI
   const flight = useSharedValue(0)
   const flown = useSharedValue(false)
   const sweep = useSharedValue(0)
+  // 1 when live, 0 when disabled. The disabled look is a layer that fades over the live one, so the
+  // track, label, knob and bird all change together instead of the text snapping before the fill.
+  const live = useSharedValue(disabled ? 0 : 1)
+  useEffect(() => {
+    live.value = reduceMotion ? (disabled ? 0 : 1) : withTiming(disabled ? 0 : 1, { duration: 240, easing: Easing.out(Easing.quad) })
+  }, [disabled, reduceMotion, live])
   const max = Math.max(width - KNOB - PAD * 2, 1)
 
   // One slow lean to the right and back, no bounce, so the knob reads as something you drag, not a button.
@@ -143,12 +149,13 @@ export function SlideToConfirm({ label, onConfirm, disabled = false, icon: KnobI
       ],
     }
   })
+  const dimStyle = useAnimatedStyle(() => ({ opacity: 1 - live.value }))
   const labelStyle = useAnimatedStyle(() => ({ opacity: interpolate(x.value, [0, max * 0.6], [1, 0], Extrapolation.CLAMP) }))
 
   return (
     // The bird sits outside the clipped track so it can fly up past its edge.
     <View>
-      <View
+      <Animated.View
         accessible
         accessibilityRole="button"
         accessibilityLabel={label}
@@ -159,12 +166,12 @@ export function SlideToConfirm({ label, onConfirm, disabled = false, icon: KnobI
           if (e.nativeEvent.actionName === 'activate' && !disabled) onConfirm()
         }}
         onLayout={(e) => setWidth(Math.round(e.nativeEvent.layout.width))}
-        style={[styles.track, { backgroundColor: disabled ? tokens.inputBg : tokens.accent }]}
+        style={[styles.track, { backgroundColor: tokens.accent }]}
       >
         <Animated.View pointerEvents="none" style={[styles.trail, { backgroundColor: tokens.onAccent }, trailStyle]} />
         <Animated.View pointerEvents="none" style={[styles.labelWrap, labelStyle]}>
-          {disabled || reduceMotion ? (
-            <Text numberOfLines={1} style={[styles.label, { color: disabled ? tokens.text3 : tokens.onAccent }]}>{label}</Text>
+          {reduceMotion ? (
+            <Text numberOfLines={1} style={[styles.label, { color: tokens.onAccent }]}>{label}</Text>
           ) : (
             <View style={styles.shimmerRow}>
               {Array.from(label).map((ch, i, all) => (
@@ -174,15 +181,34 @@ export function SlideToConfirm({ label, onConfirm, disabled = false, icon: KnobI
           )}
         </Animated.View>
         <GestureDetector gesture={pan}>
-          <Animated.View hitSlop={12} style={[styles.knob, { backgroundColor: disabled ? tokens.card : tokens.onAccent }, knobStyle]}>
-            <KnobIcon size={18} weight="bold" color={disabled ? tokens.text3 : tokens.accent} />
+          <Animated.View hitSlop={12} style={[styles.knob, { backgroundColor: tokens.onAccent }, knobStyle]}>
+            <KnobIcon size={18} weight="bold" color={tokens.accent} />
           </Animated.View>
         </GestureDetector>
-      </View>
+      </Animated.View>
       <Animated.View pointerEvents="none" style={[styles.bird, birdStyle]}>
         <Svg width={BIRD} height={BIRD} viewBox="80 75 330 330">
-          <Path d={BIRD_PATH} fill={disabled ? tokens.text3 : tokens.onAccent} fillRule="evenodd" />
+          <Path d={BIRD_PATH} fill={tokens.onAccent} fillRule="evenodd" />
         </Svg>
+      </Animated.View>
+      {/* The disabled look, at rest. Hidden from screen readers: the track above already says it's disabled. */}
+      <Animated.View
+        pointerEvents="none"
+        importantForAccessibility="no-hide-descendants"
+        accessibilityElementsHidden
+        style={[styles.track, styles.dim, { backgroundColor: tokens.inputBg }, dimStyle]}
+      >
+        <View style={styles.labelWrap}>
+          <Text numberOfLines={1} style={[styles.label, { color: tokens.text3 }]}>{label}</Text>
+        </View>
+        <View style={[styles.knob, { backgroundColor: tokens.card }]}>
+          <KnobIcon size={18} weight="bold" color={tokens.text3} />
+        </View>
+        <View style={styles.bird}>
+          <Svg width={BIRD} height={BIRD} viewBox="80 75 330 330">
+            <Path d={BIRD_PATH} fill={tokens.text3} fillRule="evenodd" />
+          </Svg>
+        </View>
       </Animated.View>
     </View>
   )
@@ -206,6 +232,7 @@ const styles = StyleSheet.create({
   track: { height: HEIGHT, borderRadius: HEIGHT / 2, justifyContent: 'center', overflow: 'hidden' },
   trail: { position: 'absolute', left: 0, top: 0, bottom: 0, borderRadius: HEIGHT / 2, opacity: 0.18 },
   labelWrap: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center', paddingHorizontal: KNOB + PAD * 2 },
+  dim: { position: 'absolute', left: 0, right: 0, top: 0 },
   shimmerRow: { flexDirection: 'row' },
   label: { fontFamily: fontFamily.bodyBold, fontSize: 15 },
   bird: { position: 'absolute', right: PAD + (KNOB - BIRD) / 2, top: (HEIGHT - BIRD) / 2 },
