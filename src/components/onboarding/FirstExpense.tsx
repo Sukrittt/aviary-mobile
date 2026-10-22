@@ -1,5 +1,5 @@
 import { useCurrency } from '@/src/context/CurrencyContext'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native'
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated'
 import * as Haptics from 'expo-haptics'
@@ -54,6 +54,9 @@ export function FirstExpense({
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
+  // The picked envelope can start off the right edge; bring it into view once.
+  const chipStrip = useRef<ScrollView>(null)
+  const scrolledTo = useRef(false)
 
   useEffect(() => {
     if (!saved) return
@@ -103,13 +106,18 @@ export function FirstExpense({
 
   return (
     <View style={styles.body}>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips} style={styles.chipStrip}>
+      <ScrollView ref={chipStrip} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips} style={styles.chipStrip}>
         {envelopes.map((e) => {
           const on = e.key === env.key
           const ChipIcon = CATEGORY_ICON_COMPONENTS[e.icon]
           return (
             <Pressable
               key={e.key}
+              onLayout={(ev) => {
+                if (!on || scrolledTo.current) return
+                scrolledTo.current = true
+                chipStrip.current?.scrollTo({ x: Math.max(0, ev.nativeEvent.layout.x - 20), animated: false })
+              }}
               accessibilityRole="button"
               accessibilityState={{ selected: on }}
               disabled={saving || saved}
@@ -164,7 +172,7 @@ export function FirstExpense({
         accessibilityState={{ disabled: !spent || saving, busy: saving }}
         disabled={!spent || saving || saved}
         onPress={log}
-        style={[styles.cta, { backgroundColor: saved ? tokens.mint : spent ? tokens.accent : tokens.inputBg }]}
+        style={[styles.cta, { backgroundColor: saved ? tokens.successBg : spent ? tokens.accent : tokens.inputBg }]}
       >
         {saved ? (
           <CheckIcon color={tokens.onSuccess} />

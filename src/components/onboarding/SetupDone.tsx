@@ -109,7 +109,7 @@ export function SetupDone({
         entering={FadeIn.delay(140).duration(350)}
         style={[styles.blurb, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}
       >
-        {firstExpense ? 'Your first expense is in. Home opens right on it.' : 'Everything below can be changed later from Categories.'}
+        {firstExpense ? 'Your first expense is in. You’ll see it on Home.' : 'Everything below can be changed later from Categories.'}
       </Animated.Text>
       <Animated.Text
         entering={FadeIn.delay(150).duration(350)}

@@ -10,7 +10,7 @@ it('says the budget is live, with the first expense and the trial as one line', 
   const { getByText } = renderWithProviders(
     <SetupDone income={50000} groupCount={2} categoryCount={4} firstExpense={{ amount: 250, category: 'Eating out' }} trialDays={45} onFinish={jest.fn()} />,
   )
-  expect(getByText('Your first expense is in. Home opens right on it.')).toBeTruthy()
+  expect(getByText('Your first expense is in. You’ll see it on Home.')).toBeTruthy()
   expect(getByText('₹250 · Eating out')).toBeTruthy()
   expect(getByText('Your first 45 days are free. No card, nothing to cancel.')).toBeTruthy()
 })

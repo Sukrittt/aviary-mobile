@@ -153,7 +153,7 @@ it('logs a real first expense against the starter budget and lands on done with 
   fireEvent.press(getByText('Log it'))
   await waitFor(() => expect(mockAddExpense).toHaveBeenCalledWith({ item: 'Eating out', amount_inr: '250', category: 'Eating out', payment_method: 'bank', source: 'manual' }))
   expect(await findByText('₹250 · Eating out', {}, { timeout: 3000 })).toBeTruthy()
-  expect(getByText('Your first expense is in. Home opens right on it.')).toBeTruthy()
+  expect(getByText('Your first expense is in. You’ll see it on Home.')).toBeTruthy()
   expect(getByText('Your first 30 days are free. No card, nothing to cancel.')).toBeTruthy()
   expect(stepsDone().map((p) => p.step_name)).toEqual(['income', 'first_expense'])
   expect(stepsDone()[1]).toMatchObject({ step: 4, logged: true })

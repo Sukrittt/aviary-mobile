@@ -98,7 +98,7 @@ export function PickExtras() {
             accessibilityRole="button"
             onPress={() => save(on)}
             disabled={phase !== 'open' || on.size === 0}
-            style={[styles.cta, { backgroundColor: phase === 'saved' ? tokens.mint : on.size ? tokens.accent : tokens.inputBg }]}
+            style={[styles.cta, { backgroundColor: phase === 'saved' ? tokens.successBg : on.size ? tokens.accent : tokens.inputBg }]}
           >
             {phase === 'saved' ? (
               <CheckIcon color={tokens.onSuccess} size={18} />
