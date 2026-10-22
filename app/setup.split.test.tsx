@@ -72,3 +72,16 @@ it('offers a reset only once the plan is edited, and it restores our suggestion'
   expect(getByText('₹31,100')).toBeTruthy()
   expect(queryByText('Reset to our suggestion')).toBeNull()
 })
+
+it('offers our suggestion in the number pad sheet once the amount differs from it', async () => {
+  const { getByText, getAllByText, queryByText, findByText } = toCategoriesStep()
+  fireEvent.press(getByText('Continue'))
+  expect(await findByText('Here’s your plan')).toBeTruthy()
+  fireEvent.press(getByText('Rent'))
+  expect(queryByText(/^Our suggestion/)).toBeNull()
+  fireEvent.press(getAllByText('1').at(-1)!)
+  fireEvent.press(getByText('Our suggestion · ₹17,800'))
+  fireEvent.press(getByText('Done'))
+  expect(getAllByText('₹17,800').length).toBeGreaterThan(0)
+  expect(queryByText('Reset to our suggestion')).toBeNull()
+})

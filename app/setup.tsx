@@ -32,6 +32,7 @@ import { StepDot } from "@/src/components/onboarding/StepDot";
 import { PickExtras } from "@/src/components/onboarding/PickExtras";
 import { HeardFrom } from "@/src/components/onboarding/HeardFrom";
 import { PickRow } from "@/src/components/onboarding/PickRow";
+import { PlanStrip } from "@/src/components/onboarding/PlanStrip";
 import { SetupDone } from "@/src/components/onboarding/SetupDone";
 import { AmountTicker } from "@/src/components/onboarding/AmountTicker";
 import { ImportFlow, type ImportDone } from "@/src/components/onboarding/ImportFlow";
@@ -568,6 +569,14 @@ function CurrencyWizard({
     const cur = amounts[activeKey] ?? 0;
     const rest = assignedTotal() - cur;
     const v = Math.max(0, (Number(income) || 0) - rest);
+    setAmounts((prev) => ({ ...prev, [activeKey]: v }));
+    setBuf(String(v));
+  };
+
+  // Back to the suggested amount for just this row, same as Web's quick pick.
+  const pickSuggested = (v: number) => {
+    if (!activeKey) return;
+    editedSplit.current = true;
     setAmounts((prev) => ({ ...prev, [activeKey]: v }));
     setBuf(String(v));
   };
@@ -1144,30 +1153,7 @@ function CurrencyWizard({
 
       {step === 4 && (
         <View style={styles.stepBody}>
-          {/* Only while something's off: a fully planned income needs no banner. */}
-          {rem !== 0 && (
-            <View
-              style={[
-                styles.remChip,
-                { backgroundColor: remColors.bg, borderColor: remColors.color },
-              ]}
-            >
-              <Text style={[styles.remLabel, { color: remColors.color }]}>
-                {remLabel}
-              </Text>
-              <Text
-                style={[
-                  styles.remValue,
-                  {
-                    color: remColors.color,
-                    fontFamily: fontFamily.displaySemiBold,
-                  },
-                ]}
-              >
-                {formatMoney(Math.abs(rem))}
-              </Text>
-            </View>
-          )}
+          <PlanStrip rem={rem} />
           {editedPlan && (
             <Pressable
               accessibilityRole="button"
@@ -1256,10 +1242,16 @@ function CurrencyWizard({
                         >
                           {c.name}
                         </Text>
-                        {/* Envelopes' "Left" pill; the row opens the number pad sheet. */}
+                        {/* Envelopes' "Left" pill, with the icon tiles' edit badge pinned
+                            top right; the row opens the number pad sheet. */}
                         <View
                           style={[styles.assignAmountChip, { backgroundColor: tokens.pillGoodBg }]}
                         >
+                          <View
+                            style={[styles.assignAmountBadge, { backgroundColor: tokens.card, borderColor: tokens.borderStrong }]}
+                          >
+                            <PencilSimple size={8} weight="bold" color={tokens.text} />
+                          </View>
                           <Text
                             style={[
                               styles.assignAmount,
@@ -1418,24 +1410,28 @@ function CurrencyWizard({
                 >
                   {formatMoney(amounts[activeCat.key] ?? 0)}
                 </Text>
-                {rem !== 0 && (
-                  <Pressable
-                    onPress={fillRemainder}
-                    style={[
-                      styles.fillButton,
-                      {
-                        borderColor: tokens.accent,
-                        backgroundColor: tokens.accentSoft,
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={[styles.fillButtonLabel, { color: tokens.accent }]}
+                <View style={styles.sheetPicks}>
+                  {(amounts[activeCat.key] ?? 0) !== (suggested[activeCat.key] ?? 0) && (
+                    <Pressable
+                      onPress={() => pickSuggested(suggested[activeCat.key] ?? 0)}
+                      style={[styles.fillButton, { borderColor: tokens.accent, backgroundColor: tokens.accentSoft }]}
                     >
-                      Give this the leftover
-                    </Text>
-                  </Pressable>
-                )}
+                      <Text style={[styles.fillButtonLabel, { color: tokens.accent }]}>
+                        Our suggestion · {formatMoney(suggested[activeCat.key] ?? 0)}
+                      </Text>
+                    </Pressable>
+                  )}
+                  {rem !== 0 && (
+                    <Pressable
+                      onPress={fillRemainder}
+                      style={[styles.fillButton, { borderColor: tokens.accent, backgroundColor: tokens.accentSoft }]}
+                    >
+                      <Text style={[styles.fillButtonLabel, { color: tokens.accent }]}>
+                        Give this the leftover
+                      </Text>
+                    </Pressable>
+                  )}
+                </View>
                 <Numpad
                   extraKey="00"
                   onDigit={pressAmt}
@@ -1647,19 +1643,6 @@ const styles = StyleSheet.create({
 
   resetPlan: { alignSelf: "flex-start", marginTop: 10 },
   resetPlanLabel: { fontSize: 12, fontFamily: fontFamily.bodyExtraBold },
-  remChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 10,
-    marginTop: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 15,
-    borderRadius: 16,
-    borderWidth: 1,
-  },
-  remLabel: { fontSize: 12, fontFamily: fontFamily.bodyExtraBold },
-  remValue: { fontSize: 20 },
   assignRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -1678,8 +1661,20 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   assignName: { flex: 1, fontSize: 14 },
-  assignAmountChip: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
-  assignAmount: { fontSize: 12, fontVariant: ['tabular-nums'] },
+  assignAmountChip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
+  assignAmount: { fontSize: 14, fontVariant: ['tabular-nums'] },
+  assignAmountBadge: {
+    position: "absolute",
+    top: -6,
+    right: -6,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 1,
+  },
 
   sheetGrabber: {
     alignSelf: "center",
@@ -1713,8 +1708,8 @@ const styles = StyleSheet.create({
     letterSpacing: -0.4,
     paddingVertical: 4,
   },
+  sheetPicks: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 8 },
   fillButton: {
-    alignSelf: "center",
     paddingVertical: 8,
     paddingHorizontal: 14,
     borderRadius: 100,

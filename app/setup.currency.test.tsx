@@ -28,6 +28,9 @@ jest.mock('expo-haptics', () => ({
   selectionAsync: jest.fn(() => Promise.resolve()),
   impactAsync: jest.fn(() => Promise.resolve()),
   ImpactFeedbackStyle: { Light: 'light', Rigid: 'rigid' },
+  // The plan strip's check celebrates with a success buzz.
+  notificationAsync: jest.fn(() => Promise.resolve()),
+  NotificationFeedbackType: { Success: 'success' },
 }))
 
 it('defaults to the device region currency', () => {
