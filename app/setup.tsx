@@ -1256,14 +1256,14 @@ function CurrencyWizard({
                         >
                           {c.name}
                         </Text>
-                        {/* Mint chip: the row opens the number pad sheet. */}
+                        {/* Envelopes' "Left" pill; the row opens the number pad sheet. */}
                         <View
-                          style={[styles.assignAmountChip, { backgroundColor: tokens.mintSoft }]}
+                          style={[styles.assignAmountChip, { backgroundColor: tokens.pillGoodBg }]}
                         >
                           <Text
                             style={[
                               styles.assignAmount,
-                              { color: tokens.mint, fontFamily: fontFamily.displaySemiBold },
+                              { color: tokens.pillGood, fontFamily: fontFamily.bodySemiBold },
                             ]}
                           >
                             {formatMoney(v)}
@@ -1678,8 +1678,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   assignName: { flex: 1, fontSize: 14 },
-  assignAmountChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 100 },
-  assignAmount: { fontSize: 15 },
+  assignAmountChip: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
+  assignAmount: { fontSize: 12, fontVariant: ['tabular-nums'] },
 
   sheetGrabber: {
     alignSelf: "center",
