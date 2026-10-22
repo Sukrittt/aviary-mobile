@@ -6,6 +6,7 @@ import { CaretDown, Plus, X } from '@/src/components/shared/icons'
 import { CategoryPickerSheet } from '@/src/components/shared/CategoryPickerSheet'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { Icon } from '@/src/components/shared/Icon'
+import { SlideToConfirm } from '@/src/components/shared/SlideToConfirm'
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { useAddExpense } from '@/src/hooks/useExpenses'
 import { freshStartExpense, freshStartSplit } from '@/src/features/fill-gap/gap'
@@ -187,18 +188,22 @@ function FreshStartScreen() {
       {error !== '' && <Text accessibilityRole="alert" style={{ color: tokens.coral, fontFamily: fontFamily.bodyMedium, fontSize: type.caption }}>{error}</Text>}
 
       {/* Right under the fields, not pinned to the bottom: the number pad stays up while you type. */}
+      {phase === 'idle' ? (
+        <SlideToConfirm label={expenses && expenses.length > 1 ? `Slide to log ${expenses.length} expenses` : 'Slide to log it'} onConfirm={save} disabled={!expenses} />
+      ) : (
       <Pressable
         accessibilityRole="button"
         onPress={save}
         disabled={!expenses || busy}
-        style={[styles.primary, { backgroundColor: phase === 'success' ? tokens.successBg : tokens.accent, borderRadius: radius.full, opacity: phase === 'saving' || (!expenses && phase === 'idle') ? 0.5 : 1 }]}
+        style={[styles.primary, { backgroundColor: phase === 'success' ? tokens.successBg : tokens.accent, borderRadius: radius.full, opacity: phase === 'saving' ? 0.5 : 1 }]}
       >
         {phase === 'success' ? (
           <CheckIcon color={tokens.onSuccess} />
         ) : (
-          <Text style={{ color: tokens.onAccent, fontFamily: fontFamily.bodyBold, fontSize: type.body }}>{phase === 'saving' ? 'Logging…' : expenses && expenses.length > 1 ? `Log ${expenses.length} expenses` : 'Log it'}</Text>
+          <Text style={{ color: tokens.onAccent, fontFamily: fontFamily.bodyBold, fontSize: type.body }}>Logging…</Text>
         )}
       </Pressable>
+      )}
       <Pressable accessibilityRole="button" onPress={() => router.back()} disabled={busy} style={styles.secondary}>
         <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodySemiBold, fontSize: type.body }}>No idea</Text>
       </Pressable>

@@ -6,6 +6,7 @@ import SetupScreen from './setup'
 import { onOnboarded } from '@/src/api/onboardingSignal'
 import { updateUser } from '@/src/api/account'
 import { completeOnboarding } from '@/src/api/billing'
+import { slide } from '@/src/test-utils/slide'
 
 // The usual setup steps, as on a binary without the file picker; setup.import.test.tsx covers the import.
 jest.mock('@/src/lib/filePicker', () => ({ canPickFiles: false, pickFile: jest.fn() }))
@@ -67,7 +68,7 @@ it('selects currency before income, preserves it on back, and saves it with onbo
   expect(Haptics.selectionAsync).toHaveBeenCalledTimes(4)
   fireEvent.press(getByText('Done'))
   expect(Haptics.impactAsync).toHaveBeenCalledTimes(4)
-  fireEvent.press(getByText('Finish setup'))
+  slide(getByLabelText('Slide to finish setup'))
   expect(Haptics.impactAsync).toHaveBeenCalledTimes(5)
   expect(Haptics.impactAsync).toHaveBeenLastCalledWith(Haptics.ImpactFeedbackStyle.Rigid)
   await waitFor(() => expect(updateUser).toHaveBeenCalledWith({ currencyCode: 'USD' }), { timeout: 3000 })

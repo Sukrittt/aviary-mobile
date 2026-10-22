@@ -10,6 +10,7 @@ import { CategoryPickerSheet } from '@/src/components/shared/CategoryPickerSheet
 import { CategoryIcon } from '@/src/components/shared/CategoryIcon'
 import { SelectCheck, SelectTint } from '@/src/components/shared/SelectCheck'
 import { ConfettiPiece } from '@/src/components/onboarding/SetupDone'
+import { SlideToConfirm } from '@/src/components/shared/SlideToConfirm'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { EmptyState } from '@/src/components/shared/EmptyState'
 import { Icon } from '@/src/components/shared/Icon'
@@ -370,6 +371,9 @@ function StatementScreen() {
             {credits && <Text style={caption}>{credits}</Text>}
             {missing && <Text style={{ ...caption, color: tokens.warnInk }}>Pick a category for the ticked rows to log them.</Text>}
             {error !== '' && <Text accessibilityRole="alert" style={{ ...caption, color: tokens.coral }}>{error}</Text>}
+            {saving === 'idle' && checked.length > 0 ? (
+              <SlideToConfirm label={`Slide to log ${checked.length} · ${formatMoney(total)}`} onConfirm={log} disabled={missing} />
+            ) : (
             <Pressable
               accessibilityRole="button"
               onPress={log}
@@ -397,10 +401,11 @@ function StatementScreen() {
                 </>
               ) : (
                 <Text style={{ color: tokens.onAccent, fontFamily: fontFamily.bodyBold, fontSize: type.body }}>
-                  {checked.length ? `Log ${checked.length} · ${formatMoney(total)}` : 'Tick what to add'}
+                  Tick what to add
                 </Text>
               )}
             </Pressable>
+            )}
           </View>
         </>
       )}

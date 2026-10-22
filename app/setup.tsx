@@ -40,6 +40,7 @@ import { ImportFlow, type ImportDone } from "@/src/components/onboarding/ImportF
 import { canPickFiles } from "@/src/lib/filePicker";
 import { BottomSheet } from "@/src/components/shared/Modal";
 import { LoadingPhrase } from "@/src/components/shared/LoadingPhrase";
+import { SlideToConfirm } from "@/src/components/shared/SlideToConfirm";
 import { CategoryIcon, CATEGORY_ICON_COMPONENTS } from "@/src/components/shared/CategoryIcon";
 import { CategoryIconPicker } from "@/src/components/shared/CategoryIconPicker";
 import { categoryTint } from "@/src/lib/emoji";
@@ -1360,6 +1361,15 @@ function CurrencyWizard({
         <Text style={[styles.errorText, { color: tokens.coral }]}>{error}</Text>
       )}
 
+      {ctaLabel === "Finish setup" && !pending ? (
+        <View style={styles.slideCta}>
+          <SlideToConfirm
+            label="Slide to finish setup"
+            onConfirm={pressPrimaryCta}
+            disabled={!canAdvance}
+          />
+        </View>
+      ) : (
       <Pressable
         onPress={pressPrimaryCta}
         disabled={!canAdvance || pending}
@@ -1403,6 +1413,7 @@ function CurrencyWizard({
           </Text>
         )}
       </Pressable>
+      )}
       {error === "" && hint !== "" && (
         <Text style={[styles.ctaHint, { color: tokens.text3 }]}>{hint}</Text>
       )}
@@ -1780,6 +1791,7 @@ const styles = StyleSheet.create({
   },
   addPillLabel: { fontSize: 12, fontFamily: fontFamily.bodyBold },
   errorText: { fontSize: 13, textAlign: "center", marginTop: 8 },
+  slideCta: { marginTop: 12 },
   cta: {
     marginTop: 12,
     minHeight: 54,

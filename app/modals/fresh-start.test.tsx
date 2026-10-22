@@ -1,6 +1,7 @@
 import { act, fireEvent, waitFor } from '@testing-library/react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import FreshStartScreen from './fresh-start'
+import { slide } from '@/src/test-utils/slide'
 
 const mockMutate = jest.fn()
 jest.mock('@/src/hooks/useExpenses', () => ({ useAddExpense: () => ({ mutateAsync: mockMutate }) }))
@@ -30,7 +31,7 @@ it('logs one Untracked spending today, keyed by the gap', async () => {
   fireEvent.changeText(screen.getByLabelText('Rough total'), '3500')
   fireEvent.press(screen.getByLabelText('Pick a category'))
   fireEvent.press(screen.getByText('pick-food'))
-  fireEvent.press(screen.getByText('Log it'))
+  slide(screen.getByLabelText('Slide to log it'))
   await waitFor(() => expect(mockMutate).toHaveBeenCalledWith(expect.objectContaining({
     item: 'Untracked spending', amount_inr: '3500', category: 'Food', date: '2026-10-19', source: 'fresh_start', client_id: 'fresh:2026-10-15',
   })))
@@ -46,7 +47,7 @@ it('can split the rough total across categories, one expense each, keeping what 
   fireEvent.press(screen.getByText('Add another category'))
   fireEvent.press(screen.getByText('pick-travel'))
   fireEvent.changeText(screen.getByLabelText('Rough amount for Travel'), '800')
-  fireEvent.press(screen.getByText('Log 2 expenses'))
+  slide(screen.getByLabelText('Slide to log 2 expenses'))
   await waitFor(() => expect(mockMutate).toHaveBeenCalledTimes(2))
   expect(mockMutate.mock.calls.map(([e]) => [e.category, e.amount_inr, e.client_id])).toEqual([
     ['Food', '2000', 'fresh:2026-10-15:Food'],
@@ -67,7 +68,7 @@ it('does not close whatever is underneath if it was already dismissed during the
   fireEvent.changeText(screen.getByLabelText('Rough total'), '500')
   fireEvent.press(screen.getByLabelText('Pick a category'))
   fireEvent.press(screen.getByText('pick-food'))
-  fireEvent.press(screen.getByText('Log it'))
+  slide(screen.getByLabelText('Slide to log it'))
   await waitFor(() => expect(mockMutate).toHaveBeenCalled())
   screen.unmount()
   await act(async () => { jest.advanceTimersByTime(2000) })

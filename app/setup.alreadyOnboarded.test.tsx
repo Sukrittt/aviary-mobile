@@ -10,6 +10,7 @@ import { addGroup } from '@/src/api/groups'
 import { addCategory } from '@/src/api/categories'
 import { ImportFailure } from '@/src/api/imports'
 import { track } from '@/src/lib/analytics'
+import { slide } from '@/src/test-utils/slide'
 
 // Setup finished on another device (say, the web) while this one sat mid-wizard.
 // Saving here must not write a second budget over it.
@@ -49,12 +50,12 @@ beforeEach(() => {
 afterEach(() => unsubscribe())
 
 it('finishing setup after another device already did writes nothing and goes Home', async () => {
-  const { getByText } = renderWithProviders(<SetupScreen />)
+  const { getByText, getByLabelText } = renderWithProviders(<SetupScreen />)
   fireEvent.press(getByText('I’m starting fresh'))
   fireEvent.press(getByText('Continue')) // how to start
   fireEvent.press(getByText('Continue')) // currency
   fireEvent.press(getByText('₹50,000'))
-  fireEvent.press(getByText('Finish setup'))
+  slide(getByLabelText('Slide to finish setup'))
   await waitFor(() => expect(onFinished).toHaveBeenCalledWith({ elsewhere: true }))
   expect(Alert.alert).toHaveBeenCalledWith('You’re already set up', expect.any(String), expect.any(Array), expect.anything())
   expect(addGroup).not.toHaveBeenCalled()
@@ -65,12 +66,12 @@ it('finishing setup after another device already did writes nothing and goes Hom
 
 it('a not-yet-onboarded account still saves as usual', async () => {
   jest.mocked(getUser).mockResolvedValue({ email: 'a@b.com', emailVerified: true, onboardedAt: null } as never)
-  const { getByText } = renderWithProviders(<SetupScreen />)
+  const { getByText, getByLabelText } = renderWithProviders(<SetupScreen />)
   fireEvent.press(getByText('I’m starting fresh'))
   fireEvent.press(getByText('Continue'))
   fireEvent.press(getByText('Continue'))
   fireEvent.press(getByText('₹50,000'))
-  fireEvent.press(getByText('Finish setup'))
+  slide(getByLabelText('Slide to finish setup'))
   await waitFor(() => expect(completeOnboarding).toHaveBeenCalled(), { timeout: 3000 })
   expect(Alert.alert).not.toHaveBeenCalled()
 })
@@ -82,15 +83,15 @@ it('a retry after this device\'s own lost completion finishes setup, not "anothe
     .mockRejectedValueOnce(new Error('offline'))
     .mockResolvedValue({ email: 'a@b.com', emailVerified: true, onboardedAt: '2026-10-19T09:00:00.000Z' } as never)
   jest.mocked(completeOnboarding).mockRejectedValueOnce(new Error('response lost'))
-  const { getByText, findByText } = renderWithProviders(<SetupScreen />)
+  const { getByText, findByText, getByLabelText } = renderWithProviders(<SetupScreen />)
   fireEvent.press(getByText('I’m starting fresh'))
   fireEvent.press(getByText('Continue'))
   fireEvent.press(getByText('Continue'))
   fireEvent.press(getByText('₹50,000'))
-  fireEvent.press(getByText('Finish setup'))
+  slide(getByLabelText('Slide to finish setup'))
   await findByText(/Couldn't confirm your setup/, undefined, { timeout: 3000 })
 
-  fireEvent.press(getByText('Finish setup'))
+  slide(getByLabelText('Slide to finish setup'))
   await waitFor(() => expect(track).toHaveBeenCalledWith('onboarding_completed', expect.objectContaining({ recovered_after_error: true })), { timeout: 3000 })
   expect(Alert.alert).not.toHaveBeenCalled()
   expect(onFinished).not.toHaveBeenCalledWith({ elsewhere: true })

@@ -4,6 +4,7 @@ import SetupScreen from './setup'
 import { track } from '@/src/lib/analytics'
 import { completeOnboarding } from '@/src/api/billing'
 import { getUser } from '@/src/api/account'
+import { slide } from '@/src/test-utils/slide'
 
 // The usual setup steps, as on a binary without the file picker; setup.import.test.tsx covers the import.
 jest.mock('@/src/lib/filePicker', () => ({ canPickFiles: false, pickFile: jest.fn() }))
@@ -40,7 +41,7 @@ function walkToFinish() {
   fireEvent.press(getByText('Continue')) // income, again
   fireEvent.press(getByText('Continue')) // groups
   fireEvent.press(getByText('Continue')) // categories
-  fireEvent.press(getByText('Finish setup'))
+  slide(getByLabelText('Slide to finish setup'))
   return screen
 }
 

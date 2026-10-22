@@ -1,6 +1,7 @@
 import { act, fireEvent, waitFor } from '@testing-library/react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import StatementScreen from './statement'
+import { slide } from '@/src/test-utils/slide'
 
 const mockRead = jest.fn()
 jest.mock('@/src/api/statement', () => ({
@@ -88,7 +89,7 @@ it('logs only ticked rows, each with its hashed client_id', async () => {
   fireEvent.press(screen.getByText('pick-food'))
   // Left in flight: this is about what gets sent, and the success tick would animate past the test.
   mockMutate.mockReturnValue(new Promise(() => {}))
-  fireEvent.press(screen.getByText(/^Log 2 · /))
+  slide(screen.getByLabelText(/^Slide to log 2 · /))
   await waitFor(() => expect(mockMutate).toHaveBeenCalledTimes(2))
   expect(mockMutate.mock.calls.map((c) => c[0].client_id)).toEqual(['statement:a', 'statement:c'])
   expect(mockMutate.mock.calls[1][0]).toMatchObject({ source: 'statement', category: 'Food', date: '2026-10-12' })
@@ -110,7 +111,7 @@ it('picking a category ticks the row it belongs to', async () => {
   fireEvent.press(screen.getByLabelText('Pick a category for Chai'))
   fireEvent.press(screen.getByText('pick-food'))
   expect(screen.getByLabelText(/Add Chai/).props.accessibilityState).toMatchObject({ checked: true })
-  expect(screen.getByText(/^Log 2 · /)).toBeTruthy()
+  expect(screen.getByText(/^Slide to log 2 · /)).toBeTruthy()
 })
 
 it('ends on what got filled in, then closes or goes to Activity', async () => {
@@ -118,7 +119,7 @@ it('ends on what got filled in, then closes or goes to Activity', async () => {
   try {
     const screen = await openReview()
     fireEvent.press(screen.getByLabelText(/Add Rapido/))
-    fireEvent.press(screen.getByText(/^Log 2 · /))
+    slide(screen.getByLabelText(/^Slide to log 2 · /))
     await waitFor(() => expect(mockMutate).toHaveBeenCalledTimes(2))
     await waitFor(() => jest.advanceTimersByTime(1100))
     expect(await screen.findByText("You're caught up.")).toBeTruthy()
@@ -140,10 +141,10 @@ it('counts a row an earlier failed try already saved, even once it is unticked',
     const screen = await openReview()
     fireEvent.press(screen.getByLabelText(/Add Rapido/))
     mockMutate.mockResolvedValueOnce({}).mockRejectedValueOnce(new Error('503'))
-    fireEvent.press(screen.getByText(/^Log 2 · /))
+    slide(screen.getByLabelText(/^Slide to log 2 · /))
     expect(await screen.findByText("Couldn't log 1. Check your connection and try again.")).toBeTruthy()
     fireEvent.press(screen.getByLabelText(/Add Swiggy/))
-    fireEvent.press(screen.getByText(/^Log 1 · /))
+    slide(screen.getByLabelText(/^Slide to log 1 · /))
     await waitFor(() => expect(mockMutate).toHaveBeenCalledTimes(3))
     await waitFor(() => jest.advanceTimersByTime(1100))
     expect(await screen.findByText("You're caught up.")).toBeTruthy()
@@ -155,7 +156,7 @@ it('counts a row an earlier failed try already saved, even once it is unticked',
 })
 
 async function logAndFinish(screen: Awaited<ReturnType<typeof openReview>>, label: RegExp, calls: number) {
-  fireEvent.press(screen.getByText(label))
+  slide(screen.getByLabelText(label))
   await waitFor(() => expect(mockMutate).toHaveBeenCalledTimes(calls))
   await waitFor(() => jest.advanceTimersByTime(1100))
 }
@@ -173,7 +174,7 @@ it('saves four at a time, a day in order, and counts every row to the end', asyn
     const answers: (() => void)[] = []
     mockMutate.mockImplementation(() => new Promise((r) => answers.push(() => r({}))))
     const screen = await openReview()
-    fireEvent.press(screen.getByText(/^Log 6 · /))
+    slide(screen.getByLabelText(/^Slide to log 6 · /))
     const sent = () => mockMutate.mock.calls.map((c) => c[0].client_id)
     await waitFor(() => expect(sent()).toEqual(['statement:0', 'statement:2', 'statement:3', 'statement:4']))
     expect(mockMutate.mock.calls[0][0]).toMatchObject({ deferRefresh: true })
@@ -201,7 +202,7 @@ it("doesn't count a row the server already had as added", async () => {
     const screen = await openReview()
     fireEvent.press(screen.getByLabelText(/Add Rapido/))
     mockMutate.mockResolvedValueOnce({}).mockResolvedValueOnce({ duplicate: true })
-    await logAndFinish(screen, /^Log 2 · /, 2)
+    await logAndFinish(screen, /^Slide to log 2 · /, 2)
     expect(await screen.findByText('1 payment added')).toBeTruthy()
   } finally {
     jest.useRealTimers()
@@ -213,7 +214,7 @@ it('says so when everything ticked was already there', async () => {
   try {
     const screen = await openReview()
     mockMutate.mockResolvedValueOnce({ duplicate: true })
-    await logAndFinish(screen, /^Log 1 · /, 1)
+    await logAndFinish(screen, /^Slide to log 1 · /, 1)
     expect(await screen.findByText('Those were already in your budget, so nothing doubled up.')).toBeTruthy()
     expect(screen.queryByText(/added/)).toBeNull()
   } finally {
