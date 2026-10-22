@@ -133,12 +133,13 @@ export function EnvelopeRow({
       <View style={styles.availableCol}>
         <RollingAmount
           style={[styles.availablePill, { backgroundColor: pill.bg }]}
-          textStyle={[styles.available, { color: pill.color, fontFamily: fontFamily.bodySemiBold }]}
+          color={pill.color}
+          size={12}
+          weight="bodySemiBold"
           from={envelope.available - envelope.rolledOver}
           to={envelope.available}
           play={hideAmounts ? 0 : rollPlay}
           delayMs={rollDelayMs}
-          format={(n) => formatCurrency(n, hideAmounts)}
           tones={{ up: { color: tokens.pillGood, bg: tokens.pillGoodBg }, down: { color: tokens.pillOver, bg: tokens.pillOverBg } }}
         />
       </View>
@@ -198,7 +199,6 @@ const styles = StyleSheet.create({
   // Fixed width so every row's bar ends at the same x, whatever the amount.
   availableCol: { width: 84, alignItems: 'flex-end' },
   availablePill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
-  available: { fontSize: 12, fontVariant: ['tabular-nums'] },
   sheetTitle: { fontSize: 16, marginBottom: 8 },
   sheetBtn: { paddingVertical: 12 },
   sheetBtnText: { fontSize: 14 },

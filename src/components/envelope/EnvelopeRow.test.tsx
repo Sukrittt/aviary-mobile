@@ -66,6 +66,6 @@ describe('EnvelopeRow carry', () => {
     short.unmount()
     const ahead = row({ assigned: 12000, spent: 0, available: 14050, rolledOver: 2050, spentPct: 0 })
     expect(ahead.queryByText(/from /)).toBeNull()
-    expect(ahead.getByText('₹14,050')).toBeTruthy()
+    expect(ahead.getByLabelText('₹14,050')).toBeTruthy()
   })
 })
