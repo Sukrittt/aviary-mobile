@@ -38,3 +38,8 @@ it('creates a group in one request when nothing was picked', async () => {
   await addGroup('Pets')
   expect(apiFetch).toHaveBeenCalledTimes(1)
 })
+
+it('still counts the group as created when saving its style fails', async () => {
+  ;(apiFetch as jest.Mock).mockResolvedValueOnce({ ok: true }).mockResolvedValueOnce({ ok: false, status: 503 })
+  await expect(addGroup('Pets', { color: 'mint' })).resolves.toBeUndefined()
+})
