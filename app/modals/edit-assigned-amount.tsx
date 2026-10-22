@@ -1,3 +1,5 @@
+import { rolledOverLine } from '@/src/lib/rollover'
+import { CarryFailed } from '@/src/components/shared/CarryFailed'
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { usePressSpring } from '@/src/components/ui/Button'
@@ -7,7 +9,7 @@ import { AmountText } from '@/src/components/ui/AmountText'
 import { Numpad } from '@/src/components/ui/Numpad'
 import { useAmountEntry } from '@/src/components/ui/useAmountEntry'
 import { usePrivacy } from '@/src/context/PrivacyContext'
-import { useBudgets,useUpdateBudget } from '@/src/hooks/useBudgets'
+import { useBudgets, useCarry, useUpdateBudget } from '@/src/hooks/useBudgets'
 import { useCategories, useCategoryTint } from '@/src/hooks/useCategories'
 import { useRecentExpenses } from '@/src/hooks/useExpenses'
 import { useGroups } from '@/src/hooks/useGroups'
@@ -50,11 +52,12 @@ function EditAssignedAmountModal() {
   const [category, setCategory] = useState(() => str(params.category))
 
   const budgetsQ = useBudgets()
+  const carryQ = useCarry(currentMonthKey())
   const expensesQ = useRecentExpenses()
   const categoriesQ = useCategories()
   const groupsQ = useGroups()
 
-  const isLoading = budgetsQ.isLoading || expensesQ.isLoading || categoriesQ.isLoading || groupsQ.isLoading
+  const isLoading = budgetsQ.isLoading || expensesQ.isLoading || categoriesQ.isLoading || groupsQ.isLoading || carryQ.isLoading
   if (isLoading) {
     return (
       <View style={[styles.container, styles.center, { backgroundColor: tokens.bg }]}>
@@ -62,6 +65,7 @@ function EditAssignedAmountModal() {
       </View>
     )
   }
+  if (carryQ.isError && carryQ.data === undefined) return <CarryFailed />
 
   const budgets = budgetsQ.data ?? EMPTY
   const expenses = expensesQ.data ?? EMPTY
@@ -70,7 +74,7 @@ function EditAssignedAmountModal() {
   const month = currentMonthKey()
   const prevMonth = prevMonthKey(month)
 
-  const envelopeState = computeEnvelopeState(budgets, expenses, month, categories, groups)
+  const envelopeState = computeEnvelopeState(budgets, expenses, month, categories, groups, undefined, carryQ.data)
   const prevEnvelopeState = computeEnvelopeState(budgets, expenses, prevMonth, categories, groups)
 
   const envelope = envelopeState.envelopes.find((e) => e.category === category)
@@ -91,6 +95,7 @@ function EditAssignedAmountModal() {
       month={month}
       version={budgets.find((b) => b.month === month && b.category === category)?.version ?? 0}
       currentAssigned={envelope?.assigned ?? 0}
+      rolledOver={envelope?.rolledOver ?? 0}
       spent={envelope?.spent ?? 0}
       isCreditCardPayment={!!envelope?.isCreditCardPayment}
       group={envelope?.group ?? ''}
@@ -106,6 +111,7 @@ function EditAmountBody({
   month,
   version,
   currentAssigned,
+  rolledOver,
   spent,
   isCreditCardPayment,
   group,
@@ -118,6 +124,8 @@ function EditAmountBody({
   month: string
   version: number
   currentAssigned: number
+  /** What the envelope carried in from last month. */
+  rolledOver: number
   spent: number
   isCreditCardPayment: boolean
   group: string
@@ -273,6 +281,7 @@ function EditAmountBody({
           icon={iconKey}
           tint={tintOf(isCreditCardPayment ? name : category)}
           spent={spent}
+          rolledOver={rolledOver}
           currentAssigned={baseAssigned}
           hideAmounts={hideAmounts}
           tokens={tokens}
@@ -385,6 +394,7 @@ function EnvelopeCard({
   icon,
   tint,
   spent,
+  rolledOver,
   currentAssigned,
   hideAmounts,
   tokens,
@@ -398,6 +408,7 @@ function EnvelopeCard({
   icon: CategoryIconKey
   tint: { bg: string; ink: string }
   spent: number
+  rolledOver: number
   currentAssigned: number
   hideAmounts: boolean
   tokens: ThemeTokens
@@ -433,7 +444,10 @@ function EnvelopeCard({
         <Text style={[styles.destLabel, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold, fontSize: type.micro }]}>EDITING</Text>
         <Text style={{ color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: type.body }}>{name}</Text>
         <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodyMedium, fontSize: type.caption }}>
-          {formatCurrency(spent, hideAmounts)} spent · {formatCurrency(currentAssigned, hideAmounts)} assigned
+          {rolledOver === 0
+            ? `${formatCurrency(spent, hideAmounts)} spent · ${formatCurrency(currentAssigned, hideAmounts)} assigned`
+            // With money carried in, what's available is the number that matters, and the carry says why.
+            : `${formatCurrency(Math.round((currentAssigned + rolledOver - spent) * 100) / 100, hideAmounts)} available · ${rolledOverLine(rolledOver, currentMonthKey(), (n) => formatCurrency(n, hideAmounts))}`}
         </Text>
       </View>
       <CaretDown size={18} color={tokens.text3} style={{ marginRight: space.sm }} />

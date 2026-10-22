@@ -1,7 +1,7 @@
 import { act, fireEvent, waitFor } from '@testing-library/react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { getExpenses } from '@/src/api/expenses'
-import { getBudgets, updateBudget } from '@/src/api/budgets'
+import { getBudgets, updateBudget, getCarry } from '@/src/api/budgets'
 import { getCategories } from '@/src/api/categories'
 import { getGroups } from '@/src/api/groups'
 import EditReadyToAssignModal from './edit-ready-to-assign'
@@ -15,6 +15,7 @@ jest.mock('@/src/api/budgets', () => ({
   updateBudget: jest.fn(),
   deleteBudget: jest.fn(),
   transferBudget: jest.fn(),
+  getCarry: jest.fn(() => Promise.resolve({ ready_to_assign: 0, rolled_over: {} })),
 }))
 jest.mock('@/src/api/categories', () => ({ getCategories: jest.fn() }))
 jest.mock('@/src/api/groups', () => ({ getGroups: jest.fn() }))
@@ -128,4 +129,25 @@ describe('using the latest Ready to Assign after a conflict', () => {
     const { getByLabelText } = await useLatest('3500')
     expect(getByLabelText('₹0')).toBeTruthy()
   })
+})
+
+it("won't act on balances without last month's carry", async () => {
+  ;(getCarry as jest.Mock).mockRejectedValueOnce(new Error('503'))
+  const { findByText } = renderWithProviders(<EditReadyToAssignModal />)
+  expect(await findByText("Couldn't load your balances. Check your connection and try again.")).toBeTruthy()
+})
+
+it('counts last month\'s carry in the latest Ready to Assign after a conflict', async () => {
+  ;(getCarry as jest.Mock).mockResolvedValueOnce({ ready_to_assign: 1000, rolled_over: {} })
+  ;(updateBudget as jest.Mock).mockRejectedValueOnce(new BudgetWriteError(409, 'changed', {
+    month: MONTH, category: '__income__', assigned: '25000', rolled_over: '0', version: 2,
+  }))
+  const utils = setup()
+  await waitFor(() => expect(utils.getByLabelText('₹16,000')).toBeTruthy())
+  await typeAmount(utils.getByLabelText, '30000')
+  await act(async () => { fireEvent.press(utils.getByText('Save')) })
+  // 25,000 income + 1,000 carried - 5,000 assigned.
+  expect(await waitFor(() => utils.getByLabelText('Ready to Assign, latest saved: ₹21,000'))).toBeTruthy()
+  fireEvent.press(utils.getByRole('button', { name: 'Use latest instead' }))
+  expect(utils.getByLabelText('₹21,000')).toBeTruthy()
 })

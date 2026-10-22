@@ -1,3 +1,4 @@
+import { CarryFailed } from '@/src/components/shared/CarryFailed';
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { CheckIcon } from "@/src/components/shared/CheckIcon";
 import { BudgetConflictReview } from "@/src/features/budgets/BudgetConflictReview";
@@ -5,7 +6,7 @@ import { AmountText } from "@/src/components/ui/AmountText";
 import { Numpad } from "@/src/components/ui/Numpad";
 import { useAmountEntry } from "@/src/components/ui/useAmountEntry";
 import { usePrivacy } from "@/src/context/PrivacyContext";
-import { useBudgets, useUpdateBudget } from "@/src/hooks/useBudgets";
+import { useBudgets, useCarry, useUpdateBudget } from "@/src/hooks/useBudgets";
 import { useCategories } from "@/src/hooks/useCategories";
 import { useRecentExpenses } from "@/src/hooks/useExpenses";
 import { useGroups } from "@/src/hooks/useGroups";
@@ -46,6 +47,7 @@ import { withReadOnlyGate } from "@/src/components/budgets/ReadOnlyNotice";
 function EditReadyToAssignModal() {
   const { tokens } = useTheme();
   const budgetsQ = useBudgets();
+  const carryQ = useCarry(currentMonthKey());
   const expensesQ = useRecentExpenses();
   const categoriesQ = useCategories();
   const groupsQ = useGroups();
@@ -54,7 +56,8 @@ function EditReadyToAssignModal() {
     budgetsQ.isLoading ||
     expensesQ.isLoading ||
     categoriesQ.isLoading ||
-    groupsQ.isLoading
+    groupsQ.isLoading ||
+    carryQ.isLoading
   ) {
     return (
       <View
@@ -68,6 +71,7 @@ function EditReadyToAssignModal() {
       </View>
     );
   }
+  if (carryQ.isError && carryQ.data === undefined) return <CarryFailed />;
 
   const month = currentMonthKey();
   const state = computeEnvelopeState(
@@ -76,6 +80,8 @@ function EditReadyToAssignModal() {
     month,
     categoriesQ.data ?? EMPTY,
     groupsQ.data ?? EMPTY,
+    undefined,
+    carryQ.data,
   );
 
   // Mounted only once data has settled, so the numpad seeds from the real RTA.
@@ -86,6 +92,7 @@ function EditReadyToAssignModal() {
       incomeBase={state.incomeBase}
       totalAssigned={state.totalAssigned}
       readyToAssign={state.readyToAssign}
+      carried={state.carriedReadyToAssign}
       version={(budgetsQ.data ?? EMPTY).find((b) => b.month === month && b.category === INCOME_CATEGORY)?.version ?? 0}
     />
   );
@@ -97,6 +104,7 @@ function EditReadyToAssignBody({
   incomeBase: initialIncomeBase,
   totalAssigned,
   readyToAssign,
+  carried,
   version,
 }: {
   month: string;
@@ -104,6 +112,8 @@ function EditReadyToAssignBody({
   incomeBase: number;
   totalAssigned: number;
   readyToAssign: number;
+  /** What Ready to Assign brought in from last month. */
+  carried: number;
   version: number;
 }) {
   const { formatCurrency, formatAmountInput } = useCurrency()
@@ -130,7 +140,7 @@ function EditReadyToAssignBody({
   const [conflict, setConflict] = useState<BudgetRow | null>(null);
 
   const value = Number(amountText) || 0;
-  const extra = extraForReadyToAssign(incomeBase, totalAssigned, value);
+  const extra = extraForReadyToAssign(incomeBase, totalAssigned, value, carried);
   const newIncome = Math.round((incomeBase + extra) * 100) / 100;
   const delta = Math.round((newIncome - baseIncome) * 100) / 100;
   const impactText =
@@ -168,7 +178,7 @@ function EditReadyToAssignBody({
     setIncomeBase(latestBase);
     setBaseIncome(latestIncome);
     setExpectedVersion(conflict.version);
-    if (!keepDraft) setAmountText(amountSeed(latestIncome - totalAssigned));
+    if (!keepDraft) setAmountText(amountSeed(latestIncome + carried - totalAssigned));
     setConflict(null);
     setError("");
   }
@@ -188,7 +198,7 @@ function EditReadyToAssignBody({
           title="Edit Ready to Assign"
           heading="Ready to Assign was updated"
           label="Ready to Assign"
-          latestAmount={(Number(conflict.assigned) || 0) + (Number(conflict.extra) || 0) - totalAssigned}
+          latestAmount={(Number(conflict.assigned) || 0) + (Number(conflict.extra) || 0) + carried - totalAssigned}
           draftAmount={value}
           onChoose={reviewLatest}
           onClose={() => {

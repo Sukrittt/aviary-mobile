@@ -9,7 +9,7 @@ import { useAudioPlayer } from "expo-audio";
 import * as Haptics from "expo-haptics";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { fontFamily } from "@/src/theme/fonts";
-import { useBudgets } from "@/src/hooks/useBudgets";
+import { useBudgets, useCarry } from "@/src/hooks/useBudgets";
 import { useCategories } from "@/src/hooks/useCategories";
 import { useDeleteExpense, useRecentExpenses, useUndoPendingExpense } from "@/src/hooks/useExpenses";
 import { noticedLine, weeklyRepeat } from "@/src/lib/noticed";
@@ -219,6 +219,7 @@ export default function ExpenseAddedScreen() {
   const stamp = timestamp || str(params.loggedAt);
 
   const budgetsQ = useBudgets();
+  const carryQ = useCarry(currentMonthKey());
   const expensesQ = useRecentExpenses();
   const categoriesQ = useCategories();
   const groupsQ = useGroups();
@@ -248,15 +249,19 @@ export default function ExpenseAddedScreen() {
   }, [chime]);
 
   const envelope = useMemo(() => {
+    // The counter seeds once, so it waits for the carry rather than tick from a no-carry balance.
+    if (carryQ.isLoading) return undefined;
     const state = computeEnvelopeState(
       budgetsQ.data ?? [],
       expensesQ.data ?? [],
       currentMonthKey(),
       categoriesQ.data ?? [],
       groupsQ.data ?? [],
+      undefined,
+      carryQ.data,
     );
     return state.envelopes.find((e) => e.category === category);
-  }, [budgetsQ.data, expensesQ.data, categoriesQ.data, groupsQ.data, category]);
+  }, [budgetsQ.data, carryQ.data, carryQ.isLoading, expensesQ.data, categoriesQ.data, groupsQ.data, category]);
 
   // The refetch this mutation triggered may not have landed yet — if the new row
   // isn't in the list, the envelope hasn't been charged for it. Subtract by hand so
@@ -462,10 +467,10 @@ export default function ExpenseAddedScreen() {
           {upiTip && (
             <Reanimated.View
               entering={FadeInDown.delay(STAGGER.detail + 160).duration(420)}
-              style={[styles.noticed, { backgroundColor: tokens.mintSoft }]}
+              style={[styles.noticed, { backgroundColor: tokens.successBg }]}
             >
-              <Text style={{ color: tokens.text, fontFamily: fontFamily.bodyBold, fontSize: type.body, textAlign: "center" }}>
-                Paid with UPI? Share the success screen to Aviary.
+              <Text numberOfLines={1} adjustsFontSizeToFit style={{ color: tokens.onSuccess, fontFamily: fontFamily.bodyBold, fontSize: type.body, textAlign: "center" }}>
+                Paid with UPI? Share the screen to Aviary.
               </Text>
             </Reanimated.View>
           )}
