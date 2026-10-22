@@ -60,8 +60,9 @@ export function SlideToConfirm({ label, onConfirm, disabled = false }: { label: 
         runOnJS(tick)()
       }
     })
-    .onEnd(() => {
-      if (armed.value) {
+    // Judged on the release, not the last update: a quick flick can end before any update lands.
+    .onEnd((e) => {
+      if (e.translationX >= max * THRESHOLD) {
         x.value = reduceMotion ? max : withTiming(max, { duration: 120 })
         runOnJS(onConfirm)()
       } else {
