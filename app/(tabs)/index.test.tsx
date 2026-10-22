@@ -594,7 +594,10 @@ describe('HomeScreen · one banner at a time', () => {
     expect(await findByText(ROLLED)).toBeTruthy()
     fireEvent.press(getByLabelText('Got it'))
     await waitFor(() => expect(queryByText(ROLLED)).toBeNull(), { timeout: 4000 })
-    expect(SecureStore.setItemAsync).toHaveBeenCalledWith(`mc-rollover-dismissed-space-1:${MONTH}`, '1')
+    const key = `mc-rollover-dismissed-space-1-${MONTH}`
+    // SecureStore rejects any key outside [A-Za-z0-9._-], and a rejected read never lets the card show.
+    expect(key).toMatch(/^[\w.-]+$/)
+    expect(SecureStore.setItemAsync).toHaveBeenCalledWith(key, '1')
   })
 
   it('offers Insights once 30 expenses are logged, with nothing above it', async () => {

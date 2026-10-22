@@ -134,8 +134,9 @@ function HomeScreen() {
   const { multi: multiBudget, active: activeBudget } = useBudgetSpaces()
   // Read-only budget: no setup checklist or gap prompt, both lead only to writes.
   const readOnly = !!activeBudget?.readOnly
-  // Once per budget and month.
-  const [rolloverDismissed, setRolloverDismissed] = useDismissedRolloverBanner(`${activeBudget?.id ?? ''}:${month}`)
+  // Once per budget and month. A dash, not a colon: SecureStore rejects keys
+  // outside [A-Za-z0-9._-], and a rejected read would leave it unknown forever.
+  const [rolloverDismissed, setRolloverDismissed] = useDismissedRolloverBanner(`${activeBudget?.id ?? ''}-${month}`)
 
   const budgets = emptyForPreview(budgetsQ.data ?? EMPTY)
   const expenses = emptyForPreview(expensesQ.data ?? EMPTY)
