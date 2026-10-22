@@ -1,7 +1,7 @@
 import { act, fireEvent, waitFor } from '@testing-library/react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { getExpenses } from '@/src/api/expenses'
-import { getBudgets, updateBudget } from '@/src/api/budgets'
+import { getBudgets, updateBudget, getCarry } from '@/src/api/budgets'
 import { getCategories } from '@/src/api/categories'
 import { getGroups } from '@/src/api/groups'
 import EditReadyToAssignModal from './edit-ready-to-assign'
@@ -15,6 +15,7 @@ jest.mock('@/src/api/budgets', () => ({
   updateBudget: jest.fn(),
   deleteBudget: jest.fn(),
   transferBudget: jest.fn(),
+  getCarry: jest.fn(() => Promise.resolve({ ready_to_assign: 0, rolled_over: {} })),
 }))
 jest.mock('@/src/api/categories', () => ({ getCategories: jest.fn() }))
 jest.mock('@/src/api/groups', () => ({ getGroups: jest.fn() }))
@@ -128,4 +129,10 @@ describe('using the latest Ready to Assign after a conflict', () => {
     const { getByLabelText } = await useLatest('3500')
     expect(getByLabelText('₹0')).toBeTruthy()
   })
+})
+
+it("won't act on balances without last month's carry", async () => {
+  ;(getCarry as jest.Mock).mockRejectedValueOnce(new Error('503'))
+  const { findByText } = renderWithProviders(<EditReadyToAssignModal />)
+  expect(await findByText("Couldn't load your balances. Check your connection and try again.")).toBeTruthy()
 })

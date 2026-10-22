@@ -2,7 +2,7 @@ import { fireEvent, waitFor } from '@testing-library/react-native'
 import { StyleSheet } from 'react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { getRecentExpenses } from '@/src/api/expenses'
-import { getBudgets, transferBudget } from '@/src/api/budgets'
+import { getBudgets, transferBudget, getCarry } from '@/src/api/budgets'
 import { getCategories } from '@/src/api/categories'
 import { getGroups } from '@/src/api/groups'
 import MoveMoneyModal from './move-money'
@@ -15,6 +15,7 @@ jest.mock('@/src/api/budgets', () => ({
   updateBudget: jest.fn(),
   deleteBudget: jest.fn(),
   transferBudget: jest.fn(),
+  getCarry: jest.fn(() => Promise.resolve({ ready_to_assign: 0, rolled_over: {} })),
 }))
 jest.mock('@/src/api/categories', () => ({ getCategories: jest.fn() }))
 jest.mock('@/src/api/groups', () => ({ getGroups: jest.fn() }))
@@ -263,4 +264,10 @@ it("Got it on the read-only notice lands on Home when there's nothing to go back
   } finally {
     mockCanGoBack = true
   }
+})
+
+it("won't act on balances without last month's carry", async () => {
+  ;(getCarry as jest.Mock).mockRejectedValueOnce(new Error('503'))
+  const { findByText } = renderWithProviders(<MoveMoneyModal />)
+  expect(await findByText("Couldn't load your balances. Check your connection and try again.")).toBeTruthy()
 })

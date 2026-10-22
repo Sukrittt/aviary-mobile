@@ -1,3 +1,4 @@
+import { CarryFailed } from '@/src/components/shared/CarryFailed'
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { StepDot } from '@/src/components/onboarding/StepDot'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
@@ -150,7 +151,7 @@ function MoveMoneyModal() {
   const covered = amount > 0 && remaining === 0 && pickedRows.length > 0
   const poolRows = sources.filter((s) => !(s.key in allocs) && (!q || s.name.toLowerCase().includes(q)))
 
-  const isLoading = budgetsQ.isLoading || expensesQ.isLoading || categoriesQ.isLoading || groupsQ.isLoading
+  const isLoading = budgetsQ.isLoading || expensesQ.isLoading || categoriesQ.isLoading || groupsQ.isLoading || carryQ.isLoading
 
   // Let the inline checkmark finish drawing before navigating back.
   // The app can launch into Log expense, which "Added" then replaced with this
@@ -228,6 +229,7 @@ function MoveMoneyModal() {
       </View>
     )
   }
+  if (carryQ.isError && carryQ.data === undefined) return <CarryFailed />
 
   const noOptions = !target || (envelopeSources.length === 0 && readyToAssign <= 0)
 

@@ -1,3 +1,4 @@
+import { CarryFailed } from '@/src/components/shared/CarryFailed'
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { usePressSpring } from '@/src/components/ui/Button'
@@ -63,6 +64,7 @@ function EditAssignedAmountModal() {
       </View>
     )
   }
+  if (carryQ.isError && carryQ.data === undefined) return <CarryFailed />
 
   const budgets = budgetsQ.data ?? EMPTY
   const expenses = expensesQ.data ?? EMPTY

@@ -1,3 +1,4 @@
+import { CarryFailed } from '@/src/components/shared/CarryFailed';
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { CheckIcon } from "@/src/components/shared/CheckIcon";
 import { BudgetConflictReview } from "@/src/features/budgets/BudgetConflictReview";
@@ -70,6 +71,7 @@ function EditReadyToAssignModal() {
       </View>
     );
   }
+  if (carryQ.isError && carryQ.data === undefined) return <CarryFailed />;
 
   const month = currentMonthKey();
   const state = computeEnvelopeState(
