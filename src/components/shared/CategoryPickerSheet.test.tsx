@@ -37,7 +37,7 @@ function setup(overrides?: { recentsStored?: string[] }) {
     { category: 'Fuel', date: '2026-09-05', timestamp: '' },
   ], lastSpent: {} })
   ;(SecureStore.getItemAsync as jest.Mock).mockImplementation((key: string) =>
-    key === 'mc-recent-categories' && overrides?.recentsStored
+    key === 'mc-recent-categories-guest' && overrides?.recentsStored
       ? Promise.resolve(JSON.stringify(overrides.recentsStored))
       : Promise.resolve(null),
   )
@@ -106,7 +106,7 @@ it('records a pick and closes the sheet', async () => {
   expect(onSelect).toHaveBeenCalledWith('Groceries')
   expect(onClose).toHaveBeenCalled()
   await waitFor(() =>
-    expect(SecureStore.setItemAsync).toHaveBeenCalledWith('mc-recent-categories', JSON.stringify(['Groceries'])),
+    expect(SecureStore.setItemAsync).toHaveBeenCalledWith('mc-recent-categories-guest', JSON.stringify(['Groceries'])),
   )
 })
 
