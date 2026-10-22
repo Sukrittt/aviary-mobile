@@ -175,8 +175,9 @@ function StepRow({ step, upNext, radius }: { step: Step; upNext: boolean; radius
       style={({ pressed }) => [
         styles.step,
         {
-          backgroundColor: done ? 'transparent' : tokens.inputBg,
-          borderColor: upNext ? tokens.accentSoft : 'transparent',
+          // Outlined tiles, not gray slabs; up next gets the accent border and a warm tint.
+          backgroundColor: upNext ? tokens.accentSoft : pressed && !done ? tokens.inputBg : 'transparent',
+          borderColor: done ? 'transparent' : upNext ? tokens.accent : tokens.border,
           borderRadius: radius,
           paddingHorizontal: space.sm + 2,
           paddingVertical: space.sm,
@@ -187,7 +188,7 @@ function StepRow({ step, upNext, radius }: { step: Step; upNext: boolean; radius
       <View
         style={[
           styles.badge,
-          { backgroundColor: done ? tokens.mintSoft : upNext ? tokens.accentInk : tokens.card },
+          { backgroundColor: done ? tokens.mintSoft : upNext ? tokens.accentInk : tokens.inputBg },
         ]}
       >
         <Icon icon={done ? Check : step.icon} size={16} color={done ? tokens.mint : upNext ? tokens.onAccent : tokens.text2} />
