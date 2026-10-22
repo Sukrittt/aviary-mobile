@@ -221,9 +221,28 @@ it('retryFailed re-pins the entry to the budget on screen, so one from a budget 
   await pending.enqueue(payload('c1'))
   await pending.bumpAttempts('c1', 1)
   setActiveBudget('sp_home')
-  const entry = await pending.retryFailed(payload('c1'))
+  const entry = await pending.retryFailed(payload('c1'), ['user_a', 'sp_home'])
   expect(entry?.spaceId).toBe('sp_home')
   expect((await pending.list())[0].spaceId).toBe('sp_home')
+  setActiveBudget(null)
+})
+
+it('retryFailed keeps a personal entry personal when retried from a shared budget', async () => {
+  await pending.enqueue(payload('c1'))
+  await pending.bumpAttempts('c1', 1)
+  setActiveBudget('sp_home')
+  const entry = await pending.retryFailed(payload('c1'), ['user_a', 'sp_home'])
+  expect(entry?.spaceId).toBe('user_a')
+  setActiveBudget(null)
+})
+
+it('retryFailed keeps the original budget when membership is not known yet', async () => {
+  setActiveBudget('sp_trip')
+  await pending.enqueue(payload('c1'))
+  await pending.bumpAttempts('c1', 1)
+  setActiveBudget('sp_home')
+  const entry = await pending.retryFailed(payload('c1'))
+  expect(entry?.spaceId).toBe('sp_trip')
   setActiveBudget(null)
 })
 
