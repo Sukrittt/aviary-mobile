@@ -1256,17 +1256,19 @@ function CurrencyWizard({
                         >
                           {c.name}
                         </Text>
-                        <Text
-                          style={[
-                            styles.assignAmount,
-                            {
-                              color: v ? tokens.text : tokens.text3,
-                              fontFamily: fontFamily.displaySemiBold,
-                            },
-                          ]}
+                        {/* Mint chip: the row opens the number pad sheet. */}
+                        <View
+                          style={[styles.assignAmountChip, { backgroundColor: tokens.mintSoft }]}
                         >
-                          {formatMoney(v)}
-                        </Text>
+                          <Text
+                            style={[
+                              styles.assignAmount,
+                              { color: tokens.mint, fontFamily: fontFamily.displaySemiBold },
+                            ]}
+                          >
+                            {formatMoney(v)}
+                          </Text>
+                        </View>
                       </Pressable>
                     );
                   })}
@@ -1676,6 +1678,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   assignName: { flex: 1, fontSize: 14 },
+  assignAmountChip: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 100 },
   assignAmount: { fontSize: 15 },
 
   sheetGrabber: {
