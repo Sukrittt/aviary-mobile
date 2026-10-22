@@ -10,7 +10,7 @@ import Animated, {
   withTiming,
   Easing,
 } from 'react-native-reanimated'
-import { Check, FolderOpen, Sparkle, Tag, Cardholder, type PhosphorIcon } from '@/src/components/shared/icons'
+import { Check, FolderOpen, Receipt, Sparkle, Tag, Cardholder, type PhosphorIcon } from '@/src/components/shared/icons'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import type { ThemeTokens } from '@/src/theme/tokens'
 import { fontFamily } from '@/src/theme/fonts'
@@ -60,12 +60,18 @@ export function SetupDone({
   income,
   groupCount,
   categoryCount,
+  firstExpense,
+  trialDays = 30,
   historyComing = false,
   onFinish,
 }: {
   income: number
   groupCount: number
   categoryCount: number
+  /** The expense logged on setup's last step, if one was. */
+  firstExpense?: { amount: number; category: string }
+  /** How long this account's trial runs, from completing onboarding. */
+  trialDays?: number
   /** An import's transactions are still being booked behind the celebration. */
   historyComing?: boolean
   onFinish: () => void
@@ -79,6 +85,7 @@ export function SetupDone({
     { icon: Cardholder, label: 'Monthly income', value: income > 0 ? formatMoney(income) : 'Not set yet' },
     { icon: FolderOpen, label: 'Groups', value: String(groupCount) },
     { icon: Tag, label: 'Categories', value: String(categoryCount) },
+    ...(firstExpense ? [{ icon: Receipt, label: 'First expense', value: `${formatMoney(firstExpense.amount)} · ${firstExpense.category}` }] : []),
   ]
 
   return (
@@ -96,13 +103,20 @@ export function SetupDone({
         entering={FadeIn.delay(80).duration(350)}
         style={[styles.title, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}
       >
-        Your budget is{'\n'}ready to go.
+        Your budget is{'\n'}live.
       </Animated.Text>
       <Animated.Text
         entering={FadeIn.delay(140).duration(350)}
         style={[styles.blurb, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}
       >
-        Everything below can be changed later from Categories.
+        {firstExpense ? 'Your first expense is in. Home opens right on it.' : 'Everything below can be changed later from Categories.'}
+      </Animated.Text>
+      <Animated.Text
+        entering={FadeIn.delay(150).duration(350)}
+        style={[styles.blurb, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}
+      >
+        {/* The trial notice used to be its own screen after this one; now it's a line. */}
+        {`Your first ${trialDays} days are free. No card, nothing to cancel.`}
       </Animated.Text>
       {historyComing && (
         <Animated.Text
@@ -132,7 +146,7 @@ export function SetupDone({
                 <SummaryIcon size={16} color={tokens.accentInk} />
               </View>
               <Text style={[styles.summaryLabel, { color: tokens.text2 }, { fontFamily: fontFamily.bodyMedium }]}>{s.label}</Text>
-              <Text style={[styles.summaryValue, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>{s.value}</Text>
+              <Text numberOfLines={1} style={[styles.summaryValue, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>{s.value}</Text>
             </View>
           )
         })}
@@ -164,7 +178,7 @@ const styles = StyleSheet.create({
   summaryRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingHorizontal: 16, borderRadius: 18, borderWidth: 1 },
   summaryIcon: { width: 30, height: 30, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   summaryLabel: { flex: 1, fontSize: 13 },
-  summaryValue: { fontSize: 15 },
+  summaryValue: { flexShrink: 1, fontSize: 15 },
   cta: { marginTop: 16, minHeight: 54, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
   ctaText: { fontSize: 15 },
 })

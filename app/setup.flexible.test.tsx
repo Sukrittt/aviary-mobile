@@ -28,6 +28,8 @@ jest.mock('@/src/api/categories', () => ({
   addCategory: jest.fn(async () => ({})),
   getSplitBuckets: jest.fn(async () => ({})),
 }))
+const mockAddExpense = jest.fn(async (_row: object) => ({}))
+jest.mock('@/src/hooks/useExpenses', () => ({ useAddExpense: () => ({ mutateAsync: mockAddExpense }) }))
 jest.mock('@/src/api/accessMode', () => ({ accessMode: { subscribeLogout: () => () => {} } }))
 jest.mock('expo-secure-store', () => ({ getItemAsync: jest.fn(async () => null), setItemAsync: jest.fn(async () => {}), deleteItemAsync: jest.fn(async () => {}) }))
 
@@ -39,12 +41,13 @@ const assigned = (): Record<string, number> =>
   Object.fromEntries(
     (updateBudget as jest.Mock).mock.calls.map(([, category, body]) => [category, Number(body.assigned)]),
   )
+const stepsDone = () =>
+  (track as jest.Mock).mock.calls.filter(([e]) => e === 'onboarding_step_completed').map(([, p]) => p)
 const completed = () =>
   (track as jest.Mock).mock.calls.filter(([e]) => e === 'onboarding_completed').map(([, p]) => p)
 
 it('finishes from the income step on the starter budget, income split the suggested way', async () => {
   const { getByText, queryByText, getByLabelText, unmount } = renderWithProviders(<SetupScreen />)
-  fireEvent.press(getByText('Continue')) // currency
   fireEvent.press(getByText('₹50,000'))
   slide(getByLabelText('Slide to finish setup'))
   await waitFor(() => expect(completed()).toHaveLength(1), { timeout: 3000 })
@@ -73,10 +76,14 @@ it('finishes from the income step on the starter budget, income split the sugges
 
 it('skips income and still sets up the starter envelopes, all at zero', async () => {
   const { getByText, findByText, unmount } = renderWithProviders(<SetupScreen />)
-  fireEvent.press(getByText('Continue')) // currency
   expect(getByText('You can add it from Home any time')).toBeTruthy()
   fireEvent.press(getByText('Skip for now'))
-  expect(await findByText('Not set yet', {}, { timeout: 3000 })).toBeTruthy()
+  // Nothing was budgeted, so the first expense has no envelope money to move.
+  expect(await findByText('Log your first expense', {}, { timeout: 3000 })).toBeTruthy()
+  expect(getByText('Nothing budgeted here yet')).toBeTruthy()
+  fireEvent.press(getByText('Skip for now'))
+  expect(await findByText('Not set yet')).toBeTruthy()
+  expect(mockAddExpense).not.toHaveBeenCalled()
 
   const rows = assigned()
   expect(Object.keys(rows)).toHaveLength(5)
@@ -87,7 +94,6 @@ it('skips income and still sets up the starter envelopes, all at zero', async ()
 
 it('picks its own categories without income, finishing at the categories step', async () => {
   const { getByText, queryByText, getByLabelText, unmount } = renderWithProviders(<SetupScreen />)
-  fireEvent.press(getByText('Continue')) // currency
   fireEvent.press(getByText(PICK_OWN))
   fireEvent.press(getByText('Continue')) // groups
   slide(getByLabelText('Slide to finish setup')) // categories
@@ -99,7 +105,6 @@ it('picks its own categories without income, finishing at the categories step', 
 
 it('lets the assign step finish with money left over', async () => {
   const { getByText, findByText, getAllByText, getByLabelText, unmount } = renderWithProviders(<SetupScreen />)
-  fireEvent.press(getByText('Continue')) // currency
   fireEvent.press(getByText('₹50,000'))
   fireEvent.press(getByText(PICK_OWN))
   fireEvent.press(getByText('Continue')) // groups
@@ -119,7 +124,6 @@ it('lets the assign step finish with money left over', async () => {
 // through the starter path and report them as not customized.
 it('stays on the custom path after going back from the groups step', () => {
   const { getByText, queryByText, getByLabelText, unmount } = renderWithProviders(<SetupScreen />)
-  fireEvent.press(getByText('Continue')) // currency
   fireEvent.press(getByText('₹50,000'))
   fireEvent.press(getByText(PICK_OWN))
   expect(getByText('Group your money')).toBeTruthy()
@@ -127,5 +131,45 @@ it('stays on the custom path after going back from the groups step', () => {
   expect(queryByText(PICK_OWN)).toBeNull()
   fireEvent.press(getByText('Continue'))
   expect(getByText('Group your money')).toBeTruthy()
+  unmount()
+})
+
+it('logs a real first expense against the starter budget and lands on done with it', async () => {
+  const { getByText, getAllByText, findByText, getByLabelText, getByTestId, unmount } = renderWithProviders(<SetupScreen />)
+  fireEvent.press(getByText('₹50,000'))
+  slide(getByLabelText('Slide to finish setup'))
+  expect(await findByText('Log your first expense', {}, { timeout: 3000 })).toBeTruthy()
+  // Opens on the first want, with what the suggested split gave it.
+  const eatingOut = assigned()['Eating out']
+  expect(getByLabelText('Go back').props.accessibilityState).toMatchObject({ disabled: true })
+  expect(getByTestId('first-expense-envelope')).toHaveTextContent(new RegExp(`Eating out.*₹${eatingOut.toLocaleString('en-IN')} left`))
+  fireEvent.press(getAllByText('2').at(-1)!)
+  fireEvent.press(getAllByText('5').at(-1)!)
+  fireEvent.press(getAllByText('0').at(-1)!)
+  // The envelope moves as the amount is typed, before anything is saved.
+  expect(getByTestId('first-expense-envelope')).toHaveTextContent(new RegExp(`₹${(eatingOut - 250).toLocaleString('en-IN')} left`))
+  expect(getByText(`₹250 of ₹${eatingOut.toLocaleString('en-IN')} spent`)).toBeTruthy()
+  expect(mockAddExpense).not.toHaveBeenCalled()
+  fireEvent.press(getByText('Log it'))
+  await waitFor(() => expect(mockAddExpense).toHaveBeenCalledWith({ item: 'Eating out', amount_inr: '250', category: 'Eating out', payment_method: 'bank', source: 'manual' }))
+  expect(await findByText('₹250 · Eating out', {}, { timeout: 3000 })).toBeTruthy()
+  expect(getByText('Your first expense is in. Home opens right on it.')).toBeTruthy()
+  expect(getByText('Your first 30 days are free. No card, nothing to cancel.')).toBeTruthy()
+  expect(stepsDone().map((p) => p.step_name)).toEqual(['income', 'first_expense'])
+  expect(stepsDone()[1]).toMatchObject({ step: 4, logged: true })
+  unmount()
+})
+
+it('keeps the first expense on screen with a written error when it fails to save', async () => {
+  mockAddExpense.mockRejectedValueOnce(new Error('Failed to add expense: 503'))
+  const { getByText, getAllByText, findByText, getByLabelText, queryByText, unmount } = renderWithProviders(<SetupScreen />)
+  fireEvent.press(getByText('₹50,000'))
+  slide(getByLabelText('Slide to finish setup'))
+  await findByText('Log your first expense', {}, { timeout: 3000 })
+  fireEvent.press(getAllByText('9').at(-1)!)
+  fireEvent.press(getByText('Log it'))
+  expect(await findByText('Couldn’t save that. Check your connection and try again.')).toBeTruthy()
+  expect(queryByText(/503/)).toBeNull()
+  expect(stepsDone().map((p) => p.step_name)).toEqual(['income'])
   unmount()
 })

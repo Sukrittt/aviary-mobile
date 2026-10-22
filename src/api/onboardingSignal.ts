@@ -1,8 +1,8 @@
 // Tells the root layout the setup wizard just finished, so it can flip its
 // local `onboarded` state — and with it the Stack.Protected guards — immediately
 // instead of waiting for a re-fetch that only runs when hasSession changes.
-// `elsewhere`: setup was finished on another device, so this one skips the
-// trial notice (seen there) and goes straight Home.
+// `elsewhere`: setup was finished on another device (or by joining a budget),
+// not by this device's wizard. Both land on Home.
 type Listener = (opts: { elsewhere: boolean }) => void
 const subs = new Set<Listener>()
 

@@ -34,6 +34,8 @@ jest.mock('@/src/api/billing', () => ({ completeOnboarding: jest.fn(async () => 
 jest.mock('@/src/api/budgets', () => ({ getBudgets: jest.fn(async () => []), updateBudget: jest.fn(async () => ({})) }))
 jest.mock('@/src/api/groups', () => ({ addGroup: jest.fn(async () => ({})), updateGroup: jest.fn(async () => ({})) }))
 jest.mock('@/src/api/categories', () => ({ addCategory: jest.fn(async () => ({})) }))
+const mockAddExpense = jest.fn(async (_row: object) => ({}))
+jest.mock('@/src/hooks/useExpenses', () => ({ useAddExpense: () => ({ mutateAsync: mockAddExpense }) }))
 jest.mock('@/src/api/accessMode', () => ({ accessMode: { subscribeLogout: () => () => {} } }))
 jest.mock('@/src/hooks/useUser', () => ({ useUpdateUser: () => ({ mutate: jest.fn() }) }))
 jest.mock('expo-secure-store', () => ({ getItemAsync: jest.fn(async () => null), setItemAsync: jest.fn(async () => {}), deleteItemAsync: jest.fn(async () => {}) }))
@@ -51,9 +53,7 @@ afterEach(() => unsubscribe())
 
 it('finishing setup after another device already did writes nothing and goes Home', async () => {
   const { getByText, getByLabelText } = renderWithProviders(<SetupScreen />)
-  fireEvent.press(getByText('I’m starting fresh'))
-  fireEvent.press(getByText('Continue')) // how to start
-  fireEvent.press(getByText('Continue')) // currency
+  fireEvent.press(getByText('Start fresh')) // how to start
   fireEvent.press(getByText('₹50,000'))
   slide(getByLabelText('Slide to finish setup'))
   await waitFor(() => expect(onFinished).toHaveBeenCalledWith({ elsewhere: true }))
@@ -67,9 +67,7 @@ it('finishing setup after another device already did writes nothing and goes Hom
 it('a not-yet-onboarded account still saves as usual', async () => {
   jest.mocked(getUser).mockResolvedValue({ email: 'a@b.com', emailVerified: true, onboardedAt: null } as never)
   const { getByText, getByLabelText } = renderWithProviders(<SetupScreen />)
-  fireEvent.press(getByText('I’m starting fresh'))
-  fireEvent.press(getByText('Continue'))
-  fireEvent.press(getByText('Continue'))
+  fireEvent.press(getByText('Start fresh'))
   fireEvent.press(getByText('₹50,000'))
   slide(getByLabelText('Slide to finish setup'))
   await waitFor(() => expect(completeOnboarding).toHaveBeenCalled(), { timeout: 3000 })
@@ -84,9 +82,7 @@ it('a retry after this device\'s own lost completion finishes setup, not "anothe
     .mockResolvedValue({ email: 'a@b.com', emailVerified: true, onboardedAt: '2026-10-19T09:00:00.000Z' } as never)
   jest.mocked(completeOnboarding).mockRejectedValueOnce(new Error('response lost'))
   const { getByText, findByText, getByLabelText } = renderWithProviders(<SetupScreen />)
-  fireEvent.press(getByText('I’m starting fresh'))
-  fireEvent.press(getByText('Continue'))
-  fireEvent.press(getByText('Continue'))
+  fireEvent.press(getByText('Start fresh'))
   fireEvent.press(getByText('₹50,000'))
   slide(getByLabelText('Slide to finish setup'))
   await findByText(/Couldn't confirm your setup/, undefined, { timeout: 3000 })
@@ -100,8 +96,7 @@ it('a retry after this device\'s own lost completion finishes setup, not "anothe
 it('an import refused as already onboarded goes Home instead of a dead-end message', async () => {
   mockPreview.mockRejectedValue(new ImportFailure('already_onboarded'))
   const { getByText, getByLabelText } = renderWithProviders(<SetupScreen />)
-  fireEvent.press(getByText('I’m switching apps'))
-  fireEvent.press(getByText('Continue'))
+  fireEvent.press(getByText('Switching apps? Bring your data'))
   fireEvent.press(getByLabelText('YNAB'))
   fireEvent.press(getByLabelText('Choose your export file'))
   await waitFor(() => expect(onFinished).toHaveBeenCalledWith({ elsewhere: true }))

@@ -1,4 +1,5 @@
 import { CurrencyPicker } from "@/src/components/CurrencyPicker";
+import { currencyInfo } from "@/src/lib/currencies";
 import { CurrencyScope, useCurrency } from "@/src/context/CurrencyContext";
 import { deviceCurrency } from "@/src/lib/currencyPreference";
 import { deviceTimezone } from "@/src/lib/date";
@@ -16,7 +17,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
-import { ArrowLeft, Copy, Info, SquaresFour, PencilSimple, Plus } from "@/src/components/shared/icons";
+import { ArrowLeft, CaretDown, Copy, Info, SquaresFour, PencilSimple, Plus } from "@/src/components/shared/icons";
 import { Toast } from "@/src/components/ui/Toast";
 import Animated, {
   useSharedValue,
@@ -31,11 +32,11 @@ import type { ThemeTokens } from "@/src/theme/tokens";
 import { fontFamily } from "@/src/theme/fonts";
 import { Numpad } from "@/src/components/ui/Numpad";
 import { StepDot } from "@/src/components/onboarding/StepDot";
-import { PickExtras } from "@/src/components/onboarding/PickExtras";
-import { HeardFrom } from "@/src/components/onboarding/HeardFrom";
 import { PickRow } from "@/src/components/onboarding/PickRow";
 import { SetupDone } from "@/src/components/onboarding/SetupDone";
 import { AmountTicker } from "@/src/components/onboarding/AmountTicker";
+import { FirstExpense, type StarterEnvelope } from "@/src/components/onboarding/FirstExpense";
+import { useAddExpense } from "@/src/hooks/useExpenses";
 import { ImportFlow, type ImportDone } from "@/src/components/onboarding/ImportFlow";
 import { canPickFiles } from "@/src/lib/filePicker";
 import { BottomSheet } from "@/src/components/shared/Modal";
@@ -67,15 +68,17 @@ import {
 } from "@/src/lib/budgetSplit";
 import { getUser, updateUser } from "@/src/api/account";
 import { completeOnboarding } from "@/src/api/billing";
+import { trialLengthDays } from "@/src/lib/billingStatus";
 import { signalOnboarded } from "@/src/api/onboardingSignal";
 import { DEFAULT_ALERT_PCTS } from "@/src/lib/alerts";
 import { startTimer, track } from "@/src/lib/analytics";
 import { tap } from "@/src/lib/haptics";
 
-// SetupWizard.dc.html — currency → income → done, on a starter budget (the
-// pre-checked groups and categories, income split across them). "Pick my own"
-// opens groups → categories → assign instead. Writes land on finish, not
-// per-step: groups/categories aren't
+// SetupWizard.dc.html — income (currency is a chip on it) → first expense →
+// done, on a starter budget (the pre-checked groups and categories, income
+// split across them). "Pick my own" opens groups → categories → assign before
+// the first expense. The budget's writes land once, when the last budget step
+// finishes, not per-step: groups/categories aren't
 // reorderable or renameable server-side until they exist, so there's nothing
 // worth syncing mid-flow.
 const QUICK_PICKS = ["30000", "50000", "75000", "100000"];
@@ -161,35 +164,37 @@ async function ignoreConflict(err: unknown): Promise<void> {
   throw err;
 }
 
-// Analytics names for the five steps, so a funnel reads 'groups' rather than '2'.
+// Analytics names for the five steps, so a funnel reads 'groups' rather than '1'.
 const STEP_NAMES = [
-  "currency",
   "income",
   "groups",
   "categories",
   "assign",
+  "first_expense",
 ] as const;
+const FIRST_EXPENSE = 4;
+const DONE = 5;
 
 const TITLES: Record<number, [string, string]> = {
   0: [
-    "Choose your currency",
-    "The currency you use for your budget. You can change it later in More.",
-  ],
-  1: [
     "What lands each month?",
     "Your take-home income. This becomes the pot you assign from. Not sure yet? Skip it and add it from Home later.",
   ],
-  2: [
+  1: [
     "Group your money",
     "Groups are the big buckets. Accept these or rename them to fit your life.",
   ],
-  3: [
+  2: [
     "Add your categories",
     "Each one holds money for one thing, like Groceries. Pick the ones you recognize.",
   ],
-  4: [
+  3: [
     "Assign your money",
     "We split it with the 50/30/20 rule: half to needs, 30% to wants, 20% to savings. Tap any amount to change it. Anything you leave waits in Ready to Assign.",
+  ],
+  4: [
+    "Log your first expense",
+    "Something you spent today. Pick where it came from and watch that envelope move.",
   ],
 };
 
@@ -268,6 +273,8 @@ function CurrencyWizard({
   // only lands on the category when the sheet closes.
   const [nameDraft, setNameDraft] = useState("");
   const [splitInfoOpen, setSplitInfoOpen] = useState(false);
+  const [pickingCurrency, setPickingCurrency] = useState(false);
+  const addExpense = useAddExpense();
   const [pending, setPending] = useState(false);
   // Real save progress for the Finish button: the step being written and a
   // fill that grows as each write lands, so a slow save visibly moves.
@@ -281,6 +288,8 @@ function CurrencyWizard({
     income: number;
     groupCount: number;
     categoryCount: number;
+    firstExpense?: { amount: number; category: string };
+    trialDays?: number;
   } | null>(null);
 
   // Timing for the onboarding funnel: how long the whole wizard takes, and how
@@ -303,7 +312,7 @@ function CurrencyWizard({
   }, []);
 
   useEffect(() => {
-    if (step > 4 || entry !== "fresh") return;
+    if (step > FIRST_EXPENSE || entry !== "fresh") return;
     stepTimer.current = startTimer();
     track("onboarding_step_viewed", { step, step_name: STEP_NAMES[step] });
   }, [step, entry]);
@@ -355,7 +364,7 @@ function CurrencyWizard({
     setAmounts((prev) =>
       Object.keys(prev).length ? prev : distribute(true, tags),
     );
-    setStep(4);
+    setStep(3);
   };
 
   // Jev tags the categories the user named themselves, once per name, before
@@ -382,29 +391,25 @@ function CurrencyWizard({
   };
 
   const canAdvance =
-    step === 0
-      ? true
-      : step === 1
-        ? true
-        : step === 2
-          ? selectedGroups.length > 0
-          : step === 3
-            ? selectedCatCount > 0
-            : step === 4
-              ? remainder() >= 0
-              : true;
+    step === 1
+      ? selectedGroups.length > 0
+      : step === 2
+        ? selectedCatCount > 0
+        : step === 3
+          ? remainder() >= 0
+          : true;
 
   // What each step's choice was, as counts and flags. Never the income or the
   // names typed in: those are the sensitive half of this app's data.
   const stepDetails = (): Record<string, string | number | boolean> => {
-    if (step === 0) return { currency: currencyCode };
-    if (step === 1)
+    if (step === 0)
       return {
+        currency: currencyCode,
         used_quick_pick: QUICK_PICKS.includes(income),
         skipped_income: !(Number(income) > 0),
         customized: custom,
       };
-    if (step === 2) {
+    if (step === 1) {
       const defaults = new Map(defaultGroups().map((g) => [g.id, g.name]));
       return {
         groups_selected: selectedGroups.length,
@@ -414,8 +419,9 @@ function CurrencyWizard({
         ).length,
       };
     }
-    if (step === 3) return { categories_selected: selectedCatCount };
-    return { edited_split: editedSplit.current };
+    if (step === 2) return { categories_selected: selectedCatCount };
+    if (step === 3) return { edited_split: editedSplit.current };
+    return {};
   };
 
   const trackStepCompleted = (extra?: Record<string, boolean>) =>
@@ -606,6 +612,8 @@ function CurrencyWizard({
     if (pending) return;
     setPending(true);
     setError("");
+    // The first-expense step reads each envelope's amount from here.
+    setAmounts(amounts);
     const incomeValue = Math.round(Number(income)) || 0;
     const categories = selectedGroups.flatMap((g) =>
       (cats[g.id] ?? [])
@@ -621,7 +629,7 @@ function CurrencyWizard({
     // A response can fail after the server has already committed onboarding.
     // Keep the success transition in one place so a verified recovery is
     // indistinguishable from the ordinary happy path to the user.
-    const finishSetup = (recoveredAfterError = false) => {
+    const finishSetup = (recoveredAfterError = false, trialDays?: number) => {
       trackStepCompleted();
       track("onboarding_completed", {
         total_seconds: wizardTimer.current(),
@@ -636,8 +644,9 @@ function CurrencyWizard({
         income: incomeValue,
         groupCount: selectedGroups.length,
         categoryCount,
+        trialDays,
       });
-      setStep(5);
+      setStep(FIRST_EXPENSE);
     };
 
     const live = liveCats();
@@ -738,7 +747,7 @@ function CurrencyWizard({
       await updateUser({ currencyCode });
       tick();
       completionSent.current = true;
-      await completeOnboarding();
+      const completed = await completeOnboarding();
       tick();
       qc.invalidateQueries({ queryKey: ["user"] });
       // Not awaited: this refetches every cached query, and the celebration
@@ -746,13 +755,13 @@ function CurrencyWizard({
       void qc.invalidateQueries();
       // signalOnboarded() is deferred to the celebration screen's CTA — firing
       // it here would flip the root layout's guard and swap this screen out
-      // before the user has seen step 5.
+      // before the user has logged their first expense or seen the celebration.
 
-      // Counted here, once the server has everything, rather than on the
-      // celebration screen's CTA: someone who closes the app on that screen is
-      // still onboarded, and the funnel should say so.
+      // Counted here, once the server has everything, rather than after the
+      // first expense: someone who closes the app on that step is still
+      // onboarded, and the funnel should say so.
       await holdStep(LAST_STEP_MIN_MS);
-      finishSetup();
+      finishSetup(false, trialLengthDays(completed?.access));
     } catch {
       // The final response may be lost after the server commits the profile and
       // trial. Confirm before telling the user the save failed: this is exactly
@@ -785,22 +794,22 @@ function CurrencyWizard({
   const next = () => {
     if (!canAdvance || pending) return;
     const hasIncome = Number(income) > 0;
-    if (step === 1 && !custom) {
+    if (step === 0 && !custom) {
       // Starter budget: the pre-checked defaults, income split the suggested way.
       commit(hasIncome ? distribute(true) : {});
       return;
     }
-    if (step === 3 && !hasIncome) {
+    if (step === 2 && !hasIncome) {
       // Nothing to assign, so there's no assign step to show.
       commit({});
       return;
     }
-    if (step === 4) {
+    if (step === 3) {
       commit(amounts);
       return;
     }
     trackStepCompleted();
-    if (step === 3) {
+    if (step === 2) {
       void tagThenOpenAssign();
       return;
     }
@@ -812,7 +821,7 @@ function CurrencyWizard({
     Haptics.selectionAsync().catch(() => {});
     setCustom(true);
     trackStepCompleted({ customized: true });
-    setStep(2);
+    setStep(1);
   };
 
   const pressPrimaryCta = () => {
@@ -843,10 +852,10 @@ function CurrencyWizard({
     void qc.invalidateQueries();
     setResult({ income: r.income, groupCount: r.groupCount, categoryCount: r.categoryCount });
     setHistoryComing(r.total > 0);
-    setStep(5);
+    setStep(DONE);
   };
 
-  if (entry === "ask" && step < 5) {
+  if (entry === "ask" && step < DONE) {
     return (
       <View
         style={[
@@ -863,7 +872,7 @@ function CurrencyWizard({
     );
   }
 
-  if (step === 5 && result) {
+  if (step === DONE && result) {
     return (
       <View
         style={[
@@ -879,46 +888,42 @@ function CurrencyWizard({
           income={result.income}
           groupCount={result.groupCount}
           categoryCount={result.categoryCount}
+          firstExpense={result.firstExpense}
+          trialDays={result.trialDays}
           historyComing={historyComing}
-          onFinish={() => setStep(6)}
+          onFinish={() => signalOnboarded()}
         />
       </View>
     );
   }
 
-  if (step === 6) {
-    return (
-      <View
-        style={[
-          styles.container,
-          {
-            backgroundColor: tokens.bg,
-            paddingTop: insets.top + 60,
-            paddingBottom: insets.bottom + 20,
-          },
-        ]}
-      >
-        <PickExtras onDone={() => setStep(7)} />
-      </View>
-    );
-  }
+  // Every envelope just made, with what it was given, for the first-expense step.
+  const starterEnvelopes: StarterEnvelope[] = liveCats().map((c) => ({
+    key: c.key,
+    name: c.name.trim(),
+    icon: c.icon,
+    assigned: amounts[c.key] ?? 0,
+  }));
+  // Opens on the first want (Eating out on the starter budget): an everyday
+  // spend reads truer than paying rent as the very first thing you log.
+  const firstWant = liveCats().find((c) => bucketsOf(liveCats(), bucketTags)[c.key] === "want");
 
-  if (step === 7) {
-    return (
-      <View
-        style={[
-          styles.container,
-          {
-            backgroundColor: tokens.bg,
-            paddingTop: insets.top + 60,
-            paddingBottom: insets.bottom + 20,
-          },
-        ]}
-      >
-        <HeardFrom onDone={() => signalOnboarded()} />
-      </View>
-    );
-  }
+  const logFirst = async (env: StarterEnvelope, amount: number) => {
+    await addExpense.mutateAsync({
+      item: env.name,
+      amount_inr: String(amount),
+      category: env.name,
+      payment_method: "bank",
+      source: "manual",
+    });
+    trackStepCompleted({ logged: true });
+    setResult((r) => (r ? { ...r, firstExpense: { amount, category: env.name } } : r));
+  };
+
+  const skipFirst = () => {
+    trackStepCompleted({ logged: false });
+    setStep(DONE);
+  };
 
   const [title, blurb] = TITLES[step];
   const rem = remainder();
@@ -933,17 +938,17 @@ function CurrencyWizard({
     savings: { fg: tokens.mint, bg: tokens.mintSoft },
   };
   const hint =
-    step === 0
+    step === FIRST_EXPENSE
       ? ""
-      : step === 1
+      : step === 0
         ? Number(income) > 0
           ? ""
           : "You can add it from Home any time"
-        : step === 2
+        : step === 1
           ? canAdvance
             ? `${selectedGroups.length} groups selected`
             : "Keep at least one group"
-          : step === 3
+          : step === 2
             ? canAdvance
               ? `${selectedCatCount} categories across ${selectedGroups.length} groups`
               : "Pick at least one category"
@@ -954,9 +959,9 @@ function CurrencyWizard({
                 : `${formatMoney(-rem)} over your income`;
 
   const finishesHere =
-    (step === 1 && !custom) || step === 4 || (step === 3 && !(Number(income) > 0));
+    (step === 0 && !custom) || step === 3 || (step === 2 && !(Number(income) > 0));
   const ctaLabel =
-    step === 1 && !(Number(income) > 0)
+    step === 0 && !(Number(income) > 0)
       ? "Skip for now"
       : finishesHere
         ? "Finish setup"
@@ -968,6 +973,13 @@ function CurrencyWizard({
   const activeCat = activeKey
     ? liveCats().find((c) => c.key === activeKey)
     : undefined;
+  // Once the budget is saved there's nothing to go back and change here.
+  const noBack = step === FIRST_EXPENSE || (step === 0 && !canPickFiles);
+  // No assign step without income to assign.
+  const dotSteps = custom
+    ? [0, 1, 2, ...(Number(income) > 0 ? [3] : []), FIRST_EXPENSE]
+    : [0, FIRST_EXPENSE];
+  const currency = currencyInfo(currencyCode);
 
   return (
     <View
@@ -985,20 +997,20 @@ function CurrencyWizard({
           accessibilityLabel="Go back"
           accessibilityRole="button"
           onPress={back}
-          disabled={step === 0 && !canPickFiles}
+          disabled={noBack}
           style={[
             styles.backButton,
             {
               backgroundColor: tokens.card,
               borderColor: tokens.border,
-              opacity: step === 0 && !canPickFiles ? 0.35 : 1,
+              opacity: noBack ? 0.35 : 1,
             },
           ]}
         >
           <ArrowLeft size={16} color={tokens.text} />
         </Pressable>
         <View style={styles.dots}>
-          {(custom ? [0, 1, 2, 3, 4] : [0, 1]).map((n) => (
+          {dotSteps.map((n) => (
             <StepDot
               key={n}
               active={n <= step}
@@ -1028,17 +1040,27 @@ function CurrencyWizard({
       </Text>
 
       {step === 0 && (
-        <View style={[styles.stepBody, { paddingTop: 10 }]}>
-          <CurrencyPicker
-            value={currencyCode}
-            onChange={onCurrencyChange}
-            fillAvailableSpace
-          />
-        </View>
-      )}
-
-      {step === 1 && (
         <View style={styles.stepBody}>
+          {/* Guessed from the device; one tap to change, no step of its own. */}
+          <Pressable
+            onPress={() => {
+              Haptics.selectionAsync().catch(() => {});
+              setPickingCurrency(true);
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={`Currency, ${currency.name}. Change it`}
+            style={[
+              styles.currencyChip,
+              { backgroundColor: tokens.inputBg, borderColor: tokens.borderStrong },
+            ]}
+          >
+            <Text style={[styles.currencyChipLabel, { color: tokens.text2 }]}>
+              {currency.symbol !== currency.code
+                ? `${currency.code} · ${currency.symbol}`
+                : currency.code}
+            </Text>
+            <CaretDown size={12} color={tokens.text3} weight="bold" />
+          </Pressable>
           <View style={styles.amountWrap}>
             {/* Big like web's, dropping back to the old size for long
                   amounts so ₹10,00,00,000 still fits on one line. */}
@@ -1091,7 +1113,7 @@ function CurrencyWizard({
         </View>
       )}
 
-      {step === 2 && (
+      {step === 1 && (
         <ScrollView
           style={styles.stepBody}
           contentContainerStyle={styles.rowList}
@@ -1124,7 +1146,7 @@ function CurrencyWizard({
         </ScrollView>
       )}
 
-      {step === 3 && (
+      {step === 2 && (
         <ScrollView
           style={styles.stepBody}
           contentContainerStyle={styles.sectionList}
@@ -1176,7 +1198,17 @@ function CurrencyWizard({
         </ScrollView>
       )}
 
-      {step === 4 && (
+      {step === FIRST_EXPENSE && (
+        <FirstExpense
+          envelopes={starterEnvelopes}
+          initialKey={firstWant?.key}
+          onLog={logFirst}
+          onSkip={skipFirst}
+          onDone={() => setStep(DONE)}
+        />
+      )}
+
+      {step === 3 && (
         <View style={styles.stepBody}>
           <View
             style={[
@@ -1361,7 +1393,7 @@ function CurrencyWizard({
         <Text style={[styles.errorText, { color: tokens.coral }]}>{error}</Text>
       )}
 
-      {ctaLabel === "Finish setup" && !pending ? (
+      {step === FIRST_EXPENSE ? null : ctaLabel === "Finish setup" && !pending ? (
         <View style={styles.slideCta}>
           <SlideToConfirm
             label="Slide to finish setup"
@@ -1417,6 +1449,26 @@ function CurrencyWizard({
       {error === "" && hint !== "" && (
         <Text style={[styles.ctaHint, { color: tokens.text3 }]}>{hint}</Text>
       )}
+
+      <BottomSheet visible={pickingCurrency} onClose={() => setPickingCurrency(false)}>
+        <View style={{ gap: 12 }}>
+          <Text
+            style={[
+              styles.sheetName,
+              { color: tokens.text, fontFamily: fontFamily.displaySemiBold },
+            ]}
+          >
+            Your currency
+          </Text>
+          <CurrencyPicker
+            value={currencyCode}
+            onChange={(code) => {
+              onCurrencyChange(code);
+              setPickingCurrency(false);
+            }}
+          />
+        </View>
+      </BottomSheet>
 
       <BottomSheet visible={!!activeKey} onClose={closeRow}>
         {activeCat && (
@@ -1740,7 +1792,19 @@ const styles = StyleSheet.create({
   },
   blurb: { fontSize: 14, lineHeight: 21, marginTop: 7, maxWidth: 310 },
   stepBody: { flex: 1, marginTop: 4 },
-  amountWrap: { paddingTop: 28, paddingBottom: 20 },
+  amountWrap: { paddingTop: 16, paddingBottom: 20 },
+  currencyChip: {
+    alignSelf: "center",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 16,
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: 100,
+    borderWidth: 1,
+  },
+  currencyChipLabel: { fontSize: 13, fontFamily: fontFamily.bodyBold },
   quickRow: {
     flexDirection: "row",
     gap: 8,

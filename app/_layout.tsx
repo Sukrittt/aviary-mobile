@@ -109,8 +109,6 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
   // hold on /loading rather than guessing, so a slow /api/user fetch can't
   // flash the wrong screen.
   const [onboarded, setOnboarded] = useState<boolean | null>(null)
-  // Only the setup completion CTA enables this; restoring a session never does.
-  const [justOnboarded, setJustOnboarded] = useState(false)
   // New users open on Home, where Get started points the way, until they've
   // logged an expense by hand. A blank Log expense with no budget behind it
   // leaves them asking where to go. Read once per sign-in, so the stack's
@@ -160,7 +158,6 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
     })
     const unsubscribeLogout = accessMode.subscribeLogout(async (token) => {
       setHasSession(false)
-      setJustOnboarded(false)
       setLandOnHome(false)
       queryClient.clear()
       clearLogExpenseDraft()
@@ -231,11 +228,10 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
 
   useEffect(
     () =>
-      onOnboarded(({ elsewhere }) => {
+      onOnboarded(() => {
         // Drop a cached setup_incomplete answer, or the check below would send
         // the user straight back to setup before the fresh status lands.
         void queryClient.resetQueries({ queryKey: billingKey })
-        setJustOnboarded(!elsewhere)
         setLandOnHome(true)
         setOnboarded(true)
       }),
@@ -366,8 +362,8 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
       router.replace(`/modals/join-budget?code=${takePendingJoinCode()}&fresh=1` as Href)
       return
     }
-    router.replace((!onboarded ? '/setup' : justOnboarded ? '/account/trial-notice' : landOnHome ? '/(tabs)' : LOG_EXPENSE_PATH) as Href)
-  }, [resolving, hasSession, onboarded, justOnboarded, landOnHome, segments, authScreenMode, router])
+    router.replace((!onboarded ? '/setup' : landOnHome ? '/(tabs)' : LOG_EXPENSE_PATH) as Href)
+  }, [resolving, hasSession, onboarded, landOnHome, segments, authScreenMode, router])
 
   // The Activity deep link only exists once the signed-in screens do, so a
   // notification that launched the app from killed has to wait for them.
@@ -420,9 +416,8 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
         </Stack.Protected>
 
         <Stack.Protected guard={signedIn && accessOk}>
-          {/* Fresh setup lands on the trial notice, then Home. The tour now lives
-              in Home's Get Started card so it happens on the user's schedule. */}
-          {justOnboarded && <Stack.Screen name="account/trial-notice" options={{ presentation: 'card', animation: 'slide_from_right' }} />}
+          {/* Fresh setup lands straight on Home: the trial is a line on setup's
+              done screen, and the tour lives in Home's Get Started card. */}
           {/* First for returning users (new ones get (tabs) first, see landOnHome): logging an expense is the app's primary verb, so
               it's where the app opens. Declared first, it's the route the stack
               rebuilds itself from when the loading screen unregisters, so the
@@ -483,6 +478,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
             from, with nothing underneath to go back to. */}
         <Stack.Protected guard={signedIn}>
           <Stack.Screen name="account/plan" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+          <Stack.Screen name="account/trial-notice" options={{ presentation: 'card', animation: 'slide_from_right' }} />
           <Stack.Screen name="account/paywall" options={{ presentation: 'fullScreenModal', headerShown: false }} />
           <Stack.Screen name="account/security" options={{ presentation: 'card', animation: 'slide_from_right' }} />
           <Stack.Screen name="account/data" options={{ presentation: 'card', animation: 'slide_from_right' }} />

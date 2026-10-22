@@ -20,6 +20,8 @@ jest.mock('@/src/api/categories', () => ({
   addCategory: jest.fn(async () => ({})),
   getSplitBuckets: jest.fn(async () => ({})),
 }))
+const mockAddExpense = jest.fn(async (_row: object) => ({}))
+jest.mock('@/src/hooks/useExpenses', () => ({ useAddExpense: () => ({ mutateAsync: mockAddExpense }) }))
 jest.mock('@/src/api/accessMode', () => ({ accessMode: { subscribeLogout: () => () => {} } }))
 jest.mock('expo-secure-store', () => ({ getItemAsync: jest.fn(async () => null), setItemAsync: jest.fn(async () => {}), deleteItemAsync: jest.fn(async () => {}) }))
 
@@ -27,7 +29,6 @@ beforeEach(() => jest.clearAllMocks())
 
 function toCategoriesStep() {
   const utils = renderWithProviders(<SetupScreen />)
-  fireEvent.press(utils.getByText('Continue')) // currency
   fireEvent.press(utils.getByText('₹50,000'))
   fireEvent.press(utils.getByText('Build my own budget')) // income
   fireEvent.press(utils.getByText('Continue')) // groups

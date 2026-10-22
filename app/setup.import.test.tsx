@@ -21,6 +21,8 @@ jest.mock('@/src/api/billing', () => ({ completeOnboarding: jest.fn(async () => 
 jest.mock('@/src/api/budgets', () => ({ getBudgets: jest.fn(async () => []), updateBudget: jest.fn(async () => ({})) }))
 jest.mock('@/src/api/groups', () => ({ addGroup: jest.fn(async () => ({})), updateGroup: jest.fn(async () => ({})) }))
 jest.mock('@/src/api/categories', () => ({ addCategory: jest.fn(async () => ({})) }))
+const mockAddExpense = jest.fn(async (_row: object) => ({}))
+jest.mock('@/src/hooks/useExpenses', () => ({ useAddExpense: () => ({ mutateAsync: mockAddExpense }) }))
 jest.mock('@/src/api/accessMode', () => ({ accessMode: { subscribeLogout: () => () => {} } }))
 jest.mock('@/src/hooks/useUser', () => ({ useUpdateUser: () => ({ mutate: jest.fn() }) }))
 jest.mock('expo-secure-store', () => ({ getItemAsync: jest.fn(async () => null), setItemAsync: jest.fn(async () => {}), deleteItemAsync: jest.fn(async () => {}) }))
@@ -28,12 +30,11 @@ jest.mock('expo-localization', () => ({ getLocales: () => [{ currencyCode: 'INR'
 
 beforeEach(() => jest.clearAllMocks())
 
-it('asks about switching first, and back from currency returns to the question', () => {
+it('asks about switching first, and back from income returns to the question', () => {
   const { getByText, getByLabelText } = renderWithProviders(<SetupScreen />)
   expect(getByText('How do you want to start?')).toBeTruthy()
-  fireEvent.press(getByText('I’m starting fresh'))
-  fireEvent.press(getByText('Continue'))
-  expect(getByText('Choose your currency')).toBeTruthy()
+  fireEvent.press(getByText('Start fresh'))
+  expect(getByText('What lands each month?')).toBeTruthy()
   fireEvent.press(getByLabelText('Go back'))
   expect(getByText('How do you want to start?')).toBeTruthy()
 })
@@ -49,8 +50,7 @@ it('an import lands on the celebration with its history still coming in, onboard
   })
   mockCommit.mockResolvedValue({ importId: 'imp1', total: 43, groupCount: 1, categoryCount: 1, income: 0 })
   const { getByText, getByLabelText, findByText } = renderWithProviders(<SetupScreen />)
-  fireEvent.press(getByText('I’m switching apps'))
-  fireEvent.press(getByText('Continue'))
+  fireEvent.press(getByText('Switching apps? Bring your data'))
   fireEvent.press(getByLabelText('YNAB'))
   fireEvent.press(getByLabelText('Choose your export file'))
   fireEvent.press(await findByText('Looks right, set me up'))

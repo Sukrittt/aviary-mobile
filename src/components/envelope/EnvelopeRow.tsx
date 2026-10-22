@@ -21,7 +21,7 @@ const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'S
 /** Tinted pill for what's left, on the progress bar's thresholds. Red is only
  * for overspent. Fully spent (not over) gets no pill at all: empty is fine, so
  * it shouldn't read as a badge. */
-export function availablePill(e: Envelope, tokens: ThemeTokens): { color: string; bg: string } {
+export function availablePill(e: Pick<Envelope, 'isOverspent' | 'spentPct'>, tokens: ThemeTokens): { color: string; bg: string } {
   if (e.isOverspent) return { color: tokens.pillOver, bg: tokens.pillOverBg }
   if (e.spentPct === 100) return { color: tokens.text3, bg: 'transparent' }
   if (e.spentPct > 75) return { color: tokens.pillLow, bg: tokens.pillLowBg }
