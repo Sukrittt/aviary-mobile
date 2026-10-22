@@ -1,6 +1,6 @@
 import { act, fireEvent, waitFor } from '@testing-library/react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
-import { getBudgets, updateBudget } from '@/src/api/budgets'
+import { getBudgets, getCarry, updateBudget } from '@/src/api/budgets'
 import { addIncome, getIncomes, updateIncome } from '@/src/api/incomes'
 import { getAccounts } from '@/src/api/accounts'
 import { getCategories } from '@/src/api/categories'
@@ -9,6 +9,7 @@ import { currentMonthKey } from '@/src/lib/envelope'
 
 jest.mock('@/src/api/budgets', () => ({
   getBudgets: jest.fn(),
+  getCarry: jest.fn(),
   addBudget: jest.fn(),
   updateBudget: jest.fn(),
   deleteBudget: jest.fn(),
@@ -35,6 +36,7 @@ beforeEach(() => {
   ;(addIncome as jest.Mock).mockResolvedValue({ id: 'i1' })
   ;(getAccounts as jest.Mock).mockResolvedValue([])
   ;(getCategories as jest.Mock).mockResolvedValue([])
+  ;(getCarry as jest.Mock).mockResolvedValue({ ready_to_assign: 0, rolled_over: {} })
   ;(getBudgets as jest.Mock).mockResolvedValue([
     { month: MONTH, category: '__income__', assigned: '100000', rolled_over: '0', extra: '500', version: 3 },
   ])
@@ -91,6 +93,19 @@ it('previews Ready to Assign plus the typed amount, not income plus it', async (
   await findByText('₹50,000 monthly')
   typeAmount(getByLabelText, '5000')
   expect(await findByText('Ready to Assign ₹15,000 · This month only')).toBeTruthy()
+})
+
+it('counts what rolled into Ready to Assign in the preview', async () => {
+  ;(getBudgets as jest.Mock).mockResolvedValue([
+    { month: MONTH, category: '__income__', assigned: '50000', rolled_over: '0', extra: '0', version: 1 },
+    { month: MONTH, category: 'Food', assigned: '40000', rolled_over: '0', extra: '0', version: 1 },
+  ])
+  ;(getCategories as jest.Mock).mockResolvedValue([{ name: 'Food', group: 'Everyday' }])
+  ;(getCarry as jest.Mock).mockResolvedValue({ ready_to_assign: 5000, rolled_over: {} })
+  const { getByLabelText, findByText } = renderWithProviders(<AddIncomeModal />)
+  await findByText('₹50,000 monthly')
+  typeAmount(getByLabelText, '1000')
+  expect(await findByText('Ready to Assign ₹16,000 · This month only')).toBeTruthy()
 })
 
 it('holds the Ready to Assign preview until categories load', async () => {
