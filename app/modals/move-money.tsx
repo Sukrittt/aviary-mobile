@@ -6,7 +6,7 @@ import { Numpad } from '@/src/components/ui/Numpad'
 import { useAmountEntry } from '@/src/components/ui/useAmountEntry'
 import { useProgressWidth } from '@/src/components/ui/useProgressWidth'
 import { usePrivacy } from '@/src/context/PrivacyContext'
-import { useBudgets,useTransferBudget } from '@/src/hooks/useBudgets'
+import { useBudgets, useCarry, useTransferBudget } from '@/src/hooks/useBudgets'
 import { useCategories, useCategoryTint } from '@/src/hooks/useCategories'
 import { useRecentExpenses } from '@/src/hooks/useExpenses'
 import { useGroups } from '@/src/hooks/useGroups'
@@ -78,6 +78,7 @@ function MoveMoneyModal() {
   const prefill = /^\d+$/.test(str(params.amount)) ? str(params.amount) : ''
 
   const budgetsQ = useBudgets()
+  const carryQ = useCarry(currentMonthKey())
   const expensesQ = useRecentExpenses()
   const categoriesQ = useCategories()
   const groupsQ = useGroups()
@@ -91,8 +92,8 @@ function MoveMoneyModal() {
   const month = useMemo(() => currentMonthKey(), [])
 
   const envelopeState = useMemo(
-    () => computeEnvelopeState(budgets, expenses, month, categories, groups),
-    [budgets, expenses, month, categories, groups],
+    () => computeEnvelopeState(budgets, expenses, month, categories, groups, undefined, carryQ.data),
+    [budgets, expenses, month, categories, groups, carryQ.data],
   )
 
   const target = envelopeState.envelopes.find((e) => e.category === targetCategoryName)

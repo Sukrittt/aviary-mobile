@@ -9,7 +9,7 @@ import { useAudioPlayer } from "expo-audio";
 import * as Haptics from "expo-haptics";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { fontFamily } from "@/src/theme/fonts";
-import { useBudgets } from "@/src/hooks/useBudgets";
+import { useBudgets, useCarry } from "@/src/hooks/useBudgets";
 import { useCategories } from "@/src/hooks/useCategories";
 import { useDeleteExpense, useRecentExpenses, useUndoPendingExpense } from "@/src/hooks/useExpenses";
 import { noticedLine, weeklyRepeat } from "@/src/lib/noticed";
@@ -219,6 +219,7 @@ export default function ExpenseAddedScreen() {
   const stamp = timestamp || str(params.loggedAt);
 
   const budgetsQ = useBudgets();
+  const carryQ = useCarry(currentMonthKey());
   const expensesQ = useRecentExpenses();
   const categoriesQ = useCategories();
   const groupsQ = useGroups();
@@ -254,9 +255,11 @@ export default function ExpenseAddedScreen() {
       currentMonthKey(),
       categoriesQ.data ?? [],
       groupsQ.data ?? [],
+      undefined,
+      carryQ.data,
     );
     return state.envelopes.find((e) => e.category === category);
-  }, [budgetsQ.data, expensesQ.data, categoriesQ.data, groupsQ.data, category]);
+  }, [budgetsQ.data, carryQ.data, expensesQ.data, categoriesQ.data, groupsQ.data, category]);
 
   // The refetch this mutation triggered may not have landed yet — if the new row
   // isn't in the list, the envelope hasn't been charged for it. Subtract by hand so

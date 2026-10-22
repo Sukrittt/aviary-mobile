@@ -10,7 +10,7 @@ import { useEffect, useRef } from "react";
 import { Platform } from "react-native";
 import { requestWidgetUpdate } from "react-native-android-widget";
 import type { WidgetInfo } from "react-native-android-widget";
-import { useBudgets } from "@/src/hooks/useBudgets";
+import { useBudgets, useCarry } from "@/src/hooks/useBudgets";
 import { useBudgetSpaces } from "@/src/hooks/useBudgetSpaces";
 import { useRecentExpenses } from "@/src/hooks/useExpenses";
 import { useCategories } from "@/src/hooks/useCategories";
@@ -39,6 +39,7 @@ export function WidgetSync() {
   const budgetName = multi && active ? active.name : undefined
   const { preference } = useTheme();
   const budgetsQ = useBudgets();
+  const carryQ = useCarry(currentMonthKey());
   const expensesQ = useRecentExpenses();
   const categoriesQ = useCategories();
   const groupsQ = useGroups();
@@ -56,6 +57,8 @@ export function WidgetSync() {
       currentMonthKey(),
       categoriesQ.data ?? [],
       groupsQ.data ?? [],
+      undefined,
+      carryQ.data,
     );
     const data = {
       ...toWidgetData(state, expensesQ.data, daysLeftInMonth(), todayLocal(), currencyCode),
@@ -111,6 +114,7 @@ export function WidgetSync() {
     });
   }, [
     budgetsQ.data,
+    carryQ.data,
     expensesQ.data,
     categoriesQ.data,
     groupsQ.data,

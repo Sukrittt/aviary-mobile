@@ -58,16 +58,18 @@ it('logging a card expense sets money aside in Credit Card Payment', async () =>
   expect(getByText('₹700 set aside')).toBeTruthy()
 })
 
-it('corrects the belief that leftovers roll over', async () => {
+it('teaches that leftovers roll over', async () => {
   const { getByText } = renderWithProviders(<GuidedTourScreen />)
   openChapter(getByText, 'The new month')
 
-  fireEvent.press(getByText("It rolls into October's Fun. ₹7,600 to play with"))
+  fireEvent.press(getByText("It's gone. October starts fresh, with the same ₹5,000 plan"))
+  await waitFor(() => expect(getByText(/nothing you saved up disappears/)).toBeTruthy())
 
-  await waitFor(() => expect(getByText(/Leftovers don't compound here/)).toBeTruthy())
+  fireEvent.press(getByText("It rolls into October's Fun. ₹7,600 to play with"))
+  await waitFor(() => expect(getByText(/comes along on top/)).toBeTruthy())
 })
 
-it('October restarts Credit Card Payment at zero and drops leftovers', async () => {
+it('October carries each leftover on top of its plan, and the card\'s cash but not its target', async () => {
   const { getByText, getAllByText } = renderWithProviders(<GuidedTourScreen />)
   openChapter(getByText, 'The new month')
 
@@ -75,9 +77,10 @@ it('October restarts Credit Card Payment at zero and drops leftovers', async () 
 
   fireEvent.press(getByText('October 1'))
 
-  await waitFor(() => expect(getAllByText('LEFTOVER GONE').length).toBe(2))
-  expect(getByText('₹0')).toBeTruthy()
-  expect(getByText("restarts at zero · it was last month's bill")).toBeTruthy()
+  await waitFor(() => expect(getAllByText('LEFTOVER CARRIED').length).toBe(3))
+  expect(getByText('₹7,600')).toBeTruthy()
+  expect(getByText('₹5,000 plan · +₹2,600 from September')).toBeTruthy()
+  expect(getByText('target restarts at zero · ₹2,600 cash carried')).toBeTruthy()
 })
 
 it('pings only the highest threshold crossed, then over budget', async () => {

@@ -12,7 +12,8 @@ import { parseLocalDate, toLocalDateString } from '@/src/lib/date'
 import { ProgressBar } from './ProgressBar'
 import { BottomSheet } from '@/src/components/shared/Modal'
 import { tap } from '@/src/lib/haptics'
-import type { Envelope } from '@/src/lib/envelope'
+import { currentMonthKey, type Envelope } from '@/src/lib/envelope'
+import { rolledOverLine } from '@/src/lib/rollover'
 import type { ThemeTokens } from '@/src/theme/tokens'
 
 const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -120,6 +121,11 @@ export function EnvelopeRow({
         {!envelope.isCreditCardPayment && (
           <Text style={[styles.metaLine, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>
             {unbudgeted ? 'Not budgeted · ' : ''}Last spent {lastSpentLabel(envelope.lastSpentDate)}
+          </Text>
+        )}
+        {envelope.rolledOver !== 0 && (
+          <Text style={[styles.metaLine, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>
+            {rolledOverLine(envelope.rolledOver, currentMonthKey(), (n) => formatCurrency(n, hideAmounts))}
           </Text>
         )}
       </Pressable>

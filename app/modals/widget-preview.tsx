@@ -13,7 +13,7 @@ import { ArrowLeft } from "@/src/components/shared/icons";
 import { WidgetPreview } from "react-native-android-widget";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { fontFamily } from "@/src/theme/fonts";
-import { useBudgets } from "@/src/hooks/useBudgets";
+import { useBudgets, useCarry } from "@/src/hooks/useBudgets";
 import { useRecentExpenses } from "@/src/hooks/useExpenses";
 import { useCategories } from "@/src/hooks/useCategories";
 import { useGroups } from "@/src/hooks/useGroups";
@@ -36,6 +36,7 @@ export default function WidgetPreviewScreen() {
   const router = useRouter();
 
   const budgetsQ = useBudgets();
+  const carryQ = useCarry(currentMonthKey());
   const expensesQ = useRecentExpenses();
   const categoriesQ = useCategories();
   const groupsQ = useGroups();
@@ -71,6 +72,8 @@ export default function WidgetPreviewScreen() {
               currentMonthKey(),
               categoriesQ.data ?? [],
               groupsQ.data ?? [],
+              undefined,
+              carryQ.data,
             );
             const data = toWidgetData(
               state,
