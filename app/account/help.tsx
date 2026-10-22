@@ -15,7 +15,7 @@ const ENVELOPES_EXPLAINER = [
   'New money lands in Ready to Assign, unclaimed.',
   'Move it into categories like Rent, Food or Football.',
   'Log an expense against a category and only that one drops.',
-  "Next month starts clean: the leftover is gone, but your plan carries over so you're not budgeting from zero.",
+  "Whatever you don't spend rolls into next month, right where you left it. Your plan carries over too.",
   'Watch one number: Ready to Assign. At zero, all your money has a job.',
 ]
 
