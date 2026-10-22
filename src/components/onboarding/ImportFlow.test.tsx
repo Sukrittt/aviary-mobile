@@ -55,8 +55,7 @@ function render() {
 
 function toReview(app = 'Monefy') {
   const utils = render()
-  fireEvent.press(utils.getByText('I’m switching apps'))
-  fireEvent.press(utils.getByText('Continue'))
+  fireEvent.press(utils.getByText('Switching apps? Bring your data'))
   fireEvent.press(utils.getByLabelText(app))
   fireEvent.press(utils.getByLabelText('Choose your export file'))
   return utils
@@ -83,27 +82,22 @@ it('skips the start question when it was already answered, and Back starts fresh
 it('starting fresh hands straight back to the usual setup', () => {
   const { getByText, onFresh } = render()
   expect(getByText('How do you want to start?')).toBeTruthy()
-  fireEvent.press(getByText('I’m starting fresh'))
-  fireEvent.press(getByText('Continue'))
+  fireEvent.press(getByText('Start fresh'))
   expect(onFresh).toHaveBeenCalled()
 })
 
-it('starts on starting fresh, and the choice can change before Continue', () => {
-  const { getByText, getByLabelText, onFresh } = render()
-  expect(getByLabelText(/^I’m starting fresh/).props.accessibilityState).toMatchObject({ checked: true })
-  expect(getByLabelText(/^I’m switching apps/).props.accessibilityState).toMatchObject({ checked: false })
-  fireEvent.press(getByText('I’m switching apps'))
-  expect(getByLabelText(/^I’m starting fresh/).props.accessibilityState).toMatchObject({ checked: false })
-  fireEvent.press(getByText('I’m starting fresh'))
-  fireEvent.press(getByText('Continue'))
-  expect(onFresh).toHaveBeenCalled()
+it('makes starting fresh the big button and switching apps a link to the app list', () => {
+  const { getByText, getByRole, onFresh } = render()
+  expect(getByRole('button', { name: 'Start fresh' })).toBeTruthy()
+  fireEvent.press(getByText('Switching apps? Bring your data'))
+  expect(onFresh).not.toHaveBeenCalled()
+  expect(getByText('Where are you coming from?')).toBeTruthy()
 })
 
 it('walks through the export in steps, with the catch and the app’s own guide', () => {
   const openURL = jest.spyOn(Linking, 'openURL').mockResolvedValue(true)
   const utils = render()
-  fireEvent.press(utils.getByText('I’m switching apps'))
-  fireEvent.press(utils.getByText('Continue'))
+  fireEvent.press(utils.getByText('Switching apps? Bring your data'))
   fireEvent.press(utils.getByLabelText('Wallet, BudgetBakers'))
   expect(utils.getByText('In Wallet on Android, open the ≡ menu, then Others, then Export.')).toBeTruthy()
   expect(utils.getByText('3')).toBeTruthy()
@@ -233,8 +227,7 @@ it('names an unrecognised file by what the user picked, not the cache copy the s
   mockPick.mockResolvedValue({ uri: 'file:///cache/57d5c570.csv', name: 'hdfc-statement.csv', mimeType: 'text/csv', size: 10 })
   mockPreview.mockResolvedValue({ ...review, app: 'generic', filename: '57d5c570.csv' })
   const utils = render()
-  fireEvent.press(utils.getByText('I’m switching apps'))
-  fireEvent.press(utils.getByText('Continue'))
+  fireEvent.press(utils.getByText('Switching apps? Bring your data'))
   fireEvent.press(utils.getByText('Using something else? Pick any csv or xlsx'))
   fireEvent.press(utils.getByLabelText('Choose your export file'))
   expect(await utils.findByText('hdfc-statement.csv')).toBeTruthy()
@@ -291,8 +284,7 @@ it('names the app the file really came from, even when another was picked', asyn
 
 it('asks for the file the picked app exports, and keeps a button in thumb reach', () => {
   const { getByText, getByLabelText } = render()
-  fireEvent.press(getByText('I’m switching apps'))
-  fireEvent.press(getByText('Continue'))
+  fireEvent.press(getByText('Switching apps? Bring your data'))
   fireEvent.press(getByLabelText('Wallet, BudgetBakers'))
   expect(getByText('csv · up to 4 MB')).toBeTruthy()
   fireEvent.press(getByText('Choose your file'))

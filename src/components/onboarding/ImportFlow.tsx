@@ -100,12 +100,6 @@ const ACCOUNT_TYPES: { value: ImportAccountType; label: string }[] = [
 
 const READING = ['Reading your file…', 'Sorting your categories…', 'Looking for your payday…', 'Adding up a typical month…']
 
-type StartChoice = 'fresh' | 'switch'
-const START_CHOICES: { id: StartChoice; title: string; detail: string }[] = [
-  { id: 'fresh', title: 'I’m starting fresh', detail: 'We’ll guide you through it in about a minute.' },
-  { id: 'switch', title: 'I’m switching apps', detail: 'Bring your envelopes and history from YNAB, Wallet and more.' },
-]
-
 type Stage = 'ask' | 'pick' | 'upload' | 'review'
 const STAGES: Stage[] = ['ask', 'pick', 'upload', 'review']
 
@@ -127,7 +121,6 @@ export function ImportFlow({ onFresh, onDone, onAlreadySetUp, skipAsk = false, b
   const [stage, setStage] = useState<Stage>(stages[0])
   const [app, setApp] = useState<AppChoice | null>(null)
   const [review, setReview] = useState<ImportReview | null>(null)
-  const [start, setStart] = useState<StartChoice>('fresh')
   const at = stages.indexOf(stage)
 
   const back = () => (skipAsk && stage === 'pick' ? onFresh() : setStage((s) => (s === 'review' ? 'upload' : s === 'upload' ? 'pick' : 'ask')))
@@ -159,17 +152,15 @@ export function ImportFlow({ onFresh, onDone, onAlreadySetUp, skipAsk = false, b
       </View>
 
       {stage === 'ask' && (
-        // Two equal ways in, as radio cards: starting fresh is as good a start as
-        // switching. Fresh is picked to begin with, since most people won't have an export.
+        // Fresh is the big button: most people have no export, and the budget
+        // is a minute away. Switching stays one tap off, as a link.
         <Animated.View key="ask" entering={FadeIn.duration(280)} style={styles.ask}>
           <Title>How do you want to start?</Title>
-          <Blurb>Both get you a budget in a few minutes.</Blurb>
-          <View style={styles.choices} accessibilityRole="radiogroup">
-            {START_CHOICES.map((c, i) => (
-              <Choice key={c.id} delay={60 + i * 60} title={c.title} detail={c.detail} on={start === c.id} onPress={() => setStart(c.id)} />
-            ))}
-          </View>
-          <Continue onPress={() => (start === 'fresh' ? onFresh() : setStage('pick'))} />
+          <Blurb>You’ll have a budget in about a minute.</Blurb>
+          <Continue label="Start fresh" onPress={onFresh} />
+          <Press accessibilityRole="button" onPress={() => setStage('pick')} style={styles.switchLink}>
+            <Text style={[styles.switchLinkText, { color: tokens.accentInk, fontFamily: fontFamily.bodyBold }]}>Switching apps? Bring your data</Text>
+          </Press>
           <Text style={[styles.note, styles.center, styles.askTrust, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>Change phones, lose nothing. Export free, always.</Text>
         </Animated.View>
       )}
@@ -912,41 +903,7 @@ function Named({ name, icon, kind = 'category', color, style }: { name: string; 
   )
 }
 
-function Choice({ title, detail, on, delay, onPress }: { title: string; detail: string; on: boolean; delay: number; onPress: () => void }) {
-  const { tokens, motion } = useTheme()
-  const reduceMotion = useReducedMotion()
-  // The dot fills with a small pop, like a check landing.
-  const dot = useSharedValue(on ? 1 : 0)
-  useEffect(() => {
-    dot.value = reduceMotion ? (on ? 1 : 0) : withSpring(on ? 1 : 0, motion.springTight)
-  }, [on, dot, reduceMotion, motion.springTight])
-  const dotStyle = useAnimatedStyle(() => ({ opacity: dot.value, transform: [{ scale: 0.4 + dot.value * 0.6 }] }))
-  return (
-    <PopIn play delay={delay}>
-      <Press
-        accessibilityRole="radio"
-        accessibilityLabel={`${title}. ${detail}`}
-        accessibilityState={{ checked: on }}
-        onPress={() => {
-          if (!on) Haptics.selectionAsync().catch(() => {})
-          onPress()
-        }}
-        style={[styles.choice, { backgroundColor: on ? tokens.accentSoft : tokens.card, borderColor: on ? tokens.accent : tokens.border }]}
-      >
-        <View style={[styles.radio, { borderColor: on ? tokens.accent : tokens.borderStrong }]}>
-          <Animated.View style={[styles.radioDot, { backgroundColor: tokens.accent }, dotStyle]} />
-        </View>
-        <View style={styles.fill}>
-          <Text style={[styles.choiceTitle, { color: tokens.text, fontFamily: fontFamily.bodyBold }]}>{title}</Text>
-          <Text style={[styles.choiceDetail, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>{detail}</Text>
-        </View>
-      </Press>
-    </PopIn>
-  )
-}
-
-/** The ask step's Continue, the same pill as the review's set-me-up button. */
-function Continue({ onPress }: { onPress: () => void }) {
+function Continue({ label = 'Continue', onPress }: { label?: string; onPress: () => void }) {
   const { tokens } = useTheme()
   return (
     <Press
@@ -956,7 +913,7 @@ function Continue({ onPress }: { onPress: () => void }) {
       }}
       style={[styles.cta, styles.askCta, { backgroundColor: tokens.accent }]}
     >
-      <Text style={[styles.ctaText, { color: tokens.onAccent, fontFamily: fontFamily.displaySemiBold }]}>Continue</Text>
+      <Text style={[styles.ctaText, { color: tokens.onAccent, fontFamily: fontFamily.displaySemiBold }]}>{label}</Text>
     </Press>
   )
 }
@@ -1061,14 +1018,10 @@ const styles = StyleSheet.create({
   title: { fontSize: 27, lineHeight: 31, marginTop: 16, letterSpacing: -0.2 },
   blurb: { fontSize: 14, lineHeight: 21, marginTop: 7, maxWidth: 310 },
   ask: { flex: 1, justifyContent: 'center', paddingBottom: 40 },
-  choices: { gap: 12, marginTop: 28 },
-  choice: { flexDirection: 'row', alignItems: 'flex-start', gap: 14, paddingVertical: 16, paddingHorizontal: 16, borderRadius: 20, borderWidth: 1.5 },
-  radio: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
-  radioDot: { width: 10, height: 10, borderRadius: 5 },
-  askCta: { marginTop: 20 },
+  askCta: { marginTop: 28 },
   askTrust: { marginTop: 16 },
-  choiceTitle: { fontSize: 16 },
-  choiceDetail: { fontSize: 13, lineHeight: 18, marginTop: 3 },
+  switchLink: { alignSelf: 'center', marginTop: 14, paddingVertical: 10, paddingHorizontal: 12 },
+  switchLinkText: { fontSize: 14 },
   textAction: { alignSelf: 'center', paddingVertical: 12, paddingHorizontal: 8 },
   textActionLabel: { fontSize: 14, textAlign: 'center' },
   appList: { gap: 8, paddingTop: 16, paddingBottom: 12 },
