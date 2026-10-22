@@ -91,6 +91,7 @@ export { ThumbsUpIcon as ThumbsUp } from 'phosphor-react-native/src/icons/Thumbs
 export { TrashIcon as Trash } from 'phosphor-react-native/src/icons/Trash'
 export { TrendUpIcon as TrendUp } from 'phosphor-react-native/src/icons/TrendUp'
 export { UploadSimpleIcon as UploadSimple } from 'phosphor-react-native/src/icons/UploadSimple'
+export { DownloadSimpleIcon as DownloadSimple } from 'phosphor-react-native/src/icons/DownloadSimple'
 export { UserIcon as User } from 'phosphor-react-native/src/icons/User'
 export { UserPlusIcon as UserPlus } from 'phosphor-react-native/src/icons/UserPlus'
 export { UsersIcon as Users } from 'phosphor-react-native/src/icons/Users'

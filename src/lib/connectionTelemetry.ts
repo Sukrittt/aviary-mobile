@@ -3,9 +3,10 @@ import * as Network from 'expo-network'
 
 // What the app and the network were doing when a request died, for
 // request_failed. Telemetry only: netStatus still decides offline from the
-// request path, never from this. The open question it answers is what kills
-// Android's pooled connection mid-session (a Wi-Fi/cellular handoff? a resume
-// after a long background?), which PostHog couldn't say on 2026-10-21.
+// request path, never from this. It answered what was killing requests on
+// Android (PostHog 2026-10-21: every burst on cellular, mid-session, the one
+// shared HTTP/2 socket stalled; see plugins/withOkHttpClient.js) and stays so
+// a regression shows up with the same context.
 const launchedAt = Date.now()
 let activeSince = launchedAt
 let network = { type: 'unknown', changedAt: launchedAt }

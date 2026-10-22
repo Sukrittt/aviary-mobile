@@ -6,6 +6,7 @@ import SetupScreen from './setup'
 import { onOnboarded } from '@/src/api/onboardingSignal'
 import { updateUser } from '@/src/api/account'
 import { completeOnboarding } from '@/src/api/billing'
+import { slide } from '@/src/test-utils/slide'
 
 // The usual setup steps, as on a binary without the file picker; setup.import.test.tsx covers the import.
 jest.mock('@/src/lib/filePicker', () => ({ canPickFiles: false, pickFile: jest.fn() }))
@@ -27,6 +28,9 @@ jest.mock('expo-haptics', () => ({
   selectionAsync: jest.fn(() => Promise.resolve()),
   impactAsync: jest.fn(() => Promise.resolve()),
   ImpactFeedbackStyle: { Light: 'light', Rigid: 'rigid' },
+  // The plan strip's check celebrates with a success buzz.
+  notificationAsync: jest.fn(() => Promise.resolve()),
+  NotificationFeedbackType: { Success: 'success' },
 }))
 
 it('defaults to the device region currency', () => {
@@ -38,7 +42,7 @@ it('defaults to the device region currency', () => {
 it('selects currency before income, preserves it on back, and saves it with onboarding', async () => {
   const onFinished = jest.fn()
   const unsubscribe = onOnboarded(onFinished)
-  const { getByText, findByText, getByLabelText, getByRole, queryByText, unmount } = renderWithProviders(<SetupScreen />)
+  const { getByText, findByText, getByLabelText, queryByText, unmount } = renderWithProviders(<SetupScreen />)
   expect(getByText('Choose your currency')).toBeTruthy()
   expect(queryByText('1 / 5')).toBeNull()
   fireEvent.changeText(getByLabelText('Search currencies'), 'USD')
@@ -57,17 +61,12 @@ it('selects currency before income, preserves it on back, and saves it with onbo
   fireEvent.press(getByText('Continue'))
   expect(getByText('Default alerts: 50% · 90% · 100%')).toBeTruthy()
   fireEvent.press(getByText('Continue'))
-  const suggestedSplit = getByRole('button', { name: 'Suggested split' })
-  fireEvent(suggestedSplit, 'pressIn')
-  fireEvent(suggestedSplit, 'pressOut')
-  fireEvent.press(suggestedSplit)
-  fireEvent.press(getByText('Split evenly'))
-  expect(Haptics.selectionAsync).toHaveBeenCalledTimes(3)
+  expect(Haptics.selectionAsync).toHaveBeenCalledTimes(1)
   fireEvent.press(getByText('Rent'))
-  expect(Haptics.selectionAsync).toHaveBeenCalledTimes(4)
+  expect(Haptics.selectionAsync).toHaveBeenCalledTimes(2)
   fireEvent.press(getByText('Done'))
   expect(Haptics.impactAsync).toHaveBeenCalledTimes(4)
-  fireEvent.press(getByText('Finish setup'))
+  slide(getByLabelText('Slide to finish setup'))
   expect(Haptics.impactAsync).toHaveBeenCalledTimes(5)
   expect(Haptics.impactAsync).toHaveBeenLastCalledWith(Haptics.ImpactFeedbackStyle.Rigid)
   await waitFor(() => expect(updateUser).toHaveBeenCalledWith({ currencyCode: 'USD' }), { timeout: 3000 })

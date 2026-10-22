@@ -33,13 +33,29 @@ let mockWrappedStatus: { available: boolean } | undefined
 let mockSuggestions: { suggestions: { kind: string }[] } | undefined
 const mockMutate = jest.fn()
 const mockRefetch = jest.fn()
+let mockCarry: { ready_to_assign: number; rolled_over: Record<string, number> } | undefined
+let mockCarryError: Error | null = null
+const mockCarryRefetch = jest.fn()
 
 jest.mock('@/src/hooks/useBudgets', () => ({
   useBudgets: () => {
     mockReact.useContext(mockRefetched)
     return { data: mockBudgets, isLoading: false, error: mockBudgetsError, refetch: mockRefetch }
   },
+  useCarry: () => ({ data: mockCarry, isLoading: false, error: mockCarryError, refetch: mockCarryRefetch }),
 }))
+// The real hook, with an open budget to key the rollover card's dismissal by when a test sets one.
+let mockActiveSpace: { id: string; name: string; personal: boolean } | null = null
+jest.mock('@/src/hooks/useBudgetSpaces', () => {
+  const actual = jest.requireActual('@/src/hooks/useBudgetSpaces')
+  return {
+    ...actual,
+    useBudgetSpaces: () => {
+      const real = actual.useBudgetSpaces()
+      return mockActiveSpace ? { ...real, active: mockActiveSpace } : real
+    },
+  }
+})
 jest.mock('@/src/hooks/useExpenses', () => ({
   useRecentExpenses: () => ({ data: mockExpenses, isLoading: false, error: null, refetch: jest.fn() }),
   useLastSpent: () => ({ data: {} }),
@@ -122,6 +138,9 @@ describe('HomeScreen · Ready to Assign', () => {
     mockNav.focused = true
     mockPush.mockClear()
     mockBudgetsError = null
+    mockCarry = undefined
+    mockCarryError = null
+    mockActiveSpace = null
     mockUser = { onboardedAt: '2026-10-01T00:00:00.000Z', getStartedAt: '2026-10-01T00:00:00.000Z' }
     mockRefetch.mockClear()
     mockBudgets = [
@@ -461,6 +480,14 @@ describe('HomeScreen · Ready to Assign', () => {
     expect(mockRefetch).toHaveBeenCalled()
   })
 
+  it('shows the error screen, not balances without the carry, when the carry fails to load', () => {
+    mockCarryError = new Error('503')
+    const { getByText } = renderHome()
+    expect(getByText("Couldn't load your budget")).toBeTruthy()
+    fireEvent.press(getByText('Try again'))
+    expect(mockCarryRefetch).toHaveBeenCalled()
+  })
+
   it('keeps the budget on screen when a refresh fails', () => {
     mockBudgetsError = new Error('network error')
     const { queryByText } = renderHome()
@@ -479,6 +506,9 @@ describe('HomeScreen · minimum version banner', () => {
   beforeEach(() => {
     Object.defineProperty(Platform, 'OS', { configurable: true, value: 'android' })
     mockBudgetsError = null
+    mockCarry = undefined
+    mockCarryError = null
+    mockActiveSpace = null
     mockBudgets = [{ month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' }]
   })
 
@@ -519,6 +549,9 @@ describe('HomeScreen · one banner at a time', () => {
     mockPush.mockClear()
     mockMutate.mockClear()
     mockBudgetsError = null
+    mockCarry = undefined
+    mockCarryError = null
+    mockActiveSpace = null
     mockUser = { createdAt: NEW_ACCOUNT }
     mockExpenses = []
     mockBilling = undefined
@@ -532,26 +565,50 @@ describe('HomeScreen · one banner at a time', () => {
     ]
   })
 
-  it('shows the trial reminder over the rollover banner at 3 days left', async () => {
+  const ROLLED = /rolled over|short from|rolled into Ready to Assign/
+  const space = () => { mockActiveSpace = { id: 'space-1', name: 'Me', personal: true } }
+
+  it('shows the trial reminder over the rollover card at 3 days left', async () => {
     mockBilling = trial(3)
+    space()
+    mockCarry = { ready_to_assign: 5000, rolled_over: { Food: 95 } }
     const { findByText, queryByText } = renderHome()
     expect(await findByText(/30 days on us · 3 days left/)).toBeTruthy()
-    expect(queryByText(/went to savings last month/)).toBeNull()
+    expect(queryByText(ROLLED)).toBeNull()
   })
 
-  it('skips the 7-day trial reminder and shows the rollover banner', async () => {
+  it('skips the 7-day trial reminder and says what rolled in', async () => {
     mockBilling = trial(7)
+    space()
+    mockCarry = { ready_to_assign: 5000, rolled_over: { Food: 95, Rent: -20 } }
     const { findByText, queryByText } = renderHome()
-    expect(await findByText(/went to savings last month/)).toBeTruthy()
+    expect(await findByText('🌱 ₹5,095 rolled over · ₹20 short')).toBeTruthy()
+    // The strip says it all, so the hero has no separate carried line.
+    expect(queryByText(/includes ₹/)).toBeNull()
     expect(queryByText(/30 days on us/)).toBeNull()
   })
 
-  it('lets Nice dismiss the rollover banner', async () => {
+  it('shows no rollover card when nothing carried in', async () => {
     mockBilling = trial(7)
-    const { findByText, getByText, queryByText } = renderHome()
-    expect(await findByText(/went to savings last month/)).toBeTruthy()
-    fireEvent.press(getByText('Nice'))
-    await waitFor(() => expect(queryByText(/went to savings last month/)).toBeNull())
+    space()
+    mockCarry = { ready_to_assign: 0, rolled_over: {} }
+    const { findByText, queryByText } = renderHome()
+    await findByText('Categories')
+    expect(queryByText(ROLLED)).toBeNull()
+  })
+
+  it('lets Got it dismiss the rollover card once for this budget and month', async () => {
+    mockBilling = trial(7)
+    space()
+    mockCarry = { ready_to_assign: 5000, rolled_over: {} }
+    const { findByText, getByLabelText, queryByText } = renderHome()
+    expect(await findByText(ROLLED)).toBeTruthy()
+    fireEvent.press(getByLabelText('Nice'))
+    await waitFor(() => expect(queryByText(ROLLED)).toBeNull(), { timeout: 4000 })
+    const key = `mc-rollover-dismissed-space-1-${MONTH}`
+    // SecureStore rejects any key outside [A-Za-z0-9._-], and a rejected read never lets the card show.
+    expect(key).toMatch(/^[\w.-]+$/)
+    expect(SecureStore.setItemAsync).toHaveBeenCalledWith(key, '1')
   })
 
   it('offers Insights once 30 expenses are logged, with nothing above it', async () => {

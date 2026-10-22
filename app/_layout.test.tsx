@@ -349,7 +349,9 @@ describe('RootLayout', () => {
   })
 })
 
-it('opens the trial notice directly when the setup completion button signals onboarding', async () => {
+// The trial is mentioned in Home's Get Started card instead of a full screen
+// standing between setup and the app.
+it('lands a freshly onboarded user on Home, not the trial notice', async () => {
   mockFontsLoaded = true
   mockPathname = '/setup'
   mockInitAccessMode.mockResolvedValue('real')
@@ -358,8 +360,8 @@ it('opens the trial notice directly when the setup completion button signals onb
   await waitFor(() => expect(getByTestId('screen:setup')).toBeTruthy())
   act(() => signalOnboarded())
   expect(queryByTestId('screen:setup')).toBeNull()
-  expect(getAllByTestId(/^screen:/)[0].props.testID).toBe('screen:account/trial-notice')
-  expect(getAllByTestId('screen:account/trial-notice')).toHaveLength(1)
+  expect(queryByTestId('screen:account/trial-notice')).toBeNull()
+  expect(getAllByTestId(/^screen:/)[0].props.testID).toBe('screen:(tabs)')
   expect(mockPush).not.toHaveBeenCalled()
 })
 
@@ -380,8 +382,8 @@ it('lands a user who finished setup elsewhere on Home, skipping the trial notice
 
 // A fresh sign-in leaves the ungated (auth)/email screen under /setup, so when
 // setup unregisters the stack isn't empty and never rebuilds onto the tour —
-// it falls back to (auth)/email, and the auth-screen redirect has to pick the trial notice.
-it('sends a just-onboarded user who surfaces on an auth screen to the trial notice, not log expense', async () => {
+// it falls back to (auth)/email, and the auth-screen redirect has to pick Home.
+it('sends a just-onboarded user who surfaces on an auth screen to Home, not log expense', async () => {
   mockFontsLoaded = true
   mockSegments = ['(auth)', 'email']
   mockInitAccessMode.mockResolvedValue('real')
@@ -389,7 +391,7 @@ it('sends a just-onboarded user who surfaces on an auth screen to the trial noti
   render(<RootLayout />)
   await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('/setup'))
   act(() => signalOnboarded())
-  await waitFor(() => expect(mockReplace).toHaveBeenLastCalledWith('/account/trial-notice'))
+  await waitFor(() => expect(mockReplace).toHaveBeenLastCalledWith('/(tabs)'))
   expect(mockReplace).not.toHaveBeenCalledWith('/modals/log-expense')
 })
 

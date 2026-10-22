@@ -10,7 +10,9 @@ jest.mock('expo-secure-store', () => ({
 }))
 
 let logoutHandler: (() => void) | null = null
+let mockUid: string | null = 'user_a'
 jest.mock('@/src/api/accessMode', () => ({
+  currentUserId: () => mockUid,
   accessMode: {
     subscribeLogout: (fn: () => void) => {
       logoutHandler = fn
@@ -26,6 +28,7 @@ const del = SecureStore.deleteItemAsync as jest.Mock
 beforeEach(() => {
   jest.clearAllMocks()
   logoutHandler = null
+  mockUid = 'user_a'
   setActiveBudget(null)
 })
 
@@ -34,7 +37,7 @@ it('restores the stored recents on mount', async () => {
   const { result } = renderHook(() => useRecentCategories())
 
   await waitFor(() => expect(result.current.recents).toEqual(['Fuel', 'Food']))
-  expect(get).toHaveBeenCalledWith('mc-recent-categories')
+  expect(get).toHaveBeenCalledWith('mc-recent-categories-user_a')
 })
 
 it('records a pick at the front and persists it', async () => {
@@ -44,7 +47,7 @@ it('records a pick at the front and persists it', async () => {
   act(() => result.current.record('Groceries'))
 
   await waitFor(() => expect(result.current.recents).toEqual(['Groceries']))
-  expect(set).toHaveBeenCalledWith('mc-recent-categories', JSON.stringify(['Groceries']))
+  expect(set).toHaveBeenCalledWith('mc-recent-categories-user_a', JSON.stringify(['Groceries']))
 })
 
 it('clears recents on logout so the next account starts fresh', async () => {
@@ -55,11 +58,11 @@ it('clears recents on logout so the next account starts fresh', async () => {
   act(() => logoutHandler?.())
 
   await waitFor(() => expect(result.current.recents).toEqual([]))
-  expect(del).toHaveBeenCalledWith('mc-recent-categories')
+  expect(del).toHaveBeenCalledWith('mc-recent-categories-user_a')
 })
 
 it('keeps each budget its own recents, and swaps them on a switch', async () => {
-  get.mockImplementation(async (key: string) => (key === 'mc-recent-categories-sp_trip' ? JSON.stringify(['Hotel']) : JSON.stringify(['Fuel'])))
+  get.mockImplementation(async (key: string) => (key === 'mc-recent-categories-user_a-sp_trip' ? JSON.stringify(['Hotel']) : JSON.stringify(['Fuel'])))
   const { result } = renderHook(() => useRecentCategories())
   await waitFor(() => expect(result.current.recents).toEqual(['Fuel']))
 
@@ -67,6 +70,22 @@ it('keeps each budget its own recents, and swaps them on a switch', async () => 
   await waitFor(() => expect(result.current.recents).toEqual(['Hotel']))
 
   act(() => result.current.record('Snorkel'))
-  await waitFor(() => expect(set).toHaveBeenCalledWith('mc-recent-categories-sp_trip', JSON.stringify(['Snorkel', 'Hotel'])))
+  await waitFor(() => expect(set).toHaveBeenCalledWith('mc-recent-categories-user_a-sp_trip', JSON.stringify(['Snorkel', 'Hotel'])))
+  get.mockReset().mockResolvedValue(null)
+})
+
+it("never shows another account's personal recents, even after signing out from a shared budget", async () => {
+  get.mockImplementation(async (key: string) => (key === 'mc-recent-categories-user_a' ? JSON.stringify(['Fuel']) : null))
+  setActiveBudget('sp_home')
+  const first = renderHook(() => useRecentCategories())
+  await waitFor(() => expect(get).toHaveBeenCalledWith('mc-recent-categories-user_a-sp_home'))
+  act(() => logoutHandler?.())
+  first.unmount()
+
+  mockUid = 'user_b'
+  setActiveBudget(null)
+  const { result } = renderHook(() => useRecentCategories())
+  await waitFor(() => expect(get).toHaveBeenCalledWith('mc-recent-categories-user_b'))
+  expect(result.current.recents).toEqual([])
   get.mockReset().mockResolvedValue(null)
 })

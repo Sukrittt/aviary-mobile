@@ -1,6 +1,6 @@
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Animated, View, Text, StyleSheet } from "react-native";
+import { Animated, Platform, View, Text, StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import Reanimated, { FadeIn, FadeInDown } from "react-native-reanimated";
@@ -9,7 +9,7 @@ import { useAudioPlayer } from "expo-audio";
 import * as Haptics from "expo-haptics";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { fontFamily } from "@/src/theme/fonts";
-import { useBudgets } from "@/src/hooks/useBudgets";
+import { useBudgets, useCarry } from "@/src/hooks/useBudgets";
 import { useCategories } from "@/src/hooks/useCategories";
 import { useDeleteExpense, useRecentExpenses, useUndoPendingExpense } from "@/src/hooks/useExpenses";
 import { noticedLine, weeklyRepeat } from "@/src/lib/noticed";
@@ -39,6 +39,8 @@ import {
   fillSoftColorStops,
 } from "@/src/components/envelope/ProgressBar";
 import { LOG_EXPENSE_PATH } from "@/src/features/log-expense/SubmitContext";
+import { takeUpiShareTip } from "@/src/features/share/upiShareTip";
+import { track } from "@/src/lib/analytics";
 
 /** Reveal stagger, in ms from mount. The tick (Lottie) runs its own internal
  *  timing and needs no entry here. `cardFooter` (the days-left/pace row) is
@@ -209,12 +211,15 @@ export default function ExpenseAddedScreen() {
   const paymentMethod = str(params.paymentMethod);
   const accountId = str(params.accountId);
   const amount = Number(str(params.amount)) || 0;
+  const shared = str(params.shared) === "1";
+  const paidWith = str(params.paidWith) || paymentMethod;
   // Older servers return no timestamp on POST, which left the stamp line blank.
   // log-expense sends the moment it navigated as a fallback; it is only ever
   // displayed — Undo still addresses the row by `timestamp`, empty or not.
   const stamp = timestamp || str(params.loggedAt);
 
   const budgetsQ = useBudgets();
+  const carryQ = useCarry(currentMonthKey());
   const expensesQ = useRecentExpenses();
   const categoriesQ = useCategories();
   const groupsQ = useGroups();
@@ -244,15 +249,19 @@ export default function ExpenseAddedScreen() {
   }, [chime]);
 
   const envelope = useMemo(() => {
+    // The counter seeds once, so it waits for the carry rather than tick from a no-carry balance.
+    if (carryQ.isLoading) return undefined;
     const state = computeEnvelopeState(
       budgetsQ.data ?? [],
       expensesQ.data ?? [],
       currentMonthKey(),
       categoriesQ.data ?? [],
       groupsQ.data ?? [],
+      undefined,
+      carryQ.data,
     );
     return state.envelopes.find((e) => e.category === category);
-  }, [budgetsQ.data, expensesQ.data, categoriesQ.data, groupsQ.data, category]);
+  }, [budgetsQ.data, carryQ.data, carryQ.isLoading, expensesQ.data, categoriesQ.data, groupsQ.data, category]);
 
   // The refetch this mutation triggered may not have landed yet — if the new row
   // isn't in the list, the envelope hasn't been charged for it. Subtract by hand so
@@ -322,6 +331,20 @@ export default function ExpenseAddedScreen() {
     () => noticedLine(weeklyRepeat(expensesQ.data ?? [], { id: id || undefined, timestamp: timestamp || undefined, item, date, amount }).count),
     [expensesQ.data, id, timestamp, item, date, amount],
   );
+
+  // Once, after a first bank (likely UPI) log: logging the next one can start from the payment app.
+  const [upiTip, setUpiTip] = useState(false);
+  useEffect(() => {
+    let live = true;
+    void takeUpiShareTip({ android: Platform.OS === "android", paidWith, shared }).then((show) => {
+      if (!show || !live) return;
+      setUpiTip(true);
+      track("upi_share_tip_shown");
+    });
+    return () => { live = false; };
+    // Decided once per screen, on what was just logged.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const undoingPending = undoPendingExpense.isPending;
 
@@ -437,6 +460,17 @@ export default function ExpenseAddedScreen() {
             >
               <Text style={{ color: tokens.text, fontFamily: fontFamily.bodyBold, fontSize: type.body, textAlign: "center" }}>
                 {noticed}
+              </Text>
+            </Reanimated.View>
+          )}
+
+          {upiTip && (
+            <Reanimated.View
+              entering={FadeInDown.delay(STAGGER.detail + 160).duration(420)}
+              style={[styles.noticed, { backgroundColor: tokens.successBg }]}
+            >
+              <Text numberOfLines={1} adjustsFontSizeToFit style={{ color: tokens.onSuccess, fontFamily: fontFamily.bodyBold, fontSize: type.body, textAlign: "center" }}>
+                Paid with UPI? Share the screen to Aviary.
               </Text>
             </Reanimated.View>
           )}

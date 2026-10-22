@@ -34,13 +34,19 @@ export async function getGroupColors(): Promise<[string, string][]> {
   return (await getGroupRows()).flatMap((r): [string, string][] => (r.color ? [[r.name, r.color]] : []))
 }
 
-export async function addGroup(name: string): Promise<void> {
+/**
+ * POST only takes the name, so a picked icon or colour follows as an update.
+ * That update is best-effort: the group exists by then, and failing here would
+ * send the user's retry into "already exists". Edit group can restyle it.
+ */
+export async function addGroup(name: string, style: { icon?: string; color?: string } = {}): Promise<void> {
   const resp = await apiFetch('/api/groups', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name }),
   })
   if (!resp.ok) throw new Error(await apiErrorMessage(resp, 'Failed to add group'))
+  if (style.icon || style.color) await updateGroup(name, style).catch(() => {})
 }
 
 export async function updateGroup(name: string, updates: { newName?: string; icon?: string; color?: string }): Promise<void> {

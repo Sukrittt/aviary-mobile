@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import * as SecureStore from "expo-secure-store";
-import { accessMode } from "@/src/api/accessMode";
+import { accessMode, currentUserId } from "@/src/api/accessMode";
 import { pushRecent } from "@/src/lib/recentCategories";
 import { activeBudgetId, subscribeActiveBudget } from "@/src/lib/activeBudget";
 
@@ -14,10 +14,12 @@ const KEY = "mc-recent-categories";
  * category cache.
  */
 export function useRecentCategories() {
-  // One list per budget: another budget's categories mostly don't exist here.
-  // The personal budget keeps the original key.
+  // One list per account and budget: another budget's categories mostly don't
+  // exist here, and sign-out only clears the open budget's list, so the next
+  // account on this device must never read the last one's.
   const spaceId = useSyncExternalStore(subscribeActiveBudget, activeBudgetId);
-  const key = spaceId ? `${KEY}-${spaceId}` : KEY;
+  const uid = currentUserId() ?? "guest";
+  const key = spaceId ? `${KEY}-${uid}-${spaceId}` : `${KEY}-${uid}`;
   // Tagged with its budget, so a switch never shows the last budget's list.
   const [stored, setStored] = useState<{ key: string; list: string[] }>({ key, list: [] });
   const recents = stored.key === key ? stored.list : [];
@@ -44,6 +46,8 @@ export function useRecentCategories() {
       hydrated.current = false;
       setStored({ key, list: [] });
       SecureStore.deleteItemAsync(key).catch(() => {});
+      // The pre-account key, from before lists were keyed by user.
+      SecureStore.deleteItemAsync(KEY).catch(() => {});
     });
     return () => {
       current = false;

@@ -62,3 +62,13 @@ it('keys the dismissal by month, so a new month starts fresh', async () => {
   await waitFor(() => expect(get).toHaveBeenCalledWith('mc-rollover-dismissed-2026-09'))
   await waitFor(() => expect(result.current[0]).toBe(false))
 })
+
+it("ignores a late read for a key it's moved off", async () => {
+  let resolveOld!: (v: string | null) => void
+  get.mockReturnValueOnce(new Promise((r) => (resolveOld = r))).mockResolvedValueOnce(null)
+  const { result, rerender } = renderHook(({ k }: { k: string }) => useDismissedRolloverBanner(k), { initialProps: { k: 'a' } })
+  rerender({ k: 'b' })
+  await waitFor(() => expect(result.current[0]).toBe(false))
+  await act(async () => resolveOld('1'))
+  expect(result.current[0]).toBe(false)
+})

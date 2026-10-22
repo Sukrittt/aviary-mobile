@@ -45,43 +45,6 @@ it('rebuilds the emptied stack from the first registered screen', async () => {
   expect(testRouter.canGoBack()).toBe(false)
 })
 
-function OnboardingLayout() {
-  const [onboarded, setOnboarded] = useState(false)
-  useEffect(() => onOnboarded(() => setOnboarded(true)), [])
-  return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Protected guard={!onboarded}>
-        <Stack.Screen name="setup" />
-      </Stack.Protected>
-      <Stack.Protected guard={onboarded}>
-        <Stack.Screen name="account/trial-notice" />
-        <Stack.Screen name="modals/log-expense" />
-        <Stack.Screen name="index" />
-      </Stack.Protected>
-    </Stack>
-  )
-}
-
-it('replaces setup with the trial notice, then exits to Home without returning to setup', async () => {
-  function TrialNotice() {
-    const router = useRouter()
-    return <Button title="Got it" onPress={() => router.replace('/')} />
-  }
-  renderRouter({
-    _layout: OnboardingLayout,
-    setup: () => <Button title="Continue" onPress={() => signalOnboarded()} />,
-    'account/trial-notice': TrialNotice,
-    'modals/log-expense': () => <Text>log expense</Text>,
-    index: () => <Text>home</Text>,
-  }, { initialUrl: '/setup' })
-  fireEvent.press(screen.getByText('Continue'))
-  await waitFor(() => expect(screen.getByText('Got it')).toBeTruthy())
-  expect(testRouter.canGoBack()).toBe(false)
-  fireEvent.press(screen.getByText('Got it'))
-  await waitFor(() => expect(screen.getByText('home')).toBeTruthy())
-  expect(testRouter.canGoBack()).toBe(false)
-})
-
 // New users (no manual expense yet) get (tabs) declared ahead of log-expense,
 // so the same rebuild rule opens them on Home instead.
 it('opens on Home when it is declared ahead of log-expense', async () => {
@@ -140,7 +103,6 @@ it('never shows the sign-in screens again once setup finishes', async () => {
           <Stack.Screen name="setup" />
         </Stack.Protected>
         <Stack.Protected guard={signedIn && onboarded}>
-          <Stack.Screen name="account/trial-notice" />
           <Stack.Screen name="index" />
         </Stack.Protected>
         <Stack.Screen name="email" />
@@ -162,7 +124,6 @@ it('never shows the sign-in screens again once setup finishes', async () => {
     },
     signin: () => <Text>signing in</Text>,
     setup: () => <Button title="Continue" onPress={() => signalOnboarded()} />,
-    'account/trial-notice': () => <Text>trial notice</Text>,
     index: () => <Text>home</Text>,
   }, { initialUrl: '/email' })
 
@@ -170,7 +131,7 @@ it('never shows the sign-in screens again once setup finishes', async () => {
   fireEvent.press(await screen.findByText('Verify'))
   fireEvent.press(await screen.findByText('Continue'))
 
-  await waitFor(() => expect(screen.getByText('trial notice')).toBeTruthy())
+  await waitFor(() => expect(screen.getByText('home')).toBeTruthy())
   expect(screen.queryByText('Send code')).toBeNull()
   expect(testRouter.canGoBack()).toBe(false)
 })

@@ -4,6 +4,7 @@ import { Check, CaretRight, X } from '@/src/components/shared/icons'
 import { currencyInfo, searchCurrencies } from '@/src/lib/currencies'
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { useUpdateUser } from '@/src/hooks/useUser'
+import { useBudgetSpaces } from '@/src/hooks/useBudgetSpaces'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { BottomSheet } from '@/src/components/shared/Modal'
@@ -76,6 +77,21 @@ export function CurrencySetting() {
   const update = useUpdateUser()
   const [open, setOpen] = useState(false)
   const current = currencyInfo(currencyCode)
+  const chipText = `${current.code}${current.symbol !== current.code ? ` · ${current.symbol}` : ''}`
+  // The server only lets a shared budget's owner change its currency, so a member sees it, read-only.
+  if (useBudgetSpaces().active?.role === 'member') {
+    return (
+      <View accessible accessibilityLabel={`Currency, ${current.name}. Set by the budget owner`} style={styles.settingRow}>
+        <View style={styles.settingCopy}>
+          <Text style={[styles.settingLabel, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>Currency</Text>
+          <Text style={[styles.settingHint, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>Set by the budget owner</Text>
+        </View>
+        <View style={[styles.valueChip, { backgroundColor: tokens.chipActiveBg, borderColor: tokens.borderStrong }]}>
+          <Text style={[styles.valueText, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>{chipText}</Text>
+        </View>
+      </View>
+    )
+  }
   return <>
     <Pressable
       accessibilityRole="button"
@@ -86,9 +102,7 @@ export function CurrencySetting() {
     >
       <Text style={[styles.settingLabel, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>Currency</Text>
       <View style={[styles.valueChip, { backgroundColor: tokens.chipActiveBg, borderColor: tokens.borderStrong }]}>
-        <Text style={[styles.valueText, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>
-          {current.code}{current.symbol !== current.code ? ` · ${current.symbol}` : ''}
-        </Text>
+        <Text style={[styles.valueText, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>{chipText}</Text>
         <CaretRight size={14} color={tokens.text3} />
       </View>
     </Pressable>
@@ -176,6 +190,8 @@ const styles = StyleSheet.create({
   },
   settingRowPressed: { opacity: 0.72 },
   settingLabel: { flex: 1, fontSize: 14 },
+  settingCopy: { flex: 1, gap: 2 },
+  settingHint: { fontSize: 12 },
   valueChip: {
     minHeight: 32,
     paddingLeft: 11,

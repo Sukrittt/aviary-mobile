@@ -7,7 +7,7 @@ import { useQuery } from '@tanstack/react-query'
 import { requestPinWidget } from 'react-native-android-widget'
 import * as ImagePicker from 'expo-image-picker'
 import * as Haptics from 'expo-haptics'
-import { Gift, Brain, Wallet, Bank, TrendUp, Lock, Database, Archive, Repeat, CreditCard, ChatCircle, SquaresFour, CaretRight, Scan, Camera, Images, FileText, Receipt, ChartLine, ClockCounterClockwise, Plus, UserPlus, UploadSimple, Users, Ticket, type PhosphorIcon } from '@/src/components/shared/icons'
+import { Gift, Brain, Wallet, Bank, TrendUp, Lock, Database, Archive, Repeat, CreditCard, ChatCircle, SquaresFour, CaretRight, Scan, Camera, Images, FileText, Receipt, ChartLine, ClockCounterClockwise, Plus, UserPlus, UploadSimple, Users, Ticket, DownloadSimple, type PhosphorIcon } from '@/src/components/shared/icons'
 import { Screen } from '@/src/components/ui/Screen'
 import { Alert } from '@/src/components/ui/AlertHost'
 import { useTheme } from '@/src/theme/ThemeProvider'
@@ -75,6 +75,7 @@ function MoreScreen() {
   }
   const online = useOnline()
   const { readOnly } = useReadOnly()
+  const { active } = useBudgetSpaces()
 
   const userQuery = useUser()
   const user = userQuery.data
@@ -271,6 +272,14 @@ function MoreScreen() {
                 iconBg={tokens.violetSoft}
                 iconColor={tokens.violet}
                 onPress={() => router.push('/account/recurring')}
+              />}
+              {!readOnly && active?.role !== 'member' && <FeatureCard
+                icon={DownloadSimple}
+                label="Import from another app"
+                blurb="Bring your old history in"
+                iconBg={tokens.warnSoft}
+                iconColor={tokens.warn}
+                onPress={() => router.push('/account/import')}
               />}
               <FeatureCard
                 icon={Archive}

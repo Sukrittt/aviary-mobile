@@ -14,6 +14,7 @@ import { categoryTint } from '@/src/lib/emoji'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { readCategoryCache, writeCategoryCache } from '@/src/lib/categoryCache'
 import { isTransportFailure } from '@/src/api/client'
+import { budgetsKey } from '@/src/hooks/useBudgets'
 
 const key = ['categories'] as const
 
@@ -118,6 +119,8 @@ export function useAddCategory() {
       // apart, and `grouped` says whether people use groups at all.
       track('envelope_created', { grouped: !!params.group })
       qc.invalidateQueries({ queryKey: key })
+      // Re-creating a deleted name resets its target and changes the carry.
+      qc.invalidateQueries({ queryKey: budgetsKey })
     },
   })
 }
@@ -173,7 +176,8 @@ export function useDeleteCategory() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (name: string) => deleteCategory(name),
-    onSuccess: () => qc.invalidateQueries({ queryKey: key }),
+    // budgetsKey covers the carry: a deleted envelope's balance moves to Ready to assign.
+    onSuccess: () => Promise.all([qc.invalidateQueries({ queryKey: key }), qc.invalidateQueries({ queryKey: budgetsKey })]),
   })
 }
 

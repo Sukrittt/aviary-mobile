@@ -1,3 +1,4 @@
+import { CarryFailed } from '@/src/components/shared/CarryFailed'
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { StepDot } from '@/src/components/onboarding/StepDot'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
@@ -6,7 +7,7 @@ import { Numpad } from '@/src/components/ui/Numpad'
 import { useAmountEntry } from '@/src/components/ui/useAmountEntry'
 import { useProgressWidth } from '@/src/components/ui/useProgressWidth'
 import { usePrivacy } from '@/src/context/PrivacyContext'
-import { useBudgets,useTransferBudget } from '@/src/hooks/useBudgets'
+import { useBudgets, useCarry, useTransferBudget } from '@/src/hooks/useBudgets'
 import { useCategories, useCategoryTint } from '@/src/hooks/useCategories'
 import { useRecentExpenses } from '@/src/hooks/useExpenses'
 import { useGroups } from '@/src/hooks/useGroups'
@@ -89,10 +90,12 @@ function MoveMoneyModal() {
   const iconByName = useMemo(() => new Map(categories.map((c) => [c.name, categoryIconKey(c.name, c.icon, c.group)])), [categories])
   const groups = groupsQ.data ?? EMPTY
   const month = useMemo(() => currentMonthKey(), [])
+  // Keyed on the frozen month, so a modal left open past midnight on the last day stays consistent.
+  const carryQ = useCarry(month)
 
   const envelopeState = useMemo(
-    () => computeEnvelopeState(budgets, expenses, month, categories, groups),
-    [budgets, expenses, month, categories, groups],
+    () => computeEnvelopeState(budgets, expenses, month, categories, groups, undefined, carryQ.data),
+    [budgets, expenses, month, categories, groups, carryQ.data],
   )
 
   const target = envelopeState.envelopes.find((e) => e.category === targetCategoryName)
@@ -149,7 +152,7 @@ function MoveMoneyModal() {
   const covered = amount > 0 && remaining === 0 && pickedRows.length > 0
   const poolRows = sources.filter((s) => !(s.key in allocs) && (!q || s.name.toLowerCase().includes(q)))
 
-  const isLoading = budgetsQ.isLoading || expensesQ.isLoading || categoriesQ.isLoading || groupsQ.isLoading
+  const isLoading = budgetsQ.isLoading || expensesQ.isLoading || categoriesQ.isLoading || groupsQ.isLoading || carryQ.isLoading
 
   // Let the inline checkmark finish drawing before navigating back.
   // The app can launch into Log expense, which "Added" then replaced with this
@@ -227,6 +230,7 @@ function MoveMoneyModal() {
       </View>
     )
   }
+  if (carryQ.isError && carryQ.data === undefined) return <CarryFailed />
 
   const noOptions = !target || (envelopeSources.length === 0 && readyToAssign <= 0)
 

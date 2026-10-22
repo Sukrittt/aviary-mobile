@@ -8,6 +8,7 @@ jest.mock('@/src/theme/ThemeProvider', () => ({
   useTheme: () => ({ scheme: 'dark', tokens: { cardSolid: '#0e0e0e', inputBg: '#020202' } }),
 }))
 jest.mock('@/src/components/shared/Modal', () => ({ BottomSheet: ({ visible, children }: { visible: boolean; children: ReactNode }) => visible ? children : null }))
+jest.mock('@/src/hooks/useBudgetSpaces', () => ({ useBudgetSpaces: () => ({ active: null }) }))
 jest.mock('@/src/hooks/useUser', () => ({ useUpdateUser: () => ({ mutate: mockMutate, isPending: false, isError: false }) }))
 describe('currency picker', () => {
   beforeEach(() => mockMutate.mockClear())

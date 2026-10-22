@@ -1,6 +1,7 @@
 import { act, fireEvent, waitFor } from '@testing-library/react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import StatementScreen from './statement'
+import { slide } from '@/src/test-utils/slide'
 
 const mockRead = jest.fn()
 jest.mock('@/src/api/statement', () => ({
@@ -88,7 +89,7 @@ it('logs only ticked rows, each with its hashed client_id', async () => {
   fireEvent.press(screen.getByText('pick-food'))
   // Left in flight: this is about what gets sent, and the success tick would animate past the test.
   mockMutate.mockReturnValue(new Promise(() => {}))
-  fireEvent.press(screen.getByText(/^Log 2 · /))
+  slide(screen.getByLabelText(/^Slide to log 2 · /))
   await waitFor(() => expect(mockMutate).toHaveBeenCalledTimes(2))
   expect(mockMutate.mock.calls.map((c) => c[0].client_id)).toEqual(['statement:a', 'statement:c'])
   expect(mockMutate.mock.calls[1][0]).toMatchObject({ source: 'statement', category: 'Food', date: '2026-10-12' })
@@ -110,7 +111,7 @@ it('picking a category ticks the row it belongs to', async () => {
   fireEvent.press(screen.getByLabelText('Pick a category for Chai'))
   fireEvent.press(screen.getByText('pick-food'))
   expect(screen.getByLabelText(/Add Chai/).props.accessibilityState).toMatchObject({ checked: true })
-  expect(screen.getByText(/^Log 2 · /)).toBeTruthy()
+  expect(screen.getByLabelText(/^Slide to log 2 · /)).toBeTruthy()
 })
 
 it('ends on what got filled in, then closes or goes to Activity', async () => {
@@ -118,7 +119,7 @@ it('ends on what got filled in, then closes or goes to Activity', async () => {
   try {
     const screen = await openReview()
     fireEvent.press(screen.getByLabelText(/Add Rapido/))
-    fireEvent.press(screen.getByText(/^Log 2 · /))
+    slide(screen.getByLabelText(/^Slide to log 2 · /))
     await waitFor(() => expect(mockMutate).toHaveBeenCalledTimes(2))
     await waitFor(() => jest.advanceTimersByTime(1100))
     expect(await screen.findByText("You're caught up.")).toBeTruthy()
@@ -140,10 +141,10 @@ it('counts a row an earlier failed try already saved, even once it is unticked',
     const screen = await openReview()
     fireEvent.press(screen.getByLabelText(/Add Rapido/))
     mockMutate.mockResolvedValueOnce({}).mockRejectedValueOnce(new Error('503'))
-    fireEvent.press(screen.getByText(/^Log 2 · /))
+    slide(screen.getByLabelText(/^Slide to log 2 · /))
     expect(await screen.findByText("Couldn't log 1. Check your connection and try again.")).toBeTruthy()
     fireEvent.press(screen.getByLabelText(/Add Swiggy/))
-    fireEvent.press(screen.getByText(/^Log 1 · /))
+    slide(screen.getByLabelText(/^Slide to log 1 · /))
     await waitFor(() => expect(mockMutate).toHaveBeenCalledTimes(3))
     await waitFor(() => jest.advanceTimersByTime(1100))
     expect(await screen.findByText("You're caught up.")).toBeTruthy()
@@ -155,7 +156,7 @@ it('counts a row an earlier failed try already saved, even once it is unticked',
 })
 
 async function logAndFinish(screen: Awaited<ReturnType<typeof openReview>>, label: RegExp, calls: number) {
-  fireEvent.press(screen.getByText(label))
+  slide(screen.getByLabelText(label))
   await waitFor(() => expect(mockMutate).toHaveBeenCalledTimes(calls))
   await waitFor(() => jest.advanceTimersByTime(1100))
 }
@@ -173,7 +174,7 @@ it('saves four at a time, a day in order, and counts every row to the end', asyn
     const answers: (() => void)[] = []
     mockMutate.mockImplementation(() => new Promise((r) => answers.push(() => r({}))))
     const screen = await openReview()
-    fireEvent.press(screen.getByText(/^Log 6 · /))
+    slide(screen.getByLabelText(/^Slide to log 6 · /))
     const sent = () => mockMutate.mock.calls.map((c) => c[0].client_id)
     await waitFor(() => expect(sent()).toEqual(['statement:0', 'statement:2', 'statement:3', 'statement:4']))
     expect(mockMutate.mock.calls[0][0]).toMatchObject({ deferRefresh: true })
@@ -201,7 +202,7 @@ it("doesn't count a row the server already had as added", async () => {
     const screen = await openReview()
     fireEvent.press(screen.getByLabelText(/Add Rapido/))
     mockMutate.mockResolvedValueOnce({}).mockResolvedValueOnce({ duplicate: true })
-    await logAndFinish(screen, /^Log 2 · /, 2)
+    await logAndFinish(screen, /^Slide to log 2 · /, 2)
     expect(await screen.findByText('1 payment added')).toBeTruthy()
   } finally {
     jest.useRealTimers()
@@ -213,7 +214,7 @@ it('says so when everything ticked was already there', async () => {
   try {
     const screen = await openReview()
     mockMutate.mockResolvedValueOnce({ duplicate: true })
-    await logAndFinish(screen, /^Log 1 · /, 1)
+    await logAndFinish(screen, /^Slide to log 1 · /, 1)
     expect(await screen.findByText('Those were already in your budget, so nothing doubled up.')).toBeTruthy()
     expect(screen.queryByText(/added/)).toBeNull()
   } finally {
@@ -221,7 +222,7 @@ it('says so when everything ticked was already there', async () => {
   }
 })
 
-it('turns away a file that is not a statement, and words a locked pdf', async () => {
+it('turns away a file that is not a statement, and words a scanned pdf', async () => {
   mockPickFile.mockResolvedValueOnce({ uri: 'file:///x.docx', name: 'x.docx' })
   const screen = renderWithProviders(<StatementScreen />)
   fireEvent.press(screen.getByText('Choose a statement'))
@@ -229,13 +230,72 @@ it('turns away a file that is not a statement, and words a locked pdf', async ()
   expect(mockRead).not.toHaveBeenCalled()
 
   const { StatementFailure } = jest.requireActual('@/src/api/statement')
-  mockRead.mockRejectedValueOnce(new StatementFailure('That PDF has a password. Download the statement as Excel or CSV from net banking and upload that instead.', 'That PDF is locked'))
+  mockRead.mockRejectedValueOnce(new StatementFailure("That PDF is a scan, so there's no text to read. Try screenshots of your payments instead.", "That's a scan", 'pdf_no_text'))
   fireEvent.press(screen.getByText('Choose a statement'))
-  expect(await screen.findByText(/That PDF has a password/)).toBeTruthy()
-  expect(screen.getByText('That PDF is locked')).toBeTruthy()
+  expect(await screen.findByText(/That PDF is a scan/)).toBeTruthy()
   expect(jest.requireMock('expo-haptics').notificationAsync).toHaveBeenCalledWith('error')
   // Try again goes back to the picker.
   fireEvent.press(screen.getByText('Try again'))
+  expect(screen.getByText('Choose a statement')).toBeTruthy()
+})
+
+it("asks for a locked pdf's password in place, and keeps the file through a wrong guess", async () => {
+  const file = { uri: 'file:///hdfc.pdf', name: 'hdfc.pdf', size: 1200 }
+  mockPickFile.mockResolvedValueOnce(file)
+  const { StatementFailure } = jest.requireActual('@/src/api/statement')
+  mockRead
+    .mockRejectedValueOnce(new StatementFailure('locked', 'That PDF is locked', 'pdf_locked'))
+    .mockRejectedValueOnce(new StatementFailure('wrong', 'Wrong password', 'pdf_password_wrong'))
+  const screen = renderWithProviders(<StatementScreen />)
+  fireEvent.press(screen.getByText('Choose a statement'))
+  expect(await screen.findByText('hdfc.pdf has a password')).toBeTruthy()
+  expect(screen.getByText('Used once to open the file. Never saved.')).toBeTruthy()
+  expect(screen.queryByText("That didn't open it, try again.")).toBeNull()
+
+  fireEvent.changeText(screen.getByLabelText('Password'), 'nope')
+  // The button and the keyboard's Go both land before the reading screen renders; only one upload goes.
+  const field = screen.getByLabelText('Password')
+  const open = screen.getByText('Open it')
+  act(() => {
+    fireEvent.press(open)
+    fireEvent(field, 'submitEditing')
+  })
+  expect(await screen.findByText("That didn't open it, try again.")).toBeTruthy()
+  expect(screen.getByLabelText('Password').props.value).toBe('')
+
+  fireEvent.changeText(screen.getByLabelText('Password'), '01011990')
+  fireEvent.press(screen.getByText('Open it'))
+  await screen.findByText('Check these, then log')
+  expect(mockRead.mock.calls.map((c) => c[0])).toEqual([{ file }, { file, password: 'nope' }, { file, password: '01011990' }])
+  expect(mockPickFile).toHaveBeenCalledTimes(1)
+})
+
+it('stays on the password when a retry hits the rate limit, so the file is kept', async () => {
+  const file = { uri: 'file:///hdfc.pdf', name: 'hdfc.pdf', size: 1200 }
+  mockPickFile.mockResolvedValueOnce(file)
+  const { StatementFailure } = jest.requireActual('@/src/api/statement')
+  mockRead
+    .mockRejectedValueOnce(new StatementFailure('locked', 'That PDF is locked', 'pdf_locked'))
+    .mockRejectedValueOnce(new StatementFailure('Give it a minute.', 'One moment', 'rate_limited'))
+  const screen = renderWithProviders(<StatementScreen />)
+  fireEvent.press(screen.getByText('Choose a statement'))
+  fireEvent.changeText(await screen.findByLabelText('Password'), '01011990')
+  fireEvent.press(screen.getByText('Open it'))
+  expect(await screen.findByText('Give it a minute.')).toBeTruthy()
+  fireEvent.changeText(screen.getByLabelText('Password'), '01011990')
+  fireEvent.press(screen.getByText('Open it'))
+  await screen.findByText('Check these, then log')
+  expect(mockRead).toHaveBeenLastCalledWith({ file, password: '01011990' })
+  expect(mockPickFile).toHaveBeenCalledTimes(1)
+})
+
+it('goes back to the picker from the password step', async () => {
+  mockPickFile.mockResolvedValueOnce({ uri: 'file:///hdfc.pdf', name: 'hdfc.pdf', size: 1200 })
+  const { StatementFailure } = jest.requireActual('@/src/api/statement')
+  mockRead.mockRejectedValueOnce(new StatementFailure('locked', 'That PDF is locked', 'pdf_locked'))
+  const screen = renderWithProviders(<StatementScreen />)
+  fireEvent.press(screen.getByText('Choose a statement'))
+  fireEvent.press(await screen.findByText('Pick another file'))
   expect(screen.getByText('Choose a statement')).toBeTruthy()
 })
 

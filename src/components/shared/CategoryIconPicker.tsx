@@ -50,7 +50,8 @@ export function CategoryIconPicker({ value, onChange, tint, disabled, children }
   return (
     <View>
       <View style={styles.row}>
-        <PopOnChange value={tint.ink} style={styles.tileWrap}>
+        {/* Bounces when a new icon or colour lands on the tile. */}
+        <PopOnChange value={`${value}|${tint.ink}`} style={styles.tileWrap}>
           <Pressable
             onPress={() => setOpen(true)}
             disabled={disabled}

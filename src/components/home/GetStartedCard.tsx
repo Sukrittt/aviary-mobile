@@ -22,6 +22,11 @@ type Props = {
   onAddTransaction: () => void
   onTakeTour: () => void
   onSkip: () => void
+  /** e.g. "Free until 21 November 2026 · no card needed". Replaces the old
+   * full-screen trial notice after setup, so the trial is mentioned without
+   * standing between a new user and their first expense. */
+  trialNote?: string
+  onTrialNote?: () => void
 }
 
 type Step = { key: string; icon: PhosphorIcon; label: string; hint: string; done: boolean; onPress?: () => void }
@@ -44,6 +49,8 @@ export function GetStartedCard({
   onAddTransaction,
   onTakeTour,
   onSkip,
+  trialNote,
+  onTrialNote,
 }: Props) {
   const { tokens, radius, space, type } = useTheme()
 
@@ -94,6 +101,11 @@ export function GetStartedCard({
           <Text style={{ color: tokens.text3, fontFamily: fontFamily.bodySemiBold, fontSize: type.micro }}>
             Four small steps, then this card gets out of your way.
           </Text>
+          {trialNote && (
+            <Pressable accessibilityRole="link" onPress={onTrialNote} hitSlop={6}>
+              <Text style={{ color: tokens.accentInk, fontFamily: fontFamily.bodyExtraBold, fontSize: type.micro }}>{trialNote}</Text>
+            </Pressable>
+          )}
         </View>
         <Pressable
           accessibilityRole="button"
@@ -163,8 +175,9 @@ function StepRow({ step, upNext, radius }: { step: Step; upNext: boolean; radius
       style={({ pressed }) => [
         styles.step,
         {
-          backgroundColor: done ? 'transparent' : tokens.inputBg,
-          borderColor: upNext ? tokens.accentSoft : 'transparent',
+          // Outlined tiles, not gray slabs; up next gets the accent border and a warm tint.
+          backgroundColor: upNext ? tokens.accentSoft : pressed && !done ? tokens.inputBg : 'transparent',
+          borderColor: done ? 'transparent' : upNext ? tokens.accent : tokens.border,
           borderRadius: radius,
           paddingHorizontal: space.sm + 2,
           paddingVertical: space.sm,
@@ -175,7 +188,7 @@ function StepRow({ step, upNext, radius }: { step: Step; upNext: boolean; radius
       <View
         style={[
           styles.badge,
-          { backgroundColor: done ? tokens.mintSoft : upNext ? tokens.accentInk : tokens.card },
+          { backgroundColor: done ? tokens.mintSoft : upNext ? tokens.accentInk : tokens.inputBg },
         ]}
       >
         <Icon icon={done ? Check : step.icon} size={16} color={done ? tokens.mint : upNext ? tokens.onAccent : tokens.text2} />

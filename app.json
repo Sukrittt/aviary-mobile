@@ -2,7 +2,7 @@
   "expo": {
     "name": "Aviary",
     "slug": "Mobile",
-    "version": "2.14.1",
+    "version": "2.15.0",
     "runtimeVersion": {
       "policy": "appVersion"
     },
@@ -75,7 +75,7 @@
           "insetDp": 16
         }
       ],
-      "./plugins/withOkHttpPing",
+      "./plugins/withOkHttpClient",
       "expo-router",
       "expo-status-bar",
       "expo-secure-store",
@@ -162,6 +162,13 @@
         }
       ],
       "expo-localization",
+      [
+        "expo-share-intent",
+        {
+          "disableIOS": true,
+          "androidIntentFilters": ["text/*", "image/*"]
+        }
+      ],
       [
         "expo-build-properties",
         {

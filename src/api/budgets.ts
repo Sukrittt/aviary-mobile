@@ -1,4 +1,5 @@
 import { apiFetch, apiErrorMessage } from './client'
+import type { Carry } from '@/src/lib/envelope'
 import type { BudgetRow, CsvResponse } from '@/src/types'
 import { BudgetWriteError } from '@/src/lib/budgetConflict'
 
@@ -7,6 +8,17 @@ export async function getBudgets(): Promise<BudgetRow[]> {
   if (!resp.ok) throw new Error(`Failed to load budgets: ${resp.status}`)
   const data: CsvResponse<BudgetRow> = await resp.json()
   return data.rows
+}
+
+/** What earlier months left behind for `month`. The server computes it (Web's lib/budgetCarry.ts). */
+export async function getCarry(month: string): Promise<Carry> {
+  const resp = await apiFetch(`/api/budgets/carry?month=${month}`)
+  // A Web deploy without the route yet. Nothing carries into ROLLOVER_START (2026-10), so an
+  // empty carry is right there and beats blocking Home for everyone. Later months really carry,
+  // so a 404 then has to fail loudly instead of understating every balance.
+  if (resp.status === 404 && month <= '2026-10') return { ready_to_assign: 0, rolled_over: {} }
+  if (!resp.ok) throw new Error(`Failed to load carry: ${resp.status}`)
+  return resp.json()
 }
 
 export async function addBudget(

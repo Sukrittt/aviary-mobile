@@ -3,7 +3,7 @@ import { CheckIcon } from "@/src/components/shared/CheckIcon";
 import { AmountText } from "@/src/components/ui/AmountText";
 import { Numpad } from "@/src/components/ui/Numpad";
 import { useAmountEntry } from "@/src/components/ui/useAmountEntry";
-import { useBudgets } from "@/src/hooks/useBudgets";
+import { useBudgets, useCarry } from "@/src/hooks/useBudgets";
 import { useCategories } from "@/src/hooks/useCategories";
 import { useAddIncome, useIncomes, useUpdateIncome } from "@/src/hooks/useIncomes";
 import type { IncomeRow } from "@/src/types";
@@ -69,10 +69,11 @@ export function IncomeForm({ existing, flood = false, defaultLabel, intro }: { e
   const router = useRouter();
   const budgetsQ = useBudgets();
   const categoriesQ = useCategories();
+  const carryQ = useCarry(month);
   const budgets = budgetsQ.data ?? EMPTY;
   const categories = categoriesQ.data ?? EMPTY;
-  // Without both lists the preview would read as income plus the typed value.
-  const canPreview = budgetsQ.data !== undefined && categoriesQ.data !== undefined;
+  // Without both lists the preview would read as income plus the typed value, and without the carry it'd miss last month's leftovers.
+  const canPreview = budgetsQ.data !== undefined && categoriesQ.data !== undefined && carryQ.data !== undefined;
   const addIncome = useAddIncome();
   const updateIncome = useUpdateIncome();
   const accounts = liveAccounts(useAccounts().data);
@@ -97,7 +98,7 @@ export function IncomeForm({ existing, flood = false, defaultLabel, intro }: { e
   // Expenses and groups don't change income or what's assigned, but the
   // category list owns envelope membership, so without it nothing counts as
   // assigned and Ready to Assign collapses to income.
-  const state = computeEnvelopeState(budgets, EMPTY, month, categories, EMPTY);
+  const state = computeEnvelopeState(budgets, EMPTY, month, categories, EMPTY, undefined, carryQ.data);
   const detail =
     state.incomeExtra === 0
       ? `${formatCurrency(state.incomeBase, hideAmounts)} monthly`

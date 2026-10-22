@@ -20,14 +20,14 @@ import { GapSheet } from '@/src/components/home/GapSheet'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { usePrivacy } from '@/src/context/PrivacyContext'
 import { fontFamily } from '@/src/theme/fonts'
-import { useBudgets } from '@/src/hooks/useBudgets'
+import { useBudgets, useCarry } from '@/src/hooks/useBudgets'
+import { rolloverCard } from '@/src/lib/rollover'
 import { useLastSpent, useRecentExpenses } from '@/src/hooks/useExpenses'
 import { useCategories } from '@/src/hooks/useCategories'
 import { useGroupIcons, useGroups } from '@/src/hooks/useGroups'
 import {
   computeEnvelopeState,
   currentMonthKey,
-  prevMonthKey,
   daysLeftInMonth,
   monthAbbrev,
   type Envelope,
@@ -40,7 +40,7 @@ import { useCollapsedGroups } from '@/src/hooks/useCollapsedGroups'
 import { useDismissedRolloverBanner } from '@/src/hooks/useDismissedRolloverBanner'
 import { useBillingStatus } from '@/src/hooks/useBillingStatus'
 import { GraceBanner } from '@/src/components/shared/MaintenanceBanner'
-import { daysOnUs, trialReminderBucket, trialRemainingLabel } from '@/src/lib/billingStatus'
+import { daysOnUs, formatDate, trialReminderBucket, trialRemainingLabel } from '@/src/lib/billingStatus'
 import { BALANCE_CHECK_ENABLED, BalanceCheckCard } from '@/src/components/balance/BalanceCheckCard'
 import { EnvelopeGroup } from '@/src/components/envelope/EnvelopeGroup'
 import { Screen } from '@/src/components/ui/Screen'
@@ -94,10 +94,17 @@ function HomeScreen() {
 
   const { hideAmounts } = usePrivacy()
   const month = currentMonthKey()
-  const prevMonth = prevMonthKey(month)
-  const [rolloverDismissed, setRolloverDismissed] = useDismissedRolloverBanner(prevMonth)
-  // Nice slides the strip away first; it's only stored as dismissed once that's done.
+  const carryQ = useCarry(month)
+  // "Got it" plays the shared check, then slides the card away; it's only
+  // stored as dismissed once that's done.
+  const [rolloverSeen, setRolloverSeen] = useState(false)
   const [rolloverLeaving, setRolloverLeaving] = useState(false)
+  const [rollReplays, setRollReplays] = useState(0)
+  useEffect(() => {
+    if (!rolloverSeen) return
+    const t = setTimeout(() => setRolloverLeaving(true), 1100)
+    return () => clearTimeout(t)
+  }, [rolloverSeen])
   // Trial reminders at 3 and 1 days left (7 days out is too early to spend
   // Home's one banner on). Same dismiss-once storage as the rollover banner,
   // keyed by threshold, so dismissing at 3 days still lets the 1-day through.
@@ -128,6 +135,9 @@ function HomeScreen() {
   const { multi: multiBudget, active: activeBudget } = useBudgetSpaces()
   // Read-only budget: no setup checklist or gap prompt, both lead only to writes.
   const readOnly = !!activeBudget?.readOnly
+  // Once per budget and month. A dash, not a colon: SecureStore rejects keys
+  // outside [A-Za-z0-9._-], and a rejected read would leave it unknown forever.
+  const [rolloverDismissed, setRolloverDismissed] = useDismissedRolloverBanner(`${activeBudget?.id ?? ''}-${month}`)
 
   const budgets = emptyForPreview(budgetsQ.data ?? EMPTY)
   const expenses = emptyForPreview(expensesQ.data ?? EMPTY)
@@ -139,8 +149,8 @@ function HomeScreen() {
   )
 
   const envelopeState = useMemo(
-    () => computeEnvelopeState(budgets, expenses, month, categories, groups, lastSpent),
-    [budgets, expenses, month, categories, groups, lastSpent],
+    () => computeEnvelopeState(budgets, expenses, month, categories, groups, lastSpent, carryQ.data),
+    [budgets, expenses, month, categories, groups, lastSpent, carryQ.data],
   )
 
   // Every way to set income edits the monthly schedule Ready to Assign counts
@@ -152,19 +162,11 @@ function HomeScreen() {
       ? { pathname: '/modals/recurring-income' as const, params: { id: monthlySchedules[0].id } }
       : { pathname: '/modals/recurring-income' as const, params: { label: 'Monthly income', frequency: 'monthly', amount: envelopeState.incomeBase > 0 ? String(envelopeState.incomeBase) : '' } }
 
-  const prevEnvelopeState = useMemo(
-    () => computeEnvelopeState(budgets, expenses, prevMonth, categories, groups),
-    [budgets, expenses, prevMonth, categories, groups],
-  )
   // A first pay next month leaves nothing to budget this month until they add what they have now.
   const upcomingPay = upcomingMonthlyPay(schedulesQ.data ?? [], month)
 
-  // Money doesn't roll into envelopes anymore (see envelope.ts), so this is a
-  // one-time heads-up on what was left unspent overall, not a running balance.
-  const prevMonthLeftover = useMemo(
-    () => prevEnvelopeState.income - prevEnvelopeState.totalSpent,
-    [prevEnvelopeState],
-  )
+  // What last month left behind, said once at the start of the month.
+  const rollover = rolloverCard(carryQ.data, month, (n) => formatCurrency(n, hideAmounts))
 
   // An edit that changes Ready to Assign (Move Money, or an envelope's action
   // sheet here) resolves and refetches while the screen that made the change
@@ -224,6 +226,13 @@ function HomeScreen() {
       .filter((g) => g.envelopes.length > 0)
   }, [envelopeState])
 
+  // Rows that carried something roll in one after another, top to bottom.
+  const rollOrder = useMemo(() => {
+    const order = new Map<string, number>()
+    for (const e of groupedEnvelopes.flatMap((g) => g.envelopes)) if (e.rolledOver) order.set(e.category, order.size)
+    return order
+  }, [groupedEnvelopes])
+
   // The credit card payoff envelope stays off Home; it lives under Categories.
   const envelopesEmpty = groupedEnvelopes.length === 0
 
@@ -270,10 +279,13 @@ function HomeScreen() {
   const banner = firstBanner([
     ['update', showUpdateBanner && !!androidUpdate, false],
     ['trial', trialBucket !== null && trialBucket <= 3 && !!billing, trialDismissed],
-    ['rollover', prevMonthLeftover > 0, rolloverDismissed],
+    ['rollover', !!rollover && !!activeBudget && !readOnly, rolloverDismissed],
     ['nudge', !!featureNudge.nudge && !showGetStarted, false],
   ])
   const nudge = banner === 'nudge' ? featureNudge.nudge : null
+  // Each bump rolls the carry into the Left pills: once when the strip first
+  // shows, again whenever it's tapped. Nothing to roll once it's gone.
+  const rollPlay = banner === 'rollover' ? rollReplays + 1 : 0
 
   function handleEditAmount(category: string) {
     router.push({ pathname: '/modals/edit-assigned-amount', params: { category } })
@@ -291,9 +303,9 @@ function HomeScreen() {
     setOpenSheetCount((c) => c + (open ? 1 : -1))
   }
 
-  const isLoading = !FORCE_EMPTY_STATE_PREVIEW && (budgetsQ.isLoading || expensesQ.isLoading || categoriesQ.isLoading || groupsQ.isLoading)
+  const isLoading = !FORCE_EMPTY_STATE_PREVIEW && (budgetsQ.isLoading || expensesQ.isLoading || categoriesQ.isLoading || groupsQ.isLoading || carryQ.isLoading)
   // A failed refresh keeps the last good data, so only a query with nothing to show is an error.
-  const hasError = !FORCE_EMPTY_STATE_PREVIEW && [budgetsQ, expensesQ, categoriesQ, groupsQ].some((q) => q.error && q.data === undefined)
+  const hasError = !FORCE_EMPTY_STATE_PREVIEW && [budgetsQ, expensesQ, categoriesQ, groupsQ, carryQ].some((q) => q.error && q.data === undefined)
 
   if (isLoading) {
     return <HomeSkeleton />
@@ -313,6 +325,7 @@ function HomeScreen() {
           expensesQ.refetch()
           categoriesQ.refetch()
           groupsQ.refetch()
+          carryQ.refetch()
         }}
       />
     )
@@ -436,9 +449,6 @@ function HomeScreen() {
           </View>
         )}
 
-        {/* The lasting record lives in Insights' "Where it went" card (any
-            month, not just last), so this banner can stay a dismissable
-            one-time heads-up rather than growing into one. */}
         {/* Outside firstBanner: it only ever shows for someone who just imported. */}
         <ImportBanner />
 
@@ -476,21 +486,32 @@ function HomeScreen() {
             onGone={() => {
               setRolloverDismissed(true)
               setRolloverLeaving(false)
+              setRolloverSeen(false)
             }}
           >
-            <Card style={[styles.rolloverCard, styles.slimRta, { backgroundColor: tokens.pillGoodBg, borderColor: 'transparent' }]} elevated={false}>
-              <Text style={{ color: tokens.text, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold, flex: 1 }}>
-                🌱 {formatCurrency(prevMonthLeftover, hideAmounts)} went to savings last month.
-              </Text>
-              <Pressable onPress={() => setRolloverLeaving(true)} disabled={rolloverLeaving} hitSlop={12}>
-                <Text style={{ color: tokens.mint, fontSize: type.caption, fontFamily: fontFamily.bodyExtraBold }}>Nice</Text>
-              </Pressable>
-            </Card>
+            {rollover && (
+              // Same size and green as the settled Ready to Assign row, as the old savings note was.
+              <Card style={[styles.rolloverCard, styles.slimRta, { backgroundColor: tokens.pillGoodBg, borderColor: 'transparent' }]} elevated={false}>
+                {/* The line replays the categories' roll-in, for anyone who missed it. */}
+                <Pressable accessibilityRole="button" accessibilityHint="Shows it again" onPress={() => { tap(); setRollReplays((n) => n + 1) }} style={{ flex: 1 }}>
+                  <Text numberOfLines={1} style={{ color: tokens.text, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>
+                    🌱 {rollover}
+                  </Text>
+                </Pressable>
+                <Pressable accessibilityRole="button" accessibilityLabel="Nice" onPress={() => setRolloverSeen(true)} disabled={rolloverSeen} hitSlop={12}>
+                  {rolloverSeen ? (
+                    <CheckIcon color={tokens.mint} size={18} />
+                  ) : (
+                    <Text style={{ color: tokens.mint, fontSize: type.caption, fontFamily: fontFamily.bodyExtraBold }}>Nice</Text>
+                  )}
+                </Pressable>
+              </Card>
+            )}
           </SlideStrip>
         )}
 
         {nudge && (
-          // Waits for the savings strip to fade out instead of overlapping it.
+          // Waits for the rollover card to fade out instead of overlapping it.
           <Reanimated.View entering={FadeIn.delay(180).duration(220)}>
             <Card style={styles.rolloverCard} elevated={false}>
               <Text style={{ color: tokens.text, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold, flex: 1 }}>
@@ -535,6 +556,8 @@ function HomeScreen() {
               onFund={() => (nextToFund ? handleEditAmount(nextToFund) : router.navigate('/(tabs)/envelopes'))}
               onAddTransaction={() => router.push('/modals/log-expense')}
               onTakeTour={() => router.push('/account/guided-tour')}
+              trialNote={billing?.mode === 'trial' && billing.trialEndsAt ? `Free until ${formatDate(billing.trialEndsAt)} · no card needed` : undefined}
+              onTrialNote={() => router.push('/account/trial-notice?from=more')}
               onSkip={() => {
                 Haptics.selectionAsync().catch(() => {})
                 setGetStartedSkipped(true)
@@ -588,6 +611,8 @@ function HomeScreen() {
                   expanded={!collapsedGroups.has(group)}
                   onToggle={toggleGroup}
                   onSheetOpenChange={handleSheetOpenChange}
+                  rollPlay={rollPlay}
+                  rollOrder={rollOrder}
                 />
               ))}
             </View>

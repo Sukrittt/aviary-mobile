@@ -55,9 +55,12 @@ type NavStateTree = { key?: string; index?: number; routes: { name: string; stat
 /**
  * The (tabs) navigator's state, for dispatching to it directly by its key.
  * expo-router nests it under its own root stack, so it's searched for.
+ * Topmost first: a `router.replace('/(tabs)')` from a pushed screen (Done
+ * on expense-added) stacks a second copy over the first, and jumping the
+ * hidden one left the nav lit on a tab the screen never switched to.
  */
 export function tabsState(state: NavStateTree | undefined): NavStateTree | undefined {
-  for (const route of state?.routes ?? []) {
+  for (const route of [...(state?.routes ?? [])].reverse()) {
     const tabs = route.name === '(tabs)' ? route.state : tabsState(route.state)
     if (tabs?.key) return tabs
   }

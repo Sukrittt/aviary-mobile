@@ -29,6 +29,10 @@ interface Props {
   expanded: boolean
   onToggle: (group: string) => void
   onSheetOpenChange?: (open: boolean) => void
+  /** Bump to roll last month's carry into each Left pill. 0 shows them settled. */
+  rollPlay?: number
+  /** Each carrying row's place in Home's top-to-bottom roll. */
+  rollOrder?: Map<string, number>
 }
 
 /** Expandable group header + its category rows, matching the dc.html "Envelopes" panel. */
@@ -44,6 +48,8 @@ export function EnvelopeGroup({
   expanded,
   onToggle,
   onSheetOpenChange,
+  rollPlay = 0,
+  rollOrder,
 }: Props) {
   const { formatCurrency } = useCurrency()
 
@@ -89,6 +95,8 @@ export function EnvelopeGroup({
                 onEditAmount={onEditAmount}
                 onViewTransactions={onViewTransactions}
                 onSheetOpenChange={onSheetOpenChange}
+                rollPlay={rollPlay}
+                rollDelayMs={Math.min(rollOrder?.get(e.category) ?? 0, 5) * 150}
               />
             </View>
           ))}

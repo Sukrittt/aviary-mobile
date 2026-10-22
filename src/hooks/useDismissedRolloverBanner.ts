@@ -30,22 +30,28 @@ export function useDismissedRolloverBanner(monthKey: string) {
 
   useEffect(() => {
     hydrated.current = false
+    // A read for a key we've since moved off must not land on the new one.
+    let stale = false
     SecureStore.getItemAsync(key)
       .then((raw) => {
-        setDismissed(raw === '1')
+        if (!stale) setDismissed(raw === '1')
       })
       .catch(() => {})
       .finally(() => {
-        hydrated.current = true
+        if (!stale) hydrated.current = true
       })
 
     // Otherwise the next account signed into on this device inherits the
     // previous one's dismissal.
-    return accessMode.subscribeLogout(() => {
+    const unsubscribe = accessMode.subscribeLogout(() => {
       hydrated.current = false
       setDismissed(false)
       SecureStore.deleteItemAsync(key).catch(() => {})
     })
+    return () => {
+      stale = true
+      unsubscribe()
+    }
   }, [key])
 
   useEffect(() => {

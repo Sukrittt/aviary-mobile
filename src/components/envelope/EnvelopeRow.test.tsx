@@ -1,4 +1,4 @@
-import { fireEvent } from '@testing-library/react-native'
+import { act, fireEvent } from '@testing-library/react-native'
 import { availablePill, EnvelopeRow } from './EnvelopeRow'
 import { lightTokens as t } from '@/src/theme/tokens'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
@@ -57,4 +57,32 @@ it('taps when the row opens its sheet', () => {
   fireEvent.press(getByText('Football'))
   expect(impact).toHaveBeenCalledWith(Haptics.ImpactFeedbackStyle.Rigid)
   impact.mockRestore()
+})
+
+describe('EnvelopeRow carry', () => {
+  it('adds no line for what carried; the Left pill already includes it', () => {
+    const short = row({ assigned: 8000, spent: 0, available: 7450, rolledOver: -550, spentPct: 0 })
+    expect(short.queryByText(/from |short/)).toBeNull()
+    short.unmount()
+    const ahead = row({ assigned: 12000, spent: 0, available: 14050, rolledOver: 2050, spentPct: 0 })
+    expect(ahead.queryByText(/from /)).toBeNull()
+    expect(ahead.getByLabelText('₹14,050')).toBeTruthy()
+  })
+
+  it('says what carried when the pill is long-pressed, then lets it go', () => {
+    jest.useFakeTimers()
+    jest.setSystemTime(new Date('2026-11-05T10:00:00'))
+    try {
+      const ahead = row({ assigned: 12000, spent: 0, available: 14050, rolledOver: 2050, spentPct: 0 })
+      fireEvent(ahead.getByHintText('+₹2,050 from October'), 'longPress')
+      expect(ahead.getByText('+₹2,050 from October')).toBeTruthy()
+      act(() => jest.advanceTimersByTime(2000))
+      expect(ahead.queryByText('+₹2,050 from October')).toBeNull()
+      ahead.unmount()
+      const none = row({ assigned: 1000, spent: 0, available: 1000, rolledOver: 0, spentPct: 0 })
+      expect(none.queryByHintText(/from/)).toBeNull()
+    } finally {
+      jest.useRealTimers()
+    }
+  })
 })
