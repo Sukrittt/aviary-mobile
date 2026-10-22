@@ -37,7 +37,7 @@ function toCategoriesStep() {
 it('splits the defaults 50/30/20 without asking Jev', async () => {
   const { getByText, getAllByText, findByText } = toCategoriesStep()
   fireEvent.press(getByText('Continue'))
-  expect(await findByText('Finish setup')).toBeTruthy()
+  expect(await findByText('Slide to finish setup')).toBeTruthy()
   expect(getSplitBuckets).not.toHaveBeenCalled()
   // No savings picked by default, so needs and wants keep their 50:30 ratio:
   // 31,250 and 18,750 before rounding, the leftover landing on the biggest
@@ -55,7 +55,7 @@ it('asks Jev about a category the user named and uses its tag', async () => {
   const { getByText, queryByText, getByDisplayValue, findByText } = toCategoriesStep()
   fireEvent.changeText(getByDisplayValue('Utilities'), 'Index fund')
   fireEvent.press(getByText('Continue'))
-  expect(await findByText('Finish setup')).toBeTruthy()
+  expect(await findByText('Slide to finish setup')).toBeTruthy()
   expect(getSplitBuckets).toHaveBeenCalledWith([{ name: 'Index fund', group: 'Essentials' }])
   // Savings now gets its 20%: 10,000 of 50,000.
   expect(getByText('₹10,000')).toBeTruthy()
@@ -67,7 +67,7 @@ it('asks Jev about a category the user named and uses its tag', async () => {
 it('explains the split: a note for the missing bucket and a sheet on tap', async () => {
   const { getByText, findByText } = toCategoriesStep()
   fireEvent.press(getByText('Continue'))
-  expect(await findByText('Finish setup')).toBeTruthy()
+  expect(await findByText('Slide to finish setup')).toBeTruthy()
   expect(getByText('No savings yet, so needs and wants share it.')).toBeTruthy()
   fireEvent.press(getByText('Needs 62.5%'))
   expect(await findByText('How we split it')).toBeTruthy()

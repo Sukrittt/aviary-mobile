@@ -6,6 +6,7 @@ import { addCategory, getSplitBuckets } from '@/src/api/categories'
 import { addGroup, updateGroup } from '@/src/api/groups'
 import { track } from '@/src/lib/analytics'
 import { INCOME_CATEGORY } from '@/src/lib/envelope'
+import { slide } from '@/src/test-utils/slide'
 
 // The usual setup steps, as on a binary without the file picker; setup.import.test.tsx covers the import.
 jest.mock('@/src/lib/filePicker', () => ({ canPickFiles: false, pickFile: jest.fn() }))
@@ -42,10 +43,10 @@ const completed = () =>
   (track as jest.Mock).mock.calls.filter(([e]) => e === 'onboarding_completed').map(([, p]) => p)
 
 it('finishes from the income step on the starter budget, income split the suggested way', async () => {
-  const { getByText, queryByText, unmount } = renderWithProviders(<SetupScreen />)
+  const { getByText, queryByText, getByLabelText, unmount } = renderWithProviders(<SetupScreen />)
   fireEvent.press(getByText('Continue')) // currency
   fireEvent.press(getByText('₹50,000'))
-  fireEvent.press(getByText('Finish setup'))
+  slide(getByLabelText('Slide to finish setup'))
   await waitFor(() => expect(completed()).toHaveLength(1), { timeout: 3000 })
 
   // Plain names; icons travel separately.
@@ -85,11 +86,11 @@ it('skips income and still sets up the starter envelopes, all at zero', async ()
 })
 
 it('picks its own categories without income, finishing at the categories step', async () => {
-  const { getByText, queryByText, unmount } = renderWithProviders(<SetupScreen />)
+  const { getByText, queryByText, getByLabelText, unmount } = renderWithProviders(<SetupScreen />)
   fireEvent.press(getByText('Continue')) // currency
   fireEvent.press(getByText(PICK_OWN))
   fireEvent.press(getByText('Continue')) // groups
-  fireEvent.press(getByText('Finish setup')) // categories
+  slide(getByLabelText('Slide to finish setup')) // categories
   await waitFor(() => expect(completed()).toHaveLength(1), { timeout: 3000 })
   expect(queryByText('Assign your money')).toBeNull()
   expect(completed()[0]).toMatchObject({ customized: true, skipped_income: true })
@@ -97,7 +98,7 @@ it('picks its own categories without income, finishing at the categories step', 
 })
 
 it('lets the assign step finish with money left over', async () => {
-  const { getByText, findByText, getAllByText, unmount } = renderWithProviders(<SetupScreen />)
+  const { getByText, findByText, getAllByText, getByLabelText, unmount } = renderWithProviders(<SetupScreen />)
   fireEvent.press(getByText('Continue')) // currency
   fireEvent.press(getByText('₹50,000'))
   fireEvent.press(getByText(PICK_OWN))
@@ -108,7 +109,7 @@ it('lets the assign step finish with money left over', async () => {
   fireEvent.press(getAllByText('1').at(-1)!)
   fireEvent.press(getByText('Done'))
   expect(getByText(/left\. It'll wait in Ready to Assign$/)).toBeTruthy()
-  fireEvent.press(getByText('Finish setup'))
+  slide(getByLabelText('Slide to finish setup'))
   await waitFor(() => expect(completed()).toHaveLength(1), { timeout: 3000 })
   expect(assigned()['Rent']).toBe(1)
   unmount()
