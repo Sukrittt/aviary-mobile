@@ -104,11 +104,11 @@ it('lets the assign step finish with money left over', async () => {
   fireEvent.press(getByText(PICK_OWN))
   fireEvent.press(getByText('Continue')) // groups
   fireEvent.press(getByText('Continue')) // categories
-  await findByText('Assign your money')
+  await findByText('Here’s your plan')
   fireEvent.press(getByText('Rent'))
   fireEvent.press(getAllByText('1').at(-1)!)
   fireEvent.press(getByText('Done'))
-  expect(getByText(/left\. It'll wait in Ready to Assign$/)).toBeTruthy()
+  expect(getByText(/left\. You can plan it later$/)).toBeTruthy()
   slide(getByLabelText('Slide to finish setup'))
   await waitFor(() => expect(completed()).toHaveLength(1), { timeout: 3000 })
   expect(assigned()['Rent']).toBe(1)

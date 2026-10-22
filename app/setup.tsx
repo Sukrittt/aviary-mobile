@@ -16,14 +16,12 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
-import { ArrowLeft, Copy, EnvelopeSimple, Info, SquaresFour, PencilSimple, Plus } from "@/src/components/shared/icons";
+import { ArrowLeft, Copy, EnvelopeSimple, SquaresFour, PencilSimple, Plus } from "@/src/components/shared/icons";
 import { Toast } from "@/src/components/ui/Toast";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
-  useReducedMotion,
   withSequence,
-  withSpring,
   withTiming,
 } from "react-native-reanimated";
 import { useTheme } from "@/src/theme/ThemeProvider";
@@ -51,16 +49,7 @@ import { getBudgets, updateBudget } from "@/src/api/budgets";
 import { addGroup, updateGroup } from "@/src/api/groups";
 import { addCategory, getSplitBuckets } from "@/src/api/categories";
 import {
-  BUCKET_LABELS,
-  BUCKET_PLURALS,
-  bucketsOf,
-  summarizeSplit,
-  splitNote,
-  BUCKET_SHARES,
-  BUCKETS,
-  type Bucket,
   normName,
-  splitEvenly,
   suggestSplit,
   unknownCategories,
   type BucketTags,
@@ -83,7 +72,6 @@ const QUICK_PICKS = ["30000", "50000", "75000", "100000"];
 const STEP_MIN_MS = 500;
 // The last step holds longer so it reads as finishing, not a flash before the success screen.
 const LAST_STEP_MIN_MS = 1000;
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 interface Item {
   id: string;
@@ -188,15 +176,9 @@ const TITLES: Record<number, [string, string]> = {
     "Each one holds money for one thing, like Groceries. Pick the ones you recognize.",
   ],
   4: [
-    "Assign your money",
-    "We split it with the 50/30/20 rule: half to needs, 30% to wants, 20% to savings. Tap any amount to change it. Anything you leave waits in Ready to Assign.",
+    "Here’s your plan",
+    "We split your income across your categories. Keep it, or tap any amount to change it.",
   ],
-};
-
-const SPLIT_INFO: Record<Bucket, string> = {
-  need: "Rent, groceries, bills. The stuff you can't skip.",
-  want: "Eating out, shopping, fun. Nice, not needed.",
-  savings: "Emergency fund, goals, future you.",
 };
 
 function remainderColors(
@@ -267,7 +249,6 @@ function CurrencyWizard({
   // The open category's name as it's being edited in the assign sheet; it
   // only lands on the category when the sheet closes.
   const [nameDraft, setNameDraft] = useState("");
-  const [splitInfoOpen, setSplitInfoOpen] = useState(false);
   const [pending, setPending] = useState(false);
   // Real save progress for the Finish button: the step being written and a
   // fill that grows as each write lands, so a slow save visibly moves.
@@ -337,23 +318,12 @@ function CurrencyWizard({
     liveCats().reduce((n, c) => n + (amounts[c.key] ?? 0), 0);
   const remainder = () => (Number(income) || 0) - assignedTotal();
 
-  const distribute = (
-    weighted: boolean,
-    tags: BucketTags = bucketTags,
-  ): Record<string, number> => {
-    const items = liveCats();
-    const incomeValue = Number(income) || 0;
-    return weighted
-      ? suggestSplit(incomeValue, items, tags)
-      : splitEvenly(
-          incomeValue,
-          items.map((it) => it.key),
-        );
-  };
+  const distribute = (tags: BucketTags = bucketTags): Record<string, number> =>
+    suggestSplit(Number(income) || 0, liveCats(), tags);
 
   const openAssign = (tags: BucketTags) => {
     setAmounts((prev) =>
-      Object.keys(prev).length ? prev : distribute(true, tags),
+      Object.keys(prev).length ? prev : distribute(tags),
     );
     setStep(4);
   };
@@ -376,9 +346,9 @@ function CurrencyWizard({
     openAssign(tags);
   };
 
-  const applyDistribution = (weighted: boolean) => {
+  const resetPlan = () => {
     Haptics.selectionAsync().catch(() => {});
-    setAmounts(distribute(weighted));
+    setAmounts(distribute());
   };
 
   const canAdvance =
@@ -787,7 +757,7 @@ function CurrencyWizard({
     const hasIncome = Number(income) > 0;
     if (step === 1 && !custom) {
       // Starter budget: the pre-checked defaults, income split the suggested way.
-      commit(hasIncome ? distribute(true) : {});
+      commit(hasIncome ? distribute() : {});
       return;
     }
     if (step === 3 && !hasIncome) {
@@ -922,16 +892,12 @@ function CurrencyWizard({
 
   const [title, blurb] = TITLES[step];
   const rem = remainder();
-  // Need/want/savings per category, labelled on the assign step so the suggested split explains itself.
-  const buckets = bucketsOf(liveCats(), bucketTags);
-  const summary = summarizeSplit(liveCats(), bucketTags);
-  const note = splitNote(summary);
-  // Same colours on the split line and each row's label, so the two read together.
-  const bucketColors: Record<Bucket, { fg: string; bg: string }> = {
-    need: { fg: tokens.blue, bg: tokens.blueSoft },
-    want: { fg: tokens.violet, bg: tokens.violetSoft },
-    savings: { fg: tokens.mint, bg: tokens.mintSoft },
-  };
+  // The plan reads as a review: one way back to our split once anything's
+  // changed, no split modes or need/want theory up front.
+  const suggested = step === 4 ? distribute() : {};
+  const editedPlan =
+    step === 4 &&
+    liveCats().some((c) => (amounts[c.key] ?? 0) !== (suggested[c.key] ?? 0));
   const hint =
     step === 0
       ? ""
@@ -948,9 +914,9 @@ function CurrencyWizard({
               ? `${selectedCatCount} categories across ${selectedGroups.length} groups`
               : "Pick at least one category"
             : rem === 0
-              ? "Everything assigned"
+              ? ""
               : rem > 0
-                ? `${formatMoney(rem)} left. It'll wait in Ready to Assign`
+                ? `${formatMoney(rem)} left. You can plan it later`
                 : `${formatMoney(-rem)} over your income`;
 
   const finishesHere =
@@ -964,7 +930,7 @@ function CurrencyWizard({
 
   const remColors = remainderColors(rem, tokens);
   const remLabel =
-    rem === 0 ? "All assigned" : rem < 0 ? "Over by" : "Left to assign";
+    rem === 0 ? "All planned" : rem < 0 ? "Over by" : "Left to plan";
   const activeCat = activeKey
     ? liveCats().find((c) => c.key === activeKey)
     : undefined;
@@ -1178,74 +1144,40 @@ function CurrencyWizard({
 
       {step === 4 && (
         <View style={styles.stepBody}>
-          <View
-            style={[
-              styles.remChip,
-              { backgroundColor: remColors.bg, borderColor: remColors.color },
-            ]}
-          >
-            <Text style={[styles.remLabel, { color: remColors.color }]}>
-              {remLabel}
-            </Text>
-            <Text
+          {/* Only while something's off: a fully planned income needs no banner. */}
+          {rem !== 0 && (
+            <View
               style={[
-                styles.remValue,
-                {
-                  color: remColors.color,
-                  fontFamily: fontFamily.displaySemiBold,
-                },
+                styles.remChip,
+                { backgroundColor: remColors.bg, borderColor: remColors.color },
               ]}
             >
-              {formatMoney(Math.abs(rem))}
-            </Text>
-          </View>
-          <View style={styles.splitRow}>
-            <SplitButton
-              label="Suggested split"
-              onPress={() => applyDistribution(true)}
-            />
-            <SplitButton
-              label="Split evenly"
-              onPress={() => applyDistribution(false)}
-            />
-          </View>
-          {summary && (
+              <Text style={[styles.remLabel, { color: remColors.color }]}>
+                {remLabel}
+              </Text>
+              <Text
+                style={[
+                  styles.remValue,
+                  {
+                    color: remColors.color,
+                    fontFamily: fontFamily.displaySemiBold,
+                  },
+                ]}
+              >
+                {formatMoney(Math.abs(rem))}
+              </Text>
+            </View>
+          )}
+          {editedPlan && (
             <Pressable
               accessibilityRole="button"
-              accessibilityHint="Shows how the suggested split works"
-              onPress={() => setSplitInfoOpen(true)}
-              style={styles.splitWhy}
+              onPress={resetPlan}
+              hitSlop={8}
+              style={styles.resetPlan}
             >
-              {summary.map((s) => (
-                <View key={s.bucket} style={styles.splitKey}>
-                  <View
-                    style={[
-                      styles.splitDot,
-                      { backgroundColor: bucketColors[s.bucket].fg },
-                    ]}
-                  />
-                  <Text
-                    style={[
-                      styles.splitKeyLabel,
-                      { color: tokens.text2, fontFamily: fontFamily.bodyBold },
-                    ]}
-                  >
-                    {BUCKET_PLURALS[s.bucket]} {s.pct}%
-                  </Text>
-                </View>
-              ))}
-              <Info size={13} color={tokens.text3} weight="bold" />
-              {note && (
-                <Text
-                  style={[
-                    styles.splitKeyLabel,
-                    styles.splitNote,
-                    { color: tokens.text3 },
-                  ]}
-                >
-                  {note}
-                </Text>
-              )}
+              <Text style={[styles.resetPlanLabel, { color: tokens.accentInk }]}>
+                Reset to our suggestion
+              </Text>
             </Pressable>
           )}
           <ScrollView
@@ -1323,18 +1255,6 @@ function CurrencyWizard({
                           numberOfLines={1}
                         >
                           {c.name}
-                        </Text>
-                        <Text
-                          style={[
-                            styles.assignBucket,
-                            {
-                              color: bucketColors[buckets[key]].fg,
-                              backgroundColor: bucketColors[buckets[key]].bg,
-                              fontFamily: fontFamily.bodyExtraBold,
-                            },
-                          ]}
-                        >
-                          {BUCKET_LABELS[buckets[key]]}
                         </Text>
                         <Text
                           style={[
@@ -1541,70 +1461,6 @@ function CurrencyWizard({
         )}
       </BottomSheet>
 
-      <BottomSheet
-        visible={splitInfoOpen}
-        onClose={() => setSplitInfoOpen(false)}
-      >
-        <View style={{ gap: 14 }}>
-          <View
-            style={[
-              styles.sheetGrabber,
-              { backgroundColor: tokens.borderStrong },
-            ]}
-          />
-          <Text
-            style={[
-              styles.sheetName,
-              { color: tokens.text, fontFamily: fontFamily.displaySemiBold },
-            ]}
-          >
-            How we split it
-          </Text>
-          <Text style={[styles.splitInfoBody, { color: tokens.text2 }]}>
-            We tag each category as a need, a want or savings, then follow the
-            50/30/20 rule.
-          </Text>
-          {BUCKETS.map((b) => (
-            <View key={b} style={styles.splitInfoRow}>
-              <View
-                style={[
-                  styles.splitInfoPct,
-                  { backgroundColor: bucketColors[b].bg },
-                ]}
-              >
-                <Text
-                  style={{
-                    color: bucketColors[b].fg,
-                    fontFamily: fontFamily.displaySemiBold,
-                    fontSize: 15,
-                  }}
-                >
-                  {BUCKET_SHARES[b]}%
-                </Text>
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text
-                  style={{
-                    color: tokens.text,
-                    fontFamily: fontFamily.bodyBold,
-                    fontSize: 14,
-                  }}
-                >
-                  {BUCKET_PLURALS[b]}
-                </Text>
-                <Text style={[styles.splitInfoBody, { color: tokens.text3 }]}>
-                  {SPLIT_INFO[b]}
-                </Text>
-              </View>
-            </View>
-          ))}
-          <Text style={[styles.splitInfoBody, { color: tokens.text3 }]}>
-            Missing a group? Its share goes to the others. Tap any amount to
-            change it.
-          </Text>
-        </View>
-      </BottomSheet>
-
       <Toast
         trigger={rowToast.n}
         message={rowToast.message}
@@ -1676,43 +1532,6 @@ function QuickPickChip({
         </Text>
       </Pressable>
     </Animated.View>
-  );
-}
-
-function SplitButton({
-  label,
-  onPress,
-}: {
-  label: string;
-  onPress: () => void;
-}) {
-  const { tokens, motion } = useTheme();
-  const reduceMotion = useReducedMotion();
-  const scale = useSharedValue(1);
-  const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: reduceMotion ? 1 : scale.value }],
-  }));
-
-  return (
-    <AnimatedPressable
-      accessibilityRole="button"
-      onPress={onPress}
-      onPressIn={() => {
-        if (!reduceMotion) scale.value = withSpring(0.97, motion.springTight);
-      }}
-      onPressOut={() => {
-        scale.value = reduceMotion ? 1 : withSpring(1, motion.springTight);
-      }}
-      style={[
-        styles.splitButton,
-        { borderColor: tokens.borderStrong, backgroundColor: tokens.inputBg },
-        animatedStyle,
-      ]}
-    >
-      <Text style={[styles.splitButtonLabel, { color: tokens.text2 }]}>
-        {label}
-      </Text>
-    </AnimatedPressable>
   );
 }
 
@@ -1824,6 +1643,8 @@ const styles = StyleSheet.create({
   },
   pickOwnLabel: { fontSize: 13 },
 
+  resetPlan: { alignSelf: "flex-start", marginTop: 10 },
+  resetPlanLabel: { fontSize: 12, fontFamily: fontFamily.bodyExtraBold },
   remChip: {
     flexDirection: "row",
     alignItems: "center",
@@ -1837,16 +1658,6 @@ const styles = StyleSheet.create({
   },
   remLabel: { fontSize: 12, fontFamily: fontFamily.bodyExtraBold },
   remValue: { fontSize: 20 },
-  splitRow: { flexDirection: "row", gap: 7, marginTop: 10 },
-  splitButton: {
-    flex: 1,
-    paddingVertical: 9,
-    paddingHorizontal: 12,
-    borderRadius: 100,
-    borderWidth: 1,
-    alignItems: "center",
-  },
-  splitButtonLabel: { fontSize: 12, fontFamily: fontFamily.bodyBold },
   assignRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -1866,35 +1677,6 @@ const styles = StyleSheet.create({
   },
   assignName: { flex: 1, fontSize: 14 },
   assignAmount: { fontSize: 15 },
-  assignBucket: {
-    fontSize: 12,
-    borderRadius: 100,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    overflow: "hidden",
-  },
-  splitWhy: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    alignItems: "center",
-    columnGap: 12,
-    rowGap: 4,
-    marginTop: 16,
-    paddingHorizontal: 2,
-  },
-  splitKey: { flexDirection: "row", alignItems: "center", gap: 5 },
-  splitDot: { width: 8, height: 8, borderRadius: 4 },
-  splitKeyLabel: { fontSize: 12 },
-  splitNote: { flexBasis: "100%", fontFamily: fontFamily.bodyMedium },
-  splitInfoRow: { flexDirection: "row", alignItems: "center", gap: 12 },
-  splitInfoPct: {
-    width: 52,
-    height: 40,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  splitInfoBody: { fontSize: 13, lineHeight: 18, fontFamily: fontFamily.bodySemiBold },
 
   sheetGrabber: {
     alignSelf: "center",

@@ -35,7 +35,7 @@ function toCategoriesStep() {
 }
 
 it('splits the defaults 50/30/20 without asking Jev', async () => {
-  const { getByText, getAllByText, findByLabelText } = toCategoriesStep()
+  const { getByText, getAllByText, queryByText, findByLabelText } = toCategoriesStep()
   fireEvent.press(getByText('Continue'))
   expect(await findByLabelText('Slide to finish setup')).toBeTruthy()
   expect(getSplitBuckets).not.toHaveBeenCalled()
@@ -44,32 +44,31 @@ it('splits the defaults 50/30/20 without asking Jev', async () => {
   // share (Eating out, the only want).
   expect(getByText('₹31,100')).toBeTruthy()
   expect(getAllByText('₹18,900')).toHaveLength(2)
-  expect(getByText('Needs 62.5%')).toBeTruthy()
-  expect(getByText('Wants 37.5%')).toBeTruthy()
-  expect(getAllByText('Need')).toHaveLength(3)
-  expect(getAllByText('Want')).toHaveLength(1)
+  // A review, not a worksheet: no split modes or need/want tags.
+  expect(queryByText('Split evenly')).toBeNull()
+  expect(queryByText('Need')).toBeNull()
+  expect(queryByText('Reset to our suggestion')).toBeNull()
 })
 
 it('asks Jev about a category the user named and uses its tag', async () => {
   ;(getSplitBuckets as jest.Mock).mockResolvedValue({ 'index fund': 'savings' })
-  const { getByText, queryByText, getByDisplayValue, findByLabelText } = toCategoriesStep()
+  const { getByText, getByDisplayValue, findByLabelText } = toCategoriesStep()
   fireEvent.changeText(getByDisplayValue('Utilities'), 'Index fund')
   fireEvent.press(getByText('Continue'))
   expect(await findByLabelText('Slide to finish setup')).toBeTruthy()
   expect(getSplitBuckets).toHaveBeenCalledWith([{ name: 'Index fund', group: 'Essentials' }])
   // Savings now gets its 20%: 10,000 of 50,000.
   expect(getByText('₹10,000')).toBeTruthy()
-  expect(getByText('Savings')).toBeTruthy()
-  expect(getByText('Savings 20%')).toBeTruthy()
-  expect(queryByText(/^· /)).toBeNull()
 })
 
-it('explains the split: a note for the missing bucket and a sheet on tap', async () => {
-  const { getByText, findByText, findByLabelText } = toCategoriesStep()
+it('offers a reset only once the plan is edited, and it restores our suggestion', async () => {
+  const { getByText, getAllByText, queryByText, findByLabelText } = toCategoriesStep()
   fireEvent.press(getByText('Continue'))
   expect(await findByLabelText('Slide to finish setup')).toBeTruthy()
-  expect(getByText('No savings yet, so needs and wants share it.')).toBeTruthy()
-  fireEvent.press(getByText('Needs 62.5%'))
-  expect(await findByText('How we split it')).toBeTruthy()
-  expect(getByText('50%')).toBeTruthy()
+  fireEvent.press(getByText('Rent'))
+  fireEvent.press(getAllByText('1').at(-1)!)
+  fireEvent.press(getByText('Done'))
+  fireEvent.press(getByText('Reset to our suggestion'))
+  expect(getByText('₹31,100')).toBeTruthy()
+  expect(queryByText('Reset to our suggestion')).toBeNull()
 })
