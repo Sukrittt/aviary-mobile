@@ -35,9 +35,9 @@ function toCategoriesStep() {
 }
 
 it('splits the defaults 50/30/20 without asking Jev', async () => {
-  const { getByText, getAllByText, findByText } = toCategoriesStep()
+  const { getByText, getAllByText, findByLabelText } = toCategoriesStep()
   fireEvent.press(getByText('Continue'))
-  expect(await findByText('Slide to finish setup')).toBeTruthy()
+  expect(await findByLabelText('Slide to finish setup')).toBeTruthy()
   expect(getSplitBuckets).not.toHaveBeenCalled()
   // No savings picked by default, so needs and wants keep their 50:30 ratio:
   // 31,250 and 18,750 before rounding, the leftover landing on the biggest
@@ -52,10 +52,10 @@ it('splits the defaults 50/30/20 without asking Jev', async () => {
 
 it('asks Jev about a category the user named and uses its tag', async () => {
   ;(getSplitBuckets as jest.Mock).mockResolvedValue({ 'index fund': 'savings' })
-  const { getByText, queryByText, getByDisplayValue, findByText } = toCategoriesStep()
+  const { getByText, queryByText, getByDisplayValue, findByLabelText } = toCategoriesStep()
   fireEvent.changeText(getByDisplayValue('Utilities'), 'Index fund')
   fireEvent.press(getByText('Continue'))
-  expect(await findByText('Slide to finish setup')).toBeTruthy()
+  expect(await findByLabelText('Slide to finish setup')).toBeTruthy()
   expect(getSplitBuckets).toHaveBeenCalledWith([{ name: 'Index fund', group: 'Essentials' }])
   // Savings now gets its 20%: 10,000 of 50,000.
   expect(getByText('₹10,000')).toBeTruthy()
@@ -65,9 +65,9 @@ it('asks Jev about a category the user named and uses its tag', async () => {
 })
 
 it('explains the split: a note for the missing bucket and a sheet on tap', async () => {
-  const { getByText, findByText } = toCategoriesStep()
+  const { getByText, findByText, findByLabelText } = toCategoriesStep()
   fireEvent.press(getByText('Continue'))
-  expect(await findByText('Slide to finish setup')).toBeTruthy()
+  expect(await findByLabelText('Slide to finish setup')).toBeTruthy()
   expect(getByText('No savings yet, so needs and wants share it.')).toBeTruthy()
   fireEvent.press(getByText('Needs 62.5%'))
   expect(await findByText('How we split it')).toBeTruthy()
