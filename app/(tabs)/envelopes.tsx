@@ -710,6 +710,8 @@ function EnvelopesScreen() {
   }
   function openAddGroup() {
     setDraftName('')
+    setPickedIcon(null)
+    setPickedColor(null)
     setSheetError('')
     setSheet({ kind: 'addGroup' })
   }
@@ -767,7 +769,11 @@ function EnvelopesScreen() {
           await updateCategory.mutateAsync({ name: sheet.name, updates })
         }
       } else if (sheet.kind === 'addGroup') {
-        await addGroup.mutateAsync(composed)
+        await addGroup.mutateAsync({
+          name: composed,
+          ...(pickedIcon ? { icon: pickedIcon } : {}),
+          ...(pickedColor ? { color: pickedColor } : {}),
+        })
       } else {
         const newName = withOldEmoji(sheet.name, composed)
         const iconChanged = draftIcon !== groupIconKey(sheet.name, groupIcons.get(sheet.name))
@@ -842,7 +848,7 @@ function EnvelopesScreen() {
 
   const isCatSheet = sheet?.kind === 'addCategory' || sheet?.kind === 'renameCategory'
   const isRenameSheet = sheet?.kind === 'renameCategory' || sheet?.kind === 'renameGroup'
-  const draftIcon: CategoryIconKey = pickedIcon ?? categoryIconKey(draftName, undefined, draftGroup)
+  const draftIcon: CategoryIconKey = pickedIcon ?? (isCatSheet ? categoryIconKey(draftName, undefined, draftGroup) : groupIconKey(draftName))
   // The same colour the row wears on the list, so the sheet's tile matches it.
   const draftColor: CategoryColor = isCatSheet ? categoryColor(draftName, pickedColor ?? undefined) : groupColor(pickedColor ?? undefined)
   const sheetTitle =
@@ -1050,24 +1056,15 @@ function EnvelopesScreen() {
         <Text style={{ color: tokens.text2, fontSize: 12, marginTop: 4, lineHeight: 17 }}>{sheetHint}</Text>
 
         <Text style={[styles.sectionLabel, { color: tokens.text3 }]}>NAME</Text>
-        {sheet?.kind === 'addGroup' ? (
-          <View style={styles.nameRow}>
-            <View style={[styles.iconSwatch, { backgroundColor: tokens.inputBg, borderColor: tokens.borderStrong }]}>
-              <CategoryIcon kind="group" name={draftName} size={24} color={tokens.text2} />
-            </View>
-            {nameInput}
-          </View>
-        ) : (
-          <CategoryIconPicker
-            value={draftIcon}
-            onChange={setPickedIcon}
-            tint={colorTint(draftColor, tokens)}
-            disabled={submitting}
-          >
-            {nameInput}
-          </CategoryIconPicker>
-        )}
-        {sheet && sheet.kind !== 'addGroup' && (
+        <CategoryIconPicker
+          value={draftIcon}
+          onChange={setPickedIcon}
+          tint={colorTint(draftColor, tokens)}
+          disabled={submitting}
+        >
+          {nameInput}
+        </CategoryIconPicker>
+        {sheet && (
           <>
             <Text style={[styles.sectionLabel, { color: tokens.text3 }]}>COLOR</Text>
             <ColorSwatches value={draftColor} onChange={setPickedColor} disabled={submitting} />
@@ -1347,8 +1344,6 @@ const styles = StyleSheet.create({
   sheetHandle: { width: 38, height: 4, borderRadius: 100, alignSelf: 'center', marginBottom: 14 },
   sheetTitle: { fontSize: 18 },
   sectionLabel: { fontSize: 12, letterSpacing: 0.8, marginTop: 18, marginBottom: 8 },
-  nameRow: { flexDirection: 'row', gap: 10, alignItems: 'stretch' },
-  iconSwatch: { width: 52, minHeight: 56, borderRadius: 16, borderWidth: 1, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   input: { flex: 1, minWidth: 0, borderWidth: 1, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 14, fontSize: 15, fontFamily: fontFamily.bodyBold },
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 100, borderWidth: 1 },
