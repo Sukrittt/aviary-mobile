@@ -40,7 +40,7 @@ import { useCollapsedGroups } from '@/src/hooks/useCollapsedGroups'
 import { useDismissedRolloverBanner } from '@/src/hooks/useDismissedRolloverBanner'
 import { useBillingStatus } from '@/src/hooks/useBillingStatus'
 import { GraceBanner } from '@/src/components/shared/MaintenanceBanner'
-import { daysOnUs, trialReminderBucket, trialRemainingLabel } from '@/src/lib/billingStatus'
+import { daysOnUs, formatDate, trialReminderBucket, trialRemainingLabel } from '@/src/lib/billingStatus'
 import { BALANCE_CHECK_ENABLED, BalanceCheckCard } from '@/src/components/balance/BalanceCheckCard'
 import { EnvelopeGroup } from '@/src/components/envelope/EnvelopeGroup'
 import { Screen } from '@/src/components/ui/Screen'
@@ -542,6 +542,8 @@ function HomeScreen() {
               onFund={() => (nextToFund ? handleEditAmount(nextToFund) : router.navigate('/(tabs)/envelopes'))}
               onAddTransaction={() => router.push('/modals/log-expense')}
               onTakeTour={() => router.push('/account/guided-tour')}
+              trialNote={billing?.mode === 'trial' && billing.trialEndsAt ? `Free until ${formatDate(billing.trialEndsAt)} · no card needed` : undefined}
+              onTrialNote={() => router.push('/account/trial-notice?from=more')}
               onSkip={() => {
                 Haptics.selectionAsync().catch(() => {})
                 setGetStartedSkipped(true)
