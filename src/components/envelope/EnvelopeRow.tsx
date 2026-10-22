@@ -1,6 +1,6 @@
 import { useCategoryTint } from '@/src/hooks/useCategories'
 import { useCurrency } from '@/src/context/CurrencyContext'
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { View, Text, Pressable, StyleSheet } from 'react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
@@ -15,6 +15,11 @@ import { tap } from '@/src/lib/haptics'
 import type { Envelope } from '@/src/lib/envelope'
 import type { ThemeTokens } from '@/src/theme/tokens'
 import { RollingAmount } from './RollingAmount'
+import Reanimated, { FadeIn, FadeOut } from 'react-native-reanimated'
+import { currentMonthKey } from '@/src/lib/envelope'
+import { rolledOverLine } from '@/src/lib/rollover'
+
+const TIP_MS = 2000
 
 const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
@@ -85,6 +90,14 @@ export function EnvelopeRow({
   const { tokens } = useTheme()
   const tintOf = useCategoryTint()
   const [sheetOpen, setSheetOpen] = useState(false)
+  // What carried in, on a long press of the pill, since the row no longer says it.
+  const tip = hideAmounts ? null : rolledOverLine(envelope.rolledOver, currentMonthKey(), (n) => formatCurrency(n))
+  const [tipOpen, setTipOpen] = useState(false)
+  useEffect(() => {
+    if (!tipOpen) return
+    const t = setTimeout(() => setTipOpen(false), TIP_MS)
+    return () => clearTimeout(t)
+  }, [tipOpen])
 
   function openSheet() {
     tap()
@@ -130,7 +143,22 @@ export function EnvelopeRow({
           </Text>
         )}
       </Pressable>
-      <View style={styles.availableCol}>
+      <Pressable
+        style={styles.availableCol}
+        disabled={!tip}
+        onLongPress={() => {
+          tap()
+          setTipOpen(true)
+        }}
+        accessibilityHint={tip ?? undefined}
+      >
+        {tipOpen && tip && (
+          <Reanimated.View entering={FadeIn.duration(150)} exiting={FadeOut.duration(200)} style={[styles.tip, { backgroundColor: tokens.text }]}>
+            <Text style={[styles.tipText, { color: tokens.bg, fontFamily: fontFamily.bodyMedium }]} numberOfLines={1}>
+              {tip}
+            </Text>
+          </Reanimated.View>
+        )}
         <RollingAmount
           style={[styles.availablePill, { backgroundColor: pill.bg }]}
           color={pill.color}
@@ -142,7 +170,7 @@ export function EnvelopeRow({
           delayMs={rollDelayMs}
           tones={{ up: { color: tokens.pillGood, bg: tokens.pillGoodBg }, down: { color: tokens.pillOver, bg: tokens.pillOverBg } }}
         />
-      </View>
+      </Pressable>
 
       <BottomSheet visible={sheetOpen} onClose={closeSheet}>
         <Text style={[styles.sheetTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
@@ -199,6 +227,8 @@ const styles = StyleSheet.create({
   // Fixed width so every row's bar ends at the same x, whatever the amount.
   availableCol: { width: 84, alignItems: 'flex-end' },
   availablePill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
+  tip: { position: 'absolute', bottom: '100%', right: 0, marginBottom: 6, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, zIndex: 1 },
+  tipText: { fontSize: 11 },
   sheetTitle: { fontSize: 16, marginBottom: 8 },
   sheetBtn: { paddingVertical: 12 },
   sheetBtnText: { fontSize: 14 },
