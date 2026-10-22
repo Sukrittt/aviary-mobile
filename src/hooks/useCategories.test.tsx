@@ -1,13 +1,13 @@
 import type { ReactNode } from 'react'
 import { QueryClient, QueryClientProvider, QueryObserver } from '@tanstack/react-query'
 import { act, renderHook, waitFor } from '@testing-library/react-native'
-import { addCategory, getCategories, moveCategory, updateCategory } from '@/src/api/categories'
+import { addCategory, deleteCategory, getCategories, moveCategory, updateCategory } from '@/src/api/categories'
 import { readCategoryCache, writeCategoryCache } from '@/src/lib/categoryCache'
 import { computeEnvelopeState } from '@/src/lib/envelope'
 import { categoryTint } from '@/src/lib/emoji'
 import type { BudgetRow, ExpenseRow, CategoryRow } from '@/src/types'
 import { lightTokens } from '@/src/theme/tokens'
-import { useAddCategory, useCategories, useCategoryTint, useMoveCategory, useUpdateCategory } from './useCategories'
+import { useAddCategory, useCategories, useCategoryTint, useDeleteCategory, useMoveCategory, useUpdateCategory } from './useCategories'
 
 jest.mock('@/src/theme/ThemeProvider', () => ({ useTheme: () => ({ tokens: jest.requireActual('@/src/theme/tokens').lightTokens }) }))
 jest.mock('@/src/api/categories', () => ({
@@ -102,6 +102,18 @@ describe('category cache write-through (offline sync §2)', () => {
     // same write-through queryFn, so the mutation itself needs no separate
     // cache-write call.
     await waitFor(() => expect(writeCategoryCache).toHaveBeenCalledWith(rows))
+  })
+
+  it('deleting a category refreshes budgets, so the carry drops its envelope', async () => {
+    ;(deleteCategory as jest.Mock).mockResolvedValue(undefined)
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity }, mutations: { gcTime: Infinity } } })
+    const invalidate = jest.spyOn(queryClient, 'invalidateQueries')
+
+    const del = renderHook(() => useDeleteCategory(), { wrapper: wrapper(queryClient) })
+    del.result.current.mutate('Gym')
+
+    await waitFor(() => expect(del.result.current.isSuccess).toBe(true))
+    expect(invalidate).toHaveBeenCalledWith({ queryKey: ['budgets'] })
   })
 
   it('a boot with no network renders the cached list', async () => {
