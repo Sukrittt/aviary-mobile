@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Modal, Text } from 'react-native'
-import { fireEvent } from '@testing-library/react-native'
+import { act, fireEvent } from '@testing-library/react-native'
+import * as Reanimated from 'react-native-reanimated'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { BottomSheet } from './Modal'
 
@@ -85,9 +86,18 @@ describe('BottomSheet', () => {
         </BottomSheet>
       )
     }
+    // The reanimated mock settles withTiming at once; hold its completion
+    // callback instead so the test sees the sheet mid-close.
+    let finish: ((finished: boolean) => void) | undefined
+    const spy = jest.spyOn(Reanimated, 'withTiming').mockImplementation(((toValue: number, _config: unknown, callback?: (finished: boolean) => void) => {
+      finish = callback
+      return toValue
+    }) as typeof Reanimated.withTiming)
     const { getByText, queryByText } = renderWithProviders(<Harness />)
-    // The reanimated mock settles withTiming at once and fires its callback.
     fireEvent.press(getByText('Done'))
+    expect(queryByText('Done')).toBeTruthy()
+    act(() => finish?.(true))
     expect(queryByText('Done')).toBeNull()
+    spy.mockRestore()
   })
 })
