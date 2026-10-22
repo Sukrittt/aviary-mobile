@@ -61,8 +61,9 @@ export function SlideToConfirm({ label, onConfirm, disabled = false }: { label: 
       }
     })
     // Judged on the release, not the last update: a quick flick can end before any update lands.
-    .onEnd((e) => {
-      if (e.translationX >= max * THRESHOLD) {
+    // A cancelled pan (a system gesture, an incoming call) never confirms.
+    .onEnd((e, success) => {
+      if (success && e.translationX >= max * THRESHOLD) {
         x.value = reduceMotion ? max : withTiming(max, { duration: 120 })
         runOnJS(onConfirm)()
       } else {
