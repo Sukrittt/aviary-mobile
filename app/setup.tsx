@@ -16,7 +16,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
-import { ArrowLeft, Copy, Info, SquaresFour, PencilSimple, Plus, Sparkle } from "@/src/components/shared/icons";
+import { ArrowLeft, Copy, EnvelopeSimple, Info, SquaresFour, PencilSimple, Plus } from "@/src/components/shared/icons";
 import { Toast } from "@/src/components/ui/Toast";
 import Animated, {
   useSharedValue,
@@ -1364,7 +1364,7 @@ function CurrencyWizard({
       {ctaLabel === "Finish setup" && !pending ? (
         <View style={styles.slideCta}>
           <SlideToConfirm
-            icon={Sparkle}
+            icon={EnvelopeSimple}
             label="Slide to finish setup"
             onConfirm={pressPrimaryCta}
             disabled={!canAdvance}
