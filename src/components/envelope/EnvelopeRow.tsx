@@ -12,8 +12,7 @@ import { parseLocalDate, toLocalDateString } from '@/src/lib/date'
 import { ProgressBar } from './ProgressBar'
 import { BottomSheet } from '@/src/components/shared/Modal'
 import { tap } from '@/src/lib/haptics'
-import { currentMonthKey, type Envelope } from '@/src/lib/envelope'
-import { rolledOverLine } from '@/src/lib/rollover'
+import type { Envelope } from '@/src/lib/envelope'
 import type { ThemeTokens } from '@/src/theme/tokens'
 import { RollingAmount } from './RollingAmount'
 
@@ -130,13 +129,6 @@ export function EnvelopeRow({
             {unbudgeted ? 'Not budgeted · ' : ''}Last spent {lastSpentLabel(envelope.lastSpentDate)}
           </Text>
         )}
-        {/* Only a shortfall keeps a line: it's the one to fix. What rolled in
-            shows as the Left pill counting up, and the strip has the total. */}
-        {envelope.rolledOver < 0 && (
-          <Text style={[styles.metaLine, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>
-            {rolledOverLine(envelope.rolledOver, currentMonthKey(), (n) => formatCurrency(n, hideAmounts))}
-          </Text>
-        )}
       </Pressable>
       <View style={styles.availableCol}>
         <RollingAmount
@@ -147,6 +139,7 @@ export function EnvelopeRow({
           play={hideAmounts ? 0 : rollPlay}
           delayMs={rollDelayMs}
           format={(n) => formatCurrency(n, hideAmounts)}
+          tones={{ up: { color: tokens.pillGood, bg: tokens.pillGoodBg }, down: { color: tokens.pillOver, bg: tokens.pillOverBg } }}
         />
       </View>
 

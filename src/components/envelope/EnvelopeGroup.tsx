@@ -96,7 +96,7 @@ export function EnvelopeGroup({
                 onViewTransactions={onViewTransactions}
                 onSheetOpenChange={onSheetOpenChange}
                 rollPlay={rollPlay}
-                rollDelayMs={Math.min(rollOrder?.get(e.category) ?? 0, 5) * 80}
+                rollDelayMs={Math.min(rollOrder?.get(e.category) ?? 0, 5) * 150}
               />
             </View>
           ))}

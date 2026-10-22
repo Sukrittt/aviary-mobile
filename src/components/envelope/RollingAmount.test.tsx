@@ -17,7 +17,16 @@ afterEach(() => {
   jest.restoreAllMocks()
 })
 
+const tones = { up: { color: 'green', bg: 'mint' }, down: { color: 'red', bg: 'pink' } }
+
 describe('RollingAmount', () => {
+  it('is red while a shortfall counts down, then settles into its own color', () => {
+    const { getByText } = render(<RollingAmount from={8000} to={7450} play={1} format={money} tones={tones} textStyle={{ color: 'green' }} />)
+    expect(getByText('₹8000')).toHaveStyle({ color: 'red' })
+    act(() => jest.advanceTimersByTime(2500))
+    expect(getByText('₹7450')).toHaveStyle({ color: 'green' })
+  })
+
   it('just shows the amount when not playing', () => {
     const { getByText } = render(amount(0))
     expect(getByText('₹3050')).toBeTruthy()
@@ -30,13 +39,13 @@ describe('RollingAmount', () => {
     expect(getByText('₹1000')).toBeTruthy()
 
     pillY = 100
-    act(() => jest.advanceTimersByTime(1200))
+    act(() => jest.advanceTimersByTime(2500))
     expect(getByText('₹3050')).toBeTruthy()
   })
 
   it('starts over from the old amount on the next play', () => {
     const { getByText, rerender } = render(amount(1))
-    act(() => jest.advanceTimersByTime(1200))
+    act(() => jest.advanceTimersByTime(2500))
     expect(getByText('₹3050')).toBeTruthy()
     rerender(amount(2))
     expect(getByText('₹1000')).toBeTruthy()

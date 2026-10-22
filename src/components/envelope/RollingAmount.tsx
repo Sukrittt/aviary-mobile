@@ -2,16 +2,22 @@ import { useEffect, useRef, useState } from 'react'
 import { Dimensions, Text, View, type StyleProp, type TextStyle, type ViewStyle } from 'react-native'
 import Reanimated, { useAnimatedStyle, useReducedMotion, useSharedValue, withSequence, withSpring, withTiming } from 'react-native-reanimated'
 
-const DURATION_MS = 600
+// Slow enough to follow: a beat on the old amount, then a long count.
+const HOLD_MS = 500
+const DURATION_MS = 1400
+
+type Tone = { color: string; bg: string }
 
 /**
  * A category's Left pill that can roll in what last month left behind: it
  * shows `from` (the amount without the carry), waits until it's on screen,
  * counts to `to` and pops. Each new `play` (above 0) runs it again, so the
  * rollover strip can replay it. With `play` at 0 it's just `to`.
+ * While it counts it takes `tones.up` going up and `tones.down` going down (a
+ * shortfall eating into this month), then settles back into `style`.
  * Twin of Web's src/components/home/RollingAmount.tsx.
  */
-export function RollingAmount({ from, to, play, delayMs = 0, format, style, textStyle }: {
+export function RollingAmount({ from, to, play, delayMs = 0, format, style, textStyle, tones }: {
   from: number
   to: number
   play: number
@@ -19,6 +25,7 @@ export function RollingAmount({ from, to, play, delayMs = 0, format, style, text
   format: (n: number) => string
   style?: StyleProp<ViewStyle>
   textStyle?: StyleProp<TextStyle>
+  tones?: { up: Tone; down: Tone }
 }) {
   const ref = useRef<View>(null)
   const reduceMotion = useReducedMotion()
@@ -44,7 +51,7 @@ export function RollingAmount({ from, to, play, delayMs = 0, format, style, text
     let started = false
     let frame = 0
     const roll = () => {
-      const start = Date.now() + delayMs
+      const start = Date.now() + HOLD_MS + delayMs
       const tick = () => {
         const t = Math.max(0, Math.min(1, (Date.now() - start) / DURATION_MS))
         setShown(Math.round(from + (to - from) * (1 - Math.pow(1 - t, 3))))
@@ -74,9 +81,10 @@ export function RollingAmount({ from, to, play, delayMs = 0, format, style, text
     }
   }, [armed]) // eslint-disable-line react-hooks/exhaustive-deps -- from/to are read at the start of a roll
 
+  const tone = shown !== null && tones ? (to < from ? tones.down : tones.up) : null
   return (
-    <Reanimated.View ref={ref} style={[style, popStyle]}>
-      <Text style={textStyle} numberOfLines={1} adjustsFontSizeToFit>
+    <Reanimated.View ref={ref} style={[style, tone && { backgroundColor: tone.bg }, popStyle]}>
+      <Text style={[textStyle, tone && { color: tone.color }]} numberOfLines={1} adjustsFontSizeToFit>
         {format(shown ?? to)}
       </Text>
     </Reanimated.View>

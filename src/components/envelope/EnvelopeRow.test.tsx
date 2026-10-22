@@ -60,9 +60,9 @@ it('taps when the row opens its sheet', () => {
 })
 
 describe('EnvelopeRow carry', () => {
-  it('keeps a line only for a shortfall; what rolled in is already in Left', () => {
+  it('adds no line for what carried; the Left pill already includes it', () => {
     const short = row({ assigned: 8000, spent: 0, available: 7450, rolledOver: -550, spentPct: 0 })
-    expect(short.getByText(/short from/)).toBeTruthy()
+    expect(short.queryByText(/from |short/)).toBeNull()
     short.unmount()
     const ahead = row({ assigned: 12000, spent: 0, available: 14050, rolledOver: 2050, spentPct: 0 })
     expect(ahead.queryByText(/from /)).toBeNull()
