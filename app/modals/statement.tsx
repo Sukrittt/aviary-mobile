@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import { useQueryClient } from '@tanstack/react-query'
 import * as ImagePicker from 'expo-image-picker'
-import { CaretDown, CaretRight, Check, CheckCircle, FileText, Images, Lock, Sparkle, X } from '@/src/components/shared/icons'
+import { CaretDown, CaretRight, Check, CheckCircle, FileText, Images, Lock, Receipt, Sparkle, X } from '@/src/components/shared/icons'
 import Animated, { FadeIn, FadeInDown, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated'
 import { CategoryPickerSheet } from '@/src/components/shared/CategoryPickerSheet'
 import { CategoryIcon } from '@/src/components/shared/CategoryIcon'
@@ -372,7 +372,7 @@ function StatementScreen() {
             {missing && <Text style={{ ...caption, color: tokens.warnInk }}>Pick a category for the ticked rows to log them.</Text>}
             {error !== '' && <Text accessibilityRole="alert" style={{ ...caption, color: tokens.coral }}>{error}</Text>}
             {saving === 'idle' && checked.length > 0 ? (
-              <SlideToConfirm label={`Slide to log ${checked.length} · ${formatMoney(total)}`} onConfirm={log} disabled={missing} />
+              <SlideToConfirm icon={Receipt} label={`Slide to log ${checked.length} · ${formatMoney(total)}`} onConfirm={log} disabled={missing} />
             ) : (
             <Pressable
               accessibilityRole="button"

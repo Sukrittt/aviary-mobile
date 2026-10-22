@@ -10,11 +10,14 @@ import Animated, {
   useReducedMotion,
   useSharedValue,
   withDelay,
+  withRepeat,
   withSequence,
   withTiming,
 } from 'react-native-reanimated'
 import * as Haptics from 'expo-haptics'
-import { CaretRight } from '@/src/components/shared/icons'
+import Svg, { Path } from 'react-native-svg'
+import { CaretRight, type PhosphorIcon } from '@/src/components/shared/icons'
+import { BIRD_PATH } from '@/src/components/splash/birdPath'
 import { tap } from '@/src/lib/haptics'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
@@ -26,6 +29,9 @@ const KNOB = HEIGHT - PAD * 2
 const THRESHOLD = 0.85
 // The track is cut into this many notches; the knob ticks over each one like a ratchet.
 const NOTCHES = 12
+const BIRD = 24
+// The bird takes off a little before the confirm point, so even a quick flick doesn't catch it.
+const TAKEOFF = 0.72
 
 // Android's impact haptics fall back to a buzzy vibrator, so it gets the system's own drag and tick effects.
 const android = Platform.OS === 'android'
@@ -41,14 +47,21 @@ const notch = () =>
  * the "activate" action instead, so it's never slide-only. Callers swap it out
  * for their normal button once saving starts, so the saving fill and the shared
  * CheckIcon success beat stay exactly as they were.
+ *
+ * The bird waits at the far end. It perks up as the knob gets close, takes off
+ * just before the confirm point, and lands back if you let go early.
+ * `icon` is what you're carrying to it: the thing the screen is about.
  */
-export function SlideToConfirm({ label, onConfirm, disabled = false }: { label: string; onConfirm: () => void; disabled?: boolean }) {
+export function SlideToConfirm({ label, onConfirm, disabled = false, icon: KnobIcon = CaretRight }: { label: string; onConfirm: () => void; disabled?: boolean; icon?: PhosphorIcon }) {
   const { tokens } = useTheme()
   const reduceMotion = useReducedMotion()
   const [width, setWidth] = useState(0)
   const x = useSharedValue(0)
   const armed = useSharedValue(false)
   const step = useSharedValue(0)
+  const bob = useSharedValue(0)
+  const flight = useSharedValue(0)
+  const flown = useSharedValue(false)
   const max = Math.max(width - KNOB - PAD * 2, 1)
 
   // One slow lean to the right and back, no bounce, so the knob reads as something you drag, not a button.
@@ -57,6 +70,12 @@ export function SlideToConfirm({ label, onConfirm, disabled = false }: { label: 
     const ease = Easing.inOut(Easing.cubic)
     x.value = withDelay(500, withSequence(withTiming(14, { duration: 420, easing: ease }), withTiming(0, { duration: 420, easing: ease })))
   }, [reduceMotion, disabled, width, x])
+
+  // A slow breathing bob while it waits.
+  useEffect(() => {
+    if (reduceMotion || disabled) return
+    bob.value = withRepeat(withSequence(withTiming(-2, { duration: 900, easing: Easing.inOut(Easing.sin) }), withTiming(0, { duration: 900, easing: Easing.inOut(Easing.sin) })), -1)
+  }, [reduceMotion, disabled, bob])
 
   // Haptics: a soft grab, a fine tick per notch while dragging, and a firm click once letting go would confirm.
   const pan = Gesture.Pan()
@@ -70,6 +89,11 @@ export function SlideToConfirm({ label, onConfirm, disabled = false }: { label: 
     .onUpdate((e) => {
       x.value = Math.min(max, Math.max(0, e.translationX))
       const past = x.value >= max * THRESHOLD
+      const away = x.value >= max * TAKEOFF
+      if (away !== flown.value) {
+        flown.value = away
+        flight.value = reduceMotion ? (away ? 1 : 0) : withTiming(away ? 1 : 0, { duration: away ? 300 : 260, easing: away ? Easing.out(Easing.quad) : Easing.out(Easing.back(1.6)) })
+      }
       if (past !== armed.value) {
         armed.value = past
         runOnJS(tap)()
@@ -90,37 +114,60 @@ export function SlideToConfirm({ label, onConfirm, disabled = false }: { label: 
       } else {
         // Eased, not sprung: a spring overshoots past the left edge and the knob vanishes for a beat.
         x.value = reduceMotion ? 0 : withTiming(0, { duration: 260, easing: Easing.out(Easing.cubic) })
+        flight.value = reduceMotion ? 0 : withTiming(0, { duration: 260, easing: Easing.out(Easing.back(1.6)) })
+        flown.value = false
       }
       armed.value = false
     })
 
   const knobStyle = useAnimatedStyle(() => ({ transform: [{ translateX: x.value }] }))
   const trailStyle = useAnimatedStyle(() => ({ width: x.value + KNOB + PAD }))
+  // Leans in and grows a touch as the knob closes in, then lifts off up and away to the right.
+  const birdStyle = useAnimatedStyle(() => {
+    const near = interpolate(x.value, [max * 0.3, max * TAKEOFF], [0, 1], Extrapolation.CLAMP)
+    return {
+      opacity: (0.8 + near * 0.2) * (1 - flight.value),
+      transform: [
+        { translateX: flight.value * 26 },
+        { translateY: bob.value * (1 - near) - flight.value * 34 },
+        { rotate: `${-near * 8 - flight.value * 16}deg` },
+        { scale: 1 + near * 0.2 },
+      ],
+    }
+  })
   const labelStyle = useAnimatedStyle(() => ({ opacity: interpolate(x.value, [0, max * 0.6], [1, 0], Extrapolation.CLAMP) }))
 
   return (
-    <View
-      accessible
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      accessibilityHint="Slide right to confirm"
-      accessibilityState={{ disabled }}
-      accessibilityActions={[{ name: 'activate' }]}
-      onAccessibilityAction={(e) => {
-        if (e.nativeEvent.actionName === 'activate' && !disabled) onConfirm()
-      }}
-      onLayout={(e) => setWidth(Math.round(e.nativeEvent.layout.width))}
-      style={[styles.track, { backgroundColor: disabled ? tokens.inputBg : tokens.accent }]}
-    >
-      <Animated.View pointerEvents="none" style={[styles.trail, { backgroundColor: tokens.onAccent }, trailStyle]} />
-      <Animated.View pointerEvents="none" style={[styles.labelWrap, labelStyle]}>
-        <Text numberOfLines={1} style={[styles.label, { color: disabled ? tokens.text3 : tokens.onAccent }]}>{label}</Text>
-      </Animated.View>
-      <GestureDetector gesture={pan}>
-        <Animated.View hitSlop={12} style={[styles.knob, { backgroundColor: disabled ? tokens.card : tokens.onAccent }, knobStyle]}>
-          <CaretRight size={18} weight="bold" color={disabled ? tokens.text3 : tokens.accent} />
+    // The bird sits outside the clipped track so it can fly up past its edge.
+    <View>
+      <View
+        accessible
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        accessibilityHint="Slide right to confirm"
+        accessibilityState={{ disabled }}
+        accessibilityActions={[{ name: 'activate' }]}
+        onAccessibilityAction={(e) => {
+          if (e.nativeEvent.actionName === 'activate' && !disabled) onConfirm()
+        }}
+        onLayout={(e) => setWidth(Math.round(e.nativeEvent.layout.width))}
+        style={[styles.track, { backgroundColor: disabled ? tokens.inputBg : tokens.accent }]}
+      >
+        <Animated.View pointerEvents="none" style={[styles.trail, { backgroundColor: tokens.onAccent }, trailStyle]} />
+        <Animated.View pointerEvents="none" style={[styles.labelWrap, labelStyle]}>
+          <Text numberOfLines={1} style={[styles.label, { color: disabled ? tokens.text3 : tokens.onAccent }]}>{label}</Text>
         </Animated.View>
-      </GestureDetector>
+        <GestureDetector gesture={pan}>
+          <Animated.View hitSlop={12} style={[styles.knob, { backgroundColor: disabled ? tokens.card : tokens.onAccent }, knobStyle]}>
+            <KnobIcon size={18} weight="bold" color={disabled ? tokens.text3 : tokens.accent} />
+          </Animated.View>
+        </GestureDetector>
+      </View>
+      <Animated.View pointerEvents="none" style={[styles.bird, birdStyle]}>
+        <Svg width={BIRD} height={BIRD} viewBox="80 75 330 330">
+          <Path d={BIRD_PATH} fill={disabled ? tokens.text3 : tokens.onAccent} fillRule="evenodd" />
+        </Svg>
+      </Animated.View>
     </View>
   )
 }
@@ -130,5 +177,6 @@ const styles = StyleSheet.create({
   trail: { position: 'absolute', left: 0, top: 0, bottom: 0, borderRadius: HEIGHT / 2, opacity: 0.18 },
   labelWrap: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center', paddingHorizontal: KNOB + PAD * 2 },
   label: { fontFamily: fontFamily.bodyBold, fontSize: 15 },
+  bird: { position: 'absolute', right: PAD + (KNOB - BIRD) / 2, top: (HEIGHT - BIRD) / 2 },
   knob: { position: 'absolute', left: PAD, width: KNOB, height: KNOB, borderRadius: KNOB / 2, alignItems: 'center', justifyContent: 'center' },
 })

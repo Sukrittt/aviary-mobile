@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router'
-import { CaretDown, Plus, X } from '@/src/components/shared/icons'
+import { CaretDown, MoneyWavy, Plus, X } from '@/src/components/shared/icons'
 import { CategoryPickerSheet } from '@/src/components/shared/CategoryPickerSheet'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { Icon } from '@/src/components/shared/Icon'
@@ -192,7 +192,7 @@ function FreshStartScreen() {
         {error !== '' && <Text accessibilityRole="alert" style={{ color: tokens.coral, fontFamily: fontFamily.bodyMedium, fontSize: type.caption }}>{error}</Text>}
 
         {phase === 'idle' ? (
-          <SlideToConfirm label={expenses && expenses.length > 1 ? `Slide to log ${expenses.length} expenses` : 'Slide to log it'} onConfirm={save} disabled={!expenses} />
+          <SlideToConfirm icon={MoneyWavy} label={expenses && expenses.length > 1 ? `Slide to log ${expenses.length} expenses` : 'Slide to log it'} onConfirm={save} disabled={!expenses} />
         ) : (
         <Pressable
           accessibilityRole="button"
