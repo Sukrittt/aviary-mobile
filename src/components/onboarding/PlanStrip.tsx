@@ -78,6 +78,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     minHeight: 48,
+    // Air below the step's blurb, which sits close above it.
+    marginTop: 12,
     paddingHorizontal: 16,
     paddingVertical: 7,
     borderRadius: 16,
