@@ -513,7 +513,7 @@ function LogExpenseScreen() {
           // Same as a queued add: show it in the cached lists now (envelopes
           // count it) rather than waiting for the drain's refetch. Only if it
           // belongs to the budget on screen.
-          if (entry && entry.spaceId === (activeBudgetId() ?? currentUserId() ?? undefined)) insertExpense(qc, queuedRow(payload));
+          if (entry && (entry.spaceId ?? currentUserId()) === (activeBudgetId() ?? currentUserId())) insertExpense(qc, queuedRow(payload));
           return flush();
         });
         setLogSuccess(true);
