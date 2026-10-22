@@ -1,5 +1,5 @@
 import { apiFetch } from './client'
-import { transferBudget, updateBudget } from './budgets'
+import { getCarry, transferBudget, updateBudget } from './budgets'
 import { BudgetWriteError } from '@/src/lib/budgetConflict'
 
 jest.mock('./client', () => ({
@@ -56,5 +56,17 @@ describe('updateBudget', () => {
       status: 409,
       current,
     })
+  })
+})
+
+describe('getCarry', () => {
+  it('reads a 404 as nothing carried, so a Web deploy without the route still loads Home', async () => {
+    mockedApiFetch.mockResolvedValue({ ok: false, status: 404 })
+    await expect(getCarry('2026-11')).resolves.toEqual({ ready_to_assign: 0, rolled_over: {} })
+  })
+
+  it('still throws on other failures', async () => {
+    mockedApiFetch.mockResolvedValue({ ok: false, status: 500 })
+    await expect(getCarry('2026-11')).rejects.toThrow('Failed to load carry: 500')
   })
 })
