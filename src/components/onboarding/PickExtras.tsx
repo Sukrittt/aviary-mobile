@@ -90,7 +90,7 @@ export function PickExtras() {
         </Text>
         <View style={styles.list}>
           {EXTRAS.map(({ key, icon: ExtraIcon, pitch }) => (
-            <ExtraRow key={key} icon={ExtraIcon} label={labelOf(key)} pitch={pitch} on={on.has(key)} onToggle={() => flip(key)} />
+            <ExtraRow key={key} icon={ExtraIcon} label={labelOf(key)} pitch={pitch} on={on.has(key)} onToggle={() => flip(key)} disabled={phase !== 'open'} />
           ))}
         </View>
         <View style={styles.actions}>
@@ -123,7 +123,8 @@ const AnimatedPressable = Animated.createAnimatedComponent(Pressable)
  * One extra, tappable anywhere. Same check and motion as setup's group and
  * category rows (PickRow.tsx): a quick timed check and a small press-in bounce.
  */
-function ExtraRow({ icon: ExtraIcon, label, pitch, on, onToggle }: { icon: PhosphorIcon; label: string; pitch: string; on: boolean; onToggle: () => void }) {
+// `disabled` once a save has started: a flip after that would change the screen but never be saved.
+function ExtraRow({ icon: ExtraIcon, label, pitch, on, onToggle, disabled = false }: { icon: PhosphorIcon; label: string; pitch: string; on: boolean; onToggle: () => void; disabled?: boolean }) {
   const { tokens, motion } = useTheme()
   const reduceMotion = useReducedMotion()
   const mounted = useRef(false)
@@ -151,7 +152,8 @@ function ExtraRow({ icon: ExtraIcon, label, pitch, on, onToggle }: { icon: Phosp
     <AnimatedPressable
       accessibilityRole="checkbox"
       accessibilityLabel={`Turn on ${label}`}
-      accessibilityState={{ checked: on }}
+      accessibilityState={{ checked: on, disabled }}
+      disabled={disabled}
       onPress={() => {
         Haptics.selectionAsync().catch(() => {})
         onToggle()

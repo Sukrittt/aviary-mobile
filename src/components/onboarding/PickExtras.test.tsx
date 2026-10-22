@@ -87,3 +87,13 @@ it('turns an extra on from a tap anywhere on its row', () => {
   fireEvent.press(getByText('Insights'))
   expect(getByLabelText('Turn on Insights').props.accessibilityState.checked).toBe(false)
 })
+
+it('locks the rows once a save has started, so a late flip is never left unsaved', () => {
+  mockMutate.mockReturnValueOnce(new Promise(() => {}))
+  const { getByLabelText, getByText } = renderWithProviders(<PickExtras />)
+  fireEvent.press(getByLabelText('Turn on Insights'))
+  fireEvent.press(getByText('Turn on 1'))
+  fireEvent.press(getByLabelText('Turn on Scan a bill'))
+  expect(getByLabelText('Turn on Scan a bill').props.accessibilityState).toMatchObject({ checked: false, disabled: true })
+  expect(mockMutate).toHaveBeenCalledTimes(1)
+})
