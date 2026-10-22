@@ -11,7 +11,6 @@ import Animated, {
   useSharedValue,
   withDelay,
   withSequence,
-  withSpring,
   withTiming,
 } from 'react-native-reanimated'
 import * as Haptics from 'expo-haptics'
@@ -89,7 +88,8 @@ export function SlideToConfirm({ label, onConfirm, disabled = false }: { label: 
         x.value = reduceMotion ? max : withTiming(max, { duration: 120 })
         runOnJS(onConfirm)()
       } else {
-        x.value = reduceMotion ? 0 : withSpring(0, { damping: 18, stiffness: 220 })
+        // Eased, not sprung: a spring overshoots past the left edge and the knob vanishes for a beat.
+        x.value = reduceMotion ? 0 : withTiming(0, { duration: 260, easing: Easing.out(Easing.cubic) })
       }
       armed.value = false
     })
