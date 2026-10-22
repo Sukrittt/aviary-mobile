@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import { StyleSheet, Text, View } from 'react-native'
+import { Platform, StyleSheet, Text, View } from 'react-native'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Animated, {
+  Easing,
   Extrapolation,
   interpolate,
   runOnJS,
@@ -15,6 +16,7 @@ import Animated, {
 } from 'react-native-reanimated'
 import * as Haptics from 'expo-haptics'
 import { CaretRight } from '@/src/components/shared/icons'
+import { tap } from '@/src/lib/haptics'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 
@@ -23,6 +25,15 @@ const PAD = 4
 const KNOB = HEIGHT - PAD * 2
 // How far along the knob has to be when you let go for it to count.
 const THRESHOLD = 0.85
+// The track is cut into this many notches; the knob ticks over each one like a ratchet.
+const NOTCHES = 12
+
+// Android's impact haptics fall back to a buzzy vibrator, so it gets the system's own drag and tick effects.
+const android = Platform.OS === 'android'
+const grab = () =>
+  (android ? Haptics.performAndroidHapticsAsync(Haptics.AndroidHaptics.Drag_Start) : Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)).catch(() => {})
+const notch = () =>
+  (android ? Haptics.performAndroidHapticsAsync(Haptics.AndroidHaptics.Segment_Frequent_Tick) : Haptics.selectionAsync()).catch(() => {})
 
 /**
  * A slide-to-confirm CTA for the few moments that deserve one: finishing setup,
@@ -38,26 +49,37 @@ export function SlideToConfirm({ label, onConfirm, disabled = false }: { label: 
   const [width, setWidth] = useState(0)
   const x = useSharedValue(0)
   const armed = useSharedValue(false)
+  const step = useSharedValue(0)
   const max = Math.max(width - KNOB - PAD * 2, 1)
 
-  // One small nudge so the knob reads as something you drag, not a button.
+  // One slow lean to the right and back, no bounce, so the knob reads as something you drag, not a button.
   useEffect(() => {
     if (reduceMotion || disabled || !width) return
-    x.value = withDelay(600, withSequence(withTiming(18, { duration: 260 }), withSpring(0, { damping: 9 })))
+    const ease = Easing.inOut(Easing.cubic)
+    x.value = withDelay(500, withSequence(withTiming(14, { duration: 420, easing: ease }), withTiming(0, { duration: 420, easing: ease })))
   }, [reduceMotion, disabled, width, x])
 
-  const tick = () => Haptics.selectionAsync().catch(() => {})
-
+  // Haptics: a soft grab, a fine tick per notch while dragging, and a firm click once letting go would confirm.
   const pan = Gesture.Pan()
     .enabled(!disabled)
     .activeOffsetX([-8, 8])
     .failOffsetY([-12, 12])
+    .onStart(() => {
+      step.value = 0
+      runOnJS(grab)()
+    })
     .onUpdate((e) => {
       x.value = Math.min(max, Math.max(0, e.translationX))
       const past = x.value >= max * THRESHOLD
       if (past !== armed.value) {
         armed.value = past
-        runOnJS(tick)()
+        runOnJS(tap)()
+        return
+      }
+      const n = Math.floor((x.value / max) * NOTCHES)
+      if (n !== step.value) {
+        step.value = n
+        runOnJS(notch)()
       }
     })
     // Judged on the release, not the last update: a quick flick can end before any update lands.
