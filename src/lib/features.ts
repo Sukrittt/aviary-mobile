@@ -44,3 +44,12 @@ export function hiddenFeatures(user: FeatureUser | undefined): HideableFeature[]
 export function isHidden(user: FeatureUser | undefined, key: HideableFeature): boolean {
   return hiddenFeatures(user).includes(key)
 }
+
+/**
+ * A new account that hasn't said which extras it wants, here or on Web. Home's
+ * extras card shows until it has. Accounts from before OPT_IN_SINCE started
+ * with everything on, so there's nothing to offer them.
+ */
+export function extrasUnchosen(user: (FeatureUser & Pick<UserProfile, 'onboardedAt'>) | undefined): boolean {
+  return !!user?.onboardedAt && !user.hiddenFeatures && !!user.createdAt && user.createdAt >= OPT_IN_SINCE
+}

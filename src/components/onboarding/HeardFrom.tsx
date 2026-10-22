@@ -1,13 +1,16 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { View, Text, Pressable, StyleSheet } from 'react-native'
-import Animated, { FadeIn } from 'react-native-reanimated'
 import * as Haptics from 'expo-haptics'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
-import { useUpdateUser } from '@/src/hooks/useUser'
+import { useUpdateUser, useUser } from '@/src/hooks/useUser'
+import { useDismissedRolloverBanner } from '@/src/hooks/useDismissedRolloverBanner'
 import { track } from '@/src/lib/analytics'
-import { tap } from '@/src/lib/haptics'
-import type { HeardFrom as Source } from '@/src/api/account'
+import { OPT_IN_SINCE, extrasUnchosen } from '@/src/lib/features'
+import { Card } from '@/src/components/ui/Card'
+import { CheckIcon } from '@/src/components/shared/CheckIcon'
+import { SlideStrip } from '@/src/components/shared/SlideStrip'
+import type { HeardFrom as Source, UserProfile } from '@/src/api/account'
 
 /** Every answer, in the order shown. Twin of Web's HeardFrom.tsx; keys match the server's HEARD_FROM_SOURCES. */
 export const HEARD_FROM_LABELS: Record<Source, string> = {
@@ -21,70 +24,97 @@ export const HEARD_FROM_LABELS: Record<Source, string> = {
   other: 'Somewhere else',
 }
 
-/** Setup's very last screen, after the budget is saved, so skipping it costs nothing. */
-export function HeardFrom({ onDone }: { onDone: () => void }) {
-  const { tokens } = useTheme()
-  const updateUser = useUpdateUser()
-  const [picked, setPicked] = useState<Source | null>(null)
-  const [saving, setSaving] = useState(false)
+/** How long the thank-you check holds before the card slides away. */
+const SAVED_HOLD_MS = 1100
 
-  const finish = async () => {
-    if (saving) return
-    tap()
-    if (!picked) return onDone()
-    setSaving(true)
+/**
+ * Whether Home should ask where a new account heard about us: never answered,
+ * and only once the extras card is out of the way, so Home asks one thing at a time.
+ */
+export function heardFromUnasked(user: UserProfile | undefined): boolean {
+  return !!user?.onboardedAt && !user.heardFrom && !!user.createdAt && user.createdAt >= OPT_IN_SINCE && !extrasUnchosen(user)
+}
+
+/**
+ * A Home card, asked once after setup rather than during it, so it never
+ * stands between a new account and its budget. One tap answers it.
+ */
+export function HeardFrom() {
+  const { tokens, space, type } = useTheme()
+  const user = useUser().data
+  const updateUser = useUpdateUser()
+  const [dismissed, setDismissed] = useDismissedRolloverBanner('heard-from')
+  // The answer lands in the cached profile at once, which would drop the card
+  // before its check plays; the phase holds it until it's slid off.
+  const [phase, setPhase] = useState<'open' | 'saved' | 'leaving' | 'gone'>('open')
+
+  useEffect(() => {
+    if (phase !== 'saved') return
+    const t = setTimeout(() => setPhase('leaving'), SAVED_HOLD_MS)
+    return () => clearTimeout(t)
+  }, [phase])
+
+  if (phase === 'gone' || (phase === 'open' && (dismissed !== false || !heardFromUnasked(user)))) return null
+
+  const answer = (picked: Source) => {
+    if (phase !== 'open') return
+    Haptics.selectionAsync().catch(() => {})
     track('onboarding_heard_from', { source: picked })
-    // A failed save isn't worth stopping anyone for: the event above already has the answer.
-    await updateUser.mutateAsync({ heardFrom: picked }).catch(() => {})
-    onDone()
+    setPhase('saved')
+    // A failed save isn't worth bothering anyone about: the event above already has the answer.
+    updateUser.mutate({ heardFrom: picked })
   }
 
+  const label = { fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }
+
   return (
-    // One short question, so the whole block sits mid-screen like web, not top-and-bottom.
-    <View style={{ flex: 1, justifyContent: 'center' }}>
-      <Animated.Text entering={FadeIn.duration(350)} style={[styles.title, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
-        Where did you hear about us?
-      </Animated.Text>
-      <Animated.Text entering={FadeIn.delay(80).duration(350)} style={[styles.blurb, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
-        Last one, promise. It helps us find more people like you.
-      </Animated.Text>
-
-      <View style={styles.chips}>
-        {(Object.keys(HEARD_FROM_LABELS) as Source[]).map((key) => {
-          const on = picked === key
-          return (
-            <Pressable
-              key={key}
-              accessibilityRole="button"
-              accessibilityState={{ selected: on }}
-              onPress={() => {
-                Haptics.selectionAsync().catch(() => {})
-                setPicked(on ? null : key)
-              }}
-              style={[styles.chip, { borderColor: on ? tokens.accent : tokens.borderStrong, backgroundColor: on ? tokens.accentSoft : tokens.inputBg }]}
-            >
-              <Text style={[styles.chipLabel, { color: on ? tokens.accent : tokens.text2 }]}>{HEARD_FROM_LABELS[key]}</Text>
+    <SlideStrip
+      leaving={phase === 'leaving'}
+      gap={space.lg}
+      onGone={() => {
+        if (!user?.heardFrom) setDismissed(true)
+        setPhase('gone')
+      }}
+    >
+      <Card elevated={false}>
+        {phase === 'open' ? (
+          <>
+            <Text style={[styles.title, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Where did you hear about us?</Text>
+            <Text style={[styles.blurb, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>One tap. It helps us find more people like you.</Text>
+            <View style={styles.chips}>
+              {(Object.keys(HEARD_FROM_LABELS) as Source[]).map((key) => (
+                <Pressable
+                  key={key}
+                  accessibilityRole="button"
+                  onPress={() => answer(key)}
+                  style={[styles.chip, { borderColor: tokens.borderStrong, backgroundColor: tokens.inputBg }]}
+                >
+                  <Text style={[styles.chipLabel, { color: tokens.text2 }]}>{HEARD_FROM_LABELS[key]}</Text>
+                </Pressable>
+              ))}
+            </View>
+            <Pressable accessibilityRole="button" hitSlop={8} onPress={() => setPhase('leaving')} style={styles.notNow}>
+              <Text style={[label, { color: tokens.text2 }]}>Not now</Text>
             </Pressable>
-          )
-        })}
-      </View>
-
-      <Pressable accessibilityRole="button" onPress={finish} disabled={saving} style={[styles.cta, { backgroundColor: tokens.accent, opacity: saving ? 0.6 : 1 }]}>
-        <Text style={[styles.ctaText, { color: tokens.onAccent, fontFamily: fontFamily.displaySemiBold }]}>
-          {saving ? 'Saving…' : picked ? 'Start budgeting' : 'Skip for now'}
-        </Text>
-      </Pressable>
-    </View>
+          </>
+        ) : (
+          <View style={styles.thanks}>
+            <CheckIcon color={tokens.mint} size={18} />
+            <Text style={[label, { color: tokens.text }]}>Thanks, that helps.</Text>
+          </View>
+        )}
+      </Card>
+    </SlideStrip>
   )
 }
 
 // Same chip as setup's income quick picks.
 const styles = StyleSheet.create({
-  title: { fontSize: 32, lineHeight: 37, letterSpacing: -0.3 },
-  blurb: { fontSize: 15, lineHeight: 23, marginTop: 7, maxWidth: 320 },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingTop: 24 },
+  title: { fontSize: 18, lineHeight: 23 },
+  blurb: { fontSize: 13, lineHeight: 19, marginTop: 4 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingTop: 14 },
   chip: { paddingVertical: 9, paddingHorizontal: 14, borderRadius: 100, borderWidth: 1 },
   chipLabel: { fontSize: 12, fontFamily: fontFamily.bodyBold },
-  cta: { marginTop: 28, minHeight: 54, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
-  ctaText: { fontSize: 15 },
+  notNow: { alignSelf: 'flex-start', marginTop: 14 },
+  thanks: { flexDirection: 'row', alignItems: 'center', gap: 10 },
 })

@@ -1,13 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
-import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native'
-import Animated, { Easing, FadeIn, useAnimatedStyle, useReducedMotion, useSharedValue, withSpring, withTiming } from 'react-native-reanimated'
+import { View, Text, Pressable, StyleSheet } from 'react-native'
+import Animated, { Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withSpring, withTiming } from 'react-native-reanimated'
 import * as Haptics from 'expo-haptics'
 import { Brain, Check, Gift, ChartLine, Receipt, Scan, TrendUp, type PhosphorIcon } from '@/src/components/shared/icons'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { Alert } from '@/src/components/ui/AlertHost'
 import { useUser, useUpdateUser } from '@/src/hooks/useUser'
-import { HIDEABLE_FEATURES, OPT_IN_FEATURES, hiddenFeatures, type HideableFeature } from '@/src/lib/features'
+import { HIDEABLE_FEATURES, OPT_IN_FEATURES, extrasUnchosen, hiddenFeatures, type HideableFeature } from '@/src/lib/features'
+import { Card } from '@/src/components/ui/Card'
+import { CheckIcon } from '@/src/components/shared/CheckIcon'
+import { SlideStrip } from '@/src/components/shared/SlideStrip'
 import { track } from '@/src/lib/analytics'
 import { tap } from '@/src/lib/haptics'
 
@@ -23,73 +26,94 @@ export const EXTRAS: { key: HideableFeature; icon: PhosphorIcon; pitch: string }
 
 const labelOf = (key: HideableFeature) => HIDEABLE_FEATURES.find((f) => f.key === key)?.label ?? key
 
+/** How long the saved check holds before the card slides away. */
+const SAVED_HOLD_MS = 1100
+
 /**
- * Setup's second-to-last screen: every extra a new account starts without, each one
- * line, so nobody has to stumble on them later. The budget is already saved,
- * so leaving here keeps the defaults.
+ * Home's card for every extra a new account starts without, each one line, so
+ * nobody has to stumble on them later. It used to be a setup screen; now it
+ * waits on Home until the account makes a choice here or in Features, on any
+ * device, so a choice anywhere retires it.
  */
-export function PickExtras({ onDone }: { onDone: () => void }) {
-  const { tokens } = useTheme()
+export function PickExtras() {
+  const { tokens, space, type } = useTheme()
   const user = useUser().data
   const updateUser = useUpdateUser()
-  // Always starts with nothing picked: this screen is the opt-in, whatever the account's default.
+  // Always starts with nothing picked: this card is the opt-in, whatever the account's default.
   const [on, setOn] = useState<Set<HideableFeature>>(() => new Set())
+  // Saving writes the choice to the cached profile straight away, which would
+  // drop the card mid-check. The phase keeps it up until it has slid off.
+  const [phase, setPhase] = useState<'open' | 'saving' | 'saved' | 'leaving' | 'gone'>('open')
 
-  const flip = (key: HideableFeature, value: boolean) => {
+  useEffect(() => {
+    if (phase !== 'saved') return
+    const t = setTimeout(() => setPhase('leaving'), SAVED_HOLD_MS)
+    return () => clearTimeout(t)
+  }, [phase])
+
+  if (phase === 'gone' || (phase === 'open' && !extrasUnchosen(user))) return null
+
+  const flip = (key: HideableFeature) => {
     setOn((prev) => {
       const next = new Set(prev)
-      if (value) next.add(key)
-      else next.delete(key)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
       return next
     })
   }
 
-  const [saving, setSaving] = useState(false)
-
-  // Waits for the save before leaving: setup unmounts on onDone, which would drop a failure silently.
-  const finish = async () => {
-    if (saving) return
+  // Saved even when nothing's picked, so the choice sticks and the card stays gone.
+  const save = async (chosen: Set<HideableFeature>) => {
+    if (phase !== 'open') return
     tap()
-    setSaving(true)
-    // Saved even when nothing's picked, so the choice sticks whatever the account's age.
+    const picked = chosen.size > 0
+    setPhase(picked ? 'saving' : 'leaving')
     const coreHidden = hiddenFeatures(user).filter((k) => !OPT_IN_FEATURES.includes(k))
-    track('onboarding_extras_chosen', { extras: [...on].join(','), count: on.size })
+    track('onboarding_extras_chosen', { extras: [...chosen].join(','), count: chosen.size })
     try {
-      await updateUser.mutateAsync({ hiddenFeatures: [...coreHidden, ...OPT_IN_FEATURES.filter((k) => !on.has(k))] })
+      await updateUser.mutateAsync({ hiddenFeatures: [...coreHidden, ...OPT_IN_FEATURES.filter((k) => !chosen.has(k))] })
+      if (picked) setPhase('saved')
     } catch {
       Alert.alert("Couldn't save your extras", 'Turn them on anytime from You, then Features.')
+      if (picked) setPhase('open')
     }
-    onDone()
   }
 
+  const label = { fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }
+
   return (
-    <View style={{ flex: 1 }}>
-      <Animated.Text entering={FadeIn.duration(350)} style={[styles.title, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
-        Want any extras?
-      </Animated.Text>
-      <Animated.Text entering={FadeIn.delay(80).duration(350)} style={[styles.blurb, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
-        Your budget works without them. Switch on what sounds useful. You can change this anytime in Features.
-      </Animated.Text>
-
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.list}>
-        {EXTRAS.map(({ key, icon: ExtraIcon, pitch }) => (
-            <ExtraRow
-              key={key}
-              icon={ExtraIcon}
-              label={labelOf(key)}
-              pitch={pitch}
-              on={on.has(key)}
-              onToggle={() => flip(key, !on.has(key))}
-            />
-        ))}
-      </ScrollView>
-
-      <Pressable accessibilityRole="button" onPress={finish} disabled={saving} style={[styles.cta, { backgroundColor: tokens.accent, opacity: saving ? 0.6 : 1 }]}>
-        <Text style={[styles.ctaText, { color: tokens.onAccent, fontFamily: fontFamily.displaySemiBold }]}>
-          {saving ? 'Saving…' : on.size ? 'Continue' : 'Skip for now'}
+    <SlideStrip leaving={phase === 'leaving'} gap={space.lg} onGone={() => setPhase('gone')}>
+      <Card elevated={false} style={styles.card}>
+        <Text style={[styles.title, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Want any extras?</Text>
+        <Text style={[styles.blurb, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
+          Your budget works without them. Switch on what sounds useful.
         </Text>
-      </Pressable>
-    </View>
+        <View style={styles.list}>
+          {EXTRAS.map(({ key, icon: ExtraIcon, pitch }) => (
+            <ExtraRow key={key} icon={ExtraIcon} label={labelOf(key)} pitch={pitch} on={on.has(key)} onToggle={() => flip(key)} />
+          ))}
+        </View>
+        <View style={styles.actions}>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => save(on)}
+            disabled={phase !== 'open' || on.size === 0}
+            style={[styles.cta, { backgroundColor: phase === 'saved' ? tokens.mint : on.size ? tokens.accent : tokens.inputBg }]}
+          >
+            {phase === 'saved' ? (
+              <CheckIcon color={tokens.onSuccess} size={18} />
+            ) : (
+              <Text style={[label, { color: on.size ? tokens.onAccent : tokens.text3 }]}>
+                {phase === 'saving' ? 'Saving…' : on.size ? `Turn on ${on.size}` : 'Turn on'}
+              </Text>
+            )}
+          </Pressable>
+          <Pressable accessibilityRole="button" disabled={phase !== 'open'} hitSlop={8} onPress={() => save(new Set())}>
+            <Text style={[label, { color: tokens.text2 }]}>Not now</Text>
+          </Pressable>
+        </View>
+      </Card>
+    </SlideStrip>
   )
 }
 
@@ -162,15 +186,16 @@ function ExtraRow({ icon: ExtraIcon, label, pitch, on, onToggle }: { icon: Phosp
 }
 
 const styles = StyleSheet.create({
-  title: { fontSize: 32, lineHeight: 37, letterSpacing: -0.3 },
-  blurb: { fontSize: 15, lineHeight: 23, marginTop: 7, maxWidth: 320 },
-  list: { gap: 8, paddingTop: 20, paddingBottom: 8 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, paddingHorizontal: 14, borderRadius: 18, borderWidth: 1.5 },
-  check: { width: 26, height: 26, borderRadius: 13, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  card: { gap: 0 },
+  title: { fontSize: 18, lineHeight: 23 },
+  blurb: { fontSize: 13, lineHeight: 19, marginTop: 4 },
+  list: { gap: 8, paddingTop: 14 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, paddingHorizontal: 12, borderRadius: 16, borderWidth: 1.5 },
+  check: { width: 24, height: 24, borderRadius: 12, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
   checkIcon: { width: 16, height: 16, transformOrigin: 'left' },
-  icon: { width: 30, height: 30, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  icon: { width: 28, height: 28, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
   label: { fontSize: 14 },
   pitch: { fontSize: 12, lineHeight: 16, marginTop: 2 },
-  cta: { marginTop: 16, minHeight: 54, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
-  ctaText: { fontSize: 15 },
+  actions: { flexDirection: 'row', alignItems: 'center', gap: 20, marginTop: 14 },
+  cta: { minHeight: 40, minWidth: 110, paddingHorizontal: 18, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
 })

@@ -66,6 +66,8 @@ import { isHidden } from '@/src/lib/features'
 import { ForecastLine } from '@/src/components/home/ForecastLine'
 import { GetStartedCard } from '@/src/components/home/GetStartedCard'
 import { ImportBanner } from '@/src/components/home/ImportBanner'
+import { PickExtras } from '@/src/components/onboarding/PickExtras'
+import { HeardFrom } from '@/src/components/onboarding/HeardFrom'
 import { paydayLabel, startingBalanceHref, upcomingMonthlyPay } from '@/src/lib/upcomingPay'
 import { EmptyState } from '@/src/components/shared/EmptyState'
 import { FORCE_EMPTY_STATE_PREVIEW, emptyForPreview } from '@/src/lib/emptyStatePreview'
@@ -600,6 +602,12 @@ function HomeScreen() {
             </View>
           </Card>
         </View>
+
+        {/* What setup used to ask at its end, asked once the budget is running,
+            below the envelopes so the one that just moved stays in view. Each
+            card decides for itself whether it's needed; heard-from waits for extras. */}
+        <PickExtras />
+        <HeardFrom />
 
         {!isHidden(user, 'insights') && <View>
           <Pressable onPress={() => { tap(); router.push('/insights') }} style={[styles.insightsLink, { borderRadius: radius.lg }]}>
