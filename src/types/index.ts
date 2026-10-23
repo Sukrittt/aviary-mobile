@@ -88,6 +88,8 @@ export interface CategoryRow {
   icon?: string
   /** The tint the user picked (a key of CATEGORY_COLORS), if any. */
   color?: string
+  /** First month (YYYY-MM) of a re-created category; earlier months leave it out. */
+  since?: string
 }
 
 export interface CategoryMap {
