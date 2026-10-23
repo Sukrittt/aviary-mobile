@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { Pressable, StyleSheet } from 'react-native'
 import Swipeable, { type SwipeableMethods } from 'react-native-gesture-handler/ReanimatedSwipeable'
 import Animated, { Extrapolation, interpolate, interpolateColor, useAnimatedStyle, type SharedValue } from 'react-native-reanimated'
@@ -16,11 +16,13 @@ function Action({
   color,
   progress,
   onPress,
+  showIcon,
 }: {
   icon: PhosphorIcon
   color: string
   progress: SharedValue<number>
   onPress: () => void
+  showIcon: boolean
 }) {
   // backgroundColor is driven by progress (transparent at rest, opaque once revealed) rather
   // than a static color — the panel is otherwise always-opaque behind the row, and a whole-screen
@@ -36,7 +38,7 @@ function Action({
     <Animated.View style={[styles.action, boxStyle]}>
       <Pressable style={styles.actionPress} onPress={onPress}>
         <Animated.View style={iconStyle}>
-          <Icon icon={icon} size={22} color="#fff" weight="bold" />
+          {showIcon ? <Icon icon={icon} size={22} color="#fff" weight="bold" /> : null}
         </Animated.View>
       </Pressable>
     </Animated.View>
@@ -61,6 +63,10 @@ export function SwipeableRow({
 }) {
   const { tokens } = useTheme()
   const ref = useRef<SwipeableMethods>(null)
+  // The action icons sit at scale 0 until a drag reveals them, so they're
+  // only mounted from the first drag on. Two SVGs a row added up: Android
+  // re-attaches every one of them on each switch to Activity.
+  const [dragged, setDragged] = useState(false)
 
   return (
     <Swipeable
@@ -71,6 +77,7 @@ export function SwipeableRow({
       rightThreshold={ACTION_WIDTH / 2}
       dragOffsetFromLeft={24}
       dragOffsetFromRight={-24}
+      onSwipeableOpenStartDrag={() => setDragged(true)}
       onSwipeableWillOpen={() => {
         tap()
         onOpen?.(
@@ -84,6 +91,7 @@ export function SwipeableRow({
           icon={PencilSimple}
           color={tokens.accentInk}
           progress={progress}
+          showIcon={dragged}
           onPress={() => {
             swipeable.close()
             onEdit()
@@ -95,6 +103,7 @@ export function SwipeableRow({
           icon={Trash}
           color={tokens.coral}
           progress={progress}
+          showIcon={dragged}
           onPress={() => {
             swipeable.close()
             onDelete()
