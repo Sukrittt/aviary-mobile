@@ -1,11 +1,10 @@
 import { useState } from 'react'
-import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native'
+import { View, Text, ScrollView, StyleSheet } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { ArrowLeft } from '@/src/components/shared/icons'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
-import { Icon } from '@/src/components/shared/Icon'
+import { ScreenHeader } from '@/src/components/shared/ScreenHeader'
 import { Toggle } from '@/src/components/ui/Toggle'
 import { Alert } from '@/src/components/ui/AlertHost'
 import { useUser, useUpdateUser } from '@/src/hooks/useUser'
@@ -45,13 +44,8 @@ export default function FeaturesScreen() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: tokens.bg, paddingTop: insets.top }]}>
-      <View style={[styles.header, { borderBottomColor: tokens.border }]}>
-        <Pressable onPress={() => router.back()} hitSlop={12} style={[styles.backButton, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
-          <Icon icon={ArrowLeft} size={20} color={tokens.text} />
-        </Pressable>
-        <Text style={[styles.headerTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Features</Text>
-      </View>
+    <View style={[styles.container, { backgroundColor: tokens.bg }]}>
+      <ScreenHeader title="Features" onBack={() => router.back()} />
 
       <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 32 }]}>
         <View style={styles.section}>
@@ -108,9 +102,6 @@ export default function FeaturesScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth },
-  backButton: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontSize: 19 },
   scrollContent: { padding: 16, gap: 20 },
   section: { gap: 10 },
   card: { borderWidth: 1, borderRadius: 20, paddingHorizontal: 16 },

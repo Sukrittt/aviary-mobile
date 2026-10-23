@@ -1,5 +1,4 @@
 import { fontFamily } from "@/src/theme/fonts";
-import { ArrowLeft } from "@/src/components/shared/icons";
 import {
 KeyboardAvoidingView,
 Platform,
@@ -27,8 +26,7 @@ function ScanBillScreen() {
     >
       {phase === "confirm" ? (
         <ScreenHeader
-          onLeft={() => setPhase("review")}
-          leftIcon={ArrowLeft}
+          onBack={() => setPhase("review")}
           title="Confirm your log"
         />
       ) : phase === "review" ? (

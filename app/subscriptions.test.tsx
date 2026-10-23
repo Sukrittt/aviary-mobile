@@ -72,7 +72,7 @@ it('renders the live subscriptions list from the shared panel', () => {
 it('goes back when the back button is pressed', () => {
   mockUseSubscriptions.mockReturnValue({ data: [], isLoading: false })
   const { getByRole } = renderWithProviders(<SubscriptionsScreen />)
-  fireEvent.press(getByRole('button', { name: 'Go back' }))
+  fireEvent.press(getByRole('button', { name: 'Back' }))
   expect(mockBack).toHaveBeenCalledTimes(1)
 })
 

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { View, Text, Pressable, ScrollView, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native'
 import Reanimated, { FadeIn, ZoomIn, useReducedMotion } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { ScreenHeader } from '@/src/components/shared/ScreenHeader'
 import { type Href, useLocalSearchParams, useRouter } from 'expo-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTheme } from '@/src/theme/ThemeProvider'
@@ -133,13 +134,7 @@ export default function JoinBudgetModal() {
   }, [joined])
 
   const header = (
-    <View style={[styles.header, { paddingTop: insets.top + 8, borderBottomColor: tokens.border }]}>
-      <Pressable onPress={() => done(!!welcome)} hitSlop={12} disabled={!!joined && !welcome}>
-        <Text style={[styles.headerAction, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>{welcome ? 'Close' : 'Cancel'}</Text>
-      </Pressable>
-      <Text style={[styles.headerTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Join a budget</Text>
-      <View style={{ width: 52 }} />
-    </View>
+    <ScreenHeader title="Join a budget" onBack={() => done(!!welcome)} close backDisabled={!!joined && !welcome} />
   )
 
   if (welcome) {
@@ -317,16 +312,6 @@ function WhereToFind() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingBottom: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  headerAction: { fontSize: 14, width: 52 },
-  headerTitle: { fontSize: 16 },
   body: { padding: 20, gap: 18 },
   grow: { flexGrow: 1 },
   // Tiles stay put up top; whatever the code turns up sits in the middle of what's left.

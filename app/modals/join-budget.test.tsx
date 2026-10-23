@@ -161,7 +161,7 @@ it("lets a brand-new account join instead of setting up, and sends it to setup i
   ;(previewJoin as jest.Mock).mockResolvedValue(ok)
   const utils = setup()
   expect(await utils.findByText('Priya invited you to Home')).toBeTruthy()
-  fireEvent.press(utils.getByText('Cancel'))
+  fireEvent.press(utils.getByRole('button', { name: 'Close' }))
   expect(mockReplace).toHaveBeenCalledWith('/setup')
   expect(signalOnboarded).not.toHaveBeenCalled()
 

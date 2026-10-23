@@ -3,12 +3,11 @@ import { View, Text, Pressable, ScrollView, RefreshControl, StyleSheet } from 'r
 import { Toggle } from '@/src/components/ui/Toggle'
 import { useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { ArrowLeft } from '@/src/components/shared/icons'
 import { OfflineScreen } from '@/src/components/shared/OfflineScreen'
 import { useOnline } from '@/src/lib/netStatus'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
-import { Icon } from '@/src/components/shared/Icon'
+import { ScreenHeader } from '@/src/components/shared/ScreenHeader'
 import { useUser, useUpdateUser } from '@/src/hooks/useUser'
 import { useRefresh } from '@/src/hooks/useRefresh'
 import type { UserProfile } from '@/src/api/account'
@@ -54,13 +53,8 @@ export default function NotificationsScreen() {
   if (!online) return <OfflineScreen />
 
   return (
-    <View style={[styles.container, { backgroundColor: tokens.bg, paddingTop: insets.top }]}>
-      <View style={[styles.header, { borderBottomColor: tokens.border }]}>
-        <Pressable onPress={() => router.back()} hitSlop={12} style={[styles.backButton, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
-          <Icon icon={ArrowLeft} size={20} color={tokens.text} />
-        </Pressable>
-        <Text style={[styles.headerTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Notifications</Text>
-      </View>
+    <View style={[styles.container, { backgroundColor: tokens.bg }]}>
+      <ScreenHeader title="Notifications" onBack={() => router.back()} />
 
       <ScrollView
         refreshControl={
@@ -216,9 +210,6 @@ export default function NotificationsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth },
-  backButton: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontSize: 19 },
   scrollContent: { padding: 16, gap: 20 },
   section: { gap: 10 },
   sectionLabel: { fontSize: 12, letterSpacing: 0.5, paddingHorizontal: 4 },

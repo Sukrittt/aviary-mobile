@@ -26,11 +26,12 @@ import { fontFamily } from '@/src/theme/fonts'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import type { ThemeTokens } from '@/src/theme/tokens'
 import { useLocalSearchParams,useRouter } from 'expo-router'
-import { CaretDown, X } from '@/src/components/shared/icons'
+import { CaretDown } from '@/src/components/shared/icons'
 import { useEffect,useState } from 'react'
 import { ActivityIndicator,Animated,Pressable,ScrollView,StyleSheet,Text,View } from 'react-native'
 import Reanimated,{ FadeIn } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { ScreenHeader } from '@/src/components/shared/ScreenHeader'
 import * as Haptics from 'expo-haptics'
 import { withReadOnlyGate } from '@/src/components/budgets/ReadOnlyNotice'
 
@@ -246,25 +247,7 @@ function EditAmountBody({
           }}
         />
       )}
-      <View
-        style={[
-          styles.header,
-          { paddingTop: insets.top + space.sm, paddingHorizontal: space.lg, gap: space.md, borderBottomColor: tokens.border },
-        ]}
-      >
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Close"
-          onPress={close}
-          hitSlop={12}
-          style={[styles.headerBtn, { backgroundColor: tokens.card, borderColor: tokens.border, borderRadius: radius.full }]}
-        >
-          <X size={16} color={tokens.text} />
-        </Pressable>
-        <Text style={[styles.headerTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: type.body }]}>
-          Edit amount
-        </Text>
-      </View>
+      <ScreenHeader title="Edit amount" onBack={close} close />
 
       <ScrollView
         style={{ flex: 1 }}
@@ -492,9 +475,6 @@ function QuickChip({
 const styles = StyleSheet.create({
   container: { flex: 1 },
   center: { alignItems: 'center', justifyContent: 'center' },
-  header: { flexDirection: 'row', alignItems: 'center', paddingBottom: 14, borderBottomWidth: StyleSheet.hairlineWidth },
-  headerBtn: { width: 36, height: 36, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { flex: 1, textAlign: 'right' },
   body: {},
   stepLabel: { letterSpacing: 0.6 },
   destCard: { flexDirection: 'row', alignItems: 'center', borderWidth: 1 },

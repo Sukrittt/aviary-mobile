@@ -3,14 +3,14 @@ import { useState } from 'react'
 import { View, Text, Pressable, ScrollView, RefreshControl, StyleSheet } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useReadOnly } from '@/src/components/budgets/ReadOnlyNotice'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { ArrowLeft, CheckCircle, ArrowsClockwise } from '@/src/components/shared/icons'
+import { CheckCircle, ArrowsClockwise } from '@/src/components/shared/icons'
 import Reanimated from 'react-native-reanimated'
 import { OfflineScreen } from '@/src/components/shared/OfflineScreen'
 import { useOnline } from '@/src/lib/netStatus'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { Icon } from '@/src/components/shared/Icon'
+import { ScreenHeader } from '@/src/components/shared/ScreenHeader'
 import { LoadingPhrase } from '@/src/components/shared/LoadingPhrase'
 import { usePrivacy } from '@/src/context/PrivacyContext'
 import { formatDateShort } from '@/src/lib/format'
@@ -56,7 +56,6 @@ export default function RecurringSuggestionsScreen() {
   const { tokens } = useTheme()
   const { hideAmounts } = usePrivacy()
   const online = useOnline()
-  const insets = useSafeAreaInsets()
   const router = useRouter()
   const params = useLocalSearchParams<{ kind?: string }>()
   // `all`: both kinds at once, for the import banner's "find your repeat payments".
@@ -129,26 +128,14 @@ export default function RecurringSuggestionsScreen() {
     data?.scannedAt && !data.stale && !data.failed && !data.remaining && suggestions.length === 0 && !scan.isPending
 
   return (
-    <View style={[styles.container, { backgroundColor: tokens.bg, paddingTop: insets.top }]}>
-      <View style={[styles.header, { borderBottomColor: tokens.border }]}>
-        <Pressable
-          onPress={() => router.back()}
-          hitSlop={12}
-          style={[styles.backButton, { backgroundColor: tokens.card, borderColor: tokens.border }]}
-        >
-          <Icon icon={ArrowLeft} size={20} color={tokens.text} />
-        </Pressable>
-        <View style={{ flex: 1 }}>
-          <Text style={[styles.headerTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
-            {allMode ? 'Find repeat payments' : subscriptionMode ? 'Find subscriptions' : 'Find recurring'}
-          </Text>
-          <Text style={[styles.headerSub, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
-            {data?.scannedAt
-              ? `Last scanned ${formatDateShort(toLocalDateString(new Date(data.scannedAt)))}`
-              : allMode ? 'Spot subscriptions and bills that repeat' : subscriptionMode ? 'Spot services you already pay for' : 'Spot repeated payments'}
-          </Text>
-        </View>
-      </View>
+    <View style={[styles.container, { backgroundColor: tokens.bg }]}>
+      <ScreenHeader
+        title={allMode ? 'Find repeat payments' : subscriptionMode ? 'Find subscriptions' : 'Find recurring'}
+        subtitle={data?.scannedAt
+          ? `Last scanned ${formatDateShort(toLocalDateString(new Date(data.scannedAt)))}`
+          : allMode ? 'Spot subscriptions and bills that repeat' : subscriptionMode ? 'Spot services you already pay for' : 'Spot repeated payments'}
+        onBack={() => router.back()}
+      />
 
       <ScrollView
         contentContainerStyle={styles.body}
@@ -385,18 +372,6 @@ function SuggestionRow({
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  backButton: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontSize: 19 },
-  headerSub: { fontSize: 12, marginTop: 1 },
   body: { padding: 16, gap: 16, paddingBottom: 32 },
   introCard: { borderWidth: 1, borderRadius: 16, padding: 16 },
   introRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },

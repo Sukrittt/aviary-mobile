@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { ScreenHeader } from '@/src/components/shared/ScreenHeader'
 import { useRouter } from 'expo-router'
 import * as Haptics from 'expo-haptics'
-import { X } from '@/src/components/shared/icons'
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { usePrivacy } from '@/src/context/PrivacyContext'
 import { useDeleteExpense, useDismissDuplicate, useDuplicates } from '@/src/hooks/useExpenses'
@@ -131,20 +131,7 @@ function DuplicatesModal() {
 
   return (
     <View style={[styles.container, { backgroundColor: tokens.bg }]}>
-      <View style={[styles.header, { paddingTop: insets.top + space.sm, paddingHorizontal: space.lg, gap: space.md, borderBottomColor: tokens.border }]}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Close"
-          onPress={() => router.back()}
-          hitSlop={12}
-          style={[styles.headerBtn, { backgroundColor: tokens.card, borderColor: tokens.border, borderRadius: radius.full }]}
-        >
-          <X size={16} color={tokens.text} />
-        </Pressable>
-        <Text style={[styles.headerTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: type.body }]}>
-          Possible duplicates
-        </Text>
-      </View>
+      <ScreenHeader title="Possible duplicates" onBack={() => router.back()} close />
 
       {!pair ? (
         <View style={[styles.container, styles.center]}>
@@ -230,9 +217,6 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   center: { alignItems: 'center', justifyContent: 'center' },
   content: { flexGrow: 1 },
-  header: { flexDirection: 'row', alignItems: 'center', paddingBottom: 14, borderBottomWidth: StyleSheet.hairlineWidth },
-  headerBtn: { width: 36, height: 36, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { flex: 1, textAlign: 'right' },
   card: { borderWidth: 1 },
   row: { flexDirection: 'row', gap: 12 },
   cell: { flex: 1, flexDirection: 'row', alignItems: 'flex-start', gap: 6 },

@@ -2,7 +2,7 @@ import { useCurrency } from '@/src/context/CurrencyContext'
 import { useEffect, useRef, useState } from 'react'
 import { View, Text, TextInput, Pressable, ScrollView, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native'
 import { Toggle } from '@/src/components/ui/Toggle'
-import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { ScreenHeader } from '@/src/components/shared/ScreenHeader'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { Alert } from '@/src/components/ui/AlertHost'
 import { useTheme } from '@/src/theme/ThemeProvider'
@@ -36,7 +36,6 @@ function AddHoldingModal() {
   const { currencySymbol } = useCurrency()
 
   const { tokens } = useTheme()
-  const insets = useSafeAreaInsets()
   const router = useRouter()
   const params = useLocalSearchParams()
   const origName = str(params.name)
@@ -193,19 +192,7 @@ function AddHoldingModal() {
           onClose={() => setConflict(null)}
         />
       )}
-      <View
-        style={[styles.header, { paddingTop: insets.top + 8, borderBottomColor: tokens.border }]}
-      >
-        <Pressable onPress={() => router.back()} hitSlop={12} disabled={saved}>
-          <Text style={[styles.headerAction, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
-            Cancel
-          </Text>
-        </Pressable>
-        <Text style={[styles.headerTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
-          {isEdit ? 'Edit monthly contribution' : 'Add Holding'}
-        </Text>
-        <View style={{ width: 52 }} />
-      </View>
+      <ScreenHeader title={isEdit ? 'Edit monthly contribution' : 'Add Holding'} onBack={() => router.back()} close backDisabled={saved} />
 
       <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
         {isEdit ? (
@@ -348,16 +335,6 @@ function AddHoldingModal() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingBottom: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  headerAction: { fontSize: 14, width: 52 },
-  headerTitle: { fontSize: 16 },
   body: { padding: 20, gap: 20 },
   field: { gap: 8 },
   fieldLabel: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5 },

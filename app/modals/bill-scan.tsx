@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { Eye, X } from '@/src/components/shared/icons'
 import { Modal, View, Text, Image, Pressable, ScrollView, StyleSheet } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { ScreenHeader } from '@/src/components/shared/ScreenHeader'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
@@ -50,15 +51,7 @@ export default function BillScanModal() {
 
   return (
     <View style={[styles.container, { backgroundColor: tokens.bg }]}>
-      <View style={[styles.header, { paddingTop: insets.top + 8, borderBottomColor: tokens.border }]}>
-        <Pressable onPress={() => router.back()} hitSlop={12}>
-          <Text style={[styles.headerAction, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>Close</Text>
-        </Pressable>
-        <Text style={[styles.headerTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]} numberOfLines={1}>
-          {scan?.merchant || 'Scan detail'}
-        </Text>
-        <View style={{ width: 52 }} />
-      </View>
+      <ScreenHeader title={scan?.merchant || 'Scan detail'} onBack={() => router.back()} close />
 
       {scanQ.isLoading ? (
         <View style={styles.centered}>
@@ -212,15 +205,6 @@ function ItemRow({ item }: { item: BillScanItem }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  headerAction: { fontSize: 14, width: 52 },
   headerTitle: { flex: 1, fontSize: 17, textAlign: 'center' },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 },
   emptyText: { fontSize: 14, textAlign: 'center' },
