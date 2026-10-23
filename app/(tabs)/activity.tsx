@@ -12,7 +12,7 @@ import { AccountChips, accountName } from "@/src/components/shared/AccountChips"
 import { incomesForPage, periodEnd } from "@/src/lib/incomeActivity";
 import { ExpenseWriteError } from '@/src/lib/expenseConflict';
 import { useCurrency } from '@/src/context/CurrencyContext'
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -21,6 +21,7 @@ import {
   RefreshControl,
   ScrollView,
   StyleSheet,
+  type GestureResponderEvent,
 } from "react-native";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter, useLocalSearchParams, useFocusEffect, type Href } from "expo-router";
@@ -37,7 +38,7 @@ import { CaptureTipBubble } from "@/src/features/log-expense/CaptureTipBubble";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { track } from "@/src/lib/analytics";
 import Reanimated, { FadeIn, FadeOut, LinearTransition } from "react-native-reanimated";
-import { Screen } from "@/src/components/ui/Screen";
+import { Screen, useNavPadding } from "@/src/components/ui/Screen";
 import { Chip } from "@/src/components/ui/Chip";
 import { Icon } from "@/src/components/shared/Icon";
 import { useTheme } from "@/src/theme/ThemeProvider";
@@ -66,7 +67,8 @@ import { ActivitySkeleton } from "@/src/components/shared/TabSkeleton";
 import { OfflineScreen } from "@/src/components/shared/OfflineScreen";
 import { ErrorScreen } from "@/src/components/shared/ErrorScreen";
 import { EmptyState } from "@/src/components/shared/EmptyState";
-import type { ExpenseRow, IncomeRow } from "@/src/types";
+import type { CategoryRow, ExpenseRow, IncomeRow } from "@/src/types";
+import type { BudgetMember } from "@/src/api/spaces";
 import { formatDayLabel, parseLocalDate, toLocalDateString } from "@/src/lib/date";
 import { useOnline } from "@/src/lib/netStatus";
 import { useUnsyncedExpenses } from "@/src/hooks/useUnsyncedExpenses";
@@ -111,11 +113,124 @@ function keyOf(t: ExpenseRow): string {
   return t.id || `t-${t.timestamp}-${t.item}`;
 }
 
+type RowActions = {
+  press: (txn: ExpenseRow, e: GestureResponderEvent) => void;
+  longPress: (txn: ExpenseRow) => void;
+  edit: (txn: ExpenseRow) => void;
+  delete: (txn: ExpenseRow) => void;
+  open: (key: string, close: () => void, reset: () => void) => void;
+  deleteDone: () => void;
+  openIncome: () => void;
+};
+
+// Memoised with stable actions, so the screen re-rendering (a list/feed
+// switch, a selection, a delete) only re-renders the rows it changed. Inline,
+// every row re-rendered every time: 3 to 7ms of JS a row (2026-10-24).
+const ExpenseListRow = memo(function ExpenseListRow({
+  txn,
+  category,
+  who,
+  selected,
+  selecting,
+  locked,
+  hidden,
+  deleting,
+  actions,
+}: {
+  txn: ExpenseRow;
+  category: CategoryRow | undefined;
+  who: BudgetMember | undefined;
+  selected: boolean;
+  selecting: boolean;
+  locked: boolean;
+  /** Its detail page is open, so the page reads as the row lifting off. */
+  hidden: boolean;
+  deleting: boolean;
+  actions: RowActions;
+}) {
+  const { tokens } = useTheme();
+  const tintOf = useCategoryTint();
+  const { hideAmounts } = usePrivacy();
+  const { formatCurrency } = useCurrency();
+  const tint = tintOf(txn.category);
+  return (
+    <DeletingRow active={deleting} onDone={actions.deleteDone}>
+      <SwipeableRow
+        enabled={!selecting}
+        rowKey={keyOf(txn)}
+        onDelete={() => actions.delete(txn)}
+        onEdit={() => actions.edit(txn)}
+        onOpen={actions.open}
+      >
+        <Pressable
+          onPress={(e) => actions.press(txn, e)}
+          onLongPress={() => actions.longPress(txn)}
+          disabled={locked}
+          accessibilityState={selecting ? { selected } : undefined}
+          style={[styles.row, { backgroundColor: tokens.bg, opacity: hidden ? 0 : 1 }]}
+        >
+          <SelectTint selected={selected} style={styles.rowTint} />
+          <SelectCheck selecting={selecting} selected={selected} gap={ROW_GAP} inset={SELECT_INSET} />
+          <View testID="row-icon" style={[styles.icon, { backgroundColor: tint.bg }]}>
+            <CategoryIcon name={txn.category} icon={category?.icon} group={category?.group} size={16} color={tint.ink} />
+            {who ? (
+              <View testID="logged-by" accessibilityLabel={`Added by ${firstName(who.name) ?? "someone"}`} style={styles.loggedBy}>
+                <Avatar name={who.name} avatarUrl={who.avatarUrl} size={20} />
+              </View>
+            ) : null}
+          </View>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={[styles.rowItem, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]} numberOfLines={1}>
+              {txn.item}
+            </Text>
+            <Text style={[styles.rowMeta, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]} numberOfLines={1}>
+              {formatShortDate(txn.date)} · {splitEmoji(txn.category).text}
+              {txn.has_photo ? " · Photo" : ""}
+            </Text>
+          </View>
+          <Text style={[styles.rowAmount, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>
+            {formatCurrency(Number(txn.amount_inr) || 0, hideAmounts)}
+          </Text>
+          <SelectInset selecting={selecting} gap={ROW_GAP} inset={SELECT_INSET} />
+        </Pressable>
+      </SwipeableRow>
+    </DeletingRow>
+  );
+});
+
+const IncomeListRow = memo(function IncomeListRow({ income, account, actions }: { income: IncomeRow; account: string; actions: RowActions }) {
+  const { tokens } = useTheme();
+  const { hideAmounts } = usePrivacy();
+  const { formatCurrency } = useCurrency();
+  return (
+    <Pressable
+      onPress={actions.openIncome}
+      accessibilityRole="button"
+      accessibilityLabel={`${income.label}, income. Open Income`}
+      style={[styles.row, { backgroundColor: tokens.bg }]}
+    >
+      <View style={[styles.icon, { backgroundColor: tokens.mintSoft }]}>
+        <Icon icon={MoneyWavy} size={16} color={tokens.mint} />
+      </View>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text style={[styles.rowItem, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]} numberOfLines={1}>
+          {income.label}
+        </Text>
+        <Text style={[styles.rowMeta, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]} numberOfLines={1}>
+          {formatShortDate(income.date)} · Income{account ? ` · ${account}` : ""}
+        </Text>
+      </View>
+      <Text style={[styles.rowAmount, { color: tokens.mint, fontFamily: fontFamily.bodySemiBold }]}>
+        +{formatCurrency(Number(income.amount) || 0, hideAmounts)}
+      </Text>
+    </Pressable>
+  );
+});
+
 function ActivityScreen() {
   const { formatCurrency } = useCurrency()
 
   const { tokens, scheme, space } = useTheme();
-  const tintOf = useCategoryTint();
   const insets = useSafeAreaInsets();
   const categoryRowPress = usePressSpring();
   const { refreshing, onRefresh } = useRefresh();
@@ -395,14 +510,11 @@ function ActivityScreen() {
   const viewKey = [page, selectedDate, period, customRange.from, customRange.to, selectedCategory, selectedAccount, search].join("|");
   const viewKeyRef = useRef(viewKey);
   const [mountedRows, setMountedRows] = useState(ROWS_PER_FRAME);
-  // Coming back from the feed counts as a new view too, so the list mounts a
-  // screenful per frame instead of every row in the tap's frame.
-  const mountKey = `${viewKey}|${feedView}`;
-  const [mountedView, setMountedView] = useState(mountKey);
+  const [mountedView, setMountedView] = useState(viewKey);
   // Reset during render, not in an effect: an effect would commit the new
   // page's full row count once before shrinking it back.
-  if (mountedView !== mountKey) {
-    setMountedView(mountKey);
+  if (mountedView !== viewKey) {
+    setMountedView(viewKey);
     setMountedRows(ROWS_PER_FRAME);
   }
   useEffect(() => {
@@ -518,6 +630,47 @@ function ActivityScreen() {
       return next;
     });
   }
+
+  // The rows are memoised, so they get one stable set of actions that calls
+  // through to this render's handlers.
+  const latestRowActions = useRef<RowActions | null>(null);
+  useLayoutEffect(() => {
+    latestRowActions.current = {
+      press: (txn, e) => {
+        if (selecting) return toggleSelected(txn);
+        e.currentTarget.measureInWindow((x, y, width, height) => setDetail({ txn, rect: { x, y, width, height } }));
+      },
+      longPress: (txn) => {
+        if (!selecting) toggleSelected(txn);
+      },
+      edit: openEdit,
+      delete: confirmDelete,
+      open: (key, close, reset) => {
+        if (openRowRef.current && openRowRef.current.key !== key) openRowRef.current.close();
+        openRowRef.current = { key, close, reset };
+      },
+      deleteDone: () => {
+        if (pendingDelete) runDelete(pendingDelete);
+      },
+      openIncome: () => router.push("/account/income"),
+    };
+  });
+  const rowActions = useMemo<RowActions>(
+    () => ({
+      press: (txn, e) => latestRowActions.current?.press(txn, e),
+      longPress: (txn) => latestRowActions.current?.longPress(txn),
+      edit: (txn) => latestRowActions.current?.edit(txn),
+      delete: (txn) => latestRowActions.current?.delete(txn),
+      open: (key, close, reset) => latestRowActions.current?.open(key, close, reset),
+      deleteDone: () => latestRowActions.current?.deleteDone(),
+      openIncome: () => latestRowActions.current?.openIncome(),
+    }),
+    [],
+  );
+  // Feed and list stay mounted once shown and swap by opacity (see below).
+  const [feedMounted, setFeedMounted] = useState(feedView);
+  if (feedView && !feedMounted) setFeedMounted(true);
+  const navPad = useNavPadding();
 
   // One request per row, in order: each delete runs its own server transaction
   // (credit-card envelope rebalance included), so parallel requests would just
@@ -811,245 +964,158 @@ function ActivityScreen() {
             </>
           )
         }
-        scroll={!feedView}
-        contentContainerStyle={[
-          styles.scrollContent,
-          totalCount === 0 && styles.scrollContentGrow,
-        ]}
-        refreshControl={refreshControl}
+        scroll={false}
       >
-        {feedView ? (
-          <ActivityFeed
-            params={feedParams}
-            incomes={feedIncomes}
-            onOpenIncome={() => router.push("/account/income")}
-            header={controls}
-            empty={emptyState}
-            categoryByName={categoryByName}
-            accountNameOf={(id) => accountName(accountsQ.data, id)}
-            onOpenActions={setSheetTxn}
-            onEdit={openEdit}
-            onDelete={confirmDelete}
-            isDeleting={(t) => pendingDelete !== null && keyOf(pendingDelete) === keyOf(t)}
-            onDeleteDone={() => {
-              if (pendingDelete) runDelete(pendingDelete);
-            }}
-            refreshControl={refreshControl}
-          />
-        ) : (
-        <>
-        {controls}
-        {totalCount === 0 && visibleIncomes.length === 0 ? (
-          emptyState
-        ) : (
-          <View>
-            {listItems.slice(0, mountedRows).map((entry) => {
-              if (entry.kind === "income") {
-                const income = entry.income;
-                const account = accountName(accountsQ.data, income.account_id);
-                return (
-                  <Pressable
-                    key={`income-${income.id}`}
-                    onPress={() => router.push("/account/income")}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${income.label}, income. Open Income`}
-                    style={[styles.row, { backgroundColor: tokens.bg }]}
-                  >
-                    <View style={[styles.icon, { backgroundColor: tokens.mintSoft }]}>
-                      <Icon icon={MoneyWavy} size={16} color={tokens.mint} />
-                    </View>
-                    <View style={{ flex: 1, minWidth: 0 }}>
-                      <Text style={[styles.rowItem, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]} numberOfLines={1}>
-                        {income.label}
-                      </Text>
-                      <Text style={[styles.rowMeta, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]} numberOfLines={1}>
-                        {formatShortDate(income.date)} · Income{account ? ` · ${account}` : ""}
-                      </Text>
-                    </View>
-                    <Text style={[styles.rowAmount, { color: tokens.mint, fontFamily: fontFamily.bodySemiBold }]}>
-                      +{formatCurrency(Number(income.amount) || 0, hideAmounts)}
-                    </Text>
-                  </Pressable>
-                );
-              }
-              const txn = entry.txn;
-              const tint = tintOf(txn.category);
-              const cat = categoryByName.get(txn.category);
-              const isSelected = selectedKeys.has(keyOf(txn));
-              const who = shared ? loggedBy(txn, activeBudget) : undefined;
-              const content = (
-                <Pressable
-                  onPress={(e) => {
-                    if (selecting) return toggleSelected(txn);
-                    e.currentTarget.measureInWindow((x, y, width, height) => setDetail({ txn, rect: { x, y, width, height } }));
-                  }}
-                  onLongPress={() => {
-                    if (!selecting) toggleSelected(txn);
-                  }}
-                  disabled={selectionLocked}
-                  accessibilityState={selecting ? { selected: isSelected } : undefined}
-                  style={[styles.row, { backgroundColor: tokens.bg, opacity: detail && keyOf(detail.txn) === keyOf(txn) ? 0 : 1 }]}
-                >
-                  <SelectTint selected={isSelected} style={styles.rowTint} />
-                  <SelectCheck selecting={selecting} selected={isSelected} gap={ROW_GAP} inset={SELECT_INSET} />
-                  <View testID="row-icon" style={[styles.icon, { backgroundColor: tint.bg }]}>
-                    <CategoryIcon name={txn.category} icon={cat?.icon} group={cat?.group} size={16} color={tint.ink} />
-                    {who ? (
-                      <View testID="logged-by" accessibilityLabel={`Added by ${firstName(who.name) ?? "someone"}`} style={styles.loggedBy}>
-                        <Avatar name={who.name} avatarUrl={who.avatarUrl} size={20} />
-                      </View>
-                    ) : null}
-                  </View>
-                  <View style={{ flex: 1, minWidth: 0 }}>
-                    <Text
-                      style={[
-                        styles.rowItem,
-                        {
-                          color: tokens.text,
-                          fontFamily: fontFamily.bodySemiBold,
-                        },
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {txn.item}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.rowMeta,
-                        {
-                          color: tokens.text3,
-                          fontFamily: fontFamily.bodyMedium,
-                        },
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {formatShortDate(txn.date)} ·{" "}
-                      {splitEmoji(txn.category).text}
-                      {txn.has_photo ? " · Photo" : ""}
-                    </Text>
-                  </View>
+        {/* Both views stay mounted once shown and swap by opacity. Switching
+            used to tear down the whole body and build the other view from
+            scratch: on the emulator the list took 1.4s to fill back in, ten
+            rows a frame (2026-10-24). */}
+        <View style={[styles.views, { marginHorizontal: -space.lg }]}>
+          <View
+            style={[StyleSheet.absoluteFill, feedView && styles.hiddenView]}
+            pointerEvents={feedView ? "none" : "auto"}
+            accessibilityElementsHidden={feedView}
+            importantForAccessibility={feedView ? "no-hide-descendants" : "auto"}
+          >
+            <ScrollView
+              ref={scrollRef}
+              style={styles.views}
+              refreshControl={refreshControl}
+              contentContainerStyle={[
+                { paddingHorizontal: space.lg, paddingBottom: navPad },
+                styles.scrollContent,
+                totalCount === 0 && styles.scrollContentGrow,
+              ]}
+            >
+              {controls}
+              {totalCount === 0 && visibleIncomes.length === 0 ? (
+                emptyState
+              ) : (
+                <View>
+                  {listItems.slice(0, mountedRows).map((entry) =>
+                    entry.kind === "income" ? (
+                      <IncomeListRow
+                        key={`income-${entry.income.id}`}
+                        income={entry.income}
+                        account={accountName(accountsQ.data, entry.income.account_id)}
+                        actions={rowActions}
+                      />
+                    ) : (
+                      <ExpenseListRow
+                        key={keyOf(entry.txn)}
+                        txn={entry.txn}
+                        category={categoryByName.get(entry.txn.category)}
+                        who={shared ? loggedBy(entry.txn, activeBudget) : undefined}
+                        selected={selectedKeys.has(keyOf(entry.txn))}
+                        selecting={selecting}
+                        locked={selectionLocked}
+                        hidden={detail !== null && keyOf(detail.txn) === keyOf(entry.txn)}
+                        deleting={pendingDelete !== null && keyOf(pendingDelete) === keyOf(entry.txn)}
+                        actions={rowActions}
+                      />
+                    ),
+                  )}
+                </View>
+              )}
+
+              {totalCount > 0 || visibleIncomes.length > 0 ? (
+                <View style={styles.footer}>
                   <Text
+                    style={{
+                      color: tokens.text2,
+                      fontSize: 12,
+                      fontFamily: fontFamily.bodySemiBold,
+                    }}
+                  >
+                    {totalCount} transaction{totalCount !== 1 ? "s" : ""}
+                  </Text>
+                  <Text
+                    style={{
+                      color: tokens.text2,
+                      fontSize: 12,
+                      fontFamily: fontFamily.bodySemiBold,
+                    }}
+                  >
+                    Total: {formatCurrency(totalSpend, hideAmounts)}
+                  </Text>
+                </View>
+              ) : null}
+
+              {totalPages > 1 ? (
+                <View style={styles.pagination}>
+                  <Pressable
+                    onPress={() => changePage(page - 1)}
+                    disabled={page <= 1}
+                    accessibilityRole="button"
+                    accessibilityLabel="Previous page"
+                    accessibilityState={{ disabled: page <= 1 }}
                     style={[
-                      styles.rowAmount,
+                      styles.pageButton,
                       {
-                        color: tokens.text,
-                        fontFamily: fontFamily.bodySemiBold,
+                        backgroundColor: tokens.card,
+                        borderColor: tokens.border,
+                        opacity: page <= 1 ? 0.4 : 1,
                       },
                     ]}
                   >
-                    {formatCurrency(
-                      Number(txn.amount_inr) || 0,
-                      hideAmounts,
-                    )}
+                    <Icon icon={CaretLeft} size={17} color={tokens.text2} />
+                  </Pressable>
+                  <Text
+                    style={[
+                      styles.pageLabel,
+                      { color: tokens.text, fontFamily: fontFamily.bodyBold },
+                    ]}
+                  >
+                    Page {page} of {totalPages}
                   </Text>
-                  <SelectInset selecting={selecting} gap={ROW_GAP} inset={SELECT_INSET} />
-                </Pressable>
-              );
-              return (
-                <DeletingRow
-                  key={keyOf(txn)}
-                  active={
-                    pendingDelete !== null &&
-                    keyOf(pendingDelete) === keyOf(txn)
-                  }
-                  onDone={() => {
-                    if (pendingDelete) runDelete(pendingDelete);
-                  }}
-                >
-                  <SwipeableRow
-                      enabled={!selecting}
-                      rowKey={keyOf(txn)}
-                      onDelete={() => confirmDelete(txn)}
-                      onEdit={() => openEdit(txn)}
-                      onOpen={(key, close, reset) => {
-                        if (
-                          openRowRef.current &&
-                          openRowRef.current.key !== key
-                        ) {
-                          openRowRef.current.close();
-                        }
-                        openRowRef.current = { key, close, reset };
-                      }}
-                    >
-                      {content}
-                    </SwipeableRow>
-                </DeletingRow>
-              );
-            })}
+                  <Pressable
+                    onPress={() => changePage(page + 1, true)}
+                    disabled={page >= totalPages}
+                    accessibilityRole="button"
+                    accessibilityLabel="Next page"
+                    accessibilityState={{ disabled: page >= totalPages }}
+                    style={[
+                      styles.pageButton,
+                      {
+                        backgroundColor: tokens.card,
+                        borderColor: tokens.border,
+                        opacity: page >= totalPages ? 0.4 : 1,
+                      },
+                    ]}
+                  >
+                    <Icon icon={CaretRight} size={17} color={tokens.text2} />
+                  </Pressable>
+                </View>
+              ) : null}
+            </ScrollView>
           </View>
-        )}
-
-        {totalCount > 0 || visibleIncomes.length > 0 ? (
-          <View style={styles.footer}>
-            <Text
-              style={{
-                color: tokens.text2,
-                fontSize: 12,
-                fontFamily: fontFamily.bodySemiBold,
-              }}
+          {feedMounted ? (
+            <View
+              style={[StyleSheet.absoluteFill, { paddingHorizontal: space.lg }, !feedView && styles.hiddenView]}
+              pointerEvents={feedView ? "auto" : "none"}
+              accessibilityElementsHidden={!feedView}
+              importantForAccessibility={feedView ? "auto" : "no-hide-descendants"}
             >
-              {totalCount} transaction{totalCount !== 1 ? "s" : ""}
-            </Text>
-            <Text
-              style={{
-                color: tokens.text2,
-                fontSize: 12,
-                fontFamily: fontFamily.bodySemiBold,
-              }}
-            >
-              Total: {formatCurrency(totalSpend, hideAmounts)}
-            </Text>
-          </View>
-        ) : null}
-
-        {totalPages > 1 ? (
-          <View style={styles.pagination}>
-            <Pressable
-              onPress={() => changePage(page - 1)}
-              disabled={page <= 1}
-              accessibilityRole="button"
-              accessibilityLabel="Previous page"
-              accessibilityState={{ disabled: page <= 1 }}
-              style={[
-                styles.pageButton,
-                {
-                  backgroundColor: tokens.card,
-                  borderColor: tokens.border,
-                  opacity: page <= 1 ? 0.4 : 1,
-                },
-              ]}
-            >
-              <Icon icon={CaretLeft} size={17} color={tokens.text2} />
-            </Pressable>
-            <Text
-              style={[
-                styles.pageLabel,
-                { color: tokens.text, fontFamily: fontFamily.bodyBold },
-              ]}
-            >
-              Page {page} of {totalPages}
-            </Text>
-            <Pressable
-              onPress={() => changePage(page + 1, true)}
-              disabled={page >= totalPages}
-              accessibilityRole="button"
-              accessibilityLabel="Next page"
-              accessibilityState={{ disabled: page >= totalPages }}
-              style={[
-                styles.pageButton,
-                {
-                  backgroundColor: tokens.card,
-                  borderColor: tokens.border,
-                  opacity: page >= totalPages ? 0.4 : 1,
-                },
-              ]}
-            >
-              <Icon icon={CaretRight} size={17} color={tokens.text2} />
-            </Pressable>
-          </View>
-        ) : null}
-        </>
-        )}
+              <ActivityFeed
+                params={feedParams}
+                incomes={feedIncomes}
+                onOpenIncome={() => router.push("/account/income")}
+                header={controls}
+                empty={emptyState}
+                categoryByName={categoryByName}
+                accountNameOf={(id) => accountName(accountsQ.data, id)}
+                onOpenActions={setSheetTxn}
+                onEdit={openEdit}
+                onDelete={confirmDelete}
+                isDeleting={(t) => pendingDelete !== null && keyOf(pendingDelete) === keyOf(t)}
+                onDeleteDone={() => {
+                  if (pendingDelete) runDelete(pendingDelete);
+                }}
+                refreshControl={refreshControl}
+              />
+            </View>
+          ) : null}
+        </View>
 
         {detail && (
           <TransactionDetail
@@ -1356,6 +1422,8 @@ const styles = StyleSheet.create({
   scrollContent: { gap: 4 },
   readOnly: { marginBottom: 8 },
   scrollContentGrow: { flexGrow: 1 },
+  views: { flex: 1 },
+  hiddenView: { opacity: 0 },
   searchRow: {
     flexDirection: "row",
     alignItems: "center",

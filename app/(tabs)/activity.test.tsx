@@ -541,6 +541,21 @@ describe('feed view', () => {
     expect(screen.getByLabelText('Item 1, Food. View details')).toBeTruthy()
   })
 
+  // Rebuilding the other view on every switch took up to 1.5s on a phone.
+  it('keeps both views mounted across a switch, the hidden one out of reach', () => {
+    const screen = renderWithProviders(<ActivityScreen />)
+    const hidden = { includeHiddenElements: true }
+    // The list is already there under the feed, just hidden from touch and screen readers.
+    const listFooter = screen.getByText('1 transaction', hidden)
+    expect(screen.queryByText('1 transaction')).toBeNull()
+    const card = screen.getByLabelText('Item 1, Food. View details')
+    fireEvent.press(screen.getByLabelText('Show as list'))
+    expect(screen.getByText('1 transaction')).toBe(listFooter)
+    expect(screen.queryByLabelText('Item 1, Food. View details')).toBeNull()
+    fireEvent.press(screen.getByLabelText('Show as feed'))
+    expect(screen.getByLabelText('Item 1, Food. View details')).toBe(card)
+  })
+
   it('warms the feed while the list is up, so the switch reads from cache', () => {
     mockPrefetchFeed.mockClear()
     const screen = renderWithProviders(<ActivityScreen />)
