@@ -19,8 +19,6 @@ import { formatDayLabel } from '@/src/lib/date'
 import { EMPTY } from '@/src/lib/constants'
 import type { CategoryRow, ExpenseRow, IncomeRow } from '@/src/types'
 
-const FEED_PAGE_SIZE = 12
-
 const cardKey = (t: ExpenseRow) => t.id || `${t.timestamp}-${t.item}`
 
 type FeedParams = { category?: string; account?: string; from?: string; to?: string; q?: string }
@@ -55,7 +53,7 @@ export function ActivityFeed({ params, incomes, onOpenIncome, header, empty, cat
 }) {
   const { tokens, space } = useTheme()
   const navPad = useNavPadding()
-  const feed = useExpensesFeed({ limit: FEED_PAGE_SIZE, ...params })
+  const feed = useExpensesFeed(params)
   const rows = useMemo(() => feed.data?.pages.flatMap((p) => p.rows) ?? EMPTY, [feed.data])
   const hasNewer = feed.hasPreviousPage
   const hasOlder = feed.hasNextPage

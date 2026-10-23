@@ -15,6 +15,7 @@ const mockDeleteAsync = jest.fn()
 const mockPush = jest.fn()
 let mockDuplicates: unknown[] = []
 const mockUseExpensesFeed = jest.fn()
+const mockPrefetchFeed = jest.fn()
 let mockUser: { activityFeed?: boolean } = {}
 let mockRecent: { has_photo?: boolean }[] = []
 
@@ -22,6 +23,7 @@ jest.mock('@/src/hooks/useExpenses', () => ({
   useExpensesPage: (params: ExpensesPageParams) => mockUseExpensesPage(params),
   useDeleteExpense: () => ({ mutate: mockDelete, mutateAsync: mockDeleteAsync }),
   prefetchExpensesPage: jest.fn(),
+  prefetchExpensesFeed: (...args: unknown[]) => mockPrefetchFeed(...args),
   useDuplicates: () => ({ data: mockDuplicates }),
   useExpensesFeed: () => mockUseExpensesFeed(),
   // CategoryPickerSheet (rendered inside a BottomSheet) reads the base,
@@ -537,6 +539,14 @@ describe('feed view', () => {
     expect(screen.getByText('1 transaction')).toBeTruthy()
     fireEvent.press(screen.getByLabelText('Show as feed'))
     expect(screen.getByLabelText('Item 1, Food. View details')).toBeTruthy()
+  })
+
+  it('warms the feed while the list is up, so the switch reads from cache', () => {
+    mockPrefetchFeed.mockClear()
+    const screen = renderWithProviders(<ActivityScreen />)
+    expect(mockPrefetchFeed).not.toHaveBeenCalled()
+    fireEvent.press(screen.getByLabelText('Show as list'))
+    expect(mockPrefetchFeed).toHaveBeenCalledWith(expect.anything(), expect.not.objectContaining({ page: expect.anything() }))
   })
 
   describe('with a photo and no choice in Features', () => {
