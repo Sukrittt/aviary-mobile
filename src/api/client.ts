@@ -7,6 +7,7 @@ import { track } from '@/src/lib/analytics'
 import { activeBudgetId, budgetHeaders, restoreActiveBudget } from '@/src/lib/activeBudget'
 import { emitBudgetAccess } from '@/src/lib/budgetAccess'
 import { connectionContext } from '@/src/lib/connectionTelemetry'
+import { attributionHeaders } from '@/src/lib/attribution'
 
 // A dev build with no API URL set would otherwise silently point at
 // production data (see the fallback below) with no warning — fail loudly
@@ -62,6 +63,7 @@ export async function apiFetch(path: string, init?: RequestInit & { anonymous?: 
       signal,
       headers: {
         ...(token ? { Authorization: `Bearer ${token}`, ...budgetHeaders(activeBudgetId()) } : {}),
+        ...attributionHeaders(),
         ...(init?.headers ?? {}),
       },
     })
