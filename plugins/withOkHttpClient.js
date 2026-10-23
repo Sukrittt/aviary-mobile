@@ -1,7 +1,7 @@
 const { withMainApplication } = require('@expo/config-plugins');
 
 const MARKER = 'withOkHttpClient';
-const CONNECT_TIMEOUT_SECONDS = 10;
+const CONNECT_TIMEOUT_SECONDS = 5;
 const MAX_REQUESTS_PER_HOST = 8;
 const PING_INTERVAL_SECONDS = 5;
 
@@ -32,8 +32,12 @@ const PING_INTERVAL_SECONDS = 5;
  * well inside the 15s abort. The pings also keep the NAT mapping alive, so the
  * connection survives idle gaps instead of being replaced. (Closing idle
  * connections after 30s instead tripled the new connections and their
- * handshakes in testing, each one more exposed to a slow connect.) A connect
- * that hangs fails at CONNECT_TIMEOUT_SECONDS (RN's default is forever).
+ * handshakes in testing, each one more exposed to a slow connect.)
+ *
+ * A connect that hangs fails at CONNECT_TIMEOUT_SECONDS (RN's default is
+ * forever) and OkHttp tries the host's next IP. 330 of 331 connects in testing
+ * took under 3s (p99 1.3s); at 10s, one Vercel edge IP that didn't answer used
+ * up most of the 15s abort before the next IP got a turn.
  * OkHttp caps requests per host even on HTTP/2, and a screen load fires 15-40
  * at once.
  *

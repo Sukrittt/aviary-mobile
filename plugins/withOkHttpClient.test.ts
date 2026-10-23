@@ -37,8 +37,9 @@ describe('addOkHttpClient', () => {
     const out = addOkHttpClient(MAIN_APPLICATION)
     expect(out).toContain('.pingInterval(5, TimeUnit.SECONDS)')
     expect(out).not.toContain('.protocols(')
-    // RN's default connect timeout is 0 (forever).
-    expect(out).toContain('.connectTimeout(10, TimeUnit.SECONDS)')
+    // RN's default connect timeout is 0 (forever). Short enough that a second
+    // IP still gets a try inside apiFetch's 15s abort.
+    expect(out).toContain('.connectTimeout(5, TimeUnit.SECONDS)')
     // A screen load fires well over OkHttp's default of 5 per host.
     expect(out).toContain('maxRequestsPerHost = 8')
     // One pool for every client the factory builds (RN's networking and
