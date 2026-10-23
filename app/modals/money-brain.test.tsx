@@ -148,6 +148,8 @@ it('shows the review card under the reply when the stream sends a proposal', asy
   })
 
   expect(await utils.findByText("Here's what I got. Check it, then log.")).toBeTruthy()
+  // The capture screen tells the server this is a log, so it never second-guesses the message.
+  expect(mockStreamChat.mock.calls[0][6]).toBe(true)
   await waitFor(() => expect(utils.getByText('Review card: 2 rows')).toBeTruthy())
 
   // The card reports its outcome; Ask Aviary's line lands right under it at once,

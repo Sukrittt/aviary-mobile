@@ -152,6 +152,8 @@ export async function streamChat(
   signal?: AbortSignal,
   onProposal?: (proposal: CaptureProposal) => void,
   onSession?: (sessionId: string) => void,
+  /** Sent from the "Log a few spends" screen: the server reads every message as spends instead of guessing. */
+  capture = false,
 ): Promise<string | null> {
   const generation = sessionGeneration()
   const token = await getValidToken()
@@ -160,7 +162,7 @@ export async function streamChat(
     method: 'POST',
     headers: { 'Content-Type': 'application/json', [CAPTURE_HEADER]: '1', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
     // Role and text only: a proposal riding on an earlier reply is the server's own data, not history to resend.
-    body: JSON.stringify({ sessionId, messages: messages.map(({ role, text }) => ({ role, text })) }),
+    body: JSON.stringify({ sessionId, messages: messages.map(({ role, text }) => ({ role, text })), ...(capture ? { capture: true } : {}) }),
     signal,
   })
 
