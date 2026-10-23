@@ -15,7 +15,7 @@ export default function ChangelogScreen() {
   const { tokens } = useTheme()
   const insets = useSafeAreaInsets()
   const router = useRouter()
-  const { data: releases, isLoading, isError } = useQuery({ queryKey: ['changelog', 'mobile', 'all'], queryFn: listChangelog })
+  const { data: releases, isLoading, isError, isRefetching, refetch } = useQuery({ queryKey: ['changelog', 'mobile', 'all'], queryFn: listChangelog })
 
   const note = isError
     ? "Couldn't load the changelog. Check your connection and try again."
@@ -35,6 +35,11 @@ export default function ChangelogScreen() {
       <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 32 }]}>
         {isLoading && <LoadingPhrase phrases={LOADING_PHRASES} color={tokens.text2} style={{ fontFamily: fontFamily.bodyMedium, textAlign: 'center' }} />}
         {note && <Text style={[styles.note, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>{note}</Text>}
+        {isError && (
+          <Pressable accessibilityRole="button" disabled={isRefetching} onPress={() => void refetch()} hitSlop={8} style={[styles.retry, { backgroundColor: tokens.accentSoft }]}>
+            <Text style={[styles.retryText, { color: tokens.accentInk, fontFamily: fontFamily.bodyBold }]}>{isRefetching ? 'Trying…' : 'Try again'}</Text>
+          </Pressable>
+        )}
         {releases?.map((release) => {
           const date = release.publishedAt
             ? new Date(release.publishedAt).toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })
@@ -73,4 +78,6 @@ const styles = StyleSheet.create({
   line: { flex: 1, fontSize: 14, lineHeight: 20 },
   body: { fontSize: 13, lineHeight: 19 },
   note: { fontSize: 13, textAlign: 'center', marginTop: 24 },
+  retry: { alignSelf: 'center', borderRadius: 999, paddingHorizontal: 16, paddingVertical: 8 },
+  retryText: { fontSize: 13 },
 })
