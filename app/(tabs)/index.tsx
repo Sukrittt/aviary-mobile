@@ -454,11 +454,12 @@ function HomeScreen() {
             </AnimatedPressable>
             {/* Usually a new month copying a plan last month's one-off extra
                 paid for. Says so, and opens the biggest plan to trim (the
-                screen switches categories in place). */}
-            {!hideAmounts && overPlanned && (
+                screen switches categories in place). No plan at all (a
+                carried deficit alone): nothing to trim, so no line. */}
+            {!hideAmounts && overPlanned && trimFirst && (
               <View style={styles.overPlanned}>
                 <Text style={{ color: tokens.coral, fontSize: type.caption, fontFamily: fontFamily.bodyMedium }}>{overPlanned}</Text>
-                {trimFirst && !readOnly && (
+                {!readOnly && (
                   <Pressable
                     accessibilityRole="button"
                     accessibilityHint={`Opens ${splitEmoji(trimFirst.category).text}, your biggest plan`}

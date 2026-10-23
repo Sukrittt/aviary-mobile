@@ -225,6 +225,13 @@ describe('HomeScreen · Ready to Assign', () => {
     expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/modals/edit-assigned-amount', params: { category: 'Food' } })
   })
 
+  it('says nothing about over-planning when nothing is planned', () => {
+    mockBudgets = [{ month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' }]
+    mockCarry = { ready_to_assign: -25000, rolled_over: {} }
+    const { queryByText } = renderHome()
+    expect(queryByText(/more planned than coming in/)).toBeNull()
+  })
+
   it('says nothing about trimming when the plan fits', () => {
     const { queryByText } = renderHome()
     expect(queryByText(/more planned than coming in/)).toBeNull()
