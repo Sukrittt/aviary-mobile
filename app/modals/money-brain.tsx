@@ -295,6 +295,7 @@ export default function MoneyBrainModal() {
         streamSessionId = id
         setSessionId(id)
       },
+      captureMode,
     )
       .then((resolvedSessionId) => {
         if (!ownsRequest()) return
