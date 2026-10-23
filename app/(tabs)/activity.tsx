@@ -55,6 +55,7 @@ import {
 import { useCategories, useCategoryTint } from "@/src/hooks/useCategories";
 import { CategoryPickerSheet } from "@/src/components/shared/CategoryPickerSheet";
 import { BottomSheet } from "@/src/components/shared/Modal";
+import { SheetOption, SheetTitle } from "@/src/components/shared/SheetOption";
 import { DatePicker, type DateRange } from "@/src/components/shared/DatePicker";
 import { useRefresh } from "@/src/hooks/useRefresh";
 import { SwipeableRow } from "@/src/components/activity/SwipeableRow";
@@ -1055,15 +1056,7 @@ function ActivityScreen() {
           visible={sheetTxn !== null}
           onClose={() => setSheetTxn(null)}
         >
-          <Text
-            style={[
-              styles.sheetTitle,
-              { color: tokens.text2, fontFamily: fontFamily.bodySemiBold },
-            ]}
-            numberOfLines={1}
-          >
-            {sheetTxn?.item}
-          </Text>
+          <SheetTitle>{sheetTxn?.item}</SheetTitle>
           {shared && sheetTxn ? (
             <Text style={[styles.addedBy, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>
               {addedByLabel(loggedBy(sheetTxn, activeBudget))}
@@ -1071,13 +1064,11 @@ function ActivityScreen() {
           ) : null}
           <SheetOption
             label="Edit"
-            color={tokens.text}
             onPress={() => sheetTxn && openEdit(sheetTxn)}
           />
           {multiBudget && sheetTxn?.id ? (
             <SheetOption
               label="Move to another budget"
-              color={tokens.text}
               onPress={() => {
                 setSheetTxn(null);
                 if (!blocked()) setMoveTxn(sheetTxn);
@@ -1086,12 +1077,12 @@ function ActivityScreen() {
           ) : null}
           <SheetOption
             label="Delete"
-            color={tokens.coral}
+            tone="destructive"
             onPress={() => sheetTxn && confirmDelete(sheetTxn)}
           />
           <SheetOption
             label="Cancel"
-            color={tokens.text2}
+            tone="cancel"
             onPress={() => setSheetTxn(null)}
           />
         </BottomSheet>
@@ -1119,12 +1110,12 @@ function ActivityScreen() {
           </Text>
           <SheetOption
             label="Delete"
-            color={tokens.coral}
+            tone="destructive"
             onPress={() => deleteTxn && startDelete(deleteTxn)}
           />
           <SheetOption
             label="Cancel"
-            color={tokens.text2}
+            tone="cancel"
             onPress={() => setDeleteTxn(null)}
           />
         </BottomSheet>
@@ -1152,12 +1143,12 @@ function ActivityScreen() {
           </Text>
           <SheetOption
             label="Delete"
-            color={tokens.coral}
+            tone="destructive"
             onPress={() => void runBulkDelete(selectedTxns)}
           />
           <SheetOption
             label="Cancel"
-            color={tokens.text2}
+            tone="cancel"
             onPress={() => setConfirmBulk(false)}
           />
         </BottomSheet>
@@ -1166,14 +1157,7 @@ function ActivityScreen() {
           visible={categorySheetOpen}
           onClose={() => setCategorySheetOpen(false)}
         >
-          <Text
-            style={[
-              styles.sheetTitle,
-              { color: tokens.text2, fontFamily: fontFamily.bodySemiBold },
-            ]}
-          >
-            Filter
-          </Text>
+          <SheetTitle>Filter</SheetTitle>
           <View style={styles.periodRow}>
             {(["all", "week", "month", "custom"] as PeriodKey[]).map((key) => (
               <Chip
@@ -1335,29 +1319,6 @@ function addedByLabel(who: { userId: string; name: string | null } | undefined):
   return `Added by ${addedByName(who)}`;
 }
 
-function SheetOption({
-  label,
-  color,
-  onPress,
-}: {
-  label: string;
-  color: string;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable onPress={onPress} style={styles.sheetOption}>
-      <Text
-        style={[
-          styles.sheetOptionText,
-          { color, fontFamily: fontFamily.bodySemiBold },
-        ]}
-      >
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
-
 type ListItem = { kind: "expense"; txn: ExpenseRow } | { kind: "income"; income: IncomeRow };
 
 /** Expenses as the server ordered them (newest first), with income slotted in by date: ahead of that day's spends. */
@@ -1490,17 +1451,8 @@ const styles = StyleSheet.create({
   },
   whoRow: { flexDirection: "row", gap: 8 },
   addedBy: { fontSize: 12, marginTop: -4, marginBottom: 8 },
-  sheetTitle: {
-    fontSize: 12,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-    marginBottom: 8,
-    textAlign: "center",
-  },
   confirmTitle: { fontSize: 17, textAlign: "center", marginBottom: 6 },
   confirmBody: { fontSize: 13, textAlign: "center", marginBottom: 8 },
-  sheetOption: { paddingVertical: 14, alignItems: "center" },
-  sheetOptionText: { fontSize: 16 },
 });
 
 // memo: expo-router re-renders a tab's screen on every focus change with a
