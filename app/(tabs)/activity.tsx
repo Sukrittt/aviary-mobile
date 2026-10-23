@@ -406,10 +406,11 @@ function ActivityScreen() {
     setMountedRows(ROWS_PER_FRAME);
   }
   useEffect(() => {
-    if (mountedRows >= listItems.length) return;
+    // The feed doesn't show these rows, so don't re-render it to mount them.
+    if (feedView || mountedRows >= listItems.length) return;
     const id = requestAnimationFrame(() => setMountedRows((n) => n + ROWS_PER_FRAME));
     return () => cancelAnimationFrame(id);
-  }, [mountedRows, listItems.length]);
+  }, [feedView, mountedRows, listItems.length]);
   useEffect(() => {
     viewKeyRef.current = viewKey;
   });
