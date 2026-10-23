@@ -323,7 +323,8 @@ function TabPill({
           glyph={r.glyph}
           label={r.label}
           selected={active === r.name}
-          color={active === r.name ? tokens.accent : idleIcon}
+          color={tokens.accent}
+          idleColor={idleIcon}
           onPress={() => onSelect(r.name)}
         />
       ))}
@@ -437,6 +438,31 @@ function NavIcon({ icon: Icon, color, weight, size }: { icon: NavIconComponent; 
 }
 
 /**
+ * A tab's glyph, both looks always mounted and cross-faded by opacity.
+ * NavIcon's swap re-renders the SVG in the new weight, and Android paints a
+ * new SVG a frame or more after the rest of a switch, so the tab lit up after
+ * the screen had already changed (screen recording, 2026-10-24: up to 66ms).
+ */
+function TabIcon({ icon: Icon, selected, color, idleColor, size }: { icon: NavIconComponent; selected: boolean; color: string; idleColor: string; size: number }) {
+  const on = useSharedValue(selected ? 1 : 0)
+  useEffect(() => {
+    on.value = withTiming(selected ? 1 : 0, { duration: 200 })
+  }, [selected, on])
+  const onStyle = useAnimatedStyle(() => ({ opacity: on.value }))
+  const offStyle = useAnimatedStyle(() => ({ opacity: 1 - on.value }))
+  return (
+    <View style={{ width: size, height: size }}>
+      <Reanimated.View style={[StyleSheet.absoluteFill, offStyle]} pointerEvents="none">
+        <Icon size={size} color={idleColor} weight="regular" />
+      </Reanimated.View>
+      <Reanimated.View style={[StyleSheet.absoluteFill, onStyle]} pointerEvents="none">
+        <Icon size={size} color={color} weight="fill" />
+      </Reanimated.View>
+    </View>
+  )
+}
+
+/**
  * One tab in the pill. Fires on touch-down like a native tab bar; the
  * highlight behind it is the pill's, so the tab itself only swaps its glyph.
  */
@@ -445,12 +471,14 @@ function NavTab({
   label,
   selected,
   color,
+  idleColor,
   onPress,
 }: {
   glyph: NavIconComponent
   label: string
   selected: boolean
   color: string
+  idleColor: string
   onPress: () => void
 }) {
   // Set when touch-down already fired, so the release that follows doesn't
@@ -480,7 +508,7 @@ function NavTab({
       }}
       style={styles.tab}
     >
-      <NavIcon icon={glyph} color={color} weight={selected ? 'fill' : 'regular'} size={ICON} />
+      <TabIcon icon={glyph} selected={selected} color={color} idleColor={idleColor} size={ICON} />
     </Pressable>
   )
 }
