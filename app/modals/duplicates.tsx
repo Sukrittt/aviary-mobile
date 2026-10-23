@@ -12,6 +12,9 @@ import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { formatDateTime } from '@/src/lib/format'
+import { splitEmoji } from '@/src/lib/emoji'
+import { CategoryIcon } from '@/src/components/shared/CategoryIcon'
+import { useCategoryIcons } from '@/src/hooks/useCategories'
 import type { ExpenseRow } from '@/src/types'
 import type { DuplicatePair } from '@/src/api/expenses'
 import { track } from '@/src/lib/analytics'
@@ -29,6 +32,7 @@ function DuplicatesModal() {
   const { tokens, space, radius, type } = useTheme()
   const { formatCurrency } = useCurrency()
   const { hideAmounts } = usePrivacy()
+  const categoryIcons = useCategoryIcons()
   const insets = useSafeAreaInsets()
   const router = useRouter()
   const duplicates = useDuplicates()
@@ -112,11 +116,15 @@ function DuplicatesModal() {
     }
   }
 
-  const rows: [string, (r: ExpenseRow) => string][] = [
+  const rows: [string, (r: ExpenseRow) => string, ((r: ExpenseRow) => React.ReactNode)?][] = [
     ['Item', (r) => r.item],
     ['Amount', (r) => formatCurrency(Number(r.amount_inr) || 0, hideAmounts)],
     ['Logged', (r) => formatDateTime(r.timestamp)],
-    ['Category', (r) => r.category],
+    [
+      'Category',
+      (r) => splitEmoji(r.category).text,
+      (r) => <CategoryIcon name={r.category} icon={categoryIcons.get(r.category)} size={16} color={tokens.text2} />,
+    ],
   ]
   const label = { color: tokens.text3, fontFamily: fontFamily.bodySemiBold, fontSize: type.micro }
   const value = { flex: 1, color: tokens.text, fontFamily: fontFamily.bodyMedium, fontSize: type.body }
@@ -167,11 +175,15 @@ function DuplicatesModal() {
                 <Text style={[label, { flex: 1 }]}>EARLIER</Text>
                 <Text style={[label, { flex: 1 }]}>NEWER</Text>
               </View>
-              {rows.map(([name, read]) => (
+              {rows.map(([name, read, icon]) => (
                 <View key={name} style={[styles.row, { paddingVertical: space.sm, borderTopColor: tokens.border }, styles.divided]}>
                   <Text style={[label, styles.labelCol]}>{name.toUpperCase()}</Text>
-                  <Text style={value}>{read(pair.original)}</Text>
-                  <Text style={value}>{read(pair.duplicate)}</Text>
+                  {[pair.original, pair.duplicate].map((r) => (
+                    <View key={r.id} style={styles.cell}>
+                      {icon?.(r)}
+                      <Text style={value}>{read(r)}</Text>
+                    </View>
+                  ))}
                 </View>
               ))}
             </View>
@@ -223,6 +235,7 @@ const styles = StyleSheet.create({
   headerTitle: { flex: 1, textAlign: 'right' },
   card: { borderWidth: 1 },
   row: { flexDirection: 'row', gap: 12 },
+  cell: { flex: 1, flexDirection: 'row', alignItems: 'flex-start', gap: 6 },
   divided: { borderTopWidth: StyleSheet.hairlineWidth },
   labelCol: { width: 72, letterSpacing: 0.6 },
   actions: { marginTop: 'auto' },

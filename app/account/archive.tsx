@@ -337,7 +337,9 @@ export default function ArchiveScreen() {
           >
             {selecting
               ? "Tap rows to pick more"
-              : items.length === 0
+              : loading
+                ? "Fetching your archive"
+                : items.length === 0
                 ? "Nothing waiting to be purged"
                 : `${items.length} item${items.length === 1 ? "" : "s"} · kept 7 days`}
           </Text>

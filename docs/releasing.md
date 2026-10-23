@@ -66,7 +66,11 @@ Users get the rollback on their next launch.
 1. Bump `expo.version` in `app.json` (e.g. 2.6.0 to 2.7.0). `versionCode` auto-increments on EAS.
 2. `eas build -p android --profile production` then `eas submit -p android --profile production`.
 3. Promote it in Play Console once it passes review. Tag the commit `v.2.7.0`.
-4. Write release notes. Update MongoDB `system_settings` (`_id: "global"`) via Web admin **System** page:
+4. Publish the changelog entry. The in-app Changelog and What's new card read MongoDB `web_changelog`,
+   not this repo, so nothing reminds you if you skip this. In Web admin **Changelog**, add a **Mobile**
+   release with version `v2.7.0` (highlights from `git log` since the previous version bump), then publish it.
+   Check that the newest entry in More > Changelog matches the version in More before moving on.
+   Then update MongoDB `system_settings` (`_id: "global"`) via Web admin **System** page:
    - `appUpdate.android.latestVersion` = `2.7.0`. Shows a quiet "Update available" link on the More tab.
    - `appUpdate.android.minVersion` = `2.7.0` **only if** older installs must move (they'll stop getting
      OTA fixes, or the backend needs the new build). Shows a non-dismissable banner on Home.

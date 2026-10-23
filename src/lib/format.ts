@@ -29,14 +29,14 @@ export function formatOrdinalDate(dateStr: string): string {
   return `${day}${suffix} ${MONTHS[date.getUTCMonth()]}`
 }
 
-/** e.g. "12 Aug, 3:45 PM" — used by Investments' holding rows and event history. */
+/** e.g. "12 Aug, 3:45 pm" — used by Investments' holding rows and event history. */
 export function formatDateTime(ts: string): string {
   if (!ts) return ''
   const d = new Date(ts)
   if (Number.isNaN(d.getTime())) return ts
   const hours24 = d.getHours()
   const hours12 = hours24 % 12 || 12
-  const ampm = hours24 < 12 ? 'AM' : 'PM'
+  const ampm = hours24 < 12 ? 'am' : 'pm'
   const minutes = String(d.getMinutes()).padStart(2, '0')
   return `${d.getDate()} ${MONTHS[d.getMonth()]}, ${hours12}:${minutes} ${ampm}`
 }

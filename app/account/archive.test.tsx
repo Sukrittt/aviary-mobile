@@ -212,3 +212,12 @@ it('keeps a second in-flight restore locked when the first one settles', async (
 
   jest.useRealTimers()
 })
+
+it("doesn't claim the archive is empty while it's still loading", () => {
+  mockUseQuery.mockReturnValue({ data: undefined, isLoading: true })
+
+  const { getByText, queryByText } = renderWithProviders(<ArchiveScreen />)
+
+  expect(queryByText('Nothing waiting to be purged')).toBeNull()
+  expect(getByText('Fetching your archive')).toBeTruthy()
+})
