@@ -11,6 +11,7 @@ import { getArchive, restoreArchivedItem } from '@/src/api/account'
 import { useQueryClient } from '@tanstack/react-query'
 import { Alert } from '@/src/components/ui/AlertHost'
 import { BottomSheet } from '@/src/components/shared/Modal'
+import { SheetOption, SheetTitle } from '@/src/components/shared/SheetOption'
 import { OfflineScreen } from '@/src/components/shared/OfflineScreen'
 import { useOnline } from '@/src/lib/netStatus'
 import { useTheme } from '@/src/theme/ThemeProvider'
@@ -401,40 +402,15 @@ export default function InvestmentsScreen() {
       )}
 
       <BottomSheet visible={sheetHolding !== null} onClose={() => setSheetHolding(null)}>
-        <Text style={[styles.sheetTitle, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
-          {sheetHolding?.name}
-        </Text>
-        <SheetOption label="Update market value" color={tokens.text} onPress={() => openAction('market_update')} />
-        <SheetOption label="Add contribution" color={tokens.text} onPress={() => openAction('contribution')} divider />
-        <SheetOption label="Withdraw" color={tokens.text} onPress={() => openAction('withdrawal')} divider />
-        <SheetOption label="Edit monthly contribution" color={tokens.text} onPress={openEdit} divider />
-        <View style={[styles.sheetDivider, { backgroundColor: tokens.border }]} />
-        <SheetOption label="Delete" color={tokens.coral} onPress={confirmDelete} />
-        <SheetOption label="Cancel" color={tokens.text2} onPress={() => setSheetHolding(null)} divider />
+        <SheetTitle>{sheetHolding?.name}</SheetTitle>
+        <SheetOption label="Update market value" onPress={() => openAction('market_update')} />
+        <SheetOption label="Add contribution" onPress={() => openAction('contribution')} />
+        <SheetOption label="Withdraw" onPress={() => openAction('withdrawal')} />
+        <SheetOption label="Edit monthly contribution" onPress={openEdit} />
+        <SheetOption label="Delete" tone="destructive" onPress={confirmDelete} />
+        <SheetOption label="Cancel" tone="cancel" onPress={() => setSheetHolding(null)} />
       </BottomSheet>
     </View>
-  )
-}
-
-function SheetOption({
-  label,
-  color,
-  onPress,
-  divider,
-}: {
-  label: string
-  color: string
-  onPress: () => void
-  divider?: boolean
-}) {
-  const { tokens } = useTheme()
-  return (
-    <Pressable
-      onPress={onPress}
-      style={[styles.sheetOption, divider && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: tokens.border }]}
-    >
-      <Text style={[styles.sheetOptionText, { color, fontFamily: fontFamily.bodySemiBold }]}>{label}</Text>
-    </Pressable>
   )
 }
 
@@ -524,8 +500,4 @@ const styles = StyleSheet.create({
   eventMeta: { fontSize: 12, marginTop: 2 },
   eventDeltaRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
   eventDelta: { fontSize: 12 },
-  sheetTitle: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8, textAlign: 'center' },
-  sheetOption: { paddingVertical: 14, alignItems: 'center' },
-  sheetOptionText: { fontSize: 16 },
-  sheetDivider: { height: StyleSheet.hairlineWidth, marginVertical: 4 },
 })

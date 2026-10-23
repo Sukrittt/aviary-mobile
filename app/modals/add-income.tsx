@@ -20,7 +20,7 @@ import { fontFamily } from "@/src/theme/fonts";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { INCOME_FLOOD } from "@/src/theme/tokens";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { CaretDown, X } from "@/src/components/shared/icons";
+import { CaretDown, MoneyWavy, X } from "@/src/components/shared/icons";
 import { useEffect, useState } from "react";
 import {
   Animated,
@@ -34,6 +34,7 @@ import {
 import Reanimated, { FadeIn } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { withReadOnlyGate } from "@/src/components/budgets/ReadOnlyNotice";
+import { Icon } from "@/src/components/shared/Icon";
 
 /** Opened from Home's Ready to Assign sheet and the Income screen. Records a
  * one-off in the income ledger; the server adds it to this month's income
@@ -235,7 +236,7 @@ export function IncomeForm({ existing, flood = false, defaultLabel, intro }: { e
               { backgroundColor: tokens.accentSoft, borderRadius: radius.md },
             ]}
           >
-            <Text style={{ fontSize: type.title }}>💰</Text>
+            <Icon icon={MoneyWavy} size={26} color={tokens.accentInk} />
           </View>
           <View style={{ flex: 1, gap: 2 }}>
             <Text

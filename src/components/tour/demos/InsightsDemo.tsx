@@ -5,7 +5,7 @@ import * as Haptics from 'expo-haptics'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 
-import { SectionLabel, ResultCard } from '@/src/components/tour/parts'
+import { SectionLabel, ResultCard, TourIcon } from '@/src/components/tour/parts'
 import { useTourContent } from '@/src/components/tour/useTourContent'
 import { NORMAL_BARS, NORMAL_BAR_MAX } from '@/src/components/tour/content'
 
@@ -120,7 +120,7 @@ export function InsightsDemo({ onComplete }: { onComplete: () => void }) {
       {asked && (
         <ResultCard tone="accent">
           <View style={[styles.answer, { gap: space.sm }]}>
-            <Text style={{ fontSize: 15 }}>🧠</Text>
+            <TourIcon icon="Brain" color={tokens.accentInk} />
             <Text style={{ flex: 1, color: tokens.text, fontFamily: fontFamily.bodySemiBold, fontSize: type.caption, lineHeight: 20 }}>
               {typed}
             </Text>

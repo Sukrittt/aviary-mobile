@@ -11,7 +11,7 @@ import { currentMonthKey, INCOME_CATEGORY, monthLabel } from "@/src/lib/envelope
 import { fontFamily } from "@/src/theme/fonts";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { X } from "@/src/components/shared/icons";
+import { MoneyWavy, X } from "@/src/components/shared/icons";
 import { useEffect, useState } from "react";
 import {
   Animated,
@@ -24,6 +24,7 @@ import {
 import Reanimated, { FadeIn } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { withReadOnlyGate } from "@/src/components/budgets/ReadOnlyNotice";
+import { Icon } from "@/src/components/shared/Icon";
 
 /** Opened from Insights' Saved view on a month with spending but no income, so
  * that month can be counted, and from Home's Ready to Assign sheet ("Change
@@ -168,7 +169,7 @@ function EditMonthIncomeModal() {
               { backgroundColor: tokens.accentSoft, borderRadius: radius.md },
             ]}
           >
-            <Text style={{ fontSize: type.title }}>💰</Text>
+            <Icon icon={MoneyWavy} size={26} color={tokens.accentInk} />
           </View>
           <View style={{ flex: 1, gap: 2 }}>
             <Text

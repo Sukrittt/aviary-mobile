@@ -40,6 +40,7 @@ import { PopOnChange } from '@/src/components/shared/PopOnChange'
 import { EnvelopesSkeleton } from '@/src/components/shared/TabSkeleton'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { BottomSheet } from '@/src/components/shared/Modal'
+import { SheetOption, SheetTitle } from '@/src/components/shared/SheetOption'
 import { Icon } from '@/src/components/shared/Icon'
 import { useRefresh } from '@/src/hooks/useRefresh'
 import { useCollapsedGroups } from '@/src/hooks/useCollapsedGroups'
@@ -1234,12 +1235,9 @@ function EnvelopesScreen() {
       </BottomSheet>
 
       <BottomSheet visible={menuTarget !== null} onClose={() => setMenuTarget(null)}>
-        <Text style={[styles.menuTitle, { color: tokens.text2 }]} numberOfLines={1}>
-          {menuTarget ? splitEmoji(menuTarget.name).text : ''}
-        </Text>
+        <SheetTitle>{menuTarget ? splitEmoji(menuTarget.name).text : ''}</SheetTitle>
         <SheetOption
           label="Edit"
-          color={tokens.text}
           onPress={() => {
             if (!menuTarget) return
             const { kind, name } = menuTarget
@@ -1250,10 +1248,10 @@ function EnvelopesScreen() {
         />
         <SheetOption
           label="Delete"
-          color={tokens.coral}
+          tone="destructive"
           onPress={() => menuTarget && requestDelete(menuTarget.kind, menuTarget.name)}
         />
-        <SheetOption label="Cancel" color={tokens.text2} onPress={() => setMenuTarget(null)} />
+        <SheetOption label="Cancel" tone="cancel" onPress={() => setMenuTarget(null)} />
       </BottomSheet>
 
       <BottomSheet visible={deleteTarget !== null} onClose={() => !deletingGroup && setDeleteTarget(null)}>
@@ -1267,7 +1265,7 @@ function EnvelopesScreen() {
         </Text>
         <SheetOption
           label={deleteTarget?.kind === 'group' ? (deletingGroup ? 'Deleting…' : 'Delete') : 'Remove'}
-          color={tokens.coral}
+          tone="destructive"
           disabled={deletingGroup}
           onPress={() => {
             if (!deleteTarget) return
@@ -1279,7 +1277,7 @@ function EnvelopesScreen() {
             setDeleteTarget(null)
           }}
         />
-        <SheetOption label="Cancel" color={tokens.text2} disabled={deletingGroup} onPress={() => setDeleteTarget(null)} />
+        <SheetOption label="Cancel" tone="cancel" disabled={deletingGroup} onPress={() => setDeleteTarget(null)} />
       </BottomSheet>
 
       {toastMsg && (
@@ -1295,24 +1293,6 @@ function EnvelopesScreen() {
       )}
       </Screen>
     </>
-  )
-}
-
-function SheetOption({
-  label,
-  color,
-  onPress,
-  disabled,
-}: {
-  label: string
-  color: string
-  onPress: () => void
-  disabled?: boolean
-}) {
-  return (
-    <Pressable onPress={onPress} disabled={disabled} style={[styles.sheetOption, disabled && { opacity: 0.5 }]}>
-      <Text style={[styles.sheetOptionText, { color, fontFamily: fontFamily.bodySemiBold }]}>{label}</Text>
-    </Pressable>
   )
 }
 
@@ -1350,11 +1330,8 @@ const styles = StyleSheet.create({
   customAlertRow: { flexDirection: 'row', gap: 8, marginTop: 8 },
   customAlertInput: { flex: 1, borderWidth: 1, borderRadius: 100, paddingHorizontal: 14, paddingVertical: 8, fontSize: 12 },
   customAlertAddBtn: { paddingHorizontal: 16, borderRadius: 100, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  menuTitle: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8, textAlign: 'center' },
   confirmTitle: { fontSize: 17, textAlign: 'center', marginBottom: 6 },
   confirmBody: { fontSize: 13, textAlign: 'center', marginBottom: 8 },
-  sheetOption: { paddingVertical: 14, alignItems: 'center' },
-  sheetOptionText: { fontSize: 16 },
   sheetActions: { flexDirection: 'row', gap: 10, marginTop: 22 },
   saveBtn: { flex: 1, paddingVertical: 15, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
   toast: { position: 'absolute', left: 24, right: 24, alignItems: 'center', paddingVertical: 12, paddingHorizontal: 18, borderRadius: 100, borderWidth: 1 },

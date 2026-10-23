@@ -2,6 +2,8 @@ import type { ReactNode } from 'react'
 import { View, Text, StyleSheet } from 'react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
+import { CATEGORY_ICON_COMPONENTS } from '@/src/components/shared/CategoryIcon'
+import type { CategoryIconKey } from '@/src/lib/categoryIcons'
 
 /** The small uppercase caption the tour uses above a block of demo rows. */
 export function SectionLabel({ children }: { children: string }) {
@@ -18,20 +20,27 @@ export function SectionLabel({ children }: { children: string }) {
   )
 }
 
+/** A demo tile's glyph, from the same Phosphor set real categories wear. */
+export function TourIcon({ icon, size = 18, color }: { icon: CategoryIconKey; size?: number; color?: string }) {
+  const { tokens } = useTheme()
+  const Glyph = CATEGORY_ICON_COMPONENTS[icon]
+  return <Glyph size={size} color={color ?? tokens.text2} />
+}
+
 /**
- * One demo row: emoji tile, name, a note under it, and whatever the chapter
+ * One demo row: icon tile, name, a note under it, and whatever the chapter
  * wants on the right. Shared by the assign, move and rollover demos, which are
  * the same row with a different right-hand side.
  */
 export function TourRow({
-  emoji,
+  icon,
   name,
   note,
   noteColor,
   right,
   highlight,
 }: {
-  emoji: string
+  icon: CategoryIconKey
   name: string
   note: string
   noteColor?: string
@@ -53,7 +62,7 @@ export function TourRow({
       ]}
     >
       <View style={[styles.tile, { backgroundColor: tokens.inputBg, borderRadius: radius.sm }]}>
-        <Text style={{ fontSize: 16 }}>{emoji}</Text>
+        <TourIcon icon={icon} />
       </View>
       <View style={styles.rowBody}>
         <Text style={{ color: tokens.text, fontFamily: fontFamily.bodyBold, fontSize: type.body }} numberOfLines={1}>

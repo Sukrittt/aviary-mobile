@@ -13,6 +13,7 @@ import { PopIn } from '@/src/components/shared/PopIn'
 import { useTourProgress } from '@/src/hooks/useTourProgress'
 import { StepDot } from '@/src/components/onboarding/StepDot'
 import { useTourContent } from '@/src/components/tour/useTourContent'
+import { TourIcon } from '@/src/components/tour/parts'
 import { track } from '@/src/lib/analytics'
 import { useCompleteGuidedTour, useUser } from '@/src/hooks/useUser'
 import { isHidden } from '@/src/lib/features'
@@ -417,7 +418,7 @@ function Done({
     >
       <PopIn play delay={0}>
         <View style={[styles.medal, { backgroundColor: tokens.accentSoft, borderColor: tokens.accent }]}>
-          <Text style={{ fontSize: 40 }}>🏅</Text>
+          <TourIcon icon="Medal" size={44} color={tokens.accentInk} />
         </View>
       </PopIn>
       <PopIn play delay={80} style={{ gap: space.xs, alignItems: 'center' }}>

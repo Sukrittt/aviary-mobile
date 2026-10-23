@@ -25,7 +25,7 @@ import {
 import { fontFamily } from "@/src/theme/fonts";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { useRouter } from "expo-router";
-import { X } from "@/src/components/shared/icons";
+import { MoneyWavy, X } from "@/src/components/shared/icons";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -39,6 +39,7 @@ import {
 import Reanimated, { FadeIn } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { withReadOnlyGate } from "@/src/components/budgets/ReadOnlyNotice";
+import { Icon } from "@/src/components/shared/Icon";
 
 /** Opened from the Ready to Assign options sheet on Home. The user types the RTA
  * they actually have, and the difference lands in this month's income extra:
@@ -288,7 +289,7 @@ function EditReadyToAssignBody({
               { backgroundColor: tokens.accentSoft, borderRadius: radius.md },
             ]}
           >
-            <Text style={{ fontSize: type.title }}>💰</Text>
+            <Icon icon={MoneyWavy} size={26} color={tokens.accentInk} />
           </View>
           <View style={{ flex: 1, gap: 2 }}>
             <Text

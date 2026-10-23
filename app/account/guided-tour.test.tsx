@@ -52,7 +52,7 @@ it('logging a card expense sets money aside in Credit Card Payment', async () =>
   const { getByText } = renderWithProviders(<GuidedTourScreen />)
   openChapter(getByText, 'Logging money')
 
-  fireEvent.press(getByText('🍲  ₹700 · Pizza night'))
+  fireEvent.press(getByText('₹700 · Pizza night'))
 
   await waitFor(() => expect(getByText('Credit Card Payment')).toBeTruthy())
   expect(getByText('₹700 set aside')).toBeTruthy()
@@ -106,11 +106,11 @@ it('turning the digest off silences the AI coach but not Wrapped', async () => {
   openChapter(getByText, 'Notifications')
 
   fireEvent.press(getByText('Off'))
-  fireEvent.press(getByText('🧠  AI coach'))
+  fireEvent.press(getByText('AI coach'))
   await waitFor(() => expect(getByText('Silenced · your digest is Off')).toBeTruthy())
   expect(queryByText('Heads up on this month')).toBeNull()
 
-  fireEvent.press(getByText('🎧  Wrapped'))
+  fireEvent.press(getByText('Wrapped'))
   await waitFor(() => expect(getByText('Your Wrapped is ready')).toBeTruthy())
 })
 
