@@ -35,7 +35,7 @@ describe('formatCurrency', () => {
 
 describe('date formatters', () => {
   it('formatDateTime formats a valid timestamp', () => {
-    expect(formatDateTime('2026-08-12T15:45:00')).toBe('12 Aug, 3:45 PM')
+    expect(formatDateTime('2026-08-12T15:45:00')).toBe('12 Aug, 3:45 pm')
   })
 
   it('formatDateTime returns empty string for empty input', () => {
