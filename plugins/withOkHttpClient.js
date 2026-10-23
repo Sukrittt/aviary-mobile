@@ -3,36 +3,46 @@ const { withMainApplication } = require('@expo/config-plugins');
 const MARKER = 'withOkHttpClient';
 const CONNECT_TIMEOUT_SECONDS = 10;
 const MAX_REQUESTS_PER_HOST = 8;
+const PING_INTERVAL_SECONDS = 5;
 
 /**
- * Android's fetch (OkHttp, via expo/fetch and RN's networking module) speaks
- * HTTP/2 to the API, which multiplexes every request in the app over one TCP
- * socket. On cellular that socket periodically stalls without erroring (a
- * carrier NAT mapping or radio handoff drops it silently). Nothing errors, so
- * every request on it hangs to apiFetch's 15s abort, and an aborted HTTP/2
- * stream only resets the stream: the stalled socket stays in the pool and
- * every new request keeps joining it. PostHog 2026-10-21 (2.14.1): a working
- * connection stalled for 75s, all 43 requests in flight died at 15s, requests
- * started during the stall died too, then every response flushed in the same
- * second. The HTTP/2 ping and idle-connection eviction from 2.13/2.14 never
- * ended one of these: the stalled socket is never idle.
+ * The OkHttp client every request in the app goes through: RN's networking
+ * module and expo/fetch (Expo's global fetch) both build theirs from this
+ * factory.
  *
- * So, HTTP/1.1 only: one request per socket. A stalled socket takes down only
- * its own request, and OkHttp closes it when that request is cancelled, so the
- * next request opens a fresh one instead of queueing behind the dead one.
- * Up to MAX_REQUESTS_PER_HOST sockets run in parallel (OkHttp's default is 5;
- * a screen load fires 15-40 requests at once). A connect that hangs fails at
- * CONNECT_TIMEOUT_SECONDS (RN's default is forever) so OkHttp moves to the
- * next address instead of waiting for the abort.
+ * Installed after ApplicationLifecycleDispatcher.onApplicationCreate, because
+ * expo-observe's expo-app-metrics sets its own factory there to watch network
+ * requests, and the last factory set wins. From expo-observe's arrival
+ * (2026-09-21) until this moved, that factory replaced this one in every
+ * build, so none of the settings below ever ran (logged on the emulator:
+ * protocols=[h2, http/1.1] maxPerHost=5 connectMs=0 pingMs=0). Its interceptor
+ * and event listener are added here instead, as its docs say to for an
+ * app-owned client, so expo-observe still sees every request.
  *
- * Idle sockets are dropped when the app goes to the background and when it
- * comes back, so a resumed app never writes into a socket that died during a
- * doze or a network change. evictAll() only touches idle connections.
+ * What was killing requests: a pooled HTTP/2 connection goes silently dead
+ * while idle (a NAT mapping expires, a cellular handoff), with no FIN or RST.
+ * The next screen's requests are written to it and nothing comes back. With no
+ * ping and no read timeout OkHttp can't tell, so they hang until apiFetch's
+ * 15s abort. Traced on the emulator: five requests on a connection idle for
+ * 60s, no response for 14.4s, then OkHttp retried all five on a new
+ * connection and they answered in ~120ms, after the abort had fired.
  *
- * Same client React Native builds by default (createClientBuilder(context)
- * keeps the 10MB http cache and cookie jar). The factory builds both RN's
- * networking client and expo/fetch's (Expo's global fetch), and they share
- * the pool, so the eviction reaches every request the app makes.
+ * So, a ping every PING_INTERVAL_SECONDS. A connection that misses a pong is
+ * failed within two intervals and OkHttp retries its requests on a fresh one,
+ * well inside the 15s abort. The pings also keep the NAT mapping alive, so the
+ * connection survives idle gaps instead of being replaced. (Closing idle
+ * connections after 30s instead tripled the new connections and their
+ * handshakes in testing, each one more exposed to a slow connect.) A connect
+ * that hangs fails at CONNECT_TIMEOUT_SECONDS (RN's default is forever).
+ * OkHttp caps requests per host even on HTTP/2, and a screen load fires 15-40
+ * at once.
+ *
+ * Idle connections are dropped when the app goes to the background and when it
+ * comes back, so pings only run while the app is on screen, and a resumed app
+ * never starts on one that died during a doze. evictAll() only touches idle
+ * connections. Same base client React Native
+ * builds by default (createClientBuilder(context) keeps the 10MB http cache and
+ * cookie jar), one pool shared by every client the factory builds.
  */
 function addOkHttpClient(src) {
   if (src.includes(MARKER)) return src;
@@ -40,16 +50,18 @@ function addOkHttpClient(src) {
     'import com.facebook.react.modules.network.OkHttpClientProvider\n' +
     'import java.util.concurrent.TimeUnit\n';
   const factory =
-    `    // ${MARKER}: HTTP/1.1 only, so a stalled cellular socket can't hang every request in the app.\n` +
+    `    // ${MARKER}: after the lifecycle listeners, so expo-app-metrics' factory can't replace this one.\n` +
     '    val okHttpPool = okhttp3.ConnectionPool()\n' +
     '    val okHttpEvictor = java.util.concurrent.Executors.newSingleThreadExecutor()\n' +
     '    val evictIdle = { okHttpEvictor.execute { okHttpPool.evictAll() } }\n' +
     '    OkHttpClientProvider.setOkHttpClientFactory {\n' +
     '      OkHttpClientProvider.createClientBuilder(this)\n' +
-    '        .protocols(listOf(okhttp3.Protocol.HTTP_1_1))\n' +
     '        .connectionPool(okHttpPool)\n' +
+    `        .pingInterval(${PING_INTERVAL_SECONDS}, TimeUnit.SECONDS)\n` +
     `        .connectTimeout(${CONNECT_TIMEOUT_SECONDS}, TimeUnit.SECONDS)\n` +
     `        .dispatcher(okhttp3.Dispatcher().apply { maxRequestsPerHost = ${MAX_REQUESTS_PER_HOST} })\n` +
+    '        .addInterceptor(expo.modules.appmetrics.networkrequests.NetworkRequestInterceptor.instance)\n' +
+    '        .eventListenerFactory(expo.modules.appmetrics.networkrequests.NetworkRequestEventListener.factory)\n' +
     '        .build()\n' +
     '    }\n' +
     '    registerActivityLifecycleCallbacks(object : android.app.Application.ActivityLifecycleCallbacks {\n' +
@@ -62,8 +74,8 @@ function addOkHttpClient(src) {
     '      override fun onActivityDestroyed(activity: android.app.Activity) {}\n' +
     '    })\n';
   const withImports = src.replace(/^(package .+\n)/m, `$1\n${imports}`);
-  const out = withImports.replace(/(override fun onCreate\(\) \{\n\s*super\.onCreate\(\)\n)/, `$1${factory}`);
-  if (out === withImports) throw new Error(`${MARKER}: couldn't find super.onCreate() in MainApplication`);
+  const out = withImports.replace(/(\n\s*ApplicationLifecycleDispatcher\.onApplicationCreate\(this\)\n)/, `$1${factory}`);
+  if (out === withImports) throw new Error(`${MARKER}: couldn't find ApplicationLifecycleDispatcher.onApplicationCreate(this) in MainApplication`);
   return out;
 }
 

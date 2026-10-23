@@ -1,6 +1,8 @@
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { addOkHttpClient } = require('./withOkHttpClient')
 
+// The shape of Expo's MainApplication template: the lifecycle dispatcher runs
+// every package's ApplicationLifecycleListener, expo-app-metrics' included.
 const MAIN_APPLICATION = `package com.example.app
 
 import android.app.Application
@@ -9,25 +11,32 @@ class MainApplication : Application(), ReactApplication {
   override fun onCreate() {
     super.onCreate()
     loadReactNative(this)
+    ApplicationLifecycleDispatcher.onApplicationCreate(this)
   }
 }
 `
 
 describe('addOkHttpClient', () => {
-  it('installs the client factory right after super.onCreate()', () => {
+  it('installs the client factory after the lifecycle listeners, so no package can replace it', () => {
     const out = addOkHttpClient(MAIN_APPLICATION)
     expect(out).toContain('import com.facebook.react.modules.network.OkHttpClientProvider')
     expect(out).toContain('import java.util.concurrent.TimeUnit')
-    expect(out).toMatch(/super\.onCreate\(\)\n\s+\/\/ withOkHttpClient/)
     expect(out).toContain('OkHttpClientProvider.setOkHttpClientFactory {')
-    // Before React Native loads, so its networking module builds this client.
-    expect(out.indexOf('setOkHttpClientFactory')).toBeLessThan(out.indexOf('loadReactNative'))
+    // expo-app-metrics sets its own factory from onApplicationCreate, and the
+    // last one set wins. Before, this ran first and never took effect.
+    expect(out.indexOf('setOkHttpClientFactory')).toBeGreaterThan(out.indexOf('ApplicationLifecycleDispatcher.onApplicationCreate(this)'))
   })
 
-  it('speaks HTTP/1.1 only, so one stalled socket never carries every request', () => {
+  it('keeps expo-observe watching every request', () => {
     const out = addOkHttpClient(MAIN_APPLICATION)
-    expect(out).toContain('.protocols(listOf(okhttp3.Protocol.HTTP_1_1))')
-    expect(out).not.toContain('pingInterval')
+    expect(out).toContain('.addInterceptor(expo.modules.appmetrics.networkrequests.NetworkRequestInterceptor.instance)')
+    expect(out).toContain('.eventListenerFactory(expo.modules.appmetrics.networkrequests.NetworkRequestEventListener.factory)')
+  })
+
+  it('pings HTTP/2 connections, so a dead one fails fast and its requests retry', () => {
+    const out = addOkHttpClient(MAIN_APPLICATION)
+    expect(out).toContain('.pingInterval(5, TimeUnit.SECONDS)')
+    expect(out).not.toContain('.protocols(')
     // RN's default connect timeout is 0 (forever).
     expect(out).toContain('.connectTimeout(10, TimeUnit.SECONDS)')
     // A screen load fires well over OkHttp's default of 5 per host.
@@ -52,6 +61,6 @@ describe('addOkHttpClient', () => {
   })
 
   it('fails loudly when the template changes shape', () => {
-    expect(() => addOkHttpClient('package x\n\nclass MainApplication {}\n')).toThrow(/super\.onCreate/)
+    expect(() => addOkHttpClient('package x\n\nclass MainApplication {}\n')).toThrow(/onApplicationCreate/)
   })
 })
