@@ -103,6 +103,8 @@ function defaultGroups(): Item[] {
   ];
 }
 
+// Same list, order and pre-checks as Web's app/onboarding/page.tsx, so the
+// starter budget comes out identical on both.
 function defaultCats(): Record<string, Item[]> {
   return {
     g1: [
@@ -112,13 +114,15 @@ function defaultCats(): Record<string, Item[]> {
       { id: makeId(), icon: "Bus", name: "Transport", on: false },
     ],
     g2: [
-      { id: makeId(), icon: "BowlFood", name: "Eating out", on: true },
+      { id: makeId(), icon: "ForkKnife", name: "Eating out", on: true },
+      { id: makeId(), icon: "FilmSlate", name: "Entertainment", on: true },
+      { id: makeId(), icon: "Laptop", name: "Software", on: false },
       { id: makeId(), icon: "Repeat", name: "Subscriptions", on: false },
       { id: makeId(), icon: "ShoppingBag", name: "Shopping", on: false },
     ],
     g3: [
       { id: makeId(), icon: "Lifebuoy", name: "Emergency fund", on: true },
-      { id: makeId(), icon: "TrendUp", name: "Investments", on: false },
+      { id: makeId(), icon: "ChartLineUp", name: "Investments", on: false },
     ],
   };
 }
