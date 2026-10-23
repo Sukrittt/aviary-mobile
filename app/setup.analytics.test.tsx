@@ -60,11 +60,11 @@ it('reports every step of the wizard, the back tap, and the finish', async () =>
   expect(completed[0]).toEqual({ step: 0, step_name: 'currency', seconds_on_step: 7, currency: 'INR' })
   expect(completed[1]).toMatchObject({ step_name: 'income', used_quick_pick: true, skipped_income: false, customized: true })
   expect(completed[3]).toMatchObject({ step_name: 'groups', groups_selected: 2, groups_added: 0, groups_renamed: 0 })
-  expect(completed[4]).toMatchObject({ step_name: 'categories', categories_selected: 4 })
+  expect(completed[4]).toMatchObject({ step_name: 'categories', categories_selected: 5 })
   expect(completed[5]).toMatchObject({ step_name: 'assign', edited_split: false })
 
   expect(eventsNamed('onboarding_completed')).toEqual([
-    { total_seconds: 7, groups_count: 2, categories_count: 4, currency: 'INR', customized: true, skipped_income: false },
+    { total_seconds: 7, groups_count: 2, categories_count: 5, currency: 'INR', customized: true, skipped_income: false },
   ])
   expect(eventsNamed('onboarding_failed')).toHaveLength(0)
   unmount()
@@ -101,7 +101,7 @@ it('continues to success when the final response failed after onboarding was com
     {
       total_seconds: 7,
       groups_count: 2,
-      categories_count: 4,
+      categories_count: 5,
       currency: 'INR',
       customized: true,
       skipped_income: false,

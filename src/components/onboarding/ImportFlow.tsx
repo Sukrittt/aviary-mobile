@@ -107,7 +107,9 @@ const START_CHOICES: { id: StartChoice; title: string; detail: string }[] = [
 ]
 
 type Stage = 'ask' | 'pick' | 'upload' | 'review'
-const STAGES: Stage[] = ['ask', 'pick', 'upload', 'review']
+// "How do you want to start?" is a fork, not a step, so it gets no dots: the
+// fresh path's own dots take over from there without a count that shrinks.
+const STEPS: Stage[] = ['pick', 'upload', 'review']
 
 export interface ImportDone {
   result: CommitResult
@@ -123,12 +125,11 @@ export interface ImportDone {
 // children: under the app list, where Settings shows past imports.
 export function ImportFlow({ onFresh, onDone, onAlreadySetUp, skipAsk = false, budgetName, children }: { onFresh: () => void; onDone: (done: ImportDone) => void; onAlreadySetUp: () => void; skipAsk?: boolean; budgetName?: string; children?: React.ReactNode }) {
   const { tokens } = useTheme()
-  const stages = skipAsk ? STAGES.slice(1) : STAGES
-  const [stage, setStage] = useState<Stage>(stages[0])
+  const [stage, setStage] = useState<Stage>(skipAsk ? 'pick' : 'ask')
   const [app, setApp] = useState<AppChoice | null>(null)
   const [review, setReview] = useState<ImportReview | null>(null)
   const [start, setStart] = useState<StartChoice>('fresh')
-  const at = stages.indexOf(stage)
+  const at = STEPS.indexOf(stage)
 
   const back = () => (skipAsk && stage === 'pick' ? onFresh() : setStage((s) => (s === 'review' ? 'upload' : s === 'upload' ? 'pick' : 'ask')))
 
@@ -151,11 +152,13 @@ export function ImportFlow({ onFresh, onDone, onAlreadySetUp, skipAsk = false, b
         >
           <ArrowLeft size={16} color={tokens.text} />
         </Pressable>
-        <View style={styles.dots} accessibilityLabel={`Step ${at + 1} of ${stages.length}`}>
-          {stages.map((s, i) => (
-            <StepDot key={s} active={i <= at} activeColor={tokens.accent} inactiveColor={tokens.borderStrong} onPress={() => {}} />
-          ))}
-        </View>
+        {at >= 0 && (
+          <View style={styles.dots} accessibilityLabel={`Step ${at + 1} of ${STEPS.length}`}>
+            {STEPS.map((s, i) => (
+              <StepDot key={s} active={i <= at} activeColor={tokens.accent} inactiveColor={tokens.borderStrong} onPress={() => {}} />
+            ))}
+          </View>
+        )}
       </View>
 
       {stage === 'ask' && (

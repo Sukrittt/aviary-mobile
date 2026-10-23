@@ -40,10 +40,12 @@ it('splits the defaults 50/30/20 without asking Jev', async () => {
   expect(await findByLabelText('Slide to finish setup')).toBeTruthy()
   expect(getSplitBuckets).not.toHaveBeenCalled()
   // No savings picked by default, so needs and wants keep their 50:30 ratio:
-  // 31,250 and 18,750 before rounding, the leftover landing on the biggest
-  // share (Eating out, the only want).
-  expect(getByText('₹31,100')).toBeTruthy()
-  expect(getAllByText('₹18,900')).toHaveLength(2)
+  // 31,250 and 18,750 before rounding, the leftover landing on Rent. The same
+  // five amounts Web's app/onboarding/split.test.tsx pins.
+  for (const amount of ['₹18,100', '₹8,900', '₹4,400']) expect(getByText(amount)).toBeTruthy()
+  expect(getAllByText('₹9,300')).toHaveLength(2) // Eating out, Entertainment
+  expect(getByText('₹31,400')).toBeTruthy() // Essentials
+  expect(getByText('₹18,600')).toBeTruthy() // Lifestyle
   // A review, not a worksheet: no split modes or need/want tags.
   expect(queryByText('Split evenly')).toBeNull()
   expect(queryByText('Need')).toBeNull()
@@ -69,7 +71,7 @@ it('offers a reset only once the plan is edited, and it restores our suggestion'
   fireEvent.press(getAllByText('1').at(-1)!)
   fireEvent.press(getByText('Done'))
   fireEvent.press(getByText('Reset to our suggestion'))
-  expect(getByText('₹31,100')).toBeTruthy()
+  expect(getByText('₹31,400')).toBeTruthy()
   expect(queryByText('Reset to our suggestion')).toBeNull()
 })
 
@@ -80,8 +82,8 @@ it('offers our suggestion in the number pad sheet once the amount differs from i
   fireEvent.press(getByText('Rent'))
   expect(queryByText(/^Our suggestion/)).toBeNull()
   fireEvent.press(getAllByText('1').at(-1)!)
-  fireEvent.press(getByText('Our suggestion · ₹17,800'))
+  fireEvent.press(getByText('Our suggestion · ₹18,100'))
   fireEvent.press(getByText('Done'))
-  expect(getAllByText('₹17,800').length).toBeGreaterThan(0)
+  expect(getAllByText('₹18,100').length).toBeGreaterThan(0)
   expect(queryByText('Reset to our suggestion')).toBeNull()
 })

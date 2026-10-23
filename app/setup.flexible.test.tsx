@@ -53,18 +53,24 @@ it('finishes from the income step on the starter budget, income split the sugges
   expect((addGroup as jest.Mock).mock.calls.map(([name]) => name)).toEqual(['Essentials', 'Lifestyle'])
   // Default groups' icons follow their names, so there's nothing to update.
   expect(updateGroup).not.toHaveBeenCalled()
-  expect(addCategory).toHaveBeenCalledTimes(4)
+  expect(addCategory).toHaveBeenCalledTimes(5)
   expect(addCategory).toHaveBeenCalledWith('Rent', 'Essentials', 'House')
-  expect(addCategory).toHaveBeenCalledWith('Eating out', 'Lifestyle', 'BowlFood')
+  expect(addCategory).toHaveBeenCalledWith('Eating out', 'Lifestyle', 'ForkKnife')
   // Defaults are known categories, so there's nothing to ask Jev.
   expect(getSplitBuckets).not.toHaveBeenCalled()
   const rows = assigned()
   expect(rows[INCOME_CATEGORY]).toBe(50000)
-  const envelopes = Object.entries(rows).filter(([k]) => k !== INCOME_CATEGORY)
-  expect(envelopes).toHaveLength(4)
-  expect(envelopes.reduce((n, [, v]) => n + v, 0)).toBe(50000)
+  // The same starter budget Web makes from 50,000 (its app/onboarding/split.test.tsx).
+  expect(rows).toEqual({
+    [INCOME_CATEGORY]: 50000,
+    Rent: 18100,
+    Groceries: 8900,
+    Utilities: 4400,
+    'Eating out': 9300,
+    Entertainment: 9300,
+  })
   expect(completed()).toEqual([
-    { total_seconds: 7, groups_count: 2, categories_count: 4, currency: 'INR', customized: false, skipped_income: false },
+    { total_seconds: 7, groups_count: 2, categories_count: 5, currency: 'INR', customized: false, skipped_income: false },
   ])
   // Never reached the groups step.
   expect(queryByText('Group your money')).toBeNull()
@@ -79,7 +85,7 @@ it('skips income and still sets up the starter envelopes, all at zero', async ()
   expect(await findByText('Not set yet', {}, { timeout: 3000 })).toBeTruthy()
 
   const rows = assigned()
-  expect(Object.keys(rows)).toHaveLength(5)
+  expect(Object.keys(rows)).toHaveLength(6)
   expect(Object.values(rows).every((v) => v === 0)).toBe(true)
   expect(completed()[0]).toMatchObject({ customized: false, skipped_income: true })
   unmount()
