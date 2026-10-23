@@ -214,6 +214,23 @@ describe('HomeScreen · Ready to Assign', () => {
     expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/modals/recurring-income', params: { label: 'Monthly income', frequency: 'monthly', amount: '' } })
   })
 
+  it('says how far the plan is over what comes in, and opens the biggest plan to trim', () => {
+    mockBudgets = [
+      { month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' },
+      { month: MONTH, category: 'Food', assigned: '25000', rolled_over: '0' },
+    ]
+    const { getByText } = renderHome()
+    expect(getByText('₹5,000 more planned than coming in')).toBeTruthy()
+    fireEvent.press(getByText('Trim'))
+    expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/modals/edit-assigned-amount', params: { category: 'Food' } })
+  })
+
+  it('says nothing about trimming when the plan fits', () => {
+    const { queryByText } = renderHome()
+    expect(queryByText(/more planned than coming in/)).toBeNull()
+    expect(queryByText('Trim')).toBeNull()
+  })
+
   it('shrinks Ready to Assign to a slim row once every rupee is assigned', () => {
     mockBudgets = [
       { month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' },

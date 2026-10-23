@@ -22,6 +22,7 @@ import { usePrivacy } from '@/src/context/PrivacyContext'
 import { fontFamily } from '@/src/theme/fonts'
 import { useBudgets, useCarry } from '@/src/hooks/useBudgets'
 import { rolloverCard } from '@/src/lib/rollover'
+import { splitEmoji } from '@/src/lib/emoji'
 import { useLastSpent, useRecentExpenses } from '@/src/hooks/useExpenses'
 import { useCategories } from '@/src/hooks/useCategories'
 import { useGroupIcons, useGroups } from '@/src/hooks/useGroups'
@@ -30,6 +31,8 @@ import {
   currentMonthKey,
   daysLeftInMonth,
   monthAbbrev,
+  overPlannedLine,
+  trimCandidates,
   type Envelope,
 } from '@/src/lib/envelope'
 
@@ -287,6 +290,9 @@ function HomeScreen() {
   // shows, again whenever it's tapped. Nothing to roll once it's gone.
   const rollPlay = banner === 'rollover' ? rollReplays + 1 : 0
 
+  const overPlanned = overPlannedLine(envelopeState.readyToAssign, (n) => formatCurrency(n))
+  const trimFirst = trimCandidates(envelopeState.envelopes, 1)[0]
+
   function handleEditAmount(category: string) {
     router.push({ pathname: '/modals/edit-assigned-amount', params: { category } })
   }
@@ -446,6 +452,27 @@ function HomeScreen() {
               </Text>
               <Icon icon={CaretRight} size={14} color={envelopeState.income === 0 ? tokens.accentInk : tokens.text2} />
             </AnimatedPressable>
+            {/* Usually a new month copying a plan last month's one-off extra
+                paid for. Says so, and opens the biggest plan to trim (the
+                screen switches categories in place). */}
+            {!hideAmounts && overPlanned && (
+              <View style={styles.overPlanned}>
+                <Text style={{ color: tokens.coral, fontSize: type.caption, fontFamily: fontFamily.bodyMedium }}>{overPlanned}</Text>
+                {trimFirst && (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityHint={`Opens ${splitEmoji(trimFirst.category).text}, your biggest plan`}
+                    hitSlop={8}
+                    onPress={() => {
+                      tap()
+                      handleEditAmount(trimFirst.category)
+                    }}
+                  >
+                    <Text style={[styles.trim, { color: tokens.text, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }]}>Trim</Text>
+                  </Pressable>
+                )}
+              </View>
+            )}
           </View>
         )}
 
@@ -662,6 +689,8 @@ function HomeScreen() {
 const styles = StyleSheet.create({
   appIconButton: { width: 40, height: 40 },
   hero: { alignItems: 'center', gap: 6 },
+  overPlanned: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
+  trim: { textDecorationLine: 'underline' },
   incomePill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 6, marginTop: 4 },
   sheetTitle: { fontSize: 16, marginBottom: 8 },
   sheetBtn: { paddingVertical: 12 },
