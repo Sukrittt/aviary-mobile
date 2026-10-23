@@ -35,7 +35,7 @@ const restrictedSyntax = [
 // are Extended_Pictographic but render as plain text glyphs.
 const EMOJI = "(?![©®™])\\p{Extended_Pictographic}";
 const noEmoji = {
-  selector: `Literal[value=/${EMOJI}/u], JSXText[value=/${EMOJI}/u], TemplateElement[value.raw=/${EMOJI}/u]`,
+  selector: `Literal[value=/${EMOJI}/u], JSXText[value=/${EMOJI}/u], TemplateElement[value.cooked=/${EMOJI}/u]`,
   message: "No emoji in the app. Use an icon from src/components/shared/icons instead.",
 };
 
