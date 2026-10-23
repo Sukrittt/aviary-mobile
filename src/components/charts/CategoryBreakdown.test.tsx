@@ -1,4 +1,5 @@
 import { act, fireEvent } from '@testing-library/react-native'
+import { StyleSheet } from 'react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { CategoryBreakdown } from './CategoryBreakdown'
 import type { BreakdownRow } from '@/src/lib/monthly'
@@ -194,6 +195,17 @@ describe('CategoryBreakdown filtering', () => {
     expect(screen.queryByText('Cook')).toBeNull()
     expect(screen.queryByText('Travel')).toBeNull()
     expect(screen.getAllByText('Investments').length).toBeGreaterThan(0)
+  })
+
+  it('shows each group its icon tile in the Groups tab while the chart is by category', () => {
+    const screen = renderBreakdown()
+    fireEvent.press(screen.getByLabelText('Filter chart'))
+    fireEvent.press(screen.getByRole('tab', { name: 'Groups' }))
+
+    const row = screen.getByRole('checkbox', { name: 'Savings' })
+    const { bg } = categoryTint('Savings', lightTokens)
+    const tile = row.findAll((n) => typeof n.type === 'string' && StyleSheet.flatten(n.props.style)?.backgroundColor === bg)
+    expect(tile.length).toBeGreaterThan(0)
   })
 
   it('switches to the category view when applying a category filter', () => {

@@ -50,6 +50,7 @@ import {
   useExpensesPage,
   useDeleteExpense,
   useDuplicates,
+  prefetchExpensesFeed,
   prefetchExpensesPage,
 } from "@/src/hooks/useExpenses";
 import { useCategories, useCategoryTint } from "@/src/hooks/useCategories";
@@ -394,18 +395,22 @@ function ActivityScreen() {
   const viewKey = [page, selectedDate, period, customRange.from, customRange.to, selectedCategory, selectedAccount, search].join("|");
   const viewKeyRef = useRef(viewKey);
   const [mountedRows, setMountedRows] = useState(ROWS_PER_FRAME);
-  const [mountedView, setMountedView] = useState(viewKey);
+  // Coming back from the feed counts as a new view too, so the list mounts a
+  // screenful per frame instead of every row in the tap's frame.
+  const mountKey = `${viewKey}|${feedView}`;
+  const [mountedView, setMountedView] = useState(mountKey);
   // Reset during render, not in an effect: an effect would commit the new
   // page's full row count once before shrinking it back.
-  if (mountedView !== viewKey) {
-    setMountedView(viewKey);
+  if (mountedView !== mountKey) {
+    setMountedView(mountKey);
     setMountedRows(ROWS_PER_FRAME);
   }
   useEffect(() => {
-    if (mountedRows >= listItems.length) return;
+    // The feed doesn't show these rows, so don't re-render it to mount them.
+    if (feedView || mountedRows >= listItems.length) return;
     const id = requestAnimationFrame(() => setMountedRows((n) => n + ROWS_PER_FRAME));
     return () => cancelAnimationFrame(id);
-  }, [mountedRows, listItems.length]);
+  }, [feedView, mountedRows, listItems.length]);
   useEffect(() => {
     viewKeyRef.current = viewKey;
   });
@@ -430,6 +435,19 @@ function ActivityScreen() {
       q: search.trim() || undefined,
     });
   }, [expensesQ.data, page, totalPages, selectedCategory, selectedAccount, from, to, search, qc]);
+
+  // The feed is one tap away, so its first page is fetched while the list is
+  // up: the switch then reads from cache instead of showing a skeleton.
+  useEffect(() => {
+    if (!feedOn || feedView) return;
+    prefetchExpensesFeed(qc, {
+      category: selectedCategory || undefined,
+      account: selectedAccount || undefined,
+      from,
+      to,
+      q: search.trim() || undefined,
+    });
+  }, [feedOn, feedView, selectedCategory, selectedAccount, from, to, search, qc]);
 
   function openEdit(t: ExpenseRow) {
     setSheetTxn(null);

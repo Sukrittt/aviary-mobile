@@ -202,7 +202,7 @@ describe('expense analytics', () => {
 it('useExpensesFeed refetches at most a window of pages after a write', async () => {
   ;(getExpensesPage as jest.Mock).mockImplementation(async ({ page }) => ({ rows: [{ id: `e${page}` }], page, pageCount: 20 }))
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } })
-  const { result } = renderHook(() => useExpensesFeed({ limit: 12 }), { wrapper: wrapper(queryClient) })
+  const { result } = renderHook(() => useExpensesFeed({}), { wrapper: wrapper(queryClient) })
   await waitFor(() => expect(result.current.isSuccess).toBe(true))
   let feed = result.current.data
   for (let i = 0; i < 7; i++) feed = (await act(() => result.current.fetchNextPage())).data
