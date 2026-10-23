@@ -170,7 +170,9 @@ export default function RecurringExpensesScreen() {
               { color: tokens.text2, fontFamily: fontFamily.bodySemiBold },
             ]}
           >
-            {active.length === 0
+            {loading
+              ? "Fetching your repeats"
+              : active.length === 0
               ? "Nothing repeating yet"
               : `${active.length} active`}
           </Text>
