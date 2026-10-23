@@ -156,7 +156,7 @@ export function IncomeForm({ existing, flood = false, defaultLabel, intro }: { e
 
   return (
     <View style={[styles.container, { backgroundColor: tokens.bg }]}>
-      <ScreenHeader title={existing ? "Edit income" : "Add income"} onBack={() => router.back()} close />
+      <ScreenHeader title={existing ? "Edit income" : "Add income"} onBack={() => router.back()} close tokens={tokens} />
 
       <ScrollView
         style={{ flex: 1 }}

@@ -19,6 +19,7 @@ export function ScreenHeader({
   backLabel,
   backDisabled = false,
   right,
+  tokens: tokensOverride,
 }: {
   title: ReactNode;
   subtitle?: ReactNode;
@@ -29,8 +30,11 @@ export function ScreenHeader({
   backLabel?: string;
   backDisabled?: boolean;
   right?: ReactNode;
+  /** For screens that recolour themselves (add-income's white-on-green flood). */
+  tokens?: ReturnType<typeof useTheme>["tokens"];
 }) {
-  const { tokens } = useTheme();
+  const theme = useTheme().tokens;
+  const tokens = tokensOverride ?? theme;
   const insets = useSafeAreaInsets();
   return (
     <View style={[styles.header, { paddingTop: insets.top + 14, borderBottomColor: tokens.border }]}>

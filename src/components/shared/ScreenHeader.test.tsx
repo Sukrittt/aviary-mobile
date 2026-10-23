@@ -36,3 +36,9 @@ it('has no way out when onBack is omitted', () => {
   render(<ScreenHeader title="Plan & billing" />)
   expect(screen.queryByRole('button')).toBeNull()
 })
+
+it('draws in the caller-supplied tokens when a screen recolours itself', () => {
+  const tokens = { ...jest.requireActual('@/src/theme/tokens').darkTokens, text: '#ffffff' }
+  render(<ScreenHeader title="Add income" tokens={tokens} />)
+  expect(screen.getByRole('header', { name: 'Add income' })).toHaveStyle({ color: '#ffffff' })
+})
