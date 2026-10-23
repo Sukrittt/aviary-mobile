@@ -283,15 +283,16 @@ export function CategoryBreakdown({
   // name hash), so a category is one colour everywhere instead of whatever its
   // rank here happens to be. A group without a picked colour keeps the hash:
   // its tile's single accent default would paint the whole donut one colour.
-  const tintByKey = useMemo(() => {
-    const map = new Map<string, { bg: string; ink: string; chart: string }>();
-    rows.forEach((row) => {
-      const color = mode === "group" ? groupColors.get(row.key) : categoryColors.get(row.key);
-      const tint = categoryTint(row.label, tokens, color);
-      map.set(row.key, { ...tint, chart: chartInk(tint.ink, scheme) });
-    });
-    return map;
-  }, [rows, tokens, scheme, mode, groupColors, categoryColors]);
+  // One map per kind: the filter sheet's tab can differ from the chart's mode.
+  const categoryTints = useMemo(
+    () => tintsFor(categoryRows, categoryColors, tokens, scheme),
+    [categoryRows, categoryColors, tokens, scheme],
+  );
+  const groupTints = useMemo(
+    () => tintsFor(groupRows, groupColors, tokens, scheme),
+    [groupRows, groupColors, tokens, scheme],
+  );
+  const tintByKey = mode === "group" ? groupTints : categoryTints;
 
   const segments = useMemo(() => {
     const big = displayRows.filter((r) => r.pct >= DONUT_TAIL_PCT);
@@ -1147,7 +1148,7 @@ export function CategoryBreakdown({
                     },
                   ]}
                 >
-                  <RowMark icon={row.icon} tint={tintByKey.get(row.key)} fallback={tokens.text3} />
+                  <RowMark icon={row.icon} tint={(filterTab === "group" ? groupTints : categoryTints).get(row.key)} fallback={tokens.text3} />
                   <Text
                     style={{
                       flex: 1,
@@ -1309,6 +1310,20 @@ const styles = StyleSheet.create({
   sheetActions: { flexDirection: "row", gap: 10, marginTop: 16 },
   sheetButton: { flex: 1 },
 });
+
+function tintsFor(
+  rows: BreakdownRow[],
+  colors: Map<string, string>,
+  tokens: ReturnType<typeof useTheme>["tokens"],
+  scheme: ReturnType<typeof useTheme>["scheme"],
+) {
+  const map = new Map<string, { bg: string; ink: string; chart: string }>();
+  rows.forEach((row) => {
+    const tint = categoryTint(row.label, tokens, colors.get(row.key));
+    map.set(row.key, { ...tint, chart: chartInk(tint.ink, scheme) });
+  });
+  return map;
+}
 
 /** Ties a row to its donut wedge: the category's tinted icon tile (as on
  *  Home), or a plain dot in the wedge colour when there's no icon. */
