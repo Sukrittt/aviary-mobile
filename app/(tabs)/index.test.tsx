@@ -389,6 +389,23 @@ describe('HomeScreen · Ready to Assign', () => {
     expect(queryByText('Get started')).toBeNull()
   })
 
+  it('in a read-only budget, explains an over plan but offers no Trim', async () => {
+    mockBudgets = [
+      { month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' },
+      { month: MONTH, category: 'Food', assigned: '25000', rolled_over: '0' },
+    ]
+    const queryClient = createTestQueryClient()
+    queryClient.setQueryData(['spaces'], {
+      count: 1, limit: 5, activeId: null,
+      budgets: [{ id: 'b1', name: 'Studio', emoji: '', role: 'member', ownerId: 'o1', currencyCode: 'INR', personal: true, readOnly: true,
+        members: [{ userId: 'o1', name: 'Priya Shah', avatarUrl: null, role: 'owner', joinedAt: null }] }],
+    })
+    const { findByTestId, getByText, queryByText } = renderWithProviders(<HomeScreen />, { queryClient })
+    await findByTestId('read-only-banner')
+    expect(getByText('₹5,000 more planned than coming in')).toBeTruthy()
+    expect(queryByText('Trim')).toBeNull()
+  })
+
   it('hides Get Started when skipped, and remembers it on this device', async () => {
     const { findByText, queryByText, getByLabelText } = renderHome()
     await findByText('Get started')

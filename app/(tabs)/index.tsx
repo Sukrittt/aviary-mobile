@@ -458,7 +458,7 @@ function HomeScreen() {
             {!hideAmounts && overPlanned && (
               <View style={styles.overPlanned}>
                 <Text style={{ color: tokens.coral, fontSize: type.caption, fontFamily: fontFamily.bodyMedium }}>{overPlanned}</Text>
-                {trimFirst && (
+                {trimFirst && !readOnly && (
                   <Pressable
                     accessibilityRole="button"
                     accessibilityHint={`Opens ${splitEmoji(trimFirst.category).text}, your biggest plan`}
