@@ -564,6 +564,20 @@ describe('feed view', () => {
     expect(mockPrefetchFeed).toHaveBeenCalledWith(expect.anything(), expect.not.objectContaining({ page: expect.anything() }))
   })
 
+  // Switching budgets drops every query nothing is watching, the warmed feed included.
+  it('warms the feed again after a budget switch', () => {
+    const home = { id: 'b-home', name: 'Home', personal: true, members: [] }
+    const trip = { id: 'b-trip', name: 'Trip', personal: false, members: [] }
+    mockSpaces = { budgets: [home, trip], active: home, multi: true }
+    const screen = renderWithProviders(<ActivityScreen />)
+    fireEvent.press(screen.getByLabelText('Show as list'))
+    mockPrefetchFeed.mockClear()
+    mockSpaces = { budgets: [home, trip], active: trip, multi: true }
+    // Any re-render picks up the switch; opening the filters changes nothing the prefetch reads.
+    fireEvent.press(screen.getByLabelText('Filter transactions'))
+    expect(mockPrefetchFeed).toHaveBeenCalledTimes(1)
+  })
+
   describe('with a photo and no choice in Features', () => {
     beforeEach(() => {
       mockUser = {}

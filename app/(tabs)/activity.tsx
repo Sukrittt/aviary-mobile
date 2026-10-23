@@ -550,6 +550,8 @@ function ActivityScreen() {
 
   // The feed is one tap away, so its first page is fetched while the list is
   // up: the switch then reads from cache instead of showing a skeleton.
+  // Again on a budget switch, which drops every query nothing is watching.
+  const budgetId = activeBudget?.id;
   useEffect(() => {
     if (!feedOn || feedView) return;
     prefetchExpensesFeed(qc, {
@@ -559,7 +561,7 @@ function ActivityScreen() {
       to,
       q: search.trim() || undefined,
     });
-  }, [feedOn, feedView, selectedCategory, selectedAccount, from, to, search, qc]);
+  }, [feedOn, feedView, selectedCategory, selectedAccount, from, to, search, qc, budgetId]);
 
   function openEdit(t: ExpenseRow) {
     setSheetTxn(null);
