@@ -17,7 +17,7 @@ import { useRouter } from "expo-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
-import { ArrowLeft, ArrowCounterClockwise, X, Receipt, Wallet, Tag, FolderOpen, Repeat, TrendUp, CaretLeft, CaretRight, type PhosphorIcon } from "@/src/components/shared/icons";
+import { ArrowCounterClockwise, X, Receipt, Wallet, Tag, FolderOpen, Repeat, TrendUp, CaretLeft, CaretRight, type PhosphorIcon } from "@/src/components/shared/icons";
 import { Alert } from "@/src/components/ui/AlertHost";
 import { useReadOnly } from "@/src/components/budgets/ReadOnlyNotice";
 import { OfflineScreen } from "@/src/components/shared/OfflineScreen";
@@ -26,6 +26,7 @@ import { useTheme } from "@/src/theme/ThemeProvider";
 import type { ThemeTokens } from "@/src/theme/tokens";
 import { fontFamily } from "@/src/theme/fonts";
 import { Icon } from "@/src/components/shared/Icon";
+import { ScreenHeader } from "@/src/components/shared/ScreenHeader";
 import { IconButton } from "@/src/components/ui/Button";
 import { CheckIcon } from "@/src/components/shared/CheckIcon";
 import { SelectCheck, SelectTint } from "@/src/components/shared/SelectCheck";
@@ -303,48 +304,23 @@ export default function ArchiveScreen() {
     <View
       style={[
         styles.container,
-        { backgroundColor: tokens.bg, paddingTop: insets.top },
+        { backgroundColor: tokens.bg },
       ]}
     >
-      <View style={[styles.header, { borderBottomColor: tokens.border }]}>
-        <Pressable
-          onPress={() => (selecting ? setSelectedIds(new Set()) : router.back())}
-          disabled={restoringAll}
-          hitSlop={12}
-          accessibilityRole="button"
-          accessibilityLabel={selecting ? "Cancel selection" : "Back"}
-          style={[
-            styles.backButton,
-            { backgroundColor: tokens.card, borderColor: tokens.border },
-          ]}
-        >
-          <Icon icon={selecting ? X : ArrowLeft} size={20} color={tokens.text} />
-        </Pressable>
-        <View style={{ flex: 1 }}>
-          <Text
-            style={[
-              styles.headerTitle,
-              { color: tokens.text, fontFamily: fontFamily.displaySemiBold },
-            ]}
-          >
-            {selecting ? `${selectedItems.length} selected` : "Archive"}
-          </Text>
-          <Text
-            style={[
-              styles.headerSub,
-              { color: tokens.text2, fontFamily: fontFamily.bodySemiBold },
-            ]}
-          >
-            {selecting
-              ? "Tap rows to pick more"
-              : loading
-                ? "Fetching your archive"
-                : items.length === 0
-                ? "Nothing waiting to be purged"
-                : `${items.length} item${items.length === 1 ? "" : "s"} · kept 7 days`}
-          </Text>
-        </View>
-        {selecting ? (
+      <ScreenHeader
+        title={selecting ? `${selectedItems.length} selected` : "Archive"}
+        subtitle={selecting
+          ? "Tap rows to pick more"
+          : loading
+            ? "Fetching your archive"
+            : items.length === 0
+              ? "Nothing waiting to be purged"
+              : `${items.length} item${items.length === 1 ? "" : "s"} · kept 7 days`}
+        onBack={() => (selecting ? setSelectedIds(new Set()) : router.back())}
+        close={selecting}
+        backLabel={selecting ? "Cancel selection" : "Back"}
+        backDisabled={restoringAll}
+        right={selecting ? (
           <>
             <Pressable
               onPress={() => {
@@ -400,7 +376,7 @@ export default function ArchiveScreen() {
             </Text>
           </Pressable>
         ) : null}
-      </View>
+      />
 
       {items.length > 0 ? (
         <View style={styles.chipRow}>
@@ -953,25 +929,6 @@ export default function ArchiveScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  backButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  headerTitle: { fontSize: 19 },
-  headerSub: { fontSize: 12, marginTop: 1 },
   restoreAllButton: {
     paddingHorizontal: 13,
     paddingVertical: 8,

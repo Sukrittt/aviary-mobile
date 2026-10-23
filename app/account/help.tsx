@@ -2,11 +2,12 @@ import { useState } from 'react'
 import { View, Text, Pressable, ScrollView, Linking, StyleSheet } from 'react-native'
 import { useRouter } from 'expo-router'
 import * as StoreReview from 'expo-store-review'
-import { ArrowLeft, BookOpen, Bug, Compass, ChatCircle, Star, CaretRight, CaretUp, Scroll, ThumbsUp, Globe, type PhosphorIcon } from '@/src/components/shared/icons'
+import { BookOpen, Bug, Compass, ChatCircle, Star, CaretRight, CaretUp, Scroll, ThumbsUp, Globe, type PhosphorIcon } from '@/src/components/shared/icons'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { Icon } from '@/src/components/shared/Icon'
+import { ScreenHeader } from '@/src/components/shared/ScreenHeader'
 import { WEB_URL } from '@/src/api/client'
 
 const REPO = 'Sukrittt/aviary-mobile'
@@ -28,13 +29,8 @@ export default function HelpScreen() {
   const rateUrl = StoreReview.storeUrl()
 
   return (
-    <View style={[styles.container, { backgroundColor: tokens.bg, paddingTop: insets.top }]}>
-      <View style={[styles.header, { borderBottomColor: tokens.border }]}>
-        <Pressable onPress={() => router.back()} hitSlop={12} style={[styles.backButton, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
-          <Icon icon={ArrowLeft} size={20} color={tokens.text} />
-        </Pressable>
-        <Text style={[styles.headerTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Help & feedback</Text>
-      </View>
+    <View style={[styles.container, { backgroundColor: tokens.bg }]}>
+      <ScreenHeader title="Help & feedback" onBack={() => router.back()} />
 
       <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 32 }]}>
         <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
@@ -108,9 +104,6 @@ function LinkRow({ icon, label, onPress }: { icon: PhosphorIcon; label: string; 
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth },
-  backButton: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontSize: 19 },
   scrollContent: { padding: 16, gap: 12 },
   card: { borderWidth: 1, borderRadius: 20, overflow: 'hidden' },
   row: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14 },

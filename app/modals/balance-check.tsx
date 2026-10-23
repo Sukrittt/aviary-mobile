@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router'
 import { usePreventRemove } from 'expo-router/react-navigation'
 import { X } from '@/src/components/shared/icons'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { ScreenHeader } from '@/src/components/shared/ScreenHeader'
 import type { CaptureProposal } from '@/src/api/ai'
 import type { BalanceResult, BalanceStatus, MoneyInReason, ResolveAnswer } from '@/src/api/balanceChecks'
 import { CaptureReview } from '@/src/components/brain/CaptureReview'
@@ -67,8 +68,7 @@ function parseAmount(text: string): number {
  * No AI anywhere: the server does arithmetic on the user's own history.
  */
 function BalanceCheckModal() {
-  const { tokens, space, radius, type } = useTheme()
-  const insets = useSafeAreaInsets()
+  const { tokens } = useTheme()
   const router = useRouter()
   const statusQ = useBalanceStatus({ fresh: true })
   const [step, setStep] = useState<Step>({ name: 'enter' })
@@ -119,26 +119,7 @@ function BalanceCheckModal() {
 
   return (
     <View style={[styles.container, { backgroundColor: tokens.bg }]}>
-      <View
-        style={[
-          styles.header,
-          { paddingTop: insets.top + space.sm, paddingHorizontal: space.lg, gap: space.md, borderBottomColor: tokens.border },
-        ]}
-      >
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Close"
-          onPress={() => router.back()}
-          disabled={reviewing}
-          hitSlop={12}
-          style={[styles.headerBtn, { backgroundColor: tokens.card, borderColor: tokens.border, borderRadius: radius.full, opacity: reviewing ? 0.4 : 1 }]}
-        >
-          <X size={16} color={tokens.text} />
-        </Pressable>
-        <Text style={[styles.headerTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: type.body }]}>
-          Balance check
-        </Text>
-      </View>
+      <ScreenHeader title="Balance check" onBack={() => router.back()} close backDisabled={reviewing} />
       {body}
     </View>
   )
@@ -640,9 +621,6 @@ function Estimates({ proposal, cardShortfall, loggedPct, onReviewing, onDone }: 
 const styles = StyleSheet.create({
   container: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  header: { flexDirection: 'row', alignItems: 'center', paddingBottom: 14, borderBottomWidth: StyleSheet.hairlineWidth },
-  headerBtn: { width: 36, height: 36, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { flex: 1, textAlign: 'right' },
   card: { flexDirection: 'row', alignItems: 'center', borderWidth: 1 },
   cardIcon: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   amountWrap: { alignItems: 'center', paddingVertical: 8 },

@@ -21,7 +21,7 @@ import Animated, {
   withRepeat,
   withTiming,
 } from "react-native-reanimated";
-import { ArrowLeft, Trash, CheckCircle, WarningCircle, Clock } from "@/src/components/shared/icons";
+import { Trash, CheckCircle, WarningCircle, Clock } from "@/src/components/shared/icons";
 import { Alert } from "@/src/components/ui/AlertHost";
 import { OfflineScreen } from "@/src/components/shared/OfflineScreen";
 import { useOnline } from "@/src/lib/netStatus";
@@ -30,6 +30,7 @@ import type { ThemeTokens } from "@/src/theme/tokens";
 import { fontFamily } from "@/src/theme/fonts";
 import { formatDateTime } from "@/src/lib/format";
 import { Icon } from "@/src/components/shared/Icon";
+import { ScreenHeader } from "@/src/components/shared/ScreenHeader";
 import { LoadingPhrase } from "@/src/components/shared/LoadingPhrase";
 import { useRefresh } from "@/src/hooks/useRefresh";
 import { BottomSheet } from "@/src/components/shared/Modal";
@@ -224,29 +225,10 @@ export default function DataScreen() {
     <View
       style={[
         styles.container,
-        { backgroundColor: tokens.bg, paddingTop: insets.top },
+        { backgroundColor: tokens.bg },
       ]}
     >
-      <View style={[styles.header, { borderBottomColor: tokens.border }]}>
-        <Pressable
-          onPress={() => router.back()}
-          hitSlop={12}
-          style={[
-            styles.backButton,
-            { backgroundColor: tokens.card, borderColor: tokens.border },
-          ]}
-        >
-          <Icon icon={ArrowLeft} size={20} color={tokens.text} />
-        </Pressable>
-        <Text
-          style={[
-            styles.headerTitle,
-            { color: tokens.text, fontFamily: fontFamily.displaySemiBold },
-          ]}
-        >
-          Your data
-        </Text>
-      </View>
+      <ScreenHeader title="Your data" onBack={() => router.back()} />
 
       <ScrollView
         refreshControl={
@@ -658,23 +640,6 @@ export default function DataScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  backButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  headerTitle: { fontSize: 19 },
   scrollContent: { padding: 16, gap: 12 },
   card: { padding: 16, borderWidth: 1, borderRadius: 20 },
   cardTitle: { fontSize: 14 },

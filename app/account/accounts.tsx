@@ -1,8 +1,7 @@
 import { useState } from "react";
 import { View, Text, Pressable, ScrollView, RefreshControl, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ArrowLeft, PencilSimple, Plus, Invoice, Trash } from "@/src/components/shared/icons";
+import { PencilSimple, Plus, Invoice, Trash } from "@/src/components/shared/icons";
 import Reanimated from "react-native-reanimated";
 import * as Haptics from "expo-haptics";
 import { OfflineScreen } from "@/src/components/shared/OfflineScreen";
@@ -10,6 +9,7 @@ import { useOnline } from "@/src/lib/netStatus";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { fontFamily } from "@/src/theme/fonts";
 import { Icon } from "@/src/components/shared/Icon";
+import { ScreenHeader, HeaderButton } from "@/src/components/shared/ScreenHeader";
 import { LoadingPhrase } from "@/src/components/shared/LoadingPhrase";
 import { PopIn } from "@/src/components/shared/PopIn";
 import { CheckIcon } from "@/src/components/shared/CheckIcon";
@@ -41,7 +41,6 @@ const buzzError = () => Haptics.notificationAsync(Haptics.NotificationFeedbackTy
 export default function AccountsScreen() {
   const { tokens } = useTheme();
   const online = useOnline();
-  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { refreshing, onRefresh } = useRefresh();
   const accountsQ = useAccounts();
@@ -89,24 +88,15 @@ export default function AccountsScreen() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: tokens.bg, paddingTop: insets.top }]}>
-      <View style={[styles.header, { borderBottomColor: tokens.border }]}>
-        <Pressable onPress={() => router.back()} hitSlop={12} accessibilityLabel="Back" style={[styles.backButton, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
-          <Icon icon={ArrowLeft} size={20} color={tokens.text} />
-        </Pressable>
-        <View style={{ flex: 1 }}>
-          <Text style={[styles.headerTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Accounts</Text>
-          <Text style={[styles.headerSub, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
-            Where your money lives
-          </Text>
-        </View>
-        {!readOnly && (
-          <Pressable onPress={() => { tick(); router.push("/modals/account"); }} accessibilityRole="button" style={[styles.addButton, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
-            <Icon icon={Plus} size={16} color={tokens.text} />
-            <Text style={[styles.addText, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>Add</Text>
-          </Pressable>
+    <View style={[styles.container, { backgroundColor: tokens.bg }]}>
+      <ScreenHeader
+        title="Accounts"
+        subtitle="Where your money lives"
+        onBack={() => router.back()}
+        right={!readOnly && (
+          <HeaderButton icon={Plus} label="Add" onPress={() => { tick(); router.push("/modals/account"); }} />
         )}
-      </View>
+      />
 
       <ScrollView
         contentContainerStyle={accountsQ.isLoading ? styles.centered : styles.body}
@@ -301,35 +291,6 @@ function StarterPicks({ names }: { names: string[] }) {
 const styles = StyleSheet.create({
   rowActions: { flexDirection: "row", alignItems: "center", gap: 18, marginLeft: 8 },
   container: { flex: 1 },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  backButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  headerTitle: { fontSize: 19 },
-  headerSub: { fontSize: 12, marginTop: 1 },
-  addButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    paddingHorizontal: 13,
-    paddingVertical: 8,
-    borderRadius: 100,
-    borderWidth: 1,
-  },
-  addText: { fontSize: 12.5 },
   body: { padding: 16, gap: 16 },
   heroBlock: { gap: 4 },
   heroLabel: { fontSize: 12, textTransform: "uppercase", letterSpacing: 0.5 },
@@ -363,7 +324,6 @@ const styles = StyleSheet.create({
   },
   dot: { width: 10, height: 10, borderRadius: 5 },
   iconTile: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  headerButtons: { flexDirection: "row", gap: 8 },
   starter: { borderWidth: 1, borderRadius: 16, padding: 16, gap: 10, width: "100%" },
   starterTitle: { fontSize: 16 },
   starterBody: { fontSize: 13, lineHeight: 18 },

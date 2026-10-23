@@ -5,8 +5,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
-import { ArrowLeft, UserPlus } from '@/src/components/shared/icons'
-import { Icon } from '@/src/components/shared/Icon'
+import { UserPlus } from '@/src/components/shared/icons'
+import { HeaderButton, ScreenHeader } from '@/src/components/shared/ScreenHeader'
 import { BottomSheet } from '@/src/components/shared/Modal'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { Toggle } from '@/src/components/ui/Toggle'
@@ -190,21 +190,17 @@ export default function BudgetMembersScreen() {
   )
 
   return (
-    <View style={[styles.container, { backgroundColor: tokens.bg, paddingTop: insets.top }]}>
-      <View style={[styles.header, { borderBottomColor: tokens.border }]}>
-        <Pressable onPress={() => router.back()} hitSlop={12} accessibilityLabel="Back" style={[styles.backButton, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
-          <Icon icon={ArrowLeft} size={20} color={tokens.text} />
-        </Pressable>
-        <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          {budget ? <BudgetIcon budget={budget} size={20} color={tokens.text} /> : null}
-          <Text numberOfLines={1} style={[styles.headerTitle, { flexShrink: 1, color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>{name}</Text>
-        </View>
-        {owner ? (
-          <Pressable onPress={() => openSheet({ kind: 'rename' })} hitSlop={8} accessibilityRole="button">
-            <Text style={[styles.link, { color: tokens.accentInk, fontFamily: fontFamily.bodySemiBold }]}>Rename</Text>
-          </Pressable>
-        ) : null}
-      </View>
+    <View style={[styles.container, { backgroundColor: tokens.bg }]}>
+      <ScreenHeader
+        onBack={() => router.back()}
+        title={
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            {budget ? <BudgetIcon budget={budget} size={20} color={tokens.text} /> : null}
+            <Text numberOfLines={1} accessibilityRole="header" style={[styles.headerTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>{name}</Text>
+          </View>
+        }
+        right={owner ? <HeaderButton label="Rename" onPress={() => openSheet({ kind: 'rename' })} /> : null}
+      />
 
       <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 32 }]}>
         {q.isError && !budget ? (
@@ -401,9 +397,7 @@ function SheetButtons({ tokens, confirm, cancel, busy, disabled, onConfirm, onCa
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth },
-  backButton: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontSize: 19, flex: 1 },
+  headerTitle: { fontSize: 19, flexShrink: 1 },
   scroll: { padding: 16, gap: 12 },
   sectionLabel: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5, marginTop: 4 },
   card: { borderWidth: 1, borderRadius: 18, paddingHorizontal: 14, paddingVertical: 4 },

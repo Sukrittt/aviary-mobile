@@ -4,10 +4,11 @@ import * as Haptics from 'expo-haptics'
 import { useFocusEffect, useRouter, type Href } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Reanimated, { FadeIn } from 'react-native-reanimated'
-import { ArrowLeft, X, CaretRight, ArrowUpRight, Check, Circle } from '@/src/components/shared/icons'
+import { CaretRight, ArrowUpRight, Check, Circle } from '@/src/components/shared/icons'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { Icon } from '@/src/components/shared/Icon'
+import { ScreenHeader } from '@/src/components/shared/ScreenHeader'
 import { Button } from '@/src/components/ui/Button'
 import { PopIn } from '@/src/components/shared/PopIn'
 import { useTourProgress } from '@/src/hooks/useTourProgress'
@@ -108,30 +109,18 @@ export default function GuidedTourScreen() {
         : current.title
 
   return (
-    <View style={[styles.container, { backgroundColor: tokens.bg, paddingTop: insets.top }]}>
-      <View style={[styles.header, { borderBottomColor: tokens.border, paddingHorizontal: space.lg, gap: space.md }]}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={view === 'chapter' ? 'Back to chapters' : 'Close'}
-          onPress={() => {
-            tap()
-            if (view === 'chapter') setView('hub')
-            else exitTour()
-          }}
-          hitSlop={12}
-          style={[styles.backButton, { backgroundColor: tokens.cardSolid, borderColor: tokens.border }]}
-        >
-          <Icon icon={view === 'chapter' ? ArrowLeft : X} size={18} color={tokens.text} />
-        </Pressable>
-        <View style={styles.headerText}>
-          <Text style={{ color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: type.bodyLg }}>
-            How this works
-          </Text>
-          <Text numberOfLines={1} style={{ color: tokens.text3, fontFamily: fontFamily.bodySemiBold, fontSize: type.micro }}>
-            {headerSub}
-          </Text>
-        </View>
-        {view !== 'done' && (
+    <View style={[styles.container, { backgroundColor: tokens.bg }]}>
+      <ScreenHeader
+        title="How this works"
+        subtitle={headerSub}
+        onBack={() => {
+          tap()
+          if (view === 'chapter') setView('hub')
+          else exitTour()
+        }}
+        close={view !== 'chapter'}
+        backLabel={view === 'chapter' ? 'Back to chapters' : 'Close'}
+        right={view !== 'done' && (
           <Pressable accessibilityRole="button" onPress={() => {
               tap()
               exitTour()
@@ -140,7 +129,7 @@ export default function GuidedTourScreen() {
             <Text style={{ color: tokens.text2, fontFamily: fontFamily.bodyExtraBold, fontSize: type.caption }}>Skip</Text>
           </Pressable>
         )}
-      </View>
+      />
 
       {view === 'hub' && (
         <Hub
@@ -478,9 +467,7 @@ function Done({
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth },
   headerText: { flex: 1, minWidth: 0, gap: 2 },
-  backButton: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   kicker: { letterSpacing: 1 },
   hero: { flexDirection: 'row', alignItems: 'center' },
   heroBadge: { width: 66, height: 66, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },

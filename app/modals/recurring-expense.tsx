@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { View, Text, TextInput, Pressable, ScrollView, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native'
 import Reanimated, { LinearTransition } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { ScreenHeader } from '@/src/components/shared/ScreenHeader'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { Alert } from '@/src/components/ui/AlertHost'
 import { useTheme } from '@/src/theme/ThemeProvider'
@@ -207,17 +208,7 @@ function RecurringExpenseModal() {
       style={[styles.container, { backgroundColor: tokens.bg }]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <View style={[styles.header, { paddingTop: insets.top + 8, borderBottomColor: tokens.border }]}>
-        <Pressable onPress={() => router.back()} hitSlop={12} disabled={saved}>
-          <Text style={[styles.headerAction, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
-            Cancel
-          </Text>
-        </Pressable>
-        <Text style={[styles.headerTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
-          {isEdit ? 'Edit recurring' : 'New recurring'}
-        </Text>
-        <View style={{ width: 52 }} />
-      </View>
+      <ScreenHeader title={isEdit ? 'Edit recurring' : 'New recurring'} onBack={() => router.back()} close backDisabled={saved} />
 
       <ScrollView
         contentContainerStyle={[styles.body, { paddingBottom: insets.bottom + 32 }]}
@@ -436,16 +427,6 @@ function RecurringExpenseModal() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingBottom: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  headerAction: { fontSize: 14, width: 52 },
-  headerTitle: { fontSize: 16 },
   body: { padding: 20, gap: 16 },
   reviewBanner: { borderRadius: 14, padding: 12 },
   reviewBannerText: { fontSize: 12.5, lineHeight: 17 },
