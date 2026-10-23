@@ -4,7 +4,7 @@ import { View, Text, Pressable, RefreshControl, StyleSheet } from "react-native"
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import { ArrowLeft, Plus, Play } from "@/src/components/shared/icons";
+import { ArrowCounterClockwise, ArrowLeft, Plus, Play } from "@/src/components/shared/icons";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { usePrivacy } from "@/src/context/PrivacyContext";
 import { fontFamily } from "@/src/theme/fonts";
@@ -147,6 +147,7 @@ function MonthStepper({
                   },
                 ]}
               >
+                <ArrowCounterClockwise size={12} weight="bold" color={tokens.accentInk} />
                 <Text
                   style={{
                     color: tokens.accentInk,
@@ -154,7 +155,7 @@ function MonthStepper({
                     fontFamily: fontFamily.bodySemiBold,
                   }}
                 >
-                  ↩ Today
+                  Today
                 </Text>
               </Pressable>
             </View>
@@ -878,6 +879,9 @@ const styles = StyleSheet.create({
   monthNavCenter: { flex: 1 },
   monthNavLabelRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   statusChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
     paddingHorizontal: 8,
     paddingVertical: 3,
     alignSelf: "flex-start",

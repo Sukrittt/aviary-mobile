@@ -3,6 +3,8 @@ import { View, Text, StyleSheet } from 'react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import type { ThemeTokens } from '@/src/theme/tokens'
 import { fontFamily } from '@/src/theme/fonts'
+import { CATEGORY_ICON_COMPONENTS } from '@/src/components/shared/CategoryIcon'
+import { categoryIconKey, DEFAULT_CATEGORY_ICON, type CategoryIconKey } from '@/src/lib/categoryIcons'
 
 
 type Tone = 'mint' | 'violet' | 'coral' | 'warn'
@@ -24,15 +26,18 @@ const TONE_KEYS: Record<Tone, { solid: keyof ThemeTokens; soft: keyof ThemeToken
   warn: { solid: 'warn', soft: 'warnSoft' },
 }
 
-const DEFAULT_ICON: Record<Tone, string> = {
-  mint: '💰',
-  violet: '📈',
-  coral: '🛍️',
-  warn: '⚠️',
+const DEFAULT_ICON: Record<Tone, CategoryIconKey> = {
+  mint: 'Coins',
+  violet: 'TrendUp',
+  coral: 'ShoppingBag',
+  warn: 'Lightning',
 }
 
-// Model-supplied icon is sometimes a plain word (e.g. "wallet") instead of an emoji; fall back per tone.
-const EMOJI_RE = /\p{Extended_Pictographic}/u
+/** The model sends an emoji (or sometimes a word like "wallet"). Draw its Phosphor match, else the tone's icon. */
+function iconKey(icon: string, tone: Tone): CategoryIconKey {
+  const key = categoryIconKey(icon ?? '')
+  return key === DEFAULT_CATEGORY_ICON ? DEFAULT_ICON[tone] : key
+}
 
 export function InsightCard({ icon, title, subtitle, valueLabel, amount, tone, hideAmounts }: Props) {
   const { formatCurrency } = useCurrency()
@@ -41,12 +46,12 @@ export function InsightCard({ icon, title, subtitle, valueLabel, amount, tone, h
   const { solid: solidKey, soft: softKey } = TONE_KEYS[tone]
   const soft = tokens[softKey]
   const solid = tokens[solidKey]
-  const displayIcon = icon && EMOJI_RE.test(icon) ? icon : DEFAULT_ICON[tone]
+  const Glyph = CATEGORY_ICON_COMPONENTS[iconKey(icon, tone)]
 
   return (
     <View style={styles.row}>
       <View style={[styles.iconTile, { backgroundColor: soft }]}>
-        <Text style={{ fontSize: 18 }}>{displayIcon}</Text>
+        <Glyph size={20} color={tone === 'warn' ? tokens.warnInk : solid} />
       </View>
       <View style={styles.main}>
         <Text style={[styles.title, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]} numberOfLines={1}>

@@ -6,7 +6,8 @@ import Reanimated, { Easing, FadeIn, FadeInUp, LinearTransition, useAnimatedStyl
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 
-import { SectionLabel, ResultCard } from '@/src/components/tour/parts'
+import { SectionLabel, ResultCard, TourIcon } from '@/src/components/tour/parts'
+import type { CategoryIconKey } from '@/src/lib/categoryIcons'
 import { useTourContent } from '@/src/components/tour/useTourContent'
 import { NOTIFY_ENVELOPE, NOTIFY_PCTS, type NotifyCadence } from '@/src/components/tour/content'
 import { tap } from '@/src/lib/haptics'
@@ -22,7 +23,7 @@ const OVER = 101
 
 interface Banner {
   id: number
-  emoji: string
+  icon: CategoryIconKey
   title: string
   body: string
 }
@@ -47,7 +48,7 @@ export function NotifyDemo({ onComplete }: { onComplete: () => void }) {
   const seen = useRef(new Set<string>())
   const nextId = useRef(0)
 
-  const { name, emoji, plan, step } = NOTIFY_ENVELOPE
+  const { name, icon, plan, step } = NOTIFY_ENVELOPE
   const pct = Math.round((spent / plan) * 100)
   const over = spent > plan
   const pickedKind = NOTIFY_KINDS.find((k) => k.id === picked)
@@ -76,13 +77,13 @@ export function NotifyDemo({ onComplete }: { onComplete: () => void }) {
     if (level <= levelFor(spent)) return
     if (level === OVER) {
       ping('overspent', {
-        emoji: '🚨',
+        icon: 'Fire',
         title: `${name} is over budget`,
         body: `You've overspent ${formatCurrency(next - plan)} in ${name} this month.`,
       })
     } else {
       ping('threshold', {
-        emoji: '🚦',
+        icon: 'Gauge',
         title: `${name} is at ${Math.round((next / plan) * 100)}%`,
         body: `${formatCurrency(next)} of ${formatCurrency(plan)} spent in ${name}.`,
       })
@@ -113,7 +114,7 @@ export function NotifyDemo({ onComplete }: { onComplete: () => void }) {
               style={[styles.banner, { backgroundColor: tokens.cardSolid, borderColor: tokens.border, borderRadius: radius.md, padding: space.sm, gap: space.sm }]}
             >
               <View style={[styles.tile, { backgroundColor: tokens.accentSoft, borderRadius: radius.sm }]}>
-                <Text style={{ fontSize: 15 }}>{b.emoji}</Text>
+                <TourIcon icon={b.icon} size={16} color={tokens.accentInk} />
               </View>
               <View style={styles.body}>
                 <Text numberOfLines={1} style={{ color: tokens.text, fontFamily: fontFamily.bodyExtraBold, fontSize: type.caption }}>
@@ -131,7 +132,7 @@ export function NotifyDemo({ onComplete }: { onComplete: () => void }) {
       <View style={[styles.card, { backgroundColor: tokens.cardSolid, borderColor: over ? tokens.coral : tokens.border, borderRadius: radius.md, padding: space.md, gap: space.sm }]}>
         <View style={[styles.row, { gap: space.md }]}>
           <View style={[styles.tile, { backgroundColor: tokens.inputBg, borderRadius: radius.sm }]}>
-            <Text style={{ fontSize: 16 }}>{emoji}</Text>
+            <TourIcon icon={icon} />
           </View>
           <View style={styles.body}>
             <Text style={{ color: tokens.text, fontFamily: fontFamily.bodyBold, fontSize: type.body }}>{name}</Text>
@@ -219,8 +220,9 @@ export function NotifyDemo({ onComplete }: { onComplete: () => void }) {
                 },
               ]}
             >
+              <TourIcon icon={k.icon} size={14} color={active ? tokens.accentInk : tokens.text} />
               <Text style={{ color: active ? tokens.accentInk : tokens.text, fontFamily: fontFamily.bodyBold, fontSize: type.micro }}>
-                {k.emoji}  {k.label}
+                {k.label}
               </Text>
             </Pressable>
           )
@@ -257,7 +259,7 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center' },
   tile: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center' },
   body: { flex: 1, minWidth: 0, gap: 2 },
-  pill: { height: 34, alignItems: 'center', justifyContent: 'center' },
+  pill: { height: 34, flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center' },
   chip: { borderWidth: 1 },
   chips: { flexDirection: 'row', flexWrap: 'wrap' },
   trackWrap: { height: 15, justifyContent: 'center' },

@@ -623,7 +623,7 @@ describe('HomeScreen · one banner at a time', () => {
     space()
     mockCarry = { ready_to_assign: 5000, rolled_over: { Food: 95, Rent: -20 } }
     const { findByText, queryByText } = renderHome()
-    expect(await findByText('🌱 ₹5,095 rolled over · ₹20 short')).toBeTruthy()
+    expect(await findByText('₹5,095 rolled over · ₹20 short')).toBeTruthy()
     // The strip says it all, so the hero has no separate carried line.
     expect(queryByText(/includes ₹/)).toBeNull()
     expect(queryByText(/30 days on us/)).toBeNull()
