@@ -1,6 +1,7 @@
 const { withMainApplication } = require('@expo/config-plugins');
 
 const MARKER = 'withOkHttpClient';
+const AFTER_LISTENERS = 'after the lifecycle listeners';
 const CONNECT_TIMEOUT_SECONDS = 5;
 const MAX_REQUESTS_PER_HOST = 8;
 const PING_INTERVAL_SECONDS = 5;
@@ -49,12 +50,15 @@ const PING_INTERVAL_SECONDS = 5;
  * cookie jar), one pool shared by every client the factory builds.
  */
 function addOkHttpClient(src) {
-  if (src.includes(MARKER)) return src;
+  if (src.includes(AFTER_LISTENERS)) return src;
+  // An android/ prebuilt by an older version of this plugin has its factory
+  // before the lifecycle listeners, where it gets replaced. Don't build that.
+  if (src.includes(MARKER)) throw new Error(`${MARKER}: MainApplication has an old OkHttp factory. Run npx expo prebuild --clean`);
   const imports =
     'import com.facebook.react.modules.network.OkHttpClientProvider\n' +
     'import java.util.concurrent.TimeUnit\n';
   const factory =
-    `    // ${MARKER}: after the lifecycle listeners, so expo-app-metrics' factory can't replace this one.\n` +
+    `    // ${MARKER}: ${AFTER_LISTENERS}, so expo-app-metrics' factory can't replace this one.\n` +
     '    val okHttpPool = okhttp3.ConnectionPool()\n' +
     '    val okHttpEvictor = java.util.concurrent.Executors.newSingleThreadExecutor()\n' +
     '    val evictIdle = { okHttpEvictor.execute { okHttpPool.evictAll() } }\n' +

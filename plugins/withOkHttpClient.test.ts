@@ -61,6 +61,11 @@ describe('addOkHttpClient', () => {
     expect(addOkHttpClient(once)).toBe(once)
   })
 
+  it('refuses an android/ prebuilt by the old plugin, whose factory gets replaced', () => {
+    const old = MAIN_APPLICATION.replace('super.onCreate()\n', 'super.onCreate()\n    // withOkHttpClient: HTTP/1.1 only\n')
+    expect(() => addOkHttpClient(old)).toThrow(/prebuild --clean/)
+  })
+
   it('fails loudly when the template changes shape', () => {
     expect(() => addOkHttpClient('package x\n\nclass MainApplication {}\n')).toThrow(/onApplicationCreate/)
   })
