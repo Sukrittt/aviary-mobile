@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import {
   View,
   Animated,
@@ -27,7 +27,6 @@ import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { useInvalidFeedback } from '@/src/components/ui/useInvalidFeedback'
 import { AddCircleLoad, AddCircleDone } from './AddCircleAnim'
-import type { IconWeight } from '@/src/components/shared/icons'
 import { HomeGlyph, ActivityGlyph, EnvelopeGlyph, ProfileGlyph, PlusGlyph, type NavIconComponent } from './NavIcons'
 import { tap } from '@/src/lib/haptics'
 
@@ -381,7 +380,7 @@ export function NavBackdrop() {
  * the circle fill, which swaps between the idle and accent colors as selection
  * moves along the row.
  */
-function useColorFade(color: string, duration = 200): SharedValue<string> {
+function useColorFade(color: string, duration = 200, snap = false): SharedValue<string> {
   const from = useSharedValue(color)
   const to = useSharedValue(color)
   const progress = useSharedValue(1)
@@ -392,54 +391,16 @@ function useColorFade(color: string, duration = 200): SharedValue<string> {
     from.value = prevRef.current
     to.value = color
     prevRef.current = color
-    progress.value = 0
-    progress.value = withTiming(1, { duration })
-  }, [color, duration, from, to, progress])
+    progress.value = snap ? 1 : 0
+    if (!snap) progress.value = withTiming(1, { duration })
+  }, [color, duration, snap, from, to, progress])
 
   return useDerivedValue(() => interpolateColor(progress.value, [0, 1], [from.value, to.value]))
 }
 
 /**
- * Cross-fades `color` and `weight` instead of cutting. SVG `fill` is a
- * render-time prop, not an animatable style, so the tween is faked: the
- * previous look kept as a layer fading out under the new one fading in.
- */
-function NavIcon({ icon: Icon, color, weight, size }: { icon: NavIconComponent; color: string; weight: IconWeight; size: number }) {
-  const [prev, setPrev] = useState<{ color: string; weight: IconWeight } | null>(null)
-  const currentRef = useRef({ color, weight })
-  const progress = useSharedValue(1)
-
-  useEffect(() => {
-    if (currentRef.current.color === color && currentRef.current.weight === weight) return
-    setPrev(currentRef.current)
-    currentRef.current = { color, weight }
-    progress.value = 0
-    // Unmount the old-colour layer once it has faded out, rather than keeping a second SVG per icon forever.
-    progress.value = withTiming(1, { duration: 200 }, (finished) => {
-      if (finished) runOnJS(setPrev)(null)
-    })
-  }, [color, weight, progress])
-
-  const topStyle = useAnimatedStyle(() => ({ opacity: progress.value }))
-  const bottomStyle = useAnimatedStyle(() => ({ opacity: 1 - progress.value }))
-
-  return (
-    <View style={{ width: size, height: size }}>
-      {prev ? (
-        <Reanimated.View style={[StyleSheet.absoluteFill, bottomStyle]} pointerEvents="none">
-          <Icon size={size} color={prev.color} weight={prev.weight} />
-        </Reanimated.View>
-      ) : null}
-      <Reanimated.View style={topStyle} pointerEvents="none">
-        <Icon size={size} color={color} weight={weight} />
-      </Reanimated.View>
-    </View>
-  )
-}
-
-/**
  * A tab's glyph, both looks always mounted and cross-faded by opacity.
- * NavIcon's swap re-renders the SVG in the new weight, and Android paints a
+ * Swapping the weight re-rendered the SVG, and Android paints a
  * new SVG a frame or more after the rest of a switch, so the tab lit up after
  * the screen had already changed (screen recording, 2026-10-24: up to 66ms).
  */
@@ -538,7 +499,14 @@ function AddDisc({
 }) {
   const { motion } = useTheme()
   const pressScale = useSharedValue(1)
-  const bgFade = useColorFade(background)
+  // Onto or off log-expense the screen behind changes in one frame, so the disc
+  // does too: a tween from white to accent over a white screen hid it.
+  const prevSelected = useRef(selected)
+  const flipped = prevSelected.current !== selected
+  useEffect(() => {
+    prevSelected.current = selected
+  })
+  const bgFade = useColorFade(background, 200, flipped)
   const discStyle = useAnimatedStyle(() => ({
     backgroundColor: bgFade.value,
     transform: [{ scale: pressScale.value }],
@@ -570,7 +538,8 @@ function AddDisc({
       }
       style={[styles.disc, discStyle, dimmed ? styles.disabled : null]}
     >
-      {overrideContent ?? <NavIcon icon={PlusGlyph} color={color} weight="bold" size={ICON} />}
+      {/* Same weight in both looks, so a switch only changes its fill: no new SVG to paint late. */}
+      {overrideContent ?? <PlusGlyph size={ICON} color={color} weight="bold" />}
     </AnimatedPressable>
   )
 }
