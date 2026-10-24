@@ -91,6 +91,8 @@ export default function CodeScreen() {
   const [pending, setPending] = useState(false)
   const [error, setError] = useState('')
   const [done, setDone] = useState(false)
+  // The code is used up after our own failure, so resend can't wait out the cooldown.
+  const [codeSpent, setCodeSpent] = useState(false)
 
   // Mirrors web's @keyframes shakeRow: 0%,100%=0, 12%=-9, 28%=8, 45%=-6,
   // 62%=4, 80%=-2, .5s cubic-bezier(.36,.07,.19,.97).
@@ -143,6 +145,7 @@ export default function CodeScreen() {
       // Not the user's typo, so no wrong_code event and no shake.
       if (cancelledRef.current) return
       setPending(false)
+      if (e instanceof SignInFailedError) setCodeSpent(true)
       setError(e instanceof SignInFailedError
         ? 'Something went wrong on our side. Send a new code and try again.'
         : "Couldn't check the code. Check your connection and try again.")
@@ -195,7 +198,13 @@ export default function CodeScreen() {
           {error !== '' && (
             <Text style={[styles.error, { color: tokens.coral, fontFamily: fontFamily.bodyMedium }]}>{error}</Text>
           )}
-          <ResendTimer onResend={() => (isChangeEmail ? resendEmailCode().then(() => true) : sendMagicAuthCode(email))} />
+          <ResendTimer
+            ready={codeSpent}
+            onResend={() => {
+              setCodeSpent(false)
+              return isChangeEmail ? resendEmailCode().then(() => true) : sendMagicAuthCode(email)
+            }}
+          />
         </>
       )}
 

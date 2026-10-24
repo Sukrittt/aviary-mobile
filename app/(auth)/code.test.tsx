@@ -56,6 +56,8 @@ it('asks for a new code when sign-in fails on our side', async () => {
 
   expect(await findByText('Something went wrong on our side. Send a new code and try again.')).toBeTruthy()
   expect(queryByText('Wrong or expired code.')).toBeNull()
+  // The copy says resend, so the cooldown can't block it.
+  expect(await findByText("Didn't get it? Resend now")).toBeTruthy()
 })
 
 it('plays the success animation before the session lands and the guards redirect', async () => {
