@@ -2,7 +2,7 @@ import { AlertHost } from '@/src/components/ui/AlertHost'
 import { ExpenseWriteError } from '@/src/lib/expenseConflict'
 import { createContext, useContext, useState, type ReactNode } from 'react'
 import { act, fireEvent, waitFor, within } from '@testing-library/react-native'
-import { Image, StyleSheet } from 'react-native'
+import { Image, Keyboard, StyleSheet } from 'react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import type { ExpensesPage, ExpensesPageParams } from '@/src/api/expenses'
 import AsyncStorage from '@react-native-async-storage/async-storage'
@@ -559,6 +559,25 @@ describe('feed view', () => {
     expect(screen.queryByLabelText('Item 1, Food. View details')).toBeNull()
     fireEvent.press(screen.getByLabelText('Show as feed'))
     expect(screen.getByLabelText('Item 1, Food. View details')).toBe(card)
+  })
+
+  // Hidden, a mounted feed still watched its query and refetched its photos on every write.
+  it('unmounts the feed once it is turned off in Features', () => {
+    const screen = renderWithProviders(<ActivityScreen />)
+    expect(screen.getByLabelText('Item 1, Food. View details')).toBeTruthy()
+    mockUser = { activityFeed: false }
+    fireEvent.press(screen.getAllByLabelText('Filter transactions')[0])
+    expect(screen.queryByLabelText('Item 1, Food. View details', { includeHiddenElements: true })).toBeNull()
+    expect(screen.getByText('1 transaction')).toBeTruthy()
+  })
+
+  // The view switched away from only hides, so a search field in it kept typing off screen.
+  it('lets go of the keyboard when switching views', () => {
+    const dismiss = jest.spyOn(Keyboard, 'dismiss')
+    const screen = renderWithProviders(<ActivityScreen />)
+    fireEvent.press(screen.getByLabelText('Show as list'))
+    expect(dismiss).toHaveBeenCalledTimes(1)
+    dismiss.mockRestore()
   })
 
   it('warms the feed while the list is up, so the switch reads from cache', () => {

@@ -16,6 +16,7 @@ import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useStat
 import {
   View,
   Text,
+  Keyboard,
   TextInput,
   Pressable,
   RefreshControl,
@@ -970,6 +971,9 @@ function ActivityScreen() {
                   onPress={() => {
                     const next = feedView ? "list" : "feed";
                     Haptics.selectionAsync().catch(() => {});
+                    // The view going away only hides now, and a search field in it
+                    // would keep the keyboard typing into something off screen.
+                    Keyboard.dismiss();
                     openRowRef.current?.reset();
                     openRowRef.current = null;
                     setView(next);
@@ -1113,7 +1117,8 @@ function ActivityScreen() {
               </ScrollView>
             </View>
           ) : null}
-          {feedMounted ? (
+          {/* Off in Features unmounts it: a hidden feed still refetched (and re-signed) its photos on every write. */}
+          {feedOn && feedMounted ? (
             <View
               collapsable={false}
               style={[StyleSheet.absoluteFill, { paddingHorizontal: space.lg }, !feedView && styles.hiddenView]}
