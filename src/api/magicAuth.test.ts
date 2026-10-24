@@ -34,8 +34,15 @@ describe('magic auth verify on a server failure', () => {
     await expect(verifyMagicAuthCode('a@b.co', '123456')).resolves.toBeNull()
   })
 
-  it("throws SignInFailedError on a 5xx, since the code was right and is now used up", async () => {
-    mockFetch.mockResolvedValue({ ok: false, status: 503 })
+  it('throws SignInFailedError on sign_in_failed, since the code was right and is now used up', async () => {
+    mockFetch.mockResolvedValue({ ok: false, status: 503, json: () => Promise.resolve({ error: 'sign_in_failed' }) })
     await expect(verifyMagicAuthCode('a@b.co', '123456')).rejects.toBeInstanceOf(SignInFailedError)
+  })
+
+  it('throws a plain error on any other 5xx, since the code may still work', async () => {
+    mockFetch.mockResolvedValue({ ok: false, status: 504, json: () => Promise.reject(new SyntaxError('not json')) })
+    const err = await verifyMagicAuthCode('a@b.co', '123456').catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(Error)
+    expect(err).not.toBeInstanceOf(SignInFailedError)
   })
 })
