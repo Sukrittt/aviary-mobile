@@ -2,6 +2,9 @@ import { useState } from 'react'
 import { View, Text, Pressable, StyleSheet } from 'react-native'
 import Animated, { FadeIn } from 'react-native-reanimated'
 import * as Haptics from 'expo-haptics'
+import { useQuery } from '@tanstack/react-query'
+import { getReferrals, referralsKey } from '@/src/api/referrals'
+import { ReferralCodeEntry } from '@/src/components/ReferralCodeEntry'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { useUpdateUser } from '@/src/hooks/useUser'
@@ -27,6 +30,8 @@ export function HeardFrom({ onDone }: { onDone: () => void }) {
   const updateUser = useUpdateUser()
   const [picked, setPicked] = useState<Source | null>(null)
   const [saving, setSaving] = useState(false)
+  // Someone who came through a friend's link already has the code; only ask the rest.
+  const referrals = useQuery({ queryKey: referralsKey, queryFn: getReferrals, enabled: picked === 'friend', retry: false })
 
   const finish = async () => {
     if (saving) return
@@ -68,6 +73,12 @@ export function HeardFrom({ onDone }: { onDone: () => void }) {
           )
         })}
       </View>
+
+      {picked === 'friend' && referrals.data?.canEnterCode && (
+        <View style={{ marginTop: 20, marginBottom: 4 }}>
+          <ReferralCodeEntry />
+        </View>
+      )}
 
       <Pressable accessibilityRole="button" onPress={finish} disabled={saving} style={[styles.cta, { backgroundColor: tokens.accent, opacity: saving ? 0.6 : 1 }]}>
         <Text style={[styles.ctaText, { color: tokens.onAccent, fontFamily: fontFamily.displaySemiBold }]}>

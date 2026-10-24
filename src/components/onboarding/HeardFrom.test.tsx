@@ -6,8 +6,13 @@ import { HeardFrom } from './HeardFrom'
 const mockMutate = jest.fn(async (_patch: object) => ({}))
 jest.mock('@/src/hooks/useUser', () => ({ useUpdateUser: () => ({ mutateAsync: mockMutate }) }))
 jest.mock('@/src/lib/analytics', () => ({ track: jest.fn() }))
+const mockReferrals = jest.fn()
+jest.mock('@/src/api/referrals', () => ({ ...jest.requireActual('@/src/api/referrals'), getReferrals: () => mockReferrals() }))
 
-beforeEach(() => jest.clearAllMocks())
+beforeEach(() => {
+  jest.clearAllMocks()
+  mockReferrals.mockResolvedValue({ canEnterCode: false })
+})
 
 it('saves and tracks the picked answer', async () => {
   const onDone = jest.fn()
@@ -34,4 +39,12 @@ it('moves on even when the save fails', async () => {
   fireEvent.press(getByText('A friend'))
   fireEvent.press(getByText('Start budgeting'))
   await waitFor(() => expect(onDone).toHaveBeenCalled())
+})
+
+it('asks for a code when a friend sent them and they can still enter one', async () => {
+  mockReferrals.mockResolvedValue({ canEnterCode: true })
+  const { getByText, findByLabelText, queryByLabelText } = renderWithProviders(<HeardFrom onDone={jest.fn()} />)
+  expect(queryByLabelText('Got a code from a friend?')).toBeNull()
+  fireEvent.press(getByText('A friend'))
+  expect(await findByLabelText('Got a code from a friend?')).toBeTruthy()
 })

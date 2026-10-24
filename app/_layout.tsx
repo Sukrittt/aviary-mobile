@@ -484,6 +484,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
           <Stack.Screen name="account/paywall" options={{ presentation: 'fullScreenModal', headerShown: false }} />
           <Stack.Screen name="account/security" options={{ presentation: 'card', animation: 'slide_from_right' }} />
           <Stack.Screen name="account/data" options={{ presentation: 'card', animation: 'slide_from_right' }} />
+          <Stack.Screen name="account/refer" options={{ presentation: 'card', animation: 'slide_from_right' }} />
           <Stack.Screen name="account/help" options={{ presentation: 'card', animation: 'slide_from_right' }} />
           <Stack.Screen name="account/changelog" options={{ presentation: 'card', animation: 'slide_from_right' }} />
           <Stack.Screen name="account/ideas" options={{ presentation: 'card', animation: 'slide_from_right' }} />
