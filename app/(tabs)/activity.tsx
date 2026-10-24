@@ -1031,7 +1031,9 @@ function ActivityScreen() {
                           selecting={selecting}
                           locked={selectionLocked}
                           hidden={detail !== null && keyOf(detail.txn) === keyOf(entry.txn)}
-                          deleting={pendingDelete !== null && keyOf(pendingDelete) === keyOf(entry.txn)}
+                          // Only the view on screen collapses the row and sends the delete;
+                        // the same expense sits in the hidden one too.
+                        deleting={!feedView && pendingDelete !== null && keyOf(pendingDelete) === keyOf(entry.txn)}
                           actions={rowActions}
                         />
                       ),
@@ -1130,7 +1132,7 @@ function ActivityScreen() {
                 onOpenActions={setSheetTxn}
                 onEdit={openEdit}
                 onDelete={confirmDelete}
-                isDeleting={(t) => pendingDelete !== null && keyOf(pendingDelete) === keyOf(t)}
+                isDeleting={(t) => feedView && pendingDelete !== null && keyOf(pendingDelete) === keyOf(t)}
                 onDeleteDone={() => {
                   if (pendingDelete) runDelete(pendingDelete);
                 }}

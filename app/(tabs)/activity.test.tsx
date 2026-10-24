@@ -609,6 +609,20 @@ describe('feed view', () => {
     })
   })
 
+  // The same expense is a row in the list under the feed too; only the one on
+  // screen may collapse and send the delete, or it went out twice.
+  it('sends a delete from the feed once, with the list mounted underneath', () => {
+    jest.useFakeTimers()
+    const screen = renderWithProviders(<ActivityScreen />)
+    act(() => jest.advanceTimersByTime(1000))
+    jest.useRealTimers()
+    expect(screen.getByText('1 transaction', { includeHiddenElements: true })).toBeTruthy()
+    fireEvent(screen.getByLabelText('Item 1, Food. View details'), 'longPress')
+    fireEvent.press(screen.getByText('Delete'))
+    fireEvent.press(screen.getAllByText('Delete').at(-1)!)
+    expect(mockDelete).toHaveBeenCalledTimes(1)
+  })
+
   it('deletes from the feed after the confirm', () => {
     const screen = renderWithProviders(<ActivityScreen />)
     fireEvent(screen.getByLabelText('Item 1, Food. View details'), 'longPress')
