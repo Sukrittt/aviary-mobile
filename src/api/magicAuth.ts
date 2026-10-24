@@ -21,8 +21,12 @@ export async function sendMagicAuthCode(email: string): Promise<boolean> {
   return resp.ok
 }
 
+/** The server accepted the code but failed after WorkOS used it up, so the
+ * same code can't work again: the user needs a new one. */
+export class SignInFailedError extends Error {}
+
 /** Verifies the code. Resolves null for a wrong code; throws on a transport
- * failure, like send. On success resolves a function that stores the session,
+ * failure, like send, and SignInFailedError on a 5xx. On success resolves a function that stores the session,
  * so the screen can play its success animation before the guards take over. */
 export async function verifyMagicAuthCode(email: string, code: string): Promise<(() => Promise<void>) | null> {
   const resp = await fetch(`${BASE_URL}/api/auth/magic-auth/verify`, {
@@ -31,6 +35,7 @@ export async function verifyMagicAuthCode(email: string, code: string): Promise<
     body: JSON.stringify({ email, code, device: deviceLabel() }),
     signal: AbortSignal.timeout(TIMEOUT_MS),
   })
+  if (resp.status >= 500) throw new SignInFailedError()
   if (!resp.ok) return null
 
   const { accessToken, refreshToken } = (await resp.json()) as {

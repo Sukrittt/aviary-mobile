@@ -1,7 +1,7 @@
 import { act, fireEvent, waitFor } from '@testing-library/react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { verifyEmailChange } from '@/src/api/account'
-import { verifyMagicAuthCode } from '@/src/api/magicAuth'
+import { verifyMagicAuthCode, SignInFailedError } from '@/src/api/magicAuth'
 import CodeScreen from './code'
 
 jest.mock('expo-haptics', () => ({
@@ -18,7 +18,11 @@ jest.mock('expo-router', () => ({
   useLocalSearchParams: () => mockParams,
   useRouter: () => ({ push: jest.fn(), back: jest.fn(), replace: jest.fn() }),
 }))
-jest.mock('@/src/api/magicAuth', () => ({ sendMagicAuthCode: jest.fn(), verifyMagicAuthCode: jest.fn() }))
+jest.mock('@/src/api/magicAuth', () => ({
+  sendMagicAuthCode: jest.fn(),
+  verifyMagicAuthCode: jest.fn(),
+  SignInFailedError: jest.requireActual('@/src/api/magicAuth').SignInFailedError,
+}))
 jest.mock('@/src/api/account', () => ({ resendEmailCode: jest.fn(), verifyEmailChange: jest.fn() }))
 jest.mock('@/src/lib/analytics', () => ({ track: jest.fn() }))
 
@@ -41,6 +45,16 @@ it('does not call a dropped connection a wrong code on email sign-in', async () 
   for (const d of '123456') fireEvent.press(getByText(d))
 
   expect(await findByText("Couldn't check the code. Check your connection and try again.")).toBeTruthy()
+  expect(queryByText('Wrong or expired code.')).toBeNull()
+})
+
+it('asks for a new code when sign-in fails on our side', async () => {
+  mockParams = { email: 'a@b.co' }
+  ;(verifyMagicAuthCode as jest.Mock).mockRejectedValue(new SignInFailedError())
+  const { getByText, findByText, queryByText } = renderWithProviders(<CodeScreen />)
+  for (const d of '123456') fireEvent.press(getByText(d))
+
+  expect(await findByText('Something went wrong on our side. Send a new code and try again.')).toBeTruthy()
   expect(queryByText('Wrong or expired code.')).toBeNull()
 })
 
