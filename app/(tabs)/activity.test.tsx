@@ -543,9 +543,14 @@ describe('feed view', () => {
 
   // Rebuilding the other view on every switch took up to 1.5s on a phone.
   it('keeps both views mounted across a switch, the hidden one out of reach', () => {
+    jest.useFakeTimers()
     const screen = renderWithProviders(<ActivityScreen />)
     const hidden = { includeHiddenElements: true }
-    // The list is already there under the feed, just hidden from touch and screen readers.
+    // Only the feed mounts with the tab, which preloads at launch; the list follows a moment later.
+    expect(screen.queryByText('1 transaction', hidden)).toBeNull()
+    act(() => jest.advanceTimersByTime(1000))
+    jest.useRealTimers()
+    // Then it's there under the feed, just hidden from touch and screen readers.
     const listFooter = screen.getByText('1 transaction', hidden)
     expect(screen.queryByText('1 transaction')).toBeNull()
     const card = screen.getByLabelText('Item 1, Food. View details')

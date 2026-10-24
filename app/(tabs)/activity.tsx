@@ -670,8 +670,22 @@ function ActivityScreen() {
     [],
   );
   // Feed and list stay mounted once shown and swap by opacity (see below).
+  // Only the one on screen mounts with the tab. The other follows a moment
+  // after you land here, so the switch is ready before you reach for it, and
+  // launch (where this tab preloads) still pays for one view, not two.
   const [feedMounted, setFeedMounted] = useState(feedView);
-  if (feedView && !feedMounted) setFeedMounted(true);
+  const [listMounted, setListMounted] = useState(!feedView);
+  const [settled, setSettled] = useState(false);
+  useFocusEffect(
+    useCallback(() => {
+      // ponytail: a fixed delay; an idle callback if it ever lands mid-scroll.
+      const timer = setTimeout(() => setSettled(true), 1000);
+      return () => clearTimeout(timer);
+    }, []),
+  );
+  const warmOther = feedOn && settled && expensesQ.data !== undefined;
+  if ((feedView || warmOther) && !feedMounted) setFeedMounted(true);
+  if ((!feedView || warmOther) && !listMounted) setListMounted(true);
   const navPad = useNavPadding();
 
   // One request per row, in order: each delete runs its own server transaction
@@ -973,126 +987,133 @@ function ActivityScreen() {
             scratch: on the emulator the list took 1.4s to fill back in, ten
             rows a frame (2026-10-24). */}
         <View style={[styles.views, { marginHorizontal: -space.lg }]}>
-          <View
-            style={[StyleSheet.absoluteFill, feedView && styles.hiddenView]}
-            pointerEvents={feedView ? "none" : "auto"}
-            accessibilityElementsHidden={feedView}
-            importantForAccessibility={feedView ? "no-hide-descendants" : "auto"}
-          >
-            <ScrollView
-              ref={scrollRef}
-              style={styles.views}
-              refreshControl={refreshControl}
-              contentContainerStyle={[
-                { paddingHorizontal: space.lg, paddingBottom: navPad },
-                styles.scrollContent,
-                totalCount === 0 && styles.scrollContentGrow,
-              ]}
+          {/* Never flattened: a flattened wrapper turned into a real view
+              whenever it hid, and Fabric re-parented the whole list under it,
+              a 350ms frame on every switch. */}
+          {listMounted ? (
+            <View
+              collapsable={false}
+              style={[StyleSheet.absoluteFill, feedView && styles.hiddenView]}
+              pointerEvents={feedView ? "none" : "auto"}
+              accessibilityElementsHidden={feedView}
+              importantForAccessibility={feedView ? "no-hide-descendants" : "auto"}
             >
-              {controls}
-              {totalCount === 0 && visibleIncomes.length === 0 ? (
-                emptyState
-              ) : (
-                <View>
-                  {listItems.slice(0, mountedRows).map((entry) =>
-                    entry.kind === "income" ? (
-                      <IncomeListRow
-                        key={`income-${entry.income.id}`}
-                        income={entry.income}
-                        account={accountName(accountsQ.data, entry.income.account_id)}
-                        actions={rowActions}
-                      />
-                    ) : (
-                      <ExpenseListRow
-                        key={keyOf(entry.txn)}
-                        txn={entry.txn}
-                        category={categoryByName.get(entry.txn.category)}
-                        who={shared ? loggedBy(entry.txn, activeBudget) : undefined}
-                        selected={selectedKeys.has(keyOf(entry.txn))}
-                        selecting={selecting}
-                        locked={selectionLocked}
-                        hidden={detail !== null && keyOf(detail.txn) === keyOf(entry.txn)}
-                        deleting={pendingDelete !== null && keyOf(pendingDelete) === keyOf(entry.txn)}
-                        actions={rowActions}
-                      />
-                    ),
-                  )}
-                </View>
-              )}
+              <ScrollView
+                ref={scrollRef}
+                style={styles.views}
+                refreshControl={refreshControl}
+                contentContainerStyle={[
+                  { paddingHorizontal: space.lg, paddingBottom: navPad },
+                  styles.scrollContent,
+                  totalCount === 0 && styles.scrollContentGrow,
+                ]}
+              >
+                {controls}
+                {totalCount === 0 && visibleIncomes.length === 0 ? (
+                  emptyState
+                ) : (
+                  <View>
+                    {listItems.slice(0, mountedRows).map((entry) =>
+                      entry.kind === "income" ? (
+                        <IncomeListRow
+                          key={`income-${entry.income.id}`}
+                          income={entry.income}
+                          account={accountName(accountsQ.data, entry.income.account_id)}
+                          actions={rowActions}
+                        />
+                      ) : (
+                        <ExpenseListRow
+                          key={keyOf(entry.txn)}
+                          txn={entry.txn}
+                          category={categoryByName.get(entry.txn.category)}
+                          who={shared ? loggedBy(entry.txn, activeBudget) : undefined}
+                          selected={selectedKeys.has(keyOf(entry.txn))}
+                          selecting={selecting}
+                          locked={selectionLocked}
+                          hidden={detail !== null && keyOf(detail.txn) === keyOf(entry.txn)}
+                          deleting={pendingDelete !== null && keyOf(pendingDelete) === keyOf(entry.txn)}
+                          actions={rowActions}
+                        />
+                      ),
+                    )}
+                  </View>
+                )}
 
-              {totalCount > 0 || visibleIncomes.length > 0 ? (
-                <View style={styles.footer}>
-                  <Text
-                    style={{
-                      color: tokens.text2,
-                      fontSize: 12,
-                      fontFamily: fontFamily.bodySemiBold,
-                    }}
-                  >
-                    {totalCount} transaction{totalCount !== 1 ? "s" : ""}
-                  </Text>
-                  <Text
-                    style={{
-                      color: tokens.text2,
-                      fontSize: 12,
-                      fontFamily: fontFamily.bodySemiBold,
-                    }}
-                  >
-                    Total: {formatCurrency(totalSpend, hideAmounts)}
-                  </Text>
-                </View>
-              ) : null}
+                {totalCount > 0 || visibleIncomes.length > 0 ? (
+                  <View style={styles.footer}>
+                    <Text
+                      style={{
+                        color: tokens.text2,
+                        fontSize: 12,
+                        fontFamily: fontFamily.bodySemiBold,
+                      }}
+                    >
+                      {totalCount} transaction{totalCount !== 1 ? "s" : ""}
+                    </Text>
+                    <Text
+                      style={{
+                        color: tokens.text2,
+                        fontSize: 12,
+                        fontFamily: fontFamily.bodySemiBold,
+                      }}
+                    >
+                      Total: {formatCurrency(totalSpend, hideAmounts)}
+                    </Text>
+                  </View>
+                ) : null}
 
-              {totalPages > 1 ? (
-                <View style={styles.pagination}>
-                  <Pressable
-                    onPress={() => changePage(page - 1)}
-                    disabled={page <= 1}
-                    accessibilityRole="button"
-                    accessibilityLabel="Previous page"
-                    accessibilityState={{ disabled: page <= 1 }}
-                    style={[
-                      styles.pageButton,
-                      {
-                        backgroundColor: tokens.card,
-                        borderColor: tokens.border,
-                        opacity: page <= 1 ? 0.4 : 1,
-                      },
-                    ]}
-                  >
-                    <Icon icon={CaretLeft} size={17} color={tokens.text2} />
-                  </Pressable>
-                  <Text
-                    style={[
-                      styles.pageLabel,
-                      { color: tokens.text, fontFamily: fontFamily.bodyBold },
-                    ]}
-                  >
-                    Page {page} of {totalPages}
-                  </Text>
-                  <Pressable
-                    onPress={() => changePage(page + 1, true)}
-                    disabled={page >= totalPages}
-                    accessibilityRole="button"
-                    accessibilityLabel="Next page"
-                    accessibilityState={{ disabled: page >= totalPages }}
-                    style={[
-                      styles.pageButton,
-                      {
-                        backgroundColor: tokens.card,
-                        borderColor: tokens.border,
-                        opacity: page >= totalPages ? 0.4 : 1,
-                      },
-                    ]}
-                  >
-                    <Icon icon={CaretRight} size={17} color={tokens.text2} />
-                  </Pressable>
-                </View>
-              ) : null}
-            </ScrollView>
-          </View>
+                {totalPages > 1 ? (
+                  <View style={styles.pagination}>
+                    <Pressable
+                      onPress={() => changePage(page - 1)}
+                      disabled={page <= 1}
+                      accessibilityRole="button"
+                      accessibilityLabel="Previous page"
+                      accessibilityState={{ disabled: page <= 1 }}
+                      style={[
+                        styles.pageButton,
+                        {
+                          backgroundColor: tokens.card,
+                          borderColor: tokens.border,
+                          opacity: page <= 1 ? 0.4 : 1,
+                        },
+                      ]}
+                    >
+                      <Icon icon={CaretLeft} size={17} color={tokens.text2} />
+                    </Pressable>
+                    <Text
+                      style={[
+                        styles.pageLabel,
+                        { color: tokens.text, fontFamily: fontFamily.bodyBold },
+                      ]}
+                    >
+                      Page {page} of {totalPages}
+                    </Text>
+                    <Pressable
+                      onPress={() => changePage(page + 1, true)}
+                      disabled={page >= totalPages}
+                      accessibilityRole="button"
+                      accessibilityLabel="Next page"
+                      accessibilityState={{ disabled: page >= totalPages }}
+                      style={[
+                        styles.pageButton,
+                        {
+                          backgroundColor: tokens.card,
+                          borderColor: tokens.border,
+                          opacity: page >= totalPages ? 0.4 : 1,
+                        },
+                      ]}
+                    >
+                      <Icon icon={CaretRight} size={17} color={tokens.text2} />
+                    </Pressable>
+                  </View>
+                ) : null}
+              </ScrollView>
+            </View>
+          ) : null}
           {feedMounted ? (
             <View
+              collapsable={false}
               style={[StyleSheet.absoluteFill, { paddingHorizontal: space.lg }, !feedView && styles.hiddenView]}
               pointerEvents={feedView ? "auto" : "none"}
               accessibilityElementsHidden={!feedView}
