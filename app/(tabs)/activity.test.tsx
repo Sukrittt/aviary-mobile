@@ -2,7 +2,7 @@ import { AlertHost } from '@/src/components/ui/AlertHost'
 import { ExpenseWriteError } from '@/src/lib/expenseConflict'
 import { createContext, useContext, useState, type ReactNode } from 'react'
 import { act, fireEvent, waitFor, within } from '@testing-library/react-native'
-import { Image, StyleSheet } from 'react-native'
+import { Image, Keyboard, StyleSheet } from 'react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import type { ExpensesPage, ExpensesPageParams } from '@/src/api/expenses'
 import AsyncStorage from '@react-native-async-storage/async-storage'
@@ -541,12 +541,65 @@ describe('feed view', () => {
     expect(screen.getByLabelText('Item 1, Food. View details')).toBeTruthy()
   })
 
+  // Rebuilding the other view on every switch took up to 1.5s on a phone.
+  it('keeps both views mounted across a switch, the hidden one out of reach', () => {
+    jest.useFakeTimers()
+    const screen = renderWithProviders(<ActivityScreen />)
+    const hidden = { includeHiddenElements: true }
+    // Only the feed mounts with the tab, which preloads at launch; the list follows a moment later.
+    expect(screen.queryByText('1 transaction', hidden)).toBeNull()
+    act(() => jest.advanceTimersByTime(1000))
+    jest.useRealTimers()
+    // Then it's there under the feed, just hidden from touch and screen readers.
+    const listFooter = screen.getByText('1 transaction', hidden)
+    expect(screen.queryByText('1 transaction')).toBeNull()
+    const card = screen.getByLabelText('Item 1, Food. View details')
+    fireEvent.press(screen.getByLabelText('Show as list'))
+    expect(screen.getByText('1 transaction')).toBe(listFooter)
+    expect(screen.queryByLabelText('Item 1, Food. View details')).toBeNull()
+    fireEvent.press(screen.getByLabelText('Show as feed'))
+    expect(screen.getByLabelText('Item 1, Food. View details')).toBe(card)
+  })
+
+  // Hidden, a mounted feed still watched its query and refetched its photos on every write.
+  it('unmounts the feed once it is turned off in Features', () => {
+    const screen = renderWithProviders(<ActivityScreen />)
+    expect(screen.getByLabelText('Item 1, Food. View details')).toBeTruthy()
+    mockUser = { activityFeed: false }
+    fireEvent.press(screen.getAllByLabelText('Filter transactions')[0])
+    expect(screen.queryByLabelText('Item 1, Food. View details', { includeHiddenElements: true })).toBeNull()
+    expect(screen.getByText('1 transaction')).toBeTruthy()
+  })
+
+  // The view switched away from only hides, so a search field in it kept typing off screen.
+  it('lets go of the keyboard when switching views', () => {
+    const dismiss = jest.spyOn(Keyboard, 'dismiss')
+    const screen = renderWithProviders(<ActivityScreen />)
+    fireEvent.press(screen.getByLabelText('Show as list'))
+    expect(dismiss).toHaveBeenCalledTimes(1)
+    dismiss.mockRestore()
+  })
+
   it('warms the feed while the list is up, so the switch reads from cache', () => {
     mockPrefetchFeed.mockClear()
     const screen = renderWithProviders(<ActivityScreen />)
     expect(mockPrefetchFeed).not.toHaveBeenCalled()
     fireEvent.press(screen.getByLabelText('Show as list'))
     expect(mockPrefetchFeed).toHaveBeenCalledWith(expect.anything(), expect.not.objectContaining({ page: expect.anything() }))
+  })
+
+  // Switching budgets drops every query nothing is watching, the warmed feed included.
+  it('warms the feed again after a budget switch', () => {
+    const home = { id: 'b-home', name: 'Home', personal: true, members: [] }
+    const trip = { id: 'b-trip', name: 'Trip', personal: false, members: [] }
+    mockSpaces = { budgets: [home, trip], active: home, multi: true }
+    const screen = renderWithProviders(<ActivityScreen />)
+    fireEvent.press(screen.getByLabelText('Show as list'))
+    mockPrefetchFeed.mockClear()
+    mockSpaces = { budgets: [home, trip], active: trip, multi: true }
+    // Any re-render picks up the switch; opening the filters changes nothing the prefetch reads.
+    fireEvent.press(screen.getByLabelText('Filter transactions'))
+    expect(mockPrefetchFeed).toHaveBeenCalledTimes(1)
   })
 
   describe('with a photo and no choice in Features', () => {
@@ -573,6 +626,20 @@ describe('feed view', () => {
       expect(screen.queryByLabelText('Show as feed')).toBeNull()
       expect(screen.queryByLabelText('Try the feed')).toBeNull()
     })
+  })
+
+  // The same expense is a row in the list under the feed too; only the one on
+  // screen may collapse and send the delete, or it went out twice.
+  it('sends a delete from the feed once, with the list mounted underneath', () => {
+    jest.useFakeTimers()
+    const screen = renderWithProviders(<ActivityScreen />)
+    act(() => jest.advanceTimersByTime(1000))
+    jest.useRealTimers()
+    expect(screen.getByText('1 transaction', { includeHiddenElements: true })).toBeTruthy()
+    fireEvent(screen.getByLabelText('Item 1, Food. View details'), 'longPress')
+    fireEvent.press(screen.getByText('Delete'))
+    fireEvent.press(screen.getAllByText('Delete').at(-1)!)
+    expect(mockDelete).toHaveBeenCalledTimes(1)
   })
 
   it('deletes from the feed after the confirm', () => {

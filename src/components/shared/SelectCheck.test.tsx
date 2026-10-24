@@ -1,3 +1,4 @@
+import Svg from 'react-native-svg'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { SelectCheck, SelectTint } from './SelectCheck'
 
@@ -13,4 +14,12 @@ it.each([
     </>,
   )
   expect(toJSON()).toBeTruthy()
+})
+
+// Every list row carries a tick, and Android re-attaches each one on a tab switch.
+it('only mounts the tick while selecting', () => {
+  const tick = (selecting: boolean) =>
+    renderWithProviders(<SelectCheck selecting={selecting} selected={false} gap={12} />).UNSAFE_queryAllByType(Svg)
+  expect(tick(false)).toHaveLength(0)
+  expect(tick(true)).toHaveLength(1)
 })

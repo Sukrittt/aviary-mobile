@@ -47,13 +47,37 @@ describe('FloatingNav', () => {
     expect(onSelect).toHaveBeenCalledWith('envelopes')
   })
 
-  it('fills the active tab glyph and leaves the rest regular', () => {
-    const { getByTestId, queryByTestId } = renderWithProviders(
+  // The layer each glyph sits on is what fades; the glyph's own props never change.
+  const layerOpacity = (glyph: ReturnType<ReturnType<typeof renderWithProviders>['getByTestId']>) => {
+    for (let n = glyph.parent; n; n = n.parent) {
+      const opacity = typeof n.type === 'string' ? StyleSheet.flatten(n.props.style)?.opacity : undefined
+      if (opacity !== undefined) return opacity
+    }
+  }
+
+  it('shows the active tab glyph filled and the rest regular', () => {
+    const { getByTestId } = renderWithProviders(
       <FloatingNav active="activity" onSelect={jest.fn()} onAdd={jest.fn()} />,
     )
-    expect(getByTestId('phosphor-react-native-receipt-fill')).toBeTruthy()
-    expect(getByTestId('phosphor-react-native-house-regular')).toBeTruthy()
-    expect(queryByTestId('phosphor-react-native-house-fill')).toBeNull()
+    expect(layerOpacity(getByTestId('phosphor-react-native-receipt-fill'))).toBe(1)
+    expect(layerOpacity(getByTestId('phosphor-react-native-receipt-regular'))).toBe(0)
+    expect(layerOpacity(getByTestId('phosphor-react-native-house-regular'))).toBe(1)
+    expect(layerOpacity(getByTestId('phosphor-react-native-house-fill'))).toBe(0)
+  })
+
+  // A new SVG paints a frame or more late on Android, so the switch mustn't build one.
+  it('keeps every tab glyph mounted across a switch', () => {
+    function Nav() {
+      const [active, setActive] = useState<NavRoute>('index')
+      return <FloatingNav active={active} onSelect={setActive} onAdd={jest.fn()} />
+    }
+    const { getAllByTestId, getByLabelText } = renderWithProviders(<Nav />)
+    const before = getAllByTestId(/^phosphor-react-native-(house|receipt|squares-four|user)-/)
+    fireEvent(getByLabelText('Activity'), 'pressIn')
+    expect(getByLabelText('Activity').props.accessibilityState.selected).toBe(true)
+    const after = getAllByTestId(/^phosphor-react-native-(house|receipt|squares-four|user)-/)
+    expect(after).toHaveLength(8)
+    after.forEach((glyph, i) => expect(glyph).toBe(before[i]))
   })
 
   // Tab bars switch on touch-down; waiting for the finger to lift added ~100ms to every switch.
