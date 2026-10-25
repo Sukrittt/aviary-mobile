@@ -289,11 +289,12 @@ it('steps back to the new last page when its only row is deleted', () => {
 
 
 // Complete the collapse immediately: this test covers the deletion response,
-// not the animation clock.
+// not the animation clock. `mockCollapsing` holds it mid-collapse instead.
+let mockCollapsing = false
 jest.mock('@/src/components/activity/DeletingRow', () => ({
   DeletingRow: ({ children, active, onDone }: { children: ReactNode; active: boolean; onDone: () => void }) => {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
-    require('react').useEffect(() => { if (active) onDone() }, [active])
+    require('react').useEffect(() => { if (active && !mockCollapsing) onDone() }, [active])
     return children
   },
 }))
@@ -640,6 +641,26 @@ describe('feed view', () => {
     fireEvent.press(screen.getByText('Delete'))
     fireEvent.press(screen.getAllByText('Delete').at(-1)!)
     expect(mockDelete).toHaveBeenCalledTimes(1)
+  })
+
+  // The hidden view's row stops collapsing, and the other view may not have
+  // the expense loaded to collapse it there.
+  it('sends a delete still collapsing when the view switches', () => {
+    mockCollapsing = true
+    mockDelete.mockReset()
+    try {
+      const screen = renderWithProviders(<ActivityScreen />)
+      fireEvent(screen.getByLabelText('Item 1, Food. View details'), 'longPress')
+      fireEvent.press(screen.getByText('Delete'))
+      fireEvent.press(screen.getAllByText('Delete').at(-1)!)
+      expect(mockDelete).not.toHaveBeenCalled()
+      fireEvent.press(screen.getByLabelText('Show as list'))
+      expect(mockDelete).toHaveBeenCalledTimes(1)
+      fireEvent.press(screen.getByLabelText('Show as feed'))
+      expect(mockDelete).toHaveBeenCalledTimes(1)
+    } finally {
+      mockCollapsing = false
+    }
   })
 
   it('deletes from the feed after the confirm', () => {
