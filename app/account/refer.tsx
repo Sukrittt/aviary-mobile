@@ -5,7 +5,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { ScreenHeader } from '@/src/components/shared/ScreenHeader'
-import { ReferralCodeEntry } from '@/src/components/ReferralCodeEntry'
 import { getReferrals, referralsKey, shareMessage } from '@/src/api/referrals'
 import { track } from '@/src/lib/analytics'
 
@@ -56,11 +55,6 @@ export default function ReferScreen() {
             You can earn up to 3 months each calendar month. On a paid web plan, the free month is added after your current paid period.
           </Text>
         </View>
-        {data?.canEnterCode && (
-          <View style={[styles.card, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
-            <ReferralCodeEntry />
-          </View>
-        )}
         {data?.referredBy && (
           <Text style={[styles.fine, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>You joined with code {data.referredBy}.</Text>
         )}
