@@ -158,8 +158,8 @@ export type AppEvent =
   | 'feedback_sent'
   | 'idea_posted'
   | 'idea_voted'
-  // "Invite a friend" share sheet opened.
-  | 'invite_shared'
+  // Refer a friend: share sheet opened ({ method }).
+  | 'referral_link_shared'
 
 export type EventProperties = Record<string, string | number | boolean>
 

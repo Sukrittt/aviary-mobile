@@ -1,6 +1,6 @@
 import { CurrencySetting } from '@/src/components/CurrencyPicker'
 import { memo, useState, type ReactNode } from 'react'
-import { View, Text, Image, Pressable, RefreshControl, Linking, Platform, Share, StyleSheet } from 'react-native'
+import { View, Text, Image, Pressable, RefreshControl, Linking, Platform, StyleSheet } from 'react-native'
 import { Toggle } from '@/src/components/ui/Toggle'
 import { useLocalSearchParams, useRouter, type Href } from 'expo-router'
 import { useQuery } from '@tanstack/react-query'
@@ -41,7 +41,6 @@ import { tap } from '@/src/lib/haptics'
 import { BudgetSwitcherSheet } from '@/src/components/budgets/BudgetSwitcherSheet'
 import { useBudgetSpaces } from '@/src/hooks/useBudgetSpaces'
 import { useReadOnly } from '@/src/components/budgets/ReadOnlyNotice'
-import { track } from '@/src/lib/analytics'
 
 const THEME_OPTIONS = [
   { value: 'light', label: 'Light' },
@@ -432,7 +431,6 @@ function MoreScreen() {
               <AccountRow icon={Lock} label="Account & security" onPress={() => router.push('/account/security')} tokens={tokens} />
               <View style={[styles.divider, { backgroundColor: tokens.border }]} />
               <AccountRow icon={Database} label="Your data" onPress={() => router.push('/account/data')} tokens={tokens} />
-              <View style={[styles.divider, { backgroundColor: tokens.border }]} />
               {Platform.OS === 'android' && (
                 <>
                   <View style={[styles.divider, { backgroundColor: tokens.border }]} />
@@ -461,7 +459,7 @@ function MoreScreen() {
                 </Pressable>
               </Pressable>
               <View style={[styles.divider, { backgroundColor: tokens.border }]} />
-              <AccountRow icon={UserPlus} label="Invite a friend" hint="Share Aviary with someone" onPress={inviteFriend} tokens={tokens} />
+              <AccountRow icon={UserPlus} label="Refer a friend" hint="Give a month of Pro, get a month" onPress={() => router.push('/account/refer')} tokens={tokens} />
               <View style={[styles.divider, { backgroundColor: tokens.border }]} />
               <AccountRow icon={ChatCircle} label="Help & feedback" hint="Tour, changelog and more" onPress={() => router.push('/account/help')} tokens={tokens} />
               <View style={[styles.divider, { backgroundColor: tokens.border }]} />
@@ -692,15 +690,6 @@ function wrappedCardProps(status: WrappedStatus | undefined, tokens: ReturnType<
       </View>
     ),
   }
-}
-
-const INVITE_URL = `${WEB_URL}/?ref=invite`
-
-// Android reports sharedAction even when the chooser is dismissed, so this
-// counts share sheets opened, not invites actually sent.
-function inviteFriend() {
-  track('invite_shared')
-  Share.share({ message: `I've been budgeting with Aviary. Give it a try: ${INVITE_URL}` }).catch(() => {})
 }
 
 /**
