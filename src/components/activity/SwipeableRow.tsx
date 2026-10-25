@@ -13,12 +13,14 @@ const MAX_RADIUS = 30
 
 function Action({
   icon,
+  label,
   color,
   progress,
   onPress,
   showIcon,
 }: {
   icon: PhosphorIcon
+  label: string
   color: string
   progress: SharedValue<number>
   onPress: () => void
@@ -36,7 +38,7 @@ function Action({
   }))
   return (
     <Animated.View style={[styles.action, boxStyle]}>
-      <Pressable style={styles.actionPress} onPress={onPress}>
+      <Pressable style={styles.actionPress} onPress={onPress} accessibilityRole="button" accessibilityLabel={label}>
         <Animated.View style={iconStyle}>
           {showIcon ? <Icon icon={icon} size={22} color="#fff" weight="bold" /> : null}
         </Animated.View>
@@ -89,6 +91,7 @@ export function SwipeableRow({
       renderLeftActions={(progress, _translation, swipeable: SwipeableMethods) => (
         <Action
           icon={PencilSimple}
+          label="Edit"
           color={tokens.accentInk}
           progress={progress}
           showIcon={dragged}
@@ -101,6 +104,7 @@ export function SwipeableRow({
       renderRightActions={(progress, _translation, swipeable: SwipeableMethods) => (
         <Action
           icon={Trash}
+          label="Delete"
           color={tokens.coral}
           progress={progress}
           showIcon={dragged}

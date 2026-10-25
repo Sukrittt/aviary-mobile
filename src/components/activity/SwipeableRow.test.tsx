@@ -46,3 +46,18 @@ it('mounts the action icons once the row is dragged, not before', () => {
   expect(getByTestId('phosphor-react-native-trash-bold')).toBeTruthy()
   expect(getByTestId('phosphor-react-native-pencil-simple-bold')).toBeTruthy()
 })
+
+// Icon-only buttons: without a label a screen reader just says "button".
+it('labels the swipe actions for screen readers', () => {
+  const onDelete = jest.fn()
+  const onEdit = jest.fn()
+  const { getByLabelText } = renderWithProviders(
+    <SwipeableRow onDelete={onDelete} onEdit={onEdit}>
+      <Text>Groceries</Text>
+    </SwipeableRow>,
+  )
+  fireEvent.press(getByLabelText('Delete'))
+  fireEvent.press(getByLabelText('Edit'))
+  expect(onDelete).toHaveBeenCalledTimes(1)
+  expect(onEdit).toHaveBeenCalledTimes(1)
+})
