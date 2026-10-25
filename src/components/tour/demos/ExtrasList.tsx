@@ -5,6 +5,7 @@ import Reanimated, { FadeIn, FadeOut, LinearTransition, useAnimatedStyle, withSp
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { EXTRAS } from '@/src/components/tour/content'
+import { TourIcon } from '@/src/components/tour/parts'
 
 const SPRING = { damping: 90, stiffness: 900 }
 const TRANSITION = LinearTransition.springify().damping(SPRING.damping).stiffness(SPRING.stiffness)
@@ -69,7 +70,7 @@ function ExtraRow({
         style={[styles.head, { gap: space.md }]}
       >
         <View style={[styles.tile, { backgroundColor: tokens.inputBg, borderRadius: radius.sm }]}>
-          <Text style={{ fontSize: 16 }}>{extra.emoji}</Text>
+          <TourIcon icon={extra.icon} />
         </View>
         <Text style={{ flex: 1, color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: type.body }}>
           {extra.name}

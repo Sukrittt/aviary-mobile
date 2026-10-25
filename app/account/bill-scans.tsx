@@ -9,14 +9,13 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useReadOnly } from "@/src/components/budgets/ReadOnlyNotice";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ArrowLeft, CaretRight } from "@/src/components/shared/icons";
+import { CaretRight } from "@/src/components/shared/icons";
 import Reanimated from "react-native-reanimated";
 import { OfflineScreen } from "@/src/components/shared/OfflineScreen";
 import { useOnline } from "@/src/lib/netStatus";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { fontFamily } from "@/src/theme/fonts";
-import { Icon } from "@/src/components/shared/Icon";
+import { ScreenHeader } from "@/src/components/shared/ScreenHeader";
 import { LoadingPhrase } from "@/src/components/shared/LoadingPhrase";
 import { usePrivacy } from "@/src/context/PrivacyContext";
 import { formatDateShort } from "@/src/lib/format"
@@ -55,7 +54,6 @@ export default function BillScansScreen() {
   const { tokens } = useTheme();
   const { hideAmounts } = usePrivacy();
   const online = useOnline();
-  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { readOnly } = useReadOnly();
   const { refreshing, onRefresh } = useRefresh();
@@ -85,43 +83,18 @@ export default function BillScansScreen() {
     <View
       style={[
         styles.container,
-        { backgroundColor: tokens.bg, paddingTop: insets.top },
+        { backgroundColor: tokens.bg },
       ]}
     >
-      <View style={[styles.header, { borderBottomColor: tokens.border }]}>
-        <Pressable
-          onPress={() => router.back()}
-          hitSlop={12}
-          style={[
-            styles.backButton,
-            { backgroundColor: tokens.card, borderColor: tokens.border },
-          ]}
-        >
-          <Icon icon={ArrowLeft} size={20} color={tokens.text} />
-        </Pressable>
-        <View style={{ flex: 1 }}>
-          <Text
-            style={[
-              styles.headerTitle,
-              { color: tokens.text, fontFamily: fontFamily.displaySemiBold },
-            ]}
-          >
-            Bills Scanned
-          </Text>
-          <Text
-            style={[
-              styles.headerSub,
-              { color: tokens.text2, fontFamily: fontFamily.bodySemiBold },
-            ]}
-          >
-            {loading
-              ? "Fetching your bills"
-              : rows.length === 0
-              ? "Nothing scanned yet"
-              : `${rows.length} scanned`}
-          </Text>
-        </View>
-      </View>
+      <ScreenHeader
+        title="Bills Scanned"
+        subtitle={loading
+          ? "Fetching your bills"
+          : rows.length === 0
+          ? "Nothing scanned yet"
+          : `${rows.length} scanned`}
+        onBack={() => router.back()}
+      />
 
       <ScrollView
         style={styles.scroll}
@@ -261,25 +234,6 @@ function BillScanRow({
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  backButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  headerTitle: { fontSize: 19 },
-  headerSub: { fontSize: 12, marginTop: 1 },
   scroll: { flex: 1 },
   body: { padding: 16, gap: 16 },
   heroBlock: { gap: 4 },

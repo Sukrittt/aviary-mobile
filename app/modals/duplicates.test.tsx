@@ -15,9 +15,11 @@ jest.mock('expo-router', () => ({
   useRouter: () => ({ back: mockBack, replace: jest.fn(), push: jest.fn(), navigate: jest.fn() }),
 }))
 
+jest.mock('@/src/hooks/useCategories', () => ({ ...jest.requireActual('@/src/hooks/useCategories'), useCategoryIcons: () => new Map() }))
+
 const row = (id: string, item: string, time: string) => ({
   id, version: 2, item, amount_inr: '450', timestamp: `2026-09-24T${time}`, date: '2026-09-24',
-  category: 'Food', notes: '', source: 'manual', amount: '', description: '', payment_method: 'bank',
+  category: '🍜 Eating out', notes: '', source: 'manual', amount: '', description: '', payment_method: 'bank',
 })
 const PAIR = { duplicate: row('two', 'Swiggy dinner', '20:10:00'), original: row('one', 'swiggy', '20:00:00') }
 
@@ -35,6 +37,11 @@ it('shows the pair side by side, deletes the newer one with a saving state and a
   await screen.findByText('Logged twice?')
   expect(screen.getByText('swiggy')).toBeTruthy()
   expect(screen.getByText('Swiggy dinner')).toBeTruthy()
+  // The stored emoji stays out of the label; the icon carries it.
+  expect(screen.getAllByText('Eating out')).toHaveLength(2)
+  expect(screen.queryByText('🍜 Eating out')).toBeNull()
+  // Lowercase meridiem, like every other timestamp in the app.
+  expect(screen.getByText('24 Sep, 8:00 pm')).toBeTruthy()
 
   ;(getDuplicates as jest.Mock).mockResolvedValue([])
   fireEvent.press(screen.getByText('Delete the newer one'))

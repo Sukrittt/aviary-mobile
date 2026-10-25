@@ -65,6 +65,13 @@ describe('empty state', () => {
     expect(getByText('Nothing repeating yet')).toBeTruthy()
     expect(getByText('Set it once, forget it')).toBeTruthy()
   })
+
+  it("doesn't claim nothing repeats while it's still loading", () => {
+    mockUseRecurringExpenses.mockReturnValue({ data: undefined, isLoading: true })
+    const { getByText, queryByText } = renderWithProviders(<RecurringExpensesScreen />)
+    expect(queryByText('Nothing repeating yet')).toBeNull()
+    expect(getByText('Fetching your repeats')).toBeTruthy()
+  })
 })
 
 describe('header total', () => {

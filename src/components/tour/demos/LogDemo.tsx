@@ -6,7 +6,8 @@ import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 
 import { ProgressBar } from '@/src/components/envelope/ProgressBar'
-import { SectionLabel, ResultCard } from '@/src/components/tour/parts'
+import { SectionLabel, ResultCard, TourIcon } from '@/src/components/tour/parts'
+import type { CategoryIconKey } from '@/src/lib/categoryIcons'
 import { LOG_CHIPS, SPEND_ROWS } from '@/src/components/tour/content'
 
 interface Logged {
@@ -15,7 +16,7 @@ interface Logged {
   amount: number
   method: string
   what: string
-  emoji: string
+  icon: CategoryIconKey
 }
 
 /** Chapter 2: log a quick expense and watch exactly one bar move. */
@@ -53,7 +54,7 @@ export function LogDemo({ onComplete }: { onComplete: () => void }) {
           >
             <View style={[styles.head, { gap: space.md }]}>
               <View style={[styles.tile, { backgroundColor: tokens.inputBg, borderRadius: radius.sm }]}>
-                <Text style={{ fontSize: 16 }}>{row.emoji}</Text>
+                <TourIcon icon={row.icon} />
               </View>
               <View style={styles.body}>
                 <Text style={{ color: tokens.text, fontFamily: fontFamily.bodyBold, fontSize: type.body }}>{row.name}</Text>
@@ -79,7 +80,7 @@ export function LogDemo({ onComplete }: { onComplete: () => void }) {
       {cardTotal > 0 && (
         <ResultCard tone="mint">
           <View style={[styles.head, { gap: space.md }]}>
-            <Text style={{ fontSize: 16 }}>💳</Text>
+            <TourIcon icon="CreditCard" color={tokens.mint} />
             <View style={styles.body}>
               <Text style={{ color: tokens.text, fontFamily: fontFamily.bodyBold, fontSize: type.body }}>
                 Credit Card Payment
@@ -119,6 +120,7 @@ export function LogDemo({ onComplete }: { onComplete: () => void }) {
                 },
               ]}
             >
+              <TourIcon icon={chip.icon} size={14} color={used ? tokens.text3 : tokens.text} />
               <Text
                 style={{
                   color: used ? tokens.text3 : tokens.text,
@@ -126,7 +128,7 @@ export function LogDemo({ onComplete }: { onComplete: () => void }) {
                   fontSize: type.micro,
                 }}
               >
-                {chip.emoji} <Text style={styles.amount}>{formatCurrency(chip.amount)}</Text> · {chip.what}
+                <Text style={styles.amount}>{formatCurrency(chip.amount)}</Text> · {chip.what}
               </Text>
             </Pressable>
           )
@@ -140,7 +142,7 @@ export function LogDemo({ onComplete }: { onComplete: () => void }) {
           </Text>
           {logged.map((entry) => (
             <View key={entry.id} style={[styles.head, { gap: space.sm }]}>
-              <Text style={{ fontSize: 14 }}>{entry.emoji}</Text>
+              <TourIcon icon={entry.icon} size={16} color={tokens.accentInk} />
               <Text style={{ flex: 1, color: tokens.text, fontFamily: fontFamily.bodyBold, fontSize: type.caption }}>
                 {formatCurrency(entry.amount)} · {entry.what}
               </Text>
@@ -163,7 +165,7 @@ export function LogDemo({ onComplete }: { onComplete: () => void }) {
           { borderColor: tokens.border, borderRadius: radius.md, padding: space.md, gap: space.sm },
         ]}
       >
-        <Text style={{ fontSize: 17 }}>🧾</Text>
+        <TourIcon icon="Receipt" />
         <Text style={{ flex: 1, color: tokens.text2, fontFamily: fontFamily.bodySemiBold, fontSize: type.micro, lineHeight: 18 }}>
           Long receipt? Scan a bill reads it into line items you can edit, split by however many people ate, and file into
           categories before logging. There&apos;s a widget on your home screen too, with the same chips.
@@ -179,7 +181,7 @@ const styles = StyleSheet.create({
   tile: { width: 34, height: 34, alignItems: 'center', justifyContent: 'center' },
   body: { flex: 1, minWidth: 0, gap: 2 },
   chips: { flexDirection: 'row', flexWrap: 'wrap' },
-  chip: { height: 36, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
+  chip: { height: 36, flexDirection: 'row', gap: 6, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
   amount: { fontVariant: ['tabular-nums'], letterSpacing: -0.5 },
   kicker: { letterSpacing: 1 },
   tip: { flexDirection: 'row', borderWidth: 1, borderStyle: 'dashed' },

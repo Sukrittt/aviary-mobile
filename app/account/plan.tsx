@@ -2,12 +2,13 @@ import { useEffect, useRef } from 'react'
 import { View, Text, Pressable, ScrollView, ActivityIndicator, StyleSheet } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
-import { ArrowLeft, CaretRight, ArrowSquareOut, Question, Lock, SignOut, ArrowCounterClockwise, ShieldCheck, User, type PhosphorIcon } from '@/src/components/shared/icons'
+import { CaretRight, ArrowSquareOut, Question, Lock, SignOut, ArrowCounterClockwise, ShieldCheck, User, type PhosphorIcon } from '@/src/components/shared/icons'
 import { PlanPicker } from '@/src/components/billing/PlanPicker'
 import { PlanPickerSkeleton } from '@/src/components/shared/TabSkeleton'
 import { CurrentPlan } from '@/src/components/billing/CurrentPlan'
 import { track } from '@/src/lib/analytics'
 import { Icon } from '@/src/components/shared/Icon'
+import { ScreenHeader } from '@/src/components/shared/ScreenHeader'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { clearAccess, currentUserId, sessionId } from '@/src/api/accessMode'
@@ -75,18 +76,14 @@ export default function PlanScreen() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: tokens.bg, paddingTop: insets.top }]}>
-      <View style={[styles.header, { borderBottomColor: tokens.border }]}>
-        {/* No way out while locked: this screen is the whole app then. Once
-            access returns (say, straight after a purchase) the stack was
-            rebuilt with this screen at the bottom, so back goes Home. */}
-        {!locked ? (
-          <Pressable onPress={() => (router.canGoBack() ? router.back() : router.replace('/(tabs)'))} hitSlop={12} accessibilityRole="button" accessibilityLabel="Back" style={[styles.backButton, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
-            <Icon icon={ArrowLeft} size={20} color={tokens.text} />
-          </Pressable>
-        ) : null}
-        <Text style={[styles.headerTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Plan & billing</Text>
-      </View>
+    <View style={[styles.container, { backgroundColor: tokens.bg }]}>
+      {/* No way out while locked: this screen is the whole app then. Once
+          access returns (say, straight after a purchase) the stack was
+          rebuilt with this screen at the bottom, so back goes Home. */}
+      <ScreenHeader
+        title="Plan & billing"
+        onBack={locked ? undefined : () => (router.canGoBack() ? router.back() : router.replace('/(tabs)'))}
+      />
 
       <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 32 }]}>
         {isLoading || !status ? (
@@ -252,9 +249,6 @@ function Row({
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth },
-  backButton: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontSize: 19 },
   scrollContent: { padding: 16, gap: 12 },
   card: { padding: 16, borderWidth: 1, borderRadius: 20, gap: 6 },
   list: { padding: 0, gap: 0, overflow: 'hidden' },

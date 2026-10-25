@@ -7,7 +7,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { View, Text, Pressable, RefreshControl, StyleSheet, Linking, Platform } from 'react-native'
 import { useQuery } from '@tanstack/react-query'
 import { useRouter, useNavigation, useFocusEffect } from 'expo-router'
-import { CaretRight, ChartLine, MoneyWavy } from '@/src/components/shared/icons'
+import { CaretRight, ChartLine, MoneyWavy, Plant } from '@/src/components/shared/icons'
 import Reanimated, { FadeIn, FadeInDown, FadeOut } from 'react-native-reanimated'
 import * as Haptics from 'expo-haptics'
 import { rippleHaptic, tap } from '@/src/lib/haptics'
@@ -16,12 +16,14 @@ import { SlideStrip } from '@/src/components/shared/SlideStrip'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { track } from '@/src/lib/analytics'
 import { BottomSheet } from '@/src/components/shared/Modal'
+import { SheetOption, SheetTitle } from '@/src/components/shared/SheetOption'
 import { GapSheet } from '@/src/components/home/GapSheet'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { usePrivacy } from '@/src/context/PrivacyContext'
 import { fontFamily } from '@/src/theme/fonts'
 import { useBudgets, useCarry } from '@/src/hooks/useBudgets'
 import { rolloverCard } from '@/src/lib/rollover'
+import { splitEmoji } from '@/src/lib/emoji'
 import { useLastSpent, useRecentExpenses } from '@/src/hooks/useExpenses'
 import { useCategories } from '@/src/hooks/useCategories'
 import { useGroupIcons, useGroups } from '@/src/hooks/useGroups'
@@ -30,6 +32,8 @@ import {
   currentMonthKey,
   daysLeftInMonth,
   monthAbbrev,
+  overPlannedLine,
+  trimCandidates,
   type Envelope,
 } from '@/src/lib/envelope'
 
@@ -287,6 +291,9 @@ function HomeScreen() {
   // shows, again whenever it's tapped. Nothing to roll once it's gone.
   const rollPlay = banner === 'rollover' ? rollReplays + 1 : 0
 
+  const overPlanned = overPlannedLine(envelopeState.readyToAssign, (n) => formatCurrency(n))
+  const trimFirst = trimCandidates(envelopeState.envelopes, 1)[0]
+
   function handleEditAmount(category: string) {
     router.push({ pathname: '/modals/edit-assigned-amount', params: { category } })
   }
@@ -446,6 +453,28 @@ function HomeScreen() {
               </Text>
               <Icon icon={CaretRight} size={14} color={envelopeState.income === 0 ? tokens.accentInk : tokens.text2} />
             </AnimatedPressable>
+            {/* Usually a new month copying a plan last month's one-off extra
+                paid for. Says so, and opens the biggest plan to trim (the
+                screen switches categories in place). No plan at all (a
+                carried deficit alone): nothing to trim, so no line. */}
+            {!hideAmounts && overPlanned && trimFirst && (
+              <View style={styles.overPlanned}>
+                <Text style={{ color: tokens.coral, fontSize: type.caption, fontFamily: fontFamily.bodyMedium }}>{overPlanned}</Text>
+                {!readOnly && (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityHint={`Opens ${splitEmoji(trimFirst.category).text}, your biggest plan`}
+                    hitSlop={8}
+                    onPress={() => {
+                      tap()
+                      handleEditAmount(trimFirst.category)
+                    }}
+                  >
+                    <Text style={[styles.trim, { color: tokens.text, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }]}>Trim</Text>
+                  </Pressable>
+                )}
+              </View>
+            )}
           </View>
         )}
 
@@ -493,9 +522,10 @@ function HomeScreen() {
               // Same size and green as the settled Ready to Assign row, as the old savings note was.
               <Card style={[styles.rolloverCard, styles.slimRta, { backgroundColor: tokens.pillGoodBg, borderColor: 'transparent' }]} elevated={false}>
                 {/* The line replays the categories' roll-in, for anyone who missed it. */}
-                <Pressable accessibilityRole="button" accessibilityHint="Shows it again" onPress={() => { tap(); setRollReplays((n) => n + 1) }} style={{ flex: 1 }}>
-                  <Text numberOfLines={1} style={{ color: tokens.text, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>
-                    🌱 {rollover}
+                <Pressable accessibilityRole="button" accessibilityHint="Shows it again" onPress={() => { tap(); setRollReplays((n) => n + 1) }} style={styles.rolloverLine}>
+                  <Icon icon={Plant} size={16} color={tokens.mint} />
+                  <Text numberOfLines={1} style={{ flex: 1, color: tokens.text, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>
+                    {rollover}
                   </Text>
                 </Pressable>
                 <Pressable accessibilityRole="button" accessibilityLabel="Nice" onPress={() => setRolloverSeen(true)} disabled={rolloverSeen} hitSlop={12}>
@@ -632,27 +662,23 @@ function HomeScreen() {
       {/* No room for a pencil on the hero, so tapping it opens this. With RTA
           often at 0, the title is the only place Home shows income. */}
       <BottomSheet visible={incomeSheetOpen} onClose={() => setIncomeSheetOpen(false)}>
-        <Text style={[styles.sheetTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
-          Income {formatCurrency(envelopeState.income, hideAmounts)}
-        </Text>
+        <SheetTitle>Income {formatCurrency(envelopeState.income, hideAmounts)}</SheetTitle>
         {([
           ['Change income', changeIncomeHref],
           ['Add income', '/modals/add-income'],
           ['Manage income', '/account/income'],
           ['Set Ready to Assign', '/modals/edit-ready-to-assign'],
         ] as const).map(([label, href]) => (
-          <Pressable
+          <SheetOption
             key={label}
-            accessibilityRole="button"
-            style={styles.sheetBtn}
+            label={label}
             onPress={() => {
               setIncomeSheetOpen(false)
               router.push(href)
             }}
-          >
-            <Text style={[styles.sheetBtnText, { color: tokens.text, fontFamily: fontFamily.bodyMedium }]}>{label}</Text>
-          </Pressable>
+          />
         ))}
+        <SheetOption label="Cancel" tone="cancel" onPress={() => setIncomeSheetOpen(false)} />
       </BottomSheet>
       <GraceBanner status={billing} />
     </>
@@ -662,10 +688,9 @@ function HomeScreen() {
 const styles = StyleSheet.create({
   appIconButton: { width: 40, height: 40 },
   hero: { alignItems: 'center', gap: 6 },
+  overPlanned: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
+  trim: { textDecorationLine: 'underline' },
   incomePill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 6, marginTop: 4 },
-  sheetTitle: { fontSize: 16, marginBottom: 8 },
-  sheetBtn: { paddingVertical: 12 },
-  sheetBtnText: { fontSize: 14 },
   heroLabel: { fontSize: 12, letterSpacing: 0.6 },
   slimRta: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14 },
   slimLabel: { flexDirection: 'row', alignItems: 'center', gap: 10 },
@@ -673,6 +698,7 @@ const styles = StyleSheet.create({
   slimAmount: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   headerMonth: { alignItems: 'center' },
   rolloverCard: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  rolloverLine: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 },
   cardHeadRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   cardTitle: {},
   emptyEnvelopesCard: { minHeight: 360 },

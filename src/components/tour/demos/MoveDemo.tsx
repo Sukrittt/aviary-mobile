@@ -6,7 +6,8 @@ import Reanimated, { Easing, FadeIn, useAnimatedStyle, useSharedValue, withSeque
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 
-import { SectionLabel, ResultCard } from '@/src/components/tour/parts'
+import { SectionLabel, ResultCard, TourIcon } from '@/src/components/tour/parts'
+import type { CategoryIconKey } from '@/src/lib/categoryIcons'
 import { MOVE_AMOUNT, MOVE_IN_ENVELOPE, MOVE_NEED, MOVE_SOURCES } from '@/src/components/tour/content'
 import { tap } from '@/src/lib/haptics'
 
@@ -35,7 +36,7 @@ export function MoveDemo({ onComplete }: { onComplete: () => void }) {
         ]}
       >
         <View style={[styles.tile, { backgroundColor: tokens.accentSoft, borderRadius: radius.md }]}>
-          <Text style={{ fontSize: 20 }}>💡</Text>
+          <TourIcon icon="Lightbulb" size={22} color={tokens.accentInk} />
         </View>
         <View style={styles.body}>
           <Text style={[styles.kicker, { color: tokens.text2, fontFamily: fontFamily.bodyBold, fontSize: type.micro }]}>
@@ -51,7 +52,7 @@ export function MoveDemo({ onComplete }: { onComplete: () => void }) {
               fontSize: type.micro,
             }}
           >
-            {short > 0 ? `${formatCurrency(short)} short` : 'fully funded ✓'}
+            {short > 0 ? `${formatCurrency(short)} short` : 'fully funded'}
           </Text>
         </View>
       </View>
@@ -66,7 +67,7 @@ export function MoveDemo({ onComplete }: { onComplete: () => void }) {
             key={source.id}
             taken={taken}
             isProtected={!!isProtected}
-            emoji={source.emoji}
+            icon={source.icon}
             name={source.name}
             note={taken ? `Gave ${formatCurrency(taken)} · still fine for the month` : source.note}
             available={formatCurrency(source.available - taken)}
@@ -105,7 +106,7 @@ export function MoveDemo({ onComplete }: { onComplete: () => void }) {
 function SourceRow({
   taken,
   isProtected,
-  emoji,
+  icon,
   name,
   note,
   available,
@@ -113,7 +114,7 @@ function SourceRow({
 }: {
   taken: number
   isProtected: boolean
-  emoji: string
+  icon: CategoryIconKey
   name: string
   note: string
   available: string
@@ -144,7 +145,7 @@ function SourceRow({
           styles.source,
           {
             backgroundColor: taken ? tokens.accentSoft : tokens.cardSolid,
-            borderColor: taken ? tokens.accent : isProtected ? tokens.warn : tokens.border,
+            borderColor: taken ? tokens.accent : tokens.border,
             borderRadius: radius.md,
             padding: space.md,
             gap: space.md,
@@ -152,7 +153,7 @@ function SourceRow({
         ]}
       >
         <View style={[styles.tileSm, { backgroundColor: tokens.inputBg, borderRadius: radius.sm }]}>
-          <Text style={{ fontSize: 16 }}>{emoji}</Text>
+          <TourIcon icon={icon} />
         </View>
         <View style={styles.body}>
           <Text style={{ color: tokens.text, fontFamily: fontFamily.bodyBold, fontSize: type.body }}>{name}</Text>

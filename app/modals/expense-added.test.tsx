@@ -71,9 +71,10 @@ notifyManager.setScheduler((callback) => callback())
 
 // `mock`-prefixed so Jest's out-of-scope guard allows the factory to close over them.
 const mockReplace = jest.fn()
+const mockDismissTo = jest.fn()
 let mockParams: Record<string, string> = {}
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ replace: mockReplace, back: jest.fn(), push: jest.fn(), navigate: jest.fn() }),
+  useRouter: () => ({ replace: mockReplace, dismissTo: mockDismissTo, back: jest.fn(), push: jest.fn(), navigate: jest.fn() }),
   useLocalSearchParams: () => mockParams,
 }))
 
@@ -373,6 +374,7 @@ it('prevents repeated Undo and Done while deletion is pending, and does not navi
   fireEvent.press(getByText('Done'))
   await waitFor(() => expect(deleteExpense).toHaveBeenCalledTimes(1))
   expect(mockReplace).not.toHaveBeenCalled()
+  expect(mockDismissTo).not.toHaveBeenCalled()
   unmount()
   await act(async () => { finish() })
   await waitFor(async () => expect(await pendingExpenses.syncReceipt('slow-undo', 'undo-user')).toHaveProperty('undone', true))
@@ -409,7 +411,9 @@ describe('review prompt', () => {
     expect(recordLogAndMaybeAsk).not.toHaveBeenCalled()
     fireEvent.press(getByText('Done'))
     expect(recordLogAndMaybeAsk).toHaveBeenCalledTimes(1)
-    expect(mockReplace).toHaveBeenCalledWith('/(tabs)')
+    // Back to the tabs underneath, not a new copy of them stacked on top.
+    expect(mockDismissTo).toHaveBeenCalledWith('/')
+    expect(mockReplace).not.toHaveBeenCalled()
     await waitFor(() => expect(getGroups).toHaveBeenCalled())
   })
 
@@ -417,7 +421,7 @@ describe('review prompt', () => {
     const { getByText } = setup({ pending: '1', clientId: 'c1' } as never)
     fireEvent.press(getByText('Done'))
     expect(recordLogAndMaybeAsk).not.toHaveBeenCalled()
-    expect(mockReplace).toHaveBeenCalledWith('/(tabs)')
+    expect(mockDismissTo).toHaveBeenCalledWith('/')
     await waitFor(() => expect(getGroups).toHaveBeenCalled())
   })
 

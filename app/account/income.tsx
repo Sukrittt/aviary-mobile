@@ -4,14 +4,13 @@ import { View, Text, Pressable, ScrollView, RefreshControl, StyleSheet } from "r
 import { useRouter } from "expo-router";
 import { useReadOnly } from "@/src/components/budgets/ReadOnlyNotice";
 import * as Haptics from "expo-haptics";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ArrowLeft, PencilSimple, Plus, Trash } from "@/src/components/shared/icons";
+import { PencilSimple, Plus, Trash } from "@/src/components/shared/icons";
 import Reanimated from "react-native-reanimated";
 import { OfflineScreen } from "@/src/components/shared/OfflineScreen";
 import { useOnline } from "@/src/lib/netStatus";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { fontFamily } from "@/src/theme/fonts";
-import { Icon } from "@/src/components/shared/Icon";
+import { ScreenHeader, HeaderButton } from "@/src/components/shared/ScreenHeader";
 import { LoadingPhrase } from "@/src/components/shared/LoadingPhrase";
 import { PopIn } from "@/src/components/shared/PopIn";
 import { EmptyState } from "@/src/components/shared/EmptyState";
@@ -84,7 +83,6 @@ export default function IncomeScreen() {
   const { formatCurrency } = useCurrency();
   const { hideAmounts } = usePrivacy();
   const online = useOnline();
-  const insets = useSafeAreaInsets();
   const router = useRouter();
   const { refreshing, onRefresh } = useRefresh();
   const recurringQ = useRecurringIncomes();
@@ -129,23 +127,17 @@ export default function IncomeScreen() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: tokens.bg, paddingTop: insets.top }]}>
-      <View style={[styles.header, { borderBottomColor: tokens.border }]}>
-        <Pressable onPress={() => router.back()} hitSlop={12} accessibilityLabel="Back" style={[styles.backButton, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
-          <Icon icon={ArrowLeft} size={20} color={tokens.text} />
-        </Pressable>
-        <Text style={[styles.headerTitle, { flex: 1, color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Income</Text>
-        {!readOnly && <View style={styles.headerButtons}>
-          <Pressable onPress={() => router.push("/modals/add-income")} accessibilityRole="button" style={[styles.addButton, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
-            <Icon icon={Plus} size={16} color={tokens.text} />
-            <Text style={[styles.addText, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>One-off</Text>
-          </Pressable>
-          <Pressable onPress={() => router.push("/modals/recurring-income")} accessibilityRole="button" accessibilityLabel="Add recurring income" style={[styles.addButton, { backgroundColor: tokens.accent, borderColor: tokens.accent }]}>
-            <Icon icon={Plus} size={16} color={tokens.onAccent} />
-            <Text style={[styles.addText, { color: tokens.onAccent, fontFamily: fontFamily.bodyBold }]}>Recurring</Text>
-          </Pressable>
-        </View>}
-      </View>
+    <View style={[styles.container, { backgroundColor: tokens.bg }]}>
+      <ScreenHeader
+        title="Income"
+        onBack={() => router.back()}
+        right={!readOnly && (
+          <>
+            <HeaderButton icon={Plus} label="One-off" onPress={() => router.push("/modals/add-income")} />
+            <HeaderButton icon={Plus} label="Recurring" accessibilityLabel="Add recurring income" primary onPress={() => router.push("/modals/recurring-income")} />
+          </>
+        )}
+      />
 
       <ScrollView
         contentContainerStyle={loading || loadError || empty ? styles.centered : styles.body}
@@ -347,34 +339,6 @@ function ScheduleItem({ row, index, accounts }: { row: RecurringIncomeRow; index
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    paddingBottom: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  backButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  headerTitle: { fontSize: 19 },
-  addButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 5,
-    paddingHorizontal: 13,
-    paddingVertical: 8,
-    borderRadius: 100,
-    borderWidth: 1,
-  },
-  addText: { fontSize: 12.5 },
   body: { padding: 16, gap: 16 },
   hero: { borderWidth: 1, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 20, gap: 6, overflow: "hidden" },
   heroAmountRow: { flexDirection: "row", alignItems: "baseline", gap: 6 },
@@ -416,7 +380,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   emoji: { fontSize: 20 },
-  headerButtons: { flexDirection: "row", gap: 8 },
   starter: { borderWidth: 1, borderRadius: 16, padding: 16, gap: 10, width: "100%" },
   starterTitle: { fontSize: 16 },
   starterBody: { fontSize: 13, lineHeight: 18 },

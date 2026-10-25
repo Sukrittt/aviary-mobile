@@ -59,7 +59,7 @@ import { useCachedUser } from "@/src/hooks/useUser";
 import { isHidden } from "@/src/lib/features";
 import { useBounce } from "@/src/hooks/useBounce";
 import Reanimated, { FadeIn, FadeOut } from "react-native-reanimated";
-import { useCallback,useEffect,useMemo,useRef,useState } from "react";
+import { useCallback,useEffect,useLayoutEffect,useMemo,useRef,useState } from "react";
 import {
 Animated,
 Image,
@@ -582,7 +582,9 @@ function LogExpenseScreen() {
   // focused: a prefilled log-expense (habit nudge) stacks over the launch one,
   // and a blank screen underneath re-publishing would point the nav circle at
   // its empty form. Clear on the way out only if the snapshot is still ours.
-  useEffect(() => {
+  // A layout effect, so the nav takes on this screen's look in the frame the
+  // screen first shows (it waits for this; see LogExpenseNavigation).
+  useLayoutEffect(() => {
     if (!isFocused) return;
     const snapshot = { canSubmit, saving, success: logSuccess, submit: handleSubmit, onInvalid };
     publishLogExpenseSubmit(snapshot);

@@ -2,9 +2,9 @@ import { useCurrency } from '@/src/context/CurrencyContext'
 import { useMemo, useRef, useState } from "react";
 import { View, Text, Pressable, RefreshControl, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
-import { ArrowLeft, Plus, Play } from "@/src/components/shared/icons";
+import { ArrowCounterClockwise, Plus, Play } from "@/src/components/shared/icons";
+import { ScreenHeader } from "@/src/components/shared/ScreenHeader";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { usePrivacy } from "@/src/context/PrivacyContext";
 import { fontFamily } from "@/src/theme/fonts";
@@ -28,7 +28,6 @@ import { OfflineScreen } from "@/src/components/shared/OfflineScreen";
 import { useOnline } from "@/src/lib/netStatus";
 import { Screen } from "@/src/components/ui/Screen";
 import { Card } from "@/src/components/ui/Card";
-import { IconButton } from "@/src/components/ui/Button";
 import {
   TrendChart,
   type TrendPoint,
@@ -84,7 +83,6 @@ function MonthStepper({
   const { tokens, space, radius, type, scheme } = useTheme();
   // text3 at glyph size all but vanishes on the dark surface; light text3 already passes.
   const offGlyph = scheme === "dark" ? tokens.text2 : tokens.text3;
-  const insets = useSafeAreaInsets();
   const canGoPrev = month > earliestMonth;
   const canGoNext = month < currentMonth;
   const isCurrent = month === currentMonth;
@@ -100,123 +98,119 @@ function MonthStepper({
 
   return (
     <GestureDetector gesture={swipe}>
-      <View
-        style={[
-          styles.monthNav,
-          { gap: space.md, paddingTop: insets.top + space.md },
-        ]}
-      >
-        <IconButton
-          icon={ArrowLeft}
-          accessibilityLabel="Back"
-          onPress={onBack}
-          size={36}
-        />
-
-        <View style={styles.monthNavCenter}>
-          <Text
-            numberOfLines={1}
-            style={{
-              color: tokens.text,
-              fontSize: type.title,
-              fontFamily: fontFamily.displaySemiBold,
-              letterSpacing: -0.3,
-            }}
-          >
-            {monthLabel(month)}
-          </Text>
-          {isCurrent ? null : (
-            <View style={[styles.monthNavLabelRow, { marginTop: 4 }]}>
+      {/* Screen pads its subheader; the header draws its own edge-to-edge row. */}
+      <View style={{ marginHorizontal: -space.lg }}>
+        <ScreenHeader
+          onBack={onBack}
+          title={
+            <View>
               <Text
+                numberOfLines={1}
+                accessibilityRole="header"
                 style={{
-                  color: tokens.text3,
-                  fontSize: 12,
-                  fontFamily: fontFamily.bodySemiBold,
+                  color: tokens.text,
+                  fontSize: 19,
+                  fontFamily: fontFamily.displaySemiBold,
                 }}
               >
-                {back} {back === 1 ? "month" : "months"} back
+                {monthLabel(month)}
               </Text>
+              {isCurrent ? null : (
+                <View style={[styles.monthNavLabelRow, { marginTop: 4 }]}>
+                  <Text
+                    style={{
+                      color: tokens.text3,
+                      fontSize: 12,
+                      fontFamily: fontFamily.bodySemiBold,
+                    }}
+                  >
+                    {back} {back === 1 ? "month" : "months"} back
+                  </Text>
+                  <Pressable
+                    onPress={onReset}
+                    hitSlop={6}
+                    style={[
+                      styles.statusChip,
+                      {
+                        backgroundColor: tokens.accentSoft,
+                        borderRadius: radius.full,
+                      },
+                    ]}
+                  >
+                    <ArrowCounterClockwise size={12} weight="bold" color={tokens.accentInk} />
+                    <Text
+                      style={{
+                        color: tokens.accentInk,
+                        fontSize: 12,
+                        fontFamily: fontFamily.bodySemiBold,
+                      }}
+                    >
+                      Today
+                    </Text>
+                  </Pressable>
+                </View>
+              )}
+            </View>
+          }
+          right={
+            <View style={{ flexDirection: "row", gap: space.xs }}>
               <Pressable
-                onPress={onReset}
-                hitSlop={6}
+                onPress={() => canGoPrev && onShift(-1)}
+                disabled={!canGoPrev}
+                accessibilityState={{ disabled: !canGoPrev }}
+                hitSlop={8}
+                accessibilityLabel="Previous month"
                 style={[
-                  styles.statusChip,
-                  {
-                    backgroundColor: tokens.accentSoft,
-                    borderRadius: radius.full,
-                  },
+                  styles.monthNavBtn,
+                  { borderRadius: radius.full },
+                  canGoPrev
+                    ? { backgroundColor: tokens.accentSoft }
+                    : { backgroundColor: tokens.border },
                 ]}
               >
                 <Text
-                  style={{
-                    color: tokens.accentInk,
-                    fontSize: 12,
-                    fontFamily: fontFamily.bodySemiBold,
-                  }}
+                  style={[
+                    styles.monthNavGlyph,
+                    {
+                      color: canGoPrev ? tokens.accent : offGlyph,
+                      fontSize: type.bodyLg,
+                      lineHeight: type.bodyLg,
+                    },
+                  ]}
                 >
-                  ↩ Today
+                  ‹
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => canGoNext && onShift(1)}
+                disabled={!canGoNext}
+                accessibilityState={{ disabled: !canGoNext }}
+                hitSlop={8}
+                accessibilityLabel="Next month"
+                style={[
+                  styles.monthNavBtn,
+                  { borderRadius: radius.full },
+                  canGoNext
+                    ? { backgroundColor: tokens.accentSoft }
+                    : { backgroundColor: tokens.border },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.monthNavGlyph,
+                    {
+                      color: canGoNext ? tokens.accent : offGlyph,
+                      fontSize: type.bodyLg,
+                      lineHeight: type.bodyLg,
+                    },
+                  ]}
+                >
+                  ›
                 </Text>
               </Pressable>
             </View>
-          )}
-        </View>
-
-        <View style={{ flexDirection: "row", gap: space.xs }}>
-          <Pressable
-            onPress={() => canGoPrev && onShift(-1)}
-            disabled={!canGoPrev}
-            accessibilityState={{ disabled: !canGoPrev }}
-            hitSlop={8}
-            accessibilityLabel="Previous month"
-            style={[
-              styles.monthNavBtn,
-              { borderRadius: radius.full },
-              canGoPrev
-                ? { backgroundColor: tokens.accentSoft }
-                : { backgroundColor: tokens.border },
-            ]}
-          >
-            <Text
-              style={[
-                styles.monthNavGlyph,
-                {
-                  color: canGoPrev ? tokens.accent : offGlyph,
-                  fontSize: type.bodyLg,
-                  lineHeight: type.bodyLg,
-                },
-              ]}
-            >
-              ‹
-            </Text>
-          </Pressable>
-          <Pressable
-            onPress={() => canGoNext && onShift(1)}
-            disabled={!canGoNext}
-            accessibilityState={{ disabled: !canGoNext }}
-            hitSlop={8}
-            accessibilityLabel="Next month"
-            style={[
-              styles.monthNavBtn,
-              { borderRadius: radius.full },
-              canGoNext
-                ? { backgroundColor: tokens.accentSoft }
-                : { backgroundColor: tokens.border },
-            ]}
-          >
-            <Text
-              style={[
-                styles.monthNavGlyph,
-                {
-                  color: canGoNext ? tokens.accent : offGlyph,
-                  fontSize: type.bodyLg,
-                  lineHeight: type.bodyLg,
-                },
-              ]}
-            >
-              ›
-            </Text>
-          </Pressable>
-        </View>
+          }
+        />
       </View>
     </GestureDetector>
   );
@@ -874,10 +868,11 @@ const styles = StyleSheet.create({
   scopeDividerLine: { flex: 1, height: StyleSheet.hairlineWidth },
   toggleGroup: { flexDirection: "row", gap: 2, padding: 3 },
   toggleBtn: { paddingHorizontal: 10, paddingVertical: 6 },
-  monthNav: { flexDirection: "row", alignItems: "flex-start" },
-  monthNavCenter: { flex: 1 },
   monthNavLabelRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   statusChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
     paddingHorizontal: 8,
     paddingVertical: 3,
     alignSelf: "flex-start",

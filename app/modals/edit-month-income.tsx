@@ -11,7 +11,7 @@ import { currentMonthKey, INCOME_CATEGORY, monthLabel } from "@/src/lib/envelope
 import { fontFamily } from "@/src/theme/fonts";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { X } from "@/src/components/shared/icons";
+import { MoneyWavy } from "@/src/components/shared/icons";
 import { useEffect, useState } from "react";
 import {
   Animated,
@@ -23,7 +23,9 @@ import {
 } from "react-native";
 import Reanimated, { FadeIn } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { ScreenHeader } from "@/src/components/shared/ScreenHeader";
 import { withReadOnlyGate } from "@/src/components/budgets/ReadOnlyNotice";
+import { Icon } from "@/src/components/shared/Icon";
 
 /** Opened from Insights' Saved view on a month with spending but no income, so
  * that month can be counted, and from Home's Ready to Assign sheet ("Change
@@ -87,46 +89,7 @@ function EditMonthIncomeModal() {
 
   return (
     <View style={[styles.container, { backgroundColor: tokens.bg }]}>
-      <View
-        style={[
-          styles.header,
-          {
-            paddingTop: insets.top + space.sm,
-            paddingHorizontal: space.lg,
-            gap: space.md,
-            borderBottomColor: tokens.border,
-          },
-        ]}
-      >
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Close"
-          onPress={() => router.back()}
-          hitSlop={12}
-          style={[
-            styles.headerBtn,
-            {
-              backgroundColor: tokens.card,
-              borderColor: tokens.border,
-              borderRadius: radius.full,
-            },
-          ]}
-        >
-          <X size={16} color={tokens.text} />
-        </Pressable>
-        <Text
-          style={[
-            styles.headerTitle,
-            {
-              color: tokens.text,
-              fontFamily: fontFamily.displaySemiBold,
-              fontSize: type.body,
-            },
-          ]}
-        >
-          {isCurrent ? "Monthly income" : "Add income"}
-        </Text>
-      </View>
+      <ScreenHeader title={isCurrent ? "Monthly income" : "Add income"} onBack={() => router.back()} close />
 
       <ScrollView
         style={{ flex: 1 }}
@@ -168,7 +131,7 @@ function EditMonthIncomeModal() {
               { backgroundColor: tokens.accentSoft, borderRadius: radius.md },
             ]}
           >
-            <Text style={{ fontSize: type.title }}>💰</Text>
+            <Icon icon={MoneyWavy} size={26} color={tokens.accentInk} />
           </View>
           <View style={{ flex: 1, gap: 2 }}>
             <Text
@@ -293,20 +256,6 @@ function EditMonthIncomeModal() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingBottom: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  headerBtn: {
-    width: 36,
-    height: 36,
-    borderWidth: 1,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  headerTitle: { flex: 1, textAlign: "right" },
   stepLabel: { letterSpacing: 0.6 },
   card: { flexDirection: "row", alignItems: "center", borderWidth: 1 },
   cardIcon: {

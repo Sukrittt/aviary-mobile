@@ -13,7 +13,7 @@ import { useOnline } from '@/src/lib/netStatus'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { useRouter } from 'expo-router'
-import { ArrowLeft, Check } from '@/src/components/shared/icons'
+import { Check } from '@/src/components/shared/icons'
 import { useEffect,useState } from 'react'
 import { Image,Pressable,RefreshControl,ScrollView,StyleSheet,Text,TextInput,View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -184,12 +184,8 @@ export default function SecurityScreen() {
   if (!online) return <OfflineScreen />
 
   return (
-    <View style={[styles.container, { backgroundColor: tokens.bg, paddingTop: insets.top }]}>
-      <ScreenHeader title="Account & security" onLeft={() => router.back()} leftIcon={ArrowLeft}
-        includeSafeArea={false}
-        style={[styles.header, {borderBottomColor: tokens.border, paddingTop: 0}]}
-        titleStyle={styles.headerTitle}
-        leftStyle={[styles.backButton, {backgroundColor: tokens.card, borderColor: tokens.border}]} />
+    <View style={[styles.container, { backgroundColor: tokens.bg }]}>
+      <ScreenHeader title="Account & security" onBack={() => router.back()} />
 
       <ScrollView
         refreshControl={
@@ -546,9 +542,6 @@ export default function SecurityScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth },
-  backButton: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontSize: 19 },
   scrollContent: { padding: 16, gap: 20 },
   profileCard: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16, borderWidth: 1, borderRadius: 22 },
   avatar: { width: 52, height: 52, borderRadius: 26, borderWidth: 1 },

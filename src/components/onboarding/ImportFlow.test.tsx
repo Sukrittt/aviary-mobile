@@ -81,8 +81,10 @@ it('skips the start question when it was already answered, and Back starts fresh
 })
 
 it('starting fresh hands straight back to the usual setup', () => {
-  const { getByText, onFresh } = render()
+  const { getByText, queryByLabelText, onFresh } = render()
   expect(getByText('How do you want to start?')).toBeTruthy()
+  // A fork, not a step: no dots here for the fresh path's own to replace.
+  expect(queryByLabelText(/^Step \d of \d$/)).toBeNull()
   fireEvent.press(getByText('I’m starting fresh'))
   fireEvent.press(getByText('Continue'))
   expect(onFresh).toHaveBeenCalled()

@@ -6,6 +6,8 @@ import Reanimated, { Easing, FadeIn, useAnimatedStyle, useSharedValue, withSeque
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 
+import { Icon } from '@/src/components/shared/Icon'
+import { Check, X } from '@/src/components/shared/icons'
 import { TourRow } from '@/src/components/tour/parts'
 import { useTourContent } from '@/src/components/tour/useTourContent'
 import { ROLLOVER_ROWS } from '@/src/components/tour/content'
@@ -112,7 +114,7 @@ export function RolloverDemo({ onComplete }: { onComplete: () => void }) {
       {ROLLOVER_ROWS.map((row) => (
         <TourRow
           key={row.name}
-          emoji={row.emoji}
+          icon={row.icon}
           name={row.name}
           note={
             isOctober
@@ -201,12 +203,9 @@ function QuizOption({ label, good, bad, onPress }: { label: string; good: boolea
       >
         <View style={[styles.dot, { borderColor: good ? tokens.mint : bad ? tokens.coral : tokens.borderStrong }]}>
           {(good || bad) && (
-            <Reanimated.Text
-              entering={FadeIn.duration(120)}
-              style={{ color: good ? tokens.mint : tokens.coral, fontFamily: fontFamily.bodyBold, fontSize: 12 }}
-            >
-              {good ? '✓' : '✕'}
-            </Reanimated.Text>
+            <Reanimated.View entering={FadeIn.duration(120)}>
+              <Icon icon={good ? Check : X} size={12} weight="bold" color={good ? tokens.mint : tokens.coral} />
+            </Reanimated.View>
           )}
         </View>
         <Text style={{ flex: 1, color: tokens.text, fontFamily: fontFamily.bodyBold, fontSize: type.caption, lineHeight: 19 }}>

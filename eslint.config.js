@@ -2,6 +2,43 @@
 const { defineConfig } = require('eslint/config');
 const expoConfig = require("eslint-config-expo/flat");
 
+const restrictedSyntax = [
+  {
+    selector:
+      "CallExpression[callee.name=/^(runOnJS|scheduleOnRN)$/] > :matches(ArrowFunctionExpression, FunctionExpression):first-child",
+    message:
+      "Pass a reference to a function defined on the JS runtime (e.g. useCallback) — an inline function is created on the UI runtime and crashes scheduleOnRN.",
+  },
+  {
+    // The leading `.` in each pattern requires a character before the em
+    // dash, so a standalone '—' (the app's placeholder glyph for a
+    // missing value, e.g. EnvelopeRow.tsx / DatePicker.tsx) is exempt.
+    // Comments aren't AST literals, so they're untouched too.
+    selector:
+      "Literal[value=/.—/], JSXText[value=/.—/], TemplateElement[value.raw=/.—/]",
+    message:
+      "No em dashes in user-facing copy — split it into two sentences. See CLAUDE.md's 'voice and copy' section.",
+  },
+  {
+    // The import() / require() half of the phosphor guard below;
+    // no-restricted-imports only sees static imports.
+    selector:
+      "ImportExpression[source.value='phosphor-react-native'], CallExpression[callee.name='require'][arguments.0.value='phosphor-react-native']",
+    message:
+      "Import icons from '@/components/shared/icons'. The phosphor-react-native root bundles every icon.",
+  },
+];
+
+// No emoji in the app's UI: draw an icon from src/components/shared/icons (or
+// the category catalog) instead. Test fixtures and the emoji-to-icon maps that
+// read users' category names are exempt below. (?![©®™]) because those three
+// are Extended_Pictographic but render as plain text glyphs.
+const EMOJI = "(?![©®™])\\p{Extended_Pictographic}";
+const noEmoji = {
+  selector: `Literal[value=/${EMOJI}/u], JSXText[value=/${EMOJI}/u], TemplateElement[value.cooked=/${EMOJI}/u]`,
+  message: "No emoji in the app. Use an icon from src/components/shared/icons instead.",
+};
+
 module.exports = defineConfig([
   expoConfig,
   {
@@ -27,33 +64,7 @@ module.exports = defineConfig([
       // side throws "Locally defined function passed to scheduleOnRN" out of
       // an animation callback, which crashes the app. Hoist the callback (a
       // useCallback / module-level fn) and pass the reference.
-      "no-restricted-syntax": [
-        "error",
-        {
-          selector:
-            "CallExpression[callee.name=/^(runOnJS|scheduleOnRN)$/] > :matches(ArrowFunctionExpression, FunctionExpression):first-child",
-          message:
-            "Pass a reference to a function defined on the JS runtime (e.g. useCallback) — an inline function is created on the UI runtime and crashes scheduleOnRN.",
-        },
-        {
-          // The leading `.` in each pattern requires a character before the em
-          // dash, so a standalone '—' (the app's placeholder glyph for a
-          // missing value, e.g. EnvelopeRow.tsx / DatePicker.tsx) is exempt.
-          // Comments aren't AST literals, so they're untouched too.
-          selector:
-            "Literal[value=/.—/], JSXText[value=/.—/], TemplateElement[value.raw=/.—/]",
-          message:
-            "No em dashes in user-facing copy — split it into two sentences. See CLAUDE.md's 'voice and copy' section.",
-        },
-        {
-          // The import() / require() half of the phosphor guard below;
-          // no-restricted-imports only sees static imports.
-          selector:
-            "ImportExpression[source.value='phosphor-react-native'], CallExpression[callee.name='require'][arguments.0.value='phosphor-react-native']",
-          message:
-            "Import icons from '@/components/shared/icons'. The phosphor-react-native root bundles every icon.",
-        },
-      ],
+      "no-restricted-syntax": ["error", ...restrictedSyntax, noEmoji],
       // Metro doesn't tree-shake: a runtime import from the package root bundles
       // all 1,500 icons in every weight. Types are fine, they're erased.
       "@typescript-eslint/no-restricted-imports": [
@@ -83,5 +94,9 @@ module.exports = defineConfig([
         },
       ],
     },
+  },
+  {
+    files: ["**/*.test.ts", "**/*.test.tsx", "src/lib/categoryIcons.ts", "src/lib/emoji.ts"],
+    rules: { "no-restricted-syntax": ["error", ...restrictedSyntax] },
   },
 ]);

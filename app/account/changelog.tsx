@@ -1,11 +1,10 @@
-import { View, Text, Pressable, ScrollView, StyleSheet } from 'react-native'
+import { View, Text, ScrollView, StyleSheet, Pressable } from 'react-native'
 import { useRouter } from 'expo-router'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft } from '@/src/components/shared/icons'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
-import { Icon } from '@/src/components/shared/Icon'
+import { ScreenHeader } from '@/src/components/shared/ScreenHeader'
 import { LoadingPhrase } from '@/src/components/shared/LoadingPhrase'
 import { listChangelog } from '@/src/api/changelog'
 
@@ -15,7 +14,7 @@ export default function ChangelogScreen() {
   const { tokens } = useTheme()
   const insets = useSafeAreaInsets()
   const router = useRouter()
-  const { data: releases, isLoading, isError } = useQuery({ queryKey: ['changelog', 'mobile', 'all'], queryFn: listChangelog })
+  const { data: releases, isLoading, isError, isRefetching, refetch } = useQuery({ queryKey: ['changelog', 'mobile', 'all'], queryFn: listChangelog })
 
   const note = isError
     ? "Couldn't load the changelog. Check your connection and try again."
@@ -24,17 +23,17 @@ export default function ChangelogScreen() {
       : null
 
   return (
-    <View style={[styles.container, { backgroundColor: tokens.bg, paddingTop: insets.top }]}>
-      <View style={[styles.header, { borderBottomColor: tokens.border }]}>
-        <Pressable onPress={() => router.back()} hitSlop={12} style={[styles.backButton, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
-          <Icon icon={ArrowLeft} size={20} color={tokens.text} />
-        </Pressable>
-        <Text style={[styles.headerTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Changelog</Text>
-      </View>
+    <View style={[styles.container, { backgroundColor: tokens.bg }]}>
+      <ScreenHeader title="Changelog" onBack={() => router.back()} />
 
       <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 32 }]}>
         {isLoading && <LoadingPhrase phrases={LOADING_PHRASES} color={tokens.text2} style={{ fontFamily: fontFamily.bodyMedium, textAlign: 'center' }} />}
         {note && <Text style={[styles.note, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>{note}</Text>}
+        {isError && (
+          <Pressable accessibilityRole="button" disabled={isRefetching} onPress={() => void refetch()} hitSlop={8} style={[styles.retry, { backgroundColor: tokens.accentSoft }]}>
+            <Text style={[styles.retryText, { color: tokens.accentInk, fontFamily: fontFamily.bodyBold }]}>{isRefetching ? 'Trying…' : 'Try again'}</Text>
+          </Pressable>
+        )}
         {releases?.map((release) => {
           const date = release.publishedAt
             ? new Date(release.publishedAt).toLocaleDateString('en', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })
@@ -61,9 +60,6 @@ export default function ChangelogScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: StyleSheet.hairlineWidth },
-  backButton: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontSize: 19 },
   scrollContent: { padding: 16, gap: 12 },
   card: { borderWidth: 1, borderRadius: 20, padding: 16, gap: 8 },
   meta: { fontSize: 12 },
@@ -73,4 +69,6 @@ const styles = StyleSheet.create({
   line: { flex: 1, fontSize: 14, lineHeight: 20 },
   body: { fontSize: 13, lineHeight: 19 },
   note: { fontSize: 13, textAlign: 'center', marginTop: 24 },
+  retry: { alignSelf: 'center', borderRadius: 999, paddingHorizontal: 16, paddingVertical: 8 },
+  retryText: { fontSize: 13 },
 })

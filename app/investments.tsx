@@ -5,18 +5,20 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import { useReadOnly } from '@/src/components/budgets/ReadOnlyNotice'
 import { ReadOnlyBanner } from '@/src/components/budgets/ReadOnlyBanner'
-import { ArrowLeft, ArrowRight, Plus, Trash } from '@/src/components/shared/icons'
+import { ArrowRight, Plus, Trash } from '@/src/components/shared/icons'
 import { Toast } from '@/src/components/ui/Toast'
 import { getArchive, restoreArchivedItem } from '@/src/api/account'
 import { useQueryClient } from '@tanstack/react-query'
 import { Alert } from '@/src/components/ui/AlertHost'
 import { BottomSheet } from '@/src/components/shared/Modal'
+import { SheetOption, SheetTitle } from '@/src/components/shared/SheetOption'
 import { OfflineScreen } from '@/src/components/shared/OfflineScreen'
 import { useOnline } from '@/src/lib/netStatus'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { usePrivacy } from '@/src/context/PrivacyContext'
 import { fontFamily } from '@/src/theme/fonts'
 import { Icon } from '@/src/components/shared/Icon'
+import { HeaderButton, ScreenHeader } from '@/src/components/shared/ScreenHeader'
 import { formatDate, formatDateShort, formatDateTime, formatOrdinalDate } from '@/src/lib/format'
 import { useHoldings, useDeleteHolding } from '@/src/hooks/useHoldings'
 import { useHoldingEvents } from '@/src/hooks/useHoldingEvents'
@@ -234,7 +236,7 @@ export default function InvestmentsScreen() {
   if (!online) return <OfflineScreen />
 
   return (
-    <View style={[styles.container, { backgroundColor: tokens.bg, paddingTop: insets.top }]}>
+    <View style={[styles.container, { backgroundColor: tokens.bg }]}>
       <Toast
         trigger={undoToast.n}
         message={undoToast.name ? `Deleted ${undoToast.name}` : ''}
@@ -243,23 +245,11 @@ export default function InvestmentsScreen() {
         action={undoToast.name ? { label: 'Undo', onPress: () => void undoDelete(undoToast.name) } : undefined}
         style={{ top: insets.top + 12 }}
       />
-      <View style={[styles.header, { borderBottomColor: tokens.border }]}>
-        <Pressable onPress={() => router.back()} hitSlop={12} style={[styles.backButton, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
-          <Icon icon={ArrowLeft} size={20} color={tokens.text} />
-        </Pressable>
-        <Text style={[styles.headerTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
-          Investments
-        </Text>
-        {/* Keeps the title centered once Add drops out. */}
-        {readOnly ? <View style={{ width: 36 }} /> : (
-          <Pressable onPress={() => router.push('/modals/add-holding')} hitSlop={12} style={styles.headerActionRow}>
-            <Icon icon={Plus} size={16} color={tokens.accent} />
-            <Text style={[styles.headerAction, { color: tokens.accent, fontFamily: fontFamily.bodySemiBold }]}>
-              Add
-            </Text>
-          </Pressable>
-        )}
-      </View>
+      <ScreenHeader
+        onBack={() => router.back()}
+        title="Investments"
+        right={readOnly ? null : <HeaderButton label="Add" icon={Plus} onPress={() => router.push('/modals/add-holding')} />}
+      />
 
       {isLoading ? (
         <View style={styles.centerFill}>
@@ -401,40 +391,15 @@ export default function InvestmentsScreen() {
       )}
 
       <BottomSheet visible={sheetHolding !== null} onClose={() => setSheetHolding(null)}>
-        <Text style={[styles.sheetTitle, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
-          {sheetHolding?.name}
-        </Text>
-        <SheetOption label="Update market value" color={tokens.text} onPress={() => openAction('market_update')} />
-        <SheetOption label="Add contribution" color={tokens.text} onPress={() => openAction('contribution')} divider />
-        <SheetOption label="Withdraw" color={tokens.text} onPress={() => openAction('withdrawal')} divider />
-        <SheetOption label="Edit monthly contribution" color={tokens.text} onPress={openEdit} divider />
-        <View style={[styles.sheetDivider, { backgroundColor: tokens.border }]} />
-        <SheetOption label="Delete" color={tokens.coral} onPress={confirmDelete} />
-        <SheetOption label="Cancel" color={tokens.text2} onPress={() => setSheetHolding(null)} divider />
+        <SheetTitle>{sheetHolding?.name}</SheetTitle>
+        <SheetOption label="Update market value" onPress={() => openAction('market_update')} />
+        <SheetOption label="Add contribution" onPress={() => openAction('contribution')} />
+        <SheetOption label="Withdraw" onPress={() => openAction('withdrawal')} />
+        <SheetOption label="Edit monthly contribution" onPress={openEdit} />
+        <SheetOption label="Delete" tone="destructive" onPress={confirmDelete} />
+        <SheetOption label="Cancel" tone="cancel" onPress={() => setSheetHolding(null)} />
       </BottomSheet>
     </View>
-  )
-}
-
-function SheetOption({
-  label,
-  color,
-  onPress,
-  divider,
-}: {
-  label: string
-  color: string
-  onPress: () => void
-  divider?: boolean
-}) {
-  const { tokens } = useTheme()
-  return (
-    <Pressable
-      onPress={onPress}
-      style={[styles.sheetOption, divider && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: tokens.border }]}
-    >
-      <Text style={[styles.sheetOptionText, { color, fontFamily: fontFamily.bodySemiBold }]}>{label}</Text>
-    </Pressable>
   )
 }
 
@@ -475,18 +440,7 @@ function EventRow({ event, tokens, hideAmounts }: { event: HoldingEventRow; toke
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  backButton: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  headerActionRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   headerAction: { fontSize: 14 },
-  headerTitle: { fontSize: 17 },
   showMore: { alignSelf: 'center', paddingVertical: 4 },
   centerFill: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   scrollContent: { padding: 16, gap: 16 },
@@ -524,8 +478,4 @@ const styles = StyleSheet.create({
   eventMeta: { fontSize: 12, marginTop: 2 },
   eventDeltaRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
   eventDelta: { fontSize: 12 },
-  sheetTitle: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8, textAlign: 'center' },
-  sheetOption: { paddingVertical: 14, alignItems: 'center' },
-  sheetOptionText: { fontSize: 16 },
-  sheetDivider: { height: StyleSheet.hairlineWidth, marginVertical: 4 },
 })

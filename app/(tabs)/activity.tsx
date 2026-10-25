@@ -12,15 +12,17 @@ import { AccountChips, accountName } from "@/src/components/shared/AccountChips"
 import { incomesForPage, periodEnd } from "@/src/lib/incomeActivity";
 import { ExpenseWriteError } from '@/src/lib/expenseConflict';
 import { useCurrency } from '@/src/context/CurrencyContext'
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
+  Keyboard,
   TextInput,
   Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
+  type GestureResponderEvent,
 } from "react-native";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter, useLocalSearchParams, useFocusEffect, type Href } from "expo-router";
@@ -31,13 +33,13 @@ import { CaretLeft, CaretRight, Images, MoneyWavy, Rows, SlidersHorizontal, Tras
 import { ActivityFeed } from "@/src/components/activity/ActivityFeed";
 import { TransactionDetail, type CardRect } from "@/src/components/activity/TransactionDetail";
 import { stablePhotoUrl } from "@/src/lib/activityFeed";
-import { useActivityView, useFeedOn } from "@/src/hooks/useActivityView";
+import { useActivityView, useFeedOn, type ActivityView } from "@/src/hooks/useActivityView";
 import { useFeedTip } from "@/src/hooks/useFeedTip";
 import { CaptureTipBubble } from "@/src/features/log-expense/CaptureTipBubble";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { track } from "@/src/lib/analytics";
 import Reanimated, { FadeIn, FadeOut, LinearTransition } from "react-native-reanimated";
-import { Screen } from "@/src/components/ui/Screen";
+import { Screen, useNavPadding } from "@/src/components/ui/Screen";
 import { Chip } from "@/src/components/ui/Chip";
 import { Icon } from "@/src/components/shared/Icon";
 import { useTheme } from "@/src/theme/ThemeProvider";
@@ -50,11 +52,13 @@ import {
   useExpensesPage,
   useDeleteExpense,
   useDuplicates,
+  prefetchExpensesFeed,
   prefetchExpensesPage,
 } from "@/src/hooks/useExpenses";
 import { useCategories, useCategoryTint } from "@/src/hooks/useCategories";
 import { CategoryPickerSheet } from "@/src/components/shared/CategoryPickerSheet";
 import { BottomSheet } from "@/src/components/shared/Modal";
+import { SheetOption, SheetTitle } from "@/src/components/shared/SheetOption";
 import { DatePicker, type DateRange } from "@/src/components/shared/DatePicker";
 import { useRefresh } from "@/src/hooks/useRefresh";
 import { SwipeableRow } from "@/src/components/activity/SwipeableRow";
@@ -64,7 +68,8 @@ import { ActivitySkeleton } from "@/src/components/shared/TabSkeleton";
 import { OfflineScreen } from "@/src/components/shared/OfflineScreen";
 import { ErrorScreen } from "@/src/components/shared/ErrorScreen";
 import { EmptyState } from "@/src/components/shared/EmptyState";
-import type { ExpenseRow, IncomeRow } from "@/src/types";
+import type { CategoryRow, ExpenseRow, IncomeRow } from "@/src/types";
+import type { BudgetMember } from "@/src/api/spaces";
 import { formatDayLabel, parseLocalDate, toLocalDateString } from "@/src/lib/date";
 import { useOnline } from "@/src/lib/netStatus";
 import { useUnsyncedExpenses } from "@/src/hooks/useUnsyncedExpenses";
@@ -109,11 +114,124 @@ function keyOf(t: ExpenseRow): string {
   return t.id || `t-${t.timestamp}-${t.item}`;
 }
 
+type RowActions = {
+  press: (txn: ExpenseRow, e: GestureResponderEvent) => void;
+  longPress: (txn: ExpenseRow) => void;
+  edit: (txn: ExpenseRow) => void;
+  delete: (txn: ExpenseRow) => void;
+  open: (key: string, close: () => void, reset: () => void) => void;
+  deleteDone: () => void;
+  openIncome: () => void;
+};
+
+// Memoised with stable actions, so the screen re-rendering (a list/feed
+// switch, a selection, a delete) only re-renders the rows it changed. Inline,
+// every row re-rendered every time: 3 to 7ms of JS a row (2026-10-24).
+const ExpenseListRow = memo(function ExpenseListRow({
+  txn,
+  category,
+  who,
+  selected,
+  selecting,
+  locked,
+  hidden,
+  deleting,
+  actions,
+}: {
+  txn: ExpenseRow;
+  category: CategoryRow | undefined;
+  who: BudgetMember | undefined;
+  selected: boolean;
+  selecting: boolean;
+  locked: boolean;
+  /** Its detail page is open, so the page reads as the row lifting off. */
+  hidden: boolean;
+  deleting: boolean;
+  actions: RowActions;
+}) {
+  const { tokens } = useTheme();
+  const tintOf = useCategoryTint();
+  const { hideAmounts } = usePrivacy();
+  const { formatCurrency } = useCurrency();
+  const tint = tintOf(txn.category);
+  return (
+    <DeletingRow active={deleting} onDone={actions.deleteDone}>
+      <SwipeableRow
+        enabled={!selecting}
+        rowKey={keyOf(txn)}
+        onDelete={() => actions.delete(txn)}
+        onEdit={() => actions.edit(txn)}
+        onOpen={actions.open}
+      >
+        <Pressable
+          onPress={(e) => actions.press(txn, e)}
+          onLongPress={() => actions.longPress(txn)}
+          disabled={locked}
+          accessibilityState={selecting ? { selected } : undefined}
+          style={[styles.row, { backgroundColor: tokens.bg, opacity: hidden ? 0 : 1 }]}
+        >
+          <SelectTint selected={selected} style={styles.rowTint} />
+          <SelectCheck selecting={selecting} selected={selected} gap={ROW_GAP} inset={SELECT_INSET} />
+          <View testID="row-icon" style={[styles.icon, { backgroundColor: tint.bg }]}>
+            <CategoryIcon name={txn.category} icon={category?.icon} group={category?.group} size={16} color={tint.ink} />
+            {who ? (
+              <View testID="logged-by" accessibilityLabel={`Added by ${firstName(who.name) ?? "someone"}`} style={styles.loggedBy}>
+                <Avatar name={who.name} avatarUrl={who.avatarUrl} size={20} />
+              </View>
+            ) : null}
+          </View>
+          <View style={{ flex: 1, minWidth: 0 }}>
+            <Text style={[styles.rowItem, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]} numberOfLines={1}>
+              {txn.item}
+            </Text>
+            <Text style={[styles.rowMeta, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]} numberOfLines={1}>
+              {formatShortDate(txn.date)} · {splitEmoji(txn.category).text}
+              {txn.has_photo ? " · Photo" : ""}
+            </Text>
+          </View>
+          <Text style={[styles.rowAmount, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>
+            {formatCurrency(Number(txn.amount_inr) || 0, hideAmounts)}
+          </Text>
+          <SelectInset selecting={selecting} gap={ROW_GAP} inset={SELECT_INSET} />
+        </Pressable>
+      </SwipeableRow>
+    </DeletingRow>
+  );
+});
+
+const IncomeListRow = memo(function IncomeListRow({ income, account, actions }: { income: IncomeRow; account: string; actions: RowActions }) {
+  const { tokens } = useTheme();
+  const { hideAmounts } = usePrivacy();
+  const { formatCurrency } = useCurrency();
+  return (
+    <Pressable
+      onPress={actions.openIncome}
+      accessibilityRole="button"
+      accessibilityLabel={`${income.label}, income. Open Income`}
+      style={[styles.row, { backgroundColor: tokens.bg }]}
+    >
+      <View style={[styles.icon, { backgroundColor: tokens.mintSoft }]}>
+        <Icon icon={MoneyWavy} size={16} color={tokens.mint} />
+      </View>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text style={[styles.rowItem, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]} numberOfLines={1}>
+          {income.label}
+        </Text>
+        <Text style={[styles.rowMeta, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]} numberOfLines={1}>
+          {formatShortDate(income.date)} · Income{account ? ` · ${account}` : ""}
+        </Text>
+      </View>
+      <Text style={[styles.rowAmount, { color: tokens.mint, fontFamily: fontFamily.bodySemiBold }]}>
+        +{formatCurrency(Number(income.amount) || 0, hideAmounts)}
+      </Text>
+    </Pressable>
+  );
+});
+
 function ActivityScreen() {
   const { formatCurrency } = useCurrency()
 
   const { tokens, scheme, space } = useTheme();
-  const tintOf = useCategoryTint();
   const insets = useSafeAreaInsets();
   const categoryRowPress = usePressSpring();
   const { refreshing, onRefresh } = useRefresh();
@@ -401,10 +519,11 @@ function ActivityScreen() {
     setMountedRows(ROWS_PER_FRAME);
   }
   useEffect(() => {
-    if (mountedRows >= listItems.length) return;
+    // The feed doesn't show these rows, so don't re-render it to mount them.
+    if (feedView || mountedRows >= listItems.length) return;
     const id = requestAnimationFrame(() => setMountedRows((n) => n + ROWS_PER_FRAME));
     return () => cancelAnimationFrame(id);
-  }, [mountedRows, listItems.length]);
+  }, [feedView, mountedRows, listItems.length]);
   useEffect(() => {
     viewKeyRef.current = viewKey;
   });
@@ -429,6 +548,21 @@ function ActivityScreen() {
       q: search.trim() || undefined,
     });
   }, [expensesQ.data, page, totalPages, selectedCategory, selectedAccount, from, to, search, qc]);
+
+  // The feed is one tap away, so its first page is fetched while the list is
+  // up: the switch then reads from cache instead of showing a skeleton.
+  // Again on a budget switch, which drops every query nothing is watching.
+  const budgetId = activeBudget?.id;
+  useEffect(() => {
+    if (!feedOn || feedView) return;
+    prefetchExpensesFeed(qc, {
+      category: selectedCategory || undefined,
+      account: selectedAccount || undefined,
+      from,
+      to,
+      q: search.trim() || undefined,
+    });
+  }, [feedOn, feedView, selectedCategory, selectedAccount, from, to, search, qc, budgetId]);
 
   function openEdit(t: ExpenseRow) {
     setSheetTxn(null);
@@ -462,8 +596,20 @@ function ActivityScreen() {
     if (blocked()) return;
     // One row collapses at a time. A delete still mid-collapse is sent now,
     // or swapping the target would quietly cancel it.
-    if (pendingDelete && keyOf(pendingDelete) !== keyOf(t) && sentDeleteRef.current !== keyOf(pendingDelete)) runDelete(pendingDelete);
+    if (pendingDelete && keyOf(pendingDelete) !== keyOf(t)) sendPendingDelete();
     setPendingDelete(t);
+  }
+
+  // Sends the confirmed delete unless it already went. Called when its collapse
+  // finishes, and on anything that cuts the collapse short (a view switch hides
+  // the row mid-animation, and the other view may not have it loaded).
+  function sendPendingDelete() {
+    if (pendingDelete && sentDeleteRef.current !== keyOf(pendingDelete)) runDelete(pendingDelete);
+  }
+
+  function changeView(next: ActivityView) {
+    sendPendingDelete();
+    setView(next);
   }
 
   function runDelete(t: ExpenseRow) {
@@ -483,6 +629,8 @@ function ActivityScreen() {
       // it — clearing it here springs the row back to full height for a whole
       // round trip. On failure the row does come back, which is the signal.
       { onError: (err) => {
+        // So deleting the same row again sends again.
+        if (sentDeleteRef.current === keyOf(t)) sentDeleteRef.current = null;
         setPendingDelete((p) => (p && keyOf(p) === keyOf(t) ? null : p));
         setDeleteNotice({ status: err instanceof ExpenseWriteError ? err.status : undefined });
       } },
@@ -499,6 +647,59 @@ function ActivityScreen() {
       return next;
     });
   }
+
+  // The rows are memoised, so they get one stable set of actions that calls
+  // through to this render's handlers.
+  const latestRowActions = useRef<RowActions | null>(null);
+  useLayoutEffect(() => {
+    latestRowActions.current = {
+      press: (txn, e) => {
+        if (selecting) return toggleSelected(txn);
+        e.currentTarget.measureInWindow((x, y, width, height) => setDetail({ txn, rect: { x, y, width, height } }));
+      },
+      longPress: (txn) => {
+        if (!selecting) toggleSelected(txn);
+      },
+      edit: openEdit,
+      delete: confirmDelete,
+      open: (key, close, reset) => {
+        if (openRowRef.current && openRowRef.current.key !== key) openRowRef.current.close();
+        openRowRef.current = { key, close, reset };
+      },
+      deleteDone: sendPendingDelete,
+      openIncome: () => router.push("/account/income"),
+    };
+  });
+  const rowActions = useMemo<RowActions>(
+    () => ({
+      press: (txn, e) => latestRowActions.current?.press(txn, e),
+      longPress: (txn) => latestRowActions.current?.longPress(txn),
+      edit: (txn) => latestRowActions.current?.edit(txn),
+      delete: (txn) => latestRowActions.current?.delete(txn),
+      open: (key, close, reset) => latestRowActions.current?.open(key, close, reset),
+      deleteDone: () => latestRowActions.current?.deleteDone(),
+      openIncome: () => latestRowActions.current?.openIncome(),
+    }),
+    [],
+  );
+  // Feed and list stay mounted once shown and swap by opacity (see below).
+  // Only the one on screen mounts with the tab. The other follows a moment
+  // after you land here, so the switch is ready before you reach for it, and
+  // launch (where this tab preloads) still pays for one view, not two.
+  const [feedMounted, setFeedMounted] = useState(feedView);
+  const [listMounted, setListMounted] = useState(!feedView);
+  const [settled, setSettled] = useState(false);
+  useFocusEffect(
+    useCallback(() => {
+      // ponytail: a fixed delay; an idle callback if it ever lands mid-scroll.
+      const timer = setTimeout(() => setSettled(true), 1000);
+      return () => clearTimeout(timer);
+    }, []),
+  );
+  const warmOther = feedOn && settled && expensesQ.data !== undefined;
+  if ((feedView || warmOther) && !feedMounted) setFeedMounted(true);
+  if ((!feedView || warmOther) && !listMounted) setListMounted(true);
+  const navPad = useNavPadding();
 
   // One request per row, in order: each delete runs its own server transaction
   // (credit-card envelope rebalance included), so parallel requests would just
@@ -782,9 +983,12 @@ function ActivityScreen() {
                   onPress={() => {
                     const next = feedView ? "list" : "feed";
                     Haptics.selectionAsync().catch(() => {});
+                    // The view going away only hides now, and a search field in it
+                    // would keep the keyboard typing into something off screen.
+                    Keyboard.dismiss();
                     openRowRef.current?.reset();
                     openRowRef.current = null;
-                    setView(next);
+                    changeView(next);
                     track("activity_view_changed", { view: next });
                   }}
                 />
@@ -792,245 +996,166 @@ function ActivityScreen() {
             </>
           )
         }
-        scroll={!feedView}
-        contentContainerStyle={[
-          styles.scrollContent,
-          totalCount === 0 && styles.scrollContentGrow,
-        ]}
-        refreshControl={refreshControl}
+        scroll={false}
       >
-        {feedView ? (
-          <ActivityFeed
-            params={feedParams}
-            incomes={feedIncomes}
-            onOpenIncome={() => router.push("/account/income")}
-            header={controls}
-            empty={emptyState}
-            categoryByName={categoryByName}
-            accountNameOf={(id) => accountName(accountsQ.data, id)}
-            onOpenActions={setSheetTxn}
-            onEdit={openEdit}
-            onDelete={confirmDelete}
-            isDeleting={(t) => pendingDelete !== null && keyOf(pendingDelete) === keyOf(t)}
-            onDeleteDone={() => {
-              if (pendingDelete) runDelete(pendingDelete);
-            }}
-            refreshControl={refreshControl}
-          />
-        ) : (
-        <>
-        {controls}
-        {totalCount === 0 && visibleIncomes.length === 0 ? (
-          emptyState
-        ) : (
-          <View>
-            {listItems.slice(0, mountedRows).map((entry) => {
-              if (entry.kind === "income") {
-                const income = entry.income;
-                const account = accountName(accountsQ.data, income.account_id);
-                return (
-                  <Pressable
-                    key={`income-${income.id}`}
-                    onPress={() => router.push("/account/income")}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${income.label}, income. Open Income`}
-                    style={[styles.row, { backgroundColor: tokens.bg }]}
-                  >
-                    <View style={[styles.icon, { backgroundColor: tokens.mintSoft }]}>
-                      <Icon icon={MoneyWavy} size={16} color={tokens.mint} />
-                    </View>
-                    <View style={{ flex: 1, minWidth: 0 }}>
-                      <Text style={[styles.rowItem, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]} numberOfLines={1}>
-                        {income.label}
-                      </Text>
-                      <Text style={[styles.rowMeta, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]} numberOfLines={1}>
-                        {formatShortDate(income.date)} · Income{account ? ` · ${account}` : ""}
-                      </Text>
-                    </View>
-                    <Text style={[styles.rowAmount, { color: tokens.mint, fontFamily: fontFamily.bodySemiBold }]}>
-                      +{formatCurrency(Number(income.amount) || 0, hideAmounts)}
-                    </Text>
-                  </Pressable>
-                );
-              }
-              const txn = entry.txn;
-              const tint = tintOf(txn.category);
-              const cat = categoryByName.get(txn.category);
-              const isSelected = selectedKeys.has(keyOf(txn));
-              const who = shared ? loggedBy(txn, activeBudget) : undefined;
-              const content = (
-                <Pressable
-                  onPress={(e) => {
-                    if (selecting) return toggleSelected(txn);
-                    e.currentTarget.measureInWindow((x, y, width, height) => setDetail({ txn, rect: { x, y, width, height } }));
-                  }}
-                  onLongPress={() => {
-                    if (!selecting) toggleSelected(txn);
-                  }}
-                  disabled={selectionLocked}
-                  accessibilityState={selecting ? { selected: isSelected } : undefined}
-                  style={[styles.row, { backgroundColor: tokens.bg, opacity: detail && keyOf(detail.txn) === keyOf(txn) ? 0 : 1 }]}
-                >
-                  <SelectTint selected={isSelected} style={styles.rowTint} />
-                  <SelectCheck selecting={selecting} selected={isSelected} gap={ROW_GAP} inset={SELECT_INSET} />
-                  <View testID="row-icon" style={[styles.icon, { backgroundColor: tint.bg }]}>
-                    <CategoryIcon name={txn.category} icon={cat?.icon} group={cat?.group} size={16} color={tint.ink} />
-                    {who ? (
-                      <View testID="logged-by" accessibilityLabel={`Added by ${firstName(who.name) ?? "someone"}`} style={styles.loggedBy}>
-                        <Avatar name={who.name} avatarUrl={who.avatarUrl} size={20} />
-                      </View>
-                    ) : null}
-                  </View>
-                  <View style={{ flex: 1, minWidth: 0 }}>
-                    <Text
-                      style={[
-                        styles.rowItem,
-                        {
-                          color: tokens.text,
-                          fontFamily: fontFamily.bodySemiBold,
-                        },
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {txn.item}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.rowMeta,
-                        {
-                          color: tokens.text3,
-                          fontFamily: fontFamily.bodyMedium,
-                        },
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {formatShortDate(txn.date)} ·{" "}
-                      {splitEmoji(txn.category).text}
-                      {txn.has_photo ? " · Photo" : ""}
-                    </Text>
-                  </View>
-                  <Text
-                    style={[
-                      styles.rowAmount,
-                      {
-                        color: tokens.text,
-                        fontFamily: fontFamily.bodySemiBold,
-                      },
-                    ]}
-                  >
-                    {formatCurrency(
-                      Number(txn.amount_inr) || 0,
-                      hideAmounts,
+        {/* Both views stay mounted once shown and swap by opacity. Switching
+            used to tear down the whole body and build the other view from
+            scratch: on the emulator the list took 1.4s to fill back in, ten
+            rows a frame (2026-10-24). */}
+        <View style={[styles.views, { marginHorizontal: -space.lg }]}>
+          {/* Never flattened: a flattened wrapper turned into a real view
+              whenever it hid, and Fabric re-parented the whole list under it,
+              a 350ms frame on every switch. */}
+          {listMounted ? (
+            <View
+              collapsable={false}
+              style={[StyleSheet.absoluteFill, feedView && styles.hiddenView]}
+              pointerEvents={feedView ? "none" : "auto"}
+              accessibilityElementsHidden={feedView}
+              importantForAccessibility={feedView ? "no-hide-descendants" : "auto"}
+            >
+              <ScrollView
+                ref={scrollRef}
+                style={styles.views}
+                refreshControl={refreshControl}
+                contentContainerStyle={[
+                  { paddingHorizontal: space.lg, paddingBottom: navPad },
+                  styles.scrollContent,
+                  totalCount === 0 && styles.scrollContentGrow,
+                ]}
+              >
+                {controls}
+                {totalCount === 0 && visibleIncomes.length === 0 ? (
+                  emptyState
+                ) : (
+                  <View>
+                    {listItems.slice(0, mountedRows).map((entry) =>
+                      entry.kind === "income" ? (
+                        <IncomeListRow
+                          key={`income-${entry.income.id}`}
+                          income={entry.income}
+                          account={accountName(accountsQ.data, entry.income.account_id)}
+                          actions={rowActions}
+                        />
+                      ) : (
+                        <ExpenseListRow
+                          key={keyOf(entry.txn)}
+                          txn={entry.txn}
+                          category={categoryByName.get(entry.txn.category)}
+                          who={shared ? loggedBy(entry.txn, activeBudget) : undefined}
+                          selected={selectedKeys.has(keyOf(entry.txn))}
+                          selecting={selecting}
+                          locked={selectionLocked}
+                          hidden={detail !== null && keyOf(detail.txn) === keyOf(entry.txn)}
+                          // Only the view on screen collapses the row and sends the delete;
+                        // the same expense sits in the hidden one too.
+                        deleting={!feedView && pendingDelete !== null && keyOf(pendingDelete) === keyOf(entry.txn)}
+                          actions={rowActions}
+                        />
+                      ),
                     )}
-                  </Text>
-                  <SelectInset selecting={selecting} gap={ROW_GAP} inset={SELECT_INSET} />
-                </Pressable>
-              );
-              return (
-                <DeletingRow
-                  key={keyOf(txn)}
-                  active={
-                    pendingDelete !== null &&
-                    keyOf(pendingDelete) === keyOf(txn)
-                  }
-                  onDone={() => {
-                    if (pendingDelete) runDelete(pendingDelete);
-                  }}
-                >
-                  <SwipeableRow
-                      enabled={!selecting}
-                      rowKey={keyOf(txn)}
-                      onDelete={() => confirmDelete(txn)}
-                      onEdit={() => openEdit(txn)}
-                      onOpen={(key, close, reset) => {
-                        if (
-                          openRowRef.current &&
-                          openRowRef.current.key !== key
-                        ) {
-                          openRowRef.current.close();
-                        }
-                        openRowRef.current = { key, close, reset };
+                  </View>
+                )}
+
+                {totalCount > 0 || visibleIncomes.length > 0 ? (
+                  <View style={styles.footer}>
+                    <Text
+                      style={{
+                        color: tokens.text2,
+                        fontSize: 12,
+                        fontFamily: fontFamily.bodySemiBold,
                       }}
                     >
-                      {content}
-                    </SwipeableRow>
-                </DeletingRow>
-              );
-            })}
-          </View>
-        )}
+                      {totalCount} transaction{totalCount !== 1 ? "s" : ""}
+                    </Text>
+                    <Text
+                      style={{
+                        color: tokens.text2,
+                        fontSize: 12,
+                        fontFamily: fontFamily.bodySemiBold,
+                      }}
+                    >
+                      Total: {formatCurrency(totalSpend, hideAmounts)}
+                    </Text>
+                  </View>
+                ) : null}
 
-        {totalCount > 0 || visibleIncomes.length > 0 ? (
-          <View style={styles.footer}>
-            <Text
-              style={{
-                color: tokens.text2,
-                fontSize: 12,
-                fontFamily: fontFamily.bodySemiBold,
-              }}
+                {totalPages > 1 ? (
+                  <View style={styles.pagination}>
+                    <Pressable
+                      onPress={() => changePage(page - 1)}
+                      disabled={page <= 1}
+                      accessibilityRole="button"
+                      accessibilityLabel="Previous page"
+                      accessibilityState={{ disabled: page <= 1 }}
+                      style={[
+                        styles.pageButton,
+                        {
+                          backgroundColor: tokens.card,
+                          borderColor: tokens.border,
+                          opacity: page <= 1 ? 0.4 : 1,
+                        },
+                      ]}
+                    >
+                      <Icon icon={CaretLeft} size={17} color={tokens.text2} />
+                    </Pressable>
+                    <Text
+                      style={[
+                        styles.pageLabel,
+                        { color: tokens.text, fontFamily: fontFamily.bodyBold },
+                      ]}
+                    >
+                      Page {page} of {totalPages}
+                    </Text>
+                    <Pressable
+                      onPress={() => changePage(page + 1, true)}
+                      disabled={page >= totalPages}
+                      accessibilityRole="button"
+                      accessibilityLabel="Next page"
+                      accessibilityState={{ disabled: page >= totalPages }}
+                      style={[
+                        styles.pageButton,
+                        {
+                          backgroundColor: tokens.card,
+                          borderColor: tokens.border,
+                          opacity: page >= totalPages ? 0.4 : 1,
+                        },
+                      ]}
+                    >
+                      <Icon icon={CaretRight} size={17} color={tokens.text2} />
+                    </Pressable>
+                  </View>
+                ) : null}
+              </ScrollView>
+            </View>
+          ) : null}
+          {/* Off in Features unmounts it: a hidden feed still refetched (and re-signed) its photos on every write. */}
+          {feedOn && feedMounted ? (
+            <View
+              collapsable={false}
+              style={[StyleSheet.absoluteFill, { paddingHorizontal: space.lg }, !feedView && styles.hiddenView]}
+              pointerEvents={feedView ? "auto" : "none"}
+              accessibilityElementsHidden={!feedView}
+              importantForAccessibility={feedView ? "auto" : "no-hide-descendants"}
             >
-              {totalCount} transaction{totalCount !== 1 ? "s" : ""}
-            </Text>
-            <Text
-              style={{
-                color: tokens.text2,
-                fontSize: 12,
-                fontFamily: fontFamily.bodySemiBold,
-              }}
-            >
-              Total: {formatCurrency(totalSpend, hideAmounts)}
-            </Text>
-          </View>
-        ) : null}
-
-        {totalPages > 1 ? (
-          <View style={styles.pagination}>
-            <Pressable
-              onPress={() => changePage(page - 1)}
-              disabled={page <= 1}
-              accessibilityRole="button"
-              accessibilityLabel="Previous page"
-              accessibilityState={{ disabled: page <= 1 }}
-              style={[
-                styles.pageButton,
-                {
-                  backgroundColor: tokens.card,
-                  borderColor: tokens.border,
-                  opacity: page <= 1 ? 0.4 : 1,
-                },
-              ]}
-            >
-              <Icon icon={CaretLeft} size={17} color={tokens.text2} />
-            </Pressable>
-            <Text
-              style={[
-                styles.pageLabel,
-                { color: tokens.text, fontFamily: fontFamily.bodyBold },
-              ]}
-            >
-              Page {page} of {totalPages}
-            </Text>
-            <Pressable
-              onPress={() => changePage(page + 1, true)}
-              disabled={page >= totalPages}
-              accessibilityRole="button"
-              accessibilityLabel="Next page"
-              accessibilityState={{ disabled: page >= totalPages }}
-              style={[
-                styles.pageButton,
-                {
-                  backgroundColor: tokens.card,
-                  borderColor: tokens.border,
-                  opacity: page >= totalPages ? 0.4 : 1,
-                },
-              ]}
-            >
-              <Icon icon={CaretRight} size={17} color={tokens.text2} />
-            </Pressable>
-          </View>
-        ) : null}
-        </>
-        )}
+              <ActivityFeed
+                params={feedParams}
+                incomes={feedIncomes}
+                onOpenIncome={() => router.push("/account/income")}
+                header={controls}
+                empty={emptyState}
+                categoryByName={categoryByName}
+                accountNameOf={(id) => accountName(accountsQ.data, id)}
+                onOpenActions={setSheetTxn}
+                onEdit={openEdit}
+                onDelete={confirmDelete}
+                isDeleting={(t) => feedView && pendingDelete !== null && keyOf(pendingDelete) === keyOf(t)}
+                onDeleteDone={sendPendingDelete}
+                refreshControl={refreshControl}
+              />
+            </View>
+          ) : null}
+        </View>
 
         {detail && (
           <TransactionDetail
@@ -1055,15 +1180,7 @@ function ActivityScreen() {
           visible={sheetTxn !== null}
           onClose={() => setSheetTxn(null)}
         >
-          <Text
-            style={[
-              styles.sheetTitle,
-              { color: tokens.text2, fontFamily: fontFamily.bodySemiBold },
-            ]}
-            numberOfLines={1}
-          >
-            {sheetTxn?.item}
-          </Text>
+          <SheetTitle>{sheetTxn?.item}</SheetTitle>
           {shared && sheetTxn ? (
             <Text style={[styles.addedBy, { color: tokens.text3, fontFamily: fontFamily.bodyMedium }]}>
               {addedByLabel(loggedBy(sheetTxn, activeBudget))}
@@ -1071,13 +1188,11 @@ function ActivityScreen() {
           ) : null}
           <SheetOption
             label="Edit"
-            color={tokens.text}
             onPress={() => sheetTxn && openEdit(sheetTxn)}
           />
           {multiBudget && sheetTxn?.id ? (
             <SheetOption
               label="Move to another budget"
-              color={tokens.text}
               onPress={() => {
                 setSheetTxn(null);
                 if (!blocked()) setMoveTxn(sheetTxn);
@@ -1086,12 +1201,12 @@ function ActivityScreen() {
           ) : null}
           <SheetOption
             label="Delete"
-            color={tokens.coral}
+            tone="destructive"
             onPress={() => sheetTxn && confirmDelete(sheetTxn)}
           />
           <SheetOption
             label="Cancel"
-            color={tokens.text2}
+            tone="cancel"
             onPress={() => setSheetTxn(null)}
           />
         </BottomSheet>
@@ -1119,12 +1234,12 @@ function ActivityScreen() {
           </Text>
           <SheetOption
             label="Delete"
-            color={tokens.coral}
+            tone="destructive"
             onPress={() => deleteTxn && startDelete(deleteTxn)}
           />
           <SheetOption
             label="Cancel"
-            color={tokens.text2}
+            tone="cancel"
             onPress={() => setDeleteTxn(null)}
           />
         </BottomSheet>
@@ -1152,12 +1267,12 @@ function ActivityScreen() {
           </Text>
           <SheetOption
             label="Delete"
-            color={tokens.coral}
+            tone="destructive"
             onPress={() => void runBulkDelete(selectedTxns)}
           />
           <SheetOption
             label="Cancel"
-            color={tokens.text2}
+            tone="cancel"
             onPress={() => setConfirmBulk(false)}
           />
         </BottomSheet>
@@ -1166,14 +1281,7 @@ function ActivityScreen() {
           visible={categorySheetOpen}
           onClose={() => setCategorySheetOpen(false)}
         >
-          <Text
-            style={[
-              styles.sheetTitle,
-              { color: tokens.text2, fontFamily: fontFamily.bodySemiBold },
-            ]}
-          >
-            Filter
-          </Text>
+          <SheetTitle>Filter</SheetTitle>
           <View style={styles.periodRow}>
             {(["all", "week", "month", "custom"] as PeriodKey[]).map((key) => (
               <Chip
@@ -1276,7 +1384,7 @@ function ActivityScreen() {
           ringColor={tokens.accent}
           onTry={() => {
             feedTip.close("try");
-            setView("feed");
+            changeView("feed");
             track("activity_view_changed", { view: "feed" });
           }}
           onDismiss={() => feedTip.close("dismiss")}
@@ -1335,29 +1443,6 @@ function addedByLabel(who: { userId: string; name: string | null } | undefined):
   return `Added by ${addedByName(who)}`;
 }
 
-function SheetOption({
-  label,
-  color,
-  onPress,
-}: {
-  label: string;
-  color: string;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable onPress={onPress} style={styles.sheetOption}>
-      <Text
-        style={[
-          styles.sheetOptionText,
-          { color, fontFamily: fontFamily.bodySemiBold },
-        ]}
-      >
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
-
 type ListItem = { kind: "expense"; txn: ExpenseRow } | { kind: "income"; income: IncomeRow };
 
 /** Expenses as the server ordered them (newest first), with income slotted in by date: ahead of that day's spends. */
@@ -1377,6 +1462,8 @@ const styles = StyleSheet.create({
   scrollContent: { gap: 4 },
   readOnly: { marginBottom: 8 },
   scrollContentGrow: { flexGrow: 1 },
+  views: { flex: 1 },
+  hiddenView: { opacity: 0 },
   searchRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -1490,17 +1577,8 @@ const styles = StyleSheet.create({
   },
   whoRow: { flexDirection: "row", gap: 8 },
   addedBy: { fontSize: 12, marginTop: -4, marginBottom: 8 },
-  sheetTitle: {
-    fontSize: 12,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-    marginBottom: 8,
-    textAlign: "center",
-  },
   confirmTitle: { fontSize: 17, textAlign: "center", marginBottom: 6 },
   confirmBody: { fontSize: 13, textAlign: "center", marginBottom: 8 },
-  sheetOption: { paddingVertical: 14, alignItems: "center" },
-  sheetOptionText: { fontSize: 16 },
 });
 
 // memo: expo-router re-renders a tab's screen on every focus change with a

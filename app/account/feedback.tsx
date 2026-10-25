@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
 import { View, Text, TextInput, Pressable, ScrollView, KeyboardAvoidingView, Platform, StyleSheet, Image } from 'react-native'
 import { useRouter } from 'expo-router'
-import { ArrowLeft, ImageSquare, X } from '@/src/components/shared/icons'
+import { ImageSquare, X } from '@/src/components/shared/icons'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Alert } from '@/src/components/ui/AlertHost'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
-import { Icon } from '@/src/components/shared/Icon'
+import { ScreenHeader } from '@/src/components/shared/ScreenHeader'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { Toggle } from '@/src/components/ui/Toggle'
 import { usePrivacy } from '@/src/context/PrivacyContext'
@@ -63,12 +63,7 @@ export default function FeedbackScreen() {
       style={[styles.container, { backgroundColor: tokens.bg }]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <View style={[styles.header, { paddingTop: insets.top, borderBottomColor: tokens.border }]}>
-        <Pressable onPress={() => router.back()} hitSlop={12} style={[styles.backButton, { backgroundColor: tokens.card, borderColor: tokens.border }]}>
-          <Icon icon={ArrowLeft} size={20} color={tokens.text} />
-        </Pressable>
-        <Text style={[styles.headerTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Report a bug</Text>
-      </View>
+      <ScreenHeader title="Report a bug" onBack={() => router.back()} />
 
       <ScrollView contentContainerStyle={[styles.body, { paddingBottom: insets.bottom + 32 }]} keyboardShouldPersistTaps="handled">
         <View style={styles.field}>
@@ -163,9 +158,6 @@ export default function FeedbackScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingBottom: 14, borderBottomWidth: StyleSheet.hairlineWidth },
-  backButton: { width: 36, height: 36, borderRadius: 18, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontSize: 19 },
   body: { padding: 20, gap: 16 },
   field: { gap: 8 },
   fieldLabel: { fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5 },

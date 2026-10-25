@@ -1,4 +1,4 @@
-import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
+import { infiniteQueryOptions, keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import {
   deleteExpense,
   deleteExpensePhoto,
@@ -113,10 +113,14 @@ export function useExpensesPage(params: ExpensesPageParams) {
  */
 export const FEED_MAX_PAGES = 5
 
-export function useExpensesFeed(params: Omit<ExpensesPageParams, 'page' | 'photos'>) {
-  return useInfiniteQuery({
-    queryKey: [...key, 'feed', params] as const,
-    queryFn: ({ pageParam }) => getExpensesPage({ ...params, page: pageParam, photos: true }),
+export const FEED_PAGE_SIZE = 12
+
+type FeedParams = Omit<ExpensesPageParams, 'page' | 'photos' | 'limit'>
+
+const feedOptions = (params: FeedParams) =>
+  infiniteQueryOptions({
+    queryKey: [...key, 'feed', { limit: FEED_PAGE_SIZE, ...params }] as const,
+    queryFn: ({ pageParam }) => getExpensesPage({ limit: FEED_PAGE_SIZE, ...params, page: pageParam, photos: true }),
     initialPageParam: 1,
     getNextPageParam: (last) => (last.page < last.pageCount ? last.page + 1 : undefined),
     // A write invalidates ['expenses'], which refetches every loaded page (and re-signs
@@ -125,6 +129,14 @@ export function useExpensesFeed(params: Omit<ExpensesPageParams, 'page' | 'photo
     maxPages: FEED_MAX_PAGES,
     staleTime: 30_000,
   })
+
+export function useExpensesFeed(params: FeedParams) {
+  return useInfiniteQuery(feedOptions(params))
+}
+
+/** Warms the feed's first page so switching Activity to the feed doesn't wait on a fetch. */
+export function prefetchExpensesFeed(qc: QueryClient, params: FeedParams) {
+  return qc.prefetchInfiniteQuery(feedOptions(params))
 }
 
 /**

@@ -1,3 +1,4 @@
+import { fireEvent } from '@testing-library/react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import ChangelogScreen from './changelog'
 
@@ -26,4 +27,13 @@ it('says so when nothing has shipped yet', async () => {
   mockList.mockResolvedValue([])
   const { findByText } = renderWithProviders(<ChangelogScreen />)
   expect(await findByText("Updates show up here once they're out.")).toBeTruthy()
+})
+
+it('offers a retry when the changelog fails to load', async () => {
+  mockList.mockRejectedValueOnce(new Error('503')).mockResolvedValueOnce([
+    { id: 'r1', platform: 'mobile', title: 'Bill scans', version: '1.3.0', highlights: [], body: '', publishedAt: null },
+  ])
+  const { findByText } = renderWithProviders(<ChangelogScreen />)
+  fireEvent.press(await findByText('Try again'))
+  expect(await findByText('Bill scans')).toBeTruthy()
 })

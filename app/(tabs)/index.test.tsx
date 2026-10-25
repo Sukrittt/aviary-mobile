@@ -214,6 +214,30 @@ describe('HomeScreen · Ready to Assign', () => {
     expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/modals/recurring-income', params: { label: 'Monthly income', frequency: 'monthly', amount: '' } })
   })
 
+  it('says how far the plan is over what comes in, and opens the biggest plan to trim', () => {
+    mockBudgets = [
+      { month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' },
+      { month: MONTH, category: 'Food', assigned: '25000', rolled_over: '0' },
+    ]
+    const { getByText } = renderHome()
+    expect(getByText('₹5,000 more planned than coming in')).toBeTruthy()
+    fireEvent.press(getByText('Trim'))
+    expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/modals/edit-assigned-amount', params: { category: 'Food' } })
+  })
+
+  it('says nothing about over-planning when nothing is planned', () => {
+    mockBudgets = [{ month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' }]
+    mockCarry = { ready_to_assign: -25000, rolled_over: {} }
+    const { queryByText } = renderHome()
+    expect(queryByText(/more planned than coming in/)).toBeNull()
+  })
+
+  it('says nothing about trimming when the plan fits', () => {
+    const { queryByText } = renderHome()
+    expect(queryByText(/more planned than coming in/)).toBeNull()
+    expect(queryByText('Trim')).toBeNull()
+  })
+
   it('shrinks Ready to Assign to a slim row once every rupee is assigned', () => {
     mockBudgets = [
       { month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' },
@@ -370,6 +394,23 @@ describe('HomeScreen · Ready to Assign', () => {
     const { findByTestId, queryByText } = renderWithProviders(<HomeScreen />, { queryClient })
     expect(await findByTestId('read-only-banner')).toBeTruthy()
     expect(queryByText('Get started')).toBeNull()
+  })
+
+  it('in a read-only budget, explains an over plan but offers no Trim', async () => {
+    mockBudgets = [
+      { month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' },
+      { month: MONTH, category: 'Food', assigned: '25000', rolled_over: '0' },
+    ]
+    const queryClient = createTestQueryClient()
+    queryClient.setQueryData(['spaces'], {
+      count: 1, limit: 5, activeId: null,
+      budgets: [{ id: 'b1', name: 'Studio', emoji: '', role: 'member', ownerId: 'o1', currencyCode: 'INR', personal: true, readOnly: true,
+        members: [{ userId: 'o1', name: 'Priya Shah', avatarUrl: null, role: 'owner', joinedAt: null }] }],
+    })
+    const { findByTestId, getByText, queryByText } = renderWithProviders(<HomeScreen />, { queryClient })
+    await findByTestId('read-only-banner')
+    expect(getByText('₹5,000 more planned than coming in')).toBeTruthy()
+    expect(queryByText('Trim')).toBeNull()
   })
 
   it('hides Get Started when skipped, and remembers it on this device', async () => {
@@ -582,7 +623,7 @@ describe('HomeScreen · one banner at a time', () => {
     space()
     mockCarry = { ready_to_assign: 5000, rolled_over: { Food: 95, Rent: -20 } }
     const { findByText, queryByText } = renderHome()
-    expect(await findByText('🌱 ₹5,095 rolled over · ₹20 short')).toBeTruthy()
+    expect(await findByText('₹5,095 rolled over · ₹20 short')).toBeTruthy()
     // The strip says it all, so the hero has no separate carried line.
     expect(queryByText(/includes ₹/)).toBeNull()
     expect(queryByText(/30 days on us/)).toBeNull()

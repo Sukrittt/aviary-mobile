@@ -1,4 +1,4 @@
-import { Linking, Platform, Share } from 'react-native'
+import { Linking, Platform } from 'react-native'
 import { act, fireEvent, waitFor } from '@testing-library/react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { useUser } from '@/src/hooks/useUser'
@@ -96,12 +96,11 @@ beforeEach(() => {
   mockParams = {}
 })
 
-describe('More tab · invite a friend', () => {
-  it('opens the share sheet with the tagged web link', async () => {
-    const share = jest.spyOn(Share, 'share').mockResolvedValue({ action: Share.sharedAction })
+describe('More tab · refer a friend', () => {
+  it('opens the Refer screen', async () => {
     const { findByText } = renderWithProviders(<MoreScreen />)
-    fireEvent.press(await findByText('Invite a friend'))
-    await waitFor(() => expect(share).toHaveBeenCalledWith({ message: expect.stringContaining('https://www.useaviary.com/?ref=invite') }))
+    fireEvent.press(await findByText('Refer a friend'))
+    expect(mockPush).toHaveBeenCalledWith('/account/refer')
   })
 })
 

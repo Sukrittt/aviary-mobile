@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { ScreenHeader } from '@/src/components/shared/ScreenHeader'
 import { useRouter } from 'expo-router'
 import { useQueryClient } from '@tanstack/react-query'
 import * as ImagePicker from 'expo-image-picker'
-import { CaretDown, CaretRight, Check, CheckCircle, FileText, Images, Lock, Receipt, Sparkle, X } from '@/src/components/shared/icons'
+import { CaretDown, CaretRight, Check, CheckCircle, FileText, Images, Lock, Receipt, Sparkle } from '@/src/components/shared/icons'
 import Animated, { FadeIn, FadeInDown, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated'
 import { CategoryPickerSheet } from '@/src/components/shared/CategoryPickerSheet'
 import { CategoryIcon } from '@/src/components/shared/CategoryIcon'
@@ -254,21 +255,14 @@ function StatementScreen() {
 
   return (
     <View style={[styles.screen, { backgroundColor: tokens.bg }]}>
-      {phase !== 'done' && <View style={[styles.header, { paddingTop: insets.top + space.sm, paddingHorizontal: space.lg, gap: space.md, borderBottomColor: tokens.border }]}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Close"
-          onPress={() => router.back()}
-          disabled={busy}
-          hitSlop={12}
-          style={[styles.headerBtn, { backgroundColor: tokens.card, borderColor: tokens.border, borderRadius: radius.full }]}
-        >
-          <X size={16} color={tokens.text} />
-        </Pressable>
-        <Text style={{ flex: 1, color: tokens.text, fontFamily: fontFamily.displaySemiBold, fontSize: type.body }}>
-          {phase === 'review' ? 'Check these, then log' : 'Add from statement or screenshot'}
-        </Text>
-      </View>}
+      {phase !== 'done' && (
+        <ScreenHeader
+          title={phase === 'review' ? 'Check these, then log' : 'Add from statement or screenshot'}
+          onBack={() => router.back()}
+          close
+          backDisabled={busy}
+        />
+      )}
 
       {phase === 'pick' && (
         <View style={{ flex: 1 }}>
@@ -717,8 +711,6 @@ function StatementDone({ done, onDone, onActivity }: { done: CaughtUp; onDone: (
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  header: { flexDirection: 'row', alignItems: 'center', paddingBottom: 12, borderBottomWidth: StyleSheet.hairlineWidth },
-  headerBtn: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   pick: { flexDirection: 'row', alignItems: 'center', minHeight: 76, borderWidth: 1 },
   pickTile: { width: 44, height: 44, borderRadius: 14 },

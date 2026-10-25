@@ -6,10 +6,10 @@ import { useCurrency } from '@/src/context/CurrencyContext'
 // over a real wallpaper and border-radius clipping can still differ, so
 // verify a layout change here first, then confirm once via More > "Add
 // widget to home screen" before calling it done.
-import { View, Text, Pressable, ScrollView, StyleSheet } from "react-native";
+import { View, Text, ScrollView, StyleSheet } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
-import { ArrowLeft } from "@/src/components/shared/icons";
+import { ScreenHeader } from "@/src/components/shared/ScreenHeader";
 import { WidgetPreview } from "react-native-android-widget";
 import { useTheme } from "@/src/theme/ThemeProvider";
 import { fontFamily } from "@/src/theme/fonts";
@@ -45,19 +45,7 @@ export default function WidgetPreviewScreen() {
 
   return (
     <View style={[styles.screen, { backgroundColor: tokens.bg }]}>
-      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
-        <Pressable onPress={() => router.back()} hitSlop={12}>
-          <ArrowLeft size={20} color={tokens.text} />
-        </Pressable>
-        <Text
-          style={[
-            styles.title,
-            { color: tokens.text, fontFamily: fontFamily.displayBold },
-          ]}
-        >
-          Widget preview
-        </Text>
-      </View>
+      <ScreenHeader onBack={() => router.back()} title="Widget preview" />
       {!ready ? null : (
         <ScrollView
           contentContainerStyle={[
@@ -212,15 +200,7 @@ function PreviewRow({
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-  },
-  title: { fontSize: 18 },
-  content: { paddingHorizontal: 20, gap: 24 },
+  content: { paddingHorizontal: 20, paddingTop: 16, gap: 24 },
   row: { gap: 8 },
   rowLabel: { fontSize: 12 },
 });
