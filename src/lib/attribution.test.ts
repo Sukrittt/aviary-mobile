@@ -8,6 +8,7 @@ const referrer = Application.getInstallReferrerAsync as jest.Mock
 
 async function fresh() {
   let mod!: typeof import('./attribution')
+  // eslint-disable-next-line @typescript-eslint/no-require-imports -- isolateModules needs a fresh require for module state
   jest.isolateModules(() => { mod = require('./attribution') })
   return mod
 }
