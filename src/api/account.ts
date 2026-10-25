@@ -1,4 +1,5 @@
 import { writeCurrencyPreference } from '@/src/lib/currencyPreference'
+import { clearAttribution } from '@/src/lib/attribution'
 import { unregisterDevicePushToken } from '@/src/lib/notifications'
 import { sessionId, currentUserId } from './accessMode'
 // User profile, notifications and data-management calls — all post-auth, so
@@ -58,6 +59,7 @@ export async function getUser(): Promise<UserProfile> {
   const resp = await apiFetch('/api/user')
   if (!resp.ok) throw new Error(`Failed to load user: ${resp.status}`)
   const user: UserProfile = await resp.json()
+  void clearAttribution()
   await writeCurrencyPreference(user.currencyCode, userId)
   return user
 }

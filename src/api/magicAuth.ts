@@ -4,6 +4,7 @@
 import { BASE_URL } from './client'
 import { deviceLabel, tokenExpiry } from './workos'
 import { persistSession } from './accessMode'
+import { attributionHeaders } from '@/src/lib/attribution'
 
 // Same 15s ceiling apiFetch gives every other request. These can't use apiFetch
 // (no session yet), so without it a hung connection pins the screen forever.
@@ -31,7 +32,7 @@ export class SignInFailedError extends Error {}
 export async function verifyMagicAuthCode(email: string, code: string): Promise<(() => Promise<void>) | null> {
   const resp = await fetch(`${BASE_URL}/api/auth/magic-auth/verify`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...attributionHeaders() },
     body: JSON.stringify({ email, code, device: deviceLabel() }),
     signal: AbortSignal.timeout(TIMEOUT_MS),
   })

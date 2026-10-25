@@ -17,6 +17,7 @@ import { LogExpenseNavigation } from '@/src/features/log-expense/LogExpenseNavig
 import { clearLogExpenseDraft } from '@/src/features/log-expense/draft'
 import { LOG_EXPENSE_PATH,LogExpenseSubmitProvider } from '@/src/features/log-expense/SubmitContext'
 import { identifyUser,initAnalytics,trackScreen } from '@/src/lib/analytics'
+import { captureInstallReferrer } from '@/src/lib/attribution'
 import { clearCategoryCache,readCategoryCache } from '@/src/lib/categoryCache'
 import { clearGroupCache,readGroupCache } from '@/src/lib/groupCache'
 import { initPurchases } from '@/src/lib/purchases'
@@ -49,6 +50,8 @@ import { SafeAreaProvider } from 'react-native-safe-area-context'
 SplashScreen.preventAutoHideAsync().catch(() => {})
 configureNotificationHandler()
 initAnalytics()
+// Before any sign-in can happen, so the new account's first request carries it.
+void captureInstallReferrer()
 // Beside initAnalytics for the same reason: accessMode is the one choke point
 // every sign-in path passes through, so the billing customer identity is
 // bound there rather than at four separate call sites.
