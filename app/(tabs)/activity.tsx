@@ -33,7 +33,7 @@ import { CaretLeft, CaretRight, Images, MoneyWavy, Rows, SlidersHorizontal, Tras
 import { ActivityFeed } from "@/src/components/activity/ActivityFeed";
 import { TransactionDetail, type CardRect } from "@/src/components/activity/TransactionDetail";
 import { stablePhotoUrl } from "@/src/lib/activityFeed";
-import { useActivityView, useFeedOn } from "@/src/hooks/useActivityView";
+import { useActivityView, useFeedOn, type ActivityView } from "@/src/hooks/useActivityView";
 import { useFeedTip } from "@/src/hooks/useFeedTip";
 import { CaptureTipBubble } from "@/src/features/log-expense/CaptureTipBubble";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -596,8 +596,20 @@ function ActivityScreen() {
     if (blocked()) return;
     // One row collapses at a time. A delete still mid-collapse is sent now,
     // or swapping the target would quietly cancel it.
-    if (pendingDelete && keyOf(pendingDelete) !== keyOf(t) && sentDeleteRef.current !== keyOf(pendingDelete)) runDelete(pendingDelete);
+    if (pendingDelete && keyOf(pendingDelete) !== keyOf(t)) sendPendingDelete();
     setPendingDelete(t);
+  }
+
+  // Sends the confirmed delete unless it already went. Called when its collapse
+  // finishes, and on anything that cuts the collapse short (a view switch hides
+  // the row mid-animation, and the other view may not have it loaded).
+  function sendPendingDelete() {
+    if (pendingDelete && sentDeleteRef.current !== keyOf(pendingDelete)) runDelete(pendingDelete);
+  }
+
+  function changeView(next: ActivityView) {
+    sendPendingDelete();
+    setView(next);
   }
 
   function runDelete(t: ExpenseRow) {
@@ -617,6 +629,8 @@ function ActivityScreen() {
       // it — clearing it here springs the row back to full height for a whole
       // round trip. On failure the row does come back, which is the signal.
       { onError: (err) => {
+        // So deleting the same row again sends again.
+        if (sentDeleteRef.current === keyOf(t)) sentDeleteRef.current = null;
         setPendingDelete((p) => (p && keyOf(p) === keyOf(t) ? null : p));
         setDeleteNotice({ status: err instanceof ExpenseWriteError ? err.status : undefined });
       } },
@@ -652,9 +666,7 @@ function ActivityScreen() {
         if (openRowRef.current && openRowRef.current.key !== key) openRowRef.current.close();
         openRowRef.current = { key, close, reset };
       },
-      deleteDone: () => {
-        if (pendingDelete) runDelete(pendingDelete);
-      },
+      deleteDone: sendPendingDelete,
       openIncome: () => router.push("/account/income"),
     };
   });
@@ -976,7 +988,7 @@ function ActivityScreen() {
                     Keyboard.dismiss();
                     openRowRef.current?.reset();
                     openRowRef.current = null;
-                    setView(next);
+                    changeView(next);
                     track("activity_view_changed", { view: next });
                   }}
                 />
@@ -1138,9 +1150,7 @@ function ActivityScreen() {
                 onEdit={openEdit}
                 onDelete={confirmDelete}
                 isDeleting={(t) => feedView && pendingDelete !== null && keyOf(pendingDelete) === keyOf(t)}
-                onDeleteDone={() => {
-                  if (pendingDelete) runDelete(pendingDelete);
-                }}
+                onDeleteDone={sendPendingDelete}
                 refreshControl={refreshControl}
               />
             </View>
@@ -1374,7 +1384,7 @@ function ActivityScreen() {
           ringColor={tokens.accent}
           onTry={() => {
             feedTip.close("try");
-            setView("feed");
+            changeView("feed");
             track("activity_view_changed", { view: "feed" });
           }}
           onDismiss={() => feedTip.close("dismiss")}
