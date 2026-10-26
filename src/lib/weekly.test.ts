@@ -1,4 +1,4 @@
-import { allowanceNote, lastWeekResults, monthWeeks, paceLine, resetChip, spendByDay, weekLabel, weekPace, weeklyRecap } from './weekly'
+import { allowanceNote, lastWeekResults, monthWeeks, paceLine, resetChip, spendByDay, weekPace, weeklyRecap } from './weekly'
 
 const money = (n: number) => `₹${n.toFixed(2)}`
 
@@ -82,12 +82,6 @@ describe('copy', () => {
     expect(allowanceNote(weekPace(3100, new Array(31).fill(0), '2026-10', 6), money)).toMatch(/more than usual, thanks to the weeks you came in under/)
     expect(allowanceNote(october(2, 0), money)).toBeNull()
   })
-
-  it('labels the first week with its month', () => {
-    const [first, second] = monthWeeks('2026-10')
-    expect(weekLabel(first, '2026-10')).toBe('1–4 Oct')
-    expect(weekLabel(second, '2026-10')).toBe('5–11')
-  })
 })
 
 describe('lastWeekResults', () => {
@@ -123,12 +117,12 @@ describe('weeklyRecap', () => {
   const name = (c: string) => c
   const easy = weekPace(2000, new Array(31).fill(0), '2026-10', 26)
 
-  it('leads with the win, and frames one week over as covered', () => {
+  it('leads with the win, in one short line', () => {
     const r = lastWeekResults([{ category: 'Groceries', pace: october(26, 0) }, { category: 'Eating out', pace: easy }])!
     expect(weeklyRecap(r, money, name)).toEqual({
       tone: 'good',
       title: 'Last week, done right',
-      detail: "1 of 2 weekly categories stayed under. The extra ₹165.00 on Groceries is covered this week.",
+      detail: '1 of 2 categories stayed under.',
     })
   })
 
@@ -139,8 +133,8 @@ describe('weeklyRecap', () => {
   it('stays calm when the only category ran over', () => {
     expect(weeklyRecap(lastWeekResults([{ category: 'Groceries', pace: october(26, 0) }])!, money, name)).toEqual({
       tone: 'calm',
-      title: 'Groceries ran ₹165.00 over last week',
-      detail: "This week's ₹661.40 has it covered.",
+      title: 'Groceries ran ₹165.00 over',
+      detail: 'This week covers it.',
     })
   })
 })

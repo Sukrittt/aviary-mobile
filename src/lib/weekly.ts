@@ -112,14 +112,6 @@ export function spendByDay(rows: { date: string; category: string; amount_inr: s
   return out
 }
 
-const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-
-/** "1–4 Oct" for a month's first week, "5–11" after it. */
-export function weekLabel(w: MonthWeek, monthKey: string): string {
-  const range = w.from === w.to ? `${w.from}` : `${w.from}–${w.to}`
-  return w.from === 1 ? `${range} ${SHORT_MONTHS[Number(monthKey.slice(5, 7)) - 1]}` : range
-}
-
 /** The line under a weekly bar. */
 export function paceLine(p: WeekPace, money: (n: number) => string): string {
   if (p.status === 'over') return `${money(p.current.spent - p.current.allowance)} over this week`
@@ -153,25 +145,18 @@ export function lastWeekResults(paces: { category: string; pace: WeekPace }[]): 
   return { under: withPrev.length - over.length, total: withPrev.length, over }
 }
 
-/** Monday's card. Leads with what went right; a week that ran over is framed as already handled. */
+/** Monday's card: a title and one short line. Leads with what went right; a week over is framed as handled. */
 export function weeklyRecap(
   r: NonNullable<ReturnType<typeof lastWeekResults>>,
   money: (n: number) => string,
   nameOf: (category: string) => string,
 ): { tone: 'good' | 'calm'; title: string; detail: string } {
-  const one = r.over.length === 1 ? r.over[0] : null
-  const covered = one && one.pace.current.allowance > 0
   if (r.under > 0) {
-    const count =
-      r.total === 1 ? 'You stayed under.' : r.under === r.total ? `All ${r.total} weekly categories stayed under.` : `${r.under} of ${r.total} weekly categories stayed under.`
-    return { tone: 'good', title: 'Last week, done right', detail: covered ? `${count} The extra ${money(one.by)} on ${nameOf(one.category)} is covered this week.` : count }
+    const detail = r.total === 1 ? 'You stayed under.' : r.under === r.total ? `All ${r.total} categories stayed under.` : `${r.under} of ${r.total} categories stayed under.`
+    return { tone: 'good', title: 'Last week, done right', detail }
   }
-  if (one) {
-    return {
-      tone: 'calm',
-      title: `${nameOf(one.category)} ran ${money(one.by)} over last week`,
-      detail: covered ? `This week's ${money(one.pace.current.allowance)} has it covered.` : 'Pull from another category to cover it.',
-    }
-  }
-  return { tone: 'calm', title: 'Last week ran a bit over', detail: "This week's amounts are a little smaller to cover it." }
+  const covered = r.over.every((o) => o.pace.current.allowance > 0)
+  const detail = covered ? 'This week covers it.' : 'Pull from another category to cover it.'
+  if (r.over.length === 1) return { tone: 'calm', title: `${nameOf(r.over[0].category)} ran ${money(r.over[0].by)} over`, detail }
+  return { tone: 'calm', title: 'Last week ran a bit over', detail }
 }
