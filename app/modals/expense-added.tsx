@@ -708,7 +708,9 @@ export default function ExpenseAddedScreen() {
               // Play can't show the sheet) and during or after an Undo.
               const undoing = deleteExpense.isPending || undoingPending;
               if (!pending && !undoing && undoError === "") recordLogAndMaybeAsk();
-              router.replace("/(tabs)");
+              // Back to the tabs underneath, on Home. replace("/(tabs)") stacked a
+              // whole new copy of them over the old one on every logged expense.
+              router.dismissTo("/");
             }}
             style={styles.doneButton}
           />

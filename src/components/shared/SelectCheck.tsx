@@ -1,8 +1,9 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { StyleSheet, type StyleProp, type ViewStyle } from 'react-native'
 import Animated, {
   Easing,
   useAnimatedProps,
+  runOnJS,
   useAnimatedStyle,
   useReducedMotion,
   useSharedValue,
@@ -44,6 +45,11 @@ export function SelectCheck({
   const on = useSharedValue(selected ? 1 : 0)
   const pop = useSharedValue(1)
   const draw = useSharedValue(selected ? 0 : CHECK_PATH_LENGTH)
+  // The tick only exists while selecting (and while it closes). Every list
+  // row carries one, and Android re-attaches all of them on each tab switch.
+  const [shown, setShown] = useState(selecting)
+  if (selecting && !shown) setShown(true)
+  if (!selecting && shown && reduce) setShown(false)
 
   useEffect(() => {
     const target = selecting ? 1 : 0
@@ -55,7 +61,9 @@ export function SelectCheck({
     open.value = withTiming(target, { duration: 280, easing: SLIDE })
     ring.value = selecting
       ? withDelay(80, withTiming(1, { duration: 260, easing: OVERSHOOT }))
-      : withTiming(0, { duration: 180 })
+      : withTiming(0, { duration: 180 }, (finished) => {
+          if (finished) runOnJS(setShown)(false)
+        })
   }, [selecting, reduce, open, ring])
 
   useEffect(() => {
@@ -93,19 +101,21 @@ export function SelectCheck({
 
   return (
     <Animated.View style={[styles.slot, slotStyle]} pointerEvents="none">
-      <Animated.View style={[styles.check, checkStyle]}>
-        <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
-          <AnimatedPath
-            d="M5 13l4 4L19 7"
-            stroke={tokens.onAccent}
-            strokeWidth={3}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeDasharray={[CHECK_PATH_LENGTH, CHECK_PATH_LENGTH]}
-            animatedProps={pathProps}
-          />
-        </Svg>
-      </Animated.View>
+      {shown ? (
+        <Animated.View style={[styles.check, checkStyle]}>
+          <Svg width={13} height={13} viewBox="0 0 24 24" fill="none">
+            <AnimatedPath
+              d="M5 13l4 4L19 7"
+              stroke={tokens.onAccent}
+              strokeWidth={3}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeDasharray={[CHECK_PATH_LENGTH, CHECK_PATH_LENGTH]}
+              animatedProps={pathProps}
+            />
+          </Svg>
+        </Animated.View>
+      ) : null}
     </Animated.View>
   )
 }

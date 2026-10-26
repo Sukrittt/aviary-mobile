@@ -8,7 +8,7 @@ import { useState } from 'react'
 import { useCachedUser } from '@/src/hooks/useUser'
 import { isHidden } from '@/src/lib/features'
 import { QUICK_INCOME_PATH } from './IncomeFloodButton'
-import { LOG_EXPENSE_PATH, useLogExpenseSubmitState } from './SubmitContext'
+import { EMPTY_SUBMIT, LOG_EXPENSE_PATH, useLogExpenseSubmitState } from './SubmitContext'
 
 /**
  * The app's single nav instance, mounted once above the root Stack (see
@@ -42,16 +42,35 @@ export function LogExpenseNavigation() {
   // whole render. Dropped as soon as the pathname moves on.
   const [pendingTab, setPendingTab] = useState<{ from: string; tab: NavRoute } | null>(null)
   if (pendingTab !== null && pendingTab.from !== pathname) setPendingTab(null)
+  // The nav wears log-expense's look only while its flood is on screen, so it
+  // changes in the same frame the screen does. Off the pathname alone, it went
+  // tone-on-tone a few frames before the flood arrived and stayed that way up
+  // to half a second after it left: a white pill and disc on a white screen.
+  // In: once log-expense has mounted and said so. Out: in the same commit as
+  // the navigation away, via `leaving`.
+  const [leaving, setLeaving] = useState<string | null>(null)
+  if (leaving !== null && leaving !== pathname) setLeaving(null)
+  const floodNav = addActive && submitState !== EMPTY_SUBMIT && leaving !== pathname
   const selectTab = (name: NavRoute) => {
-    // Log-expense swaps itself out with replace and its nav morphs in place, so it keeps the old path.
-    if (addActive) return router.replace(NAV_HREF[name])
     setPendingTab({ from: pathname, tab: name })
+    if (addActive) {
+      setLeaving(pathname)
+      // Back to the tabs underneath log-expense, on this one. replace() stacked
+      // a whole new copy of the tabs over the old ones on every trip, each one
+      // mounting all four screens again: a blank Home while it rendered.
+      return router.dismissTo(NAV_HREF[name])
+    }
     // Straight to the tab by route name, on touch-down. router.navigate(href)
     // parsed the path and handed the tab fresh params, which re-rendered the
     // whole screen being shown: a few hundred ms before the switch painted.
-    const tabs = tabsState(navigationRef.getRootState())
-    if (tabs) navigationRef.dispatch({ type: 'JUMP_TO', payload: { name }, target: tabs.key })
-    else router.navigate(NAV_HREF[name])
+    // A frame later, though: in the same commit as the lit tab, the nav only
+    // changed once Android had re-attached the new tab's views, the slow part
+    // (Perfetto, 2026-10-24: a 60ms frame on Activity, lit tab inside it).
+    requestAnimationFrame(() => {
+      const tabs = tabsState(navigationRef.getRootState())
+      if (tabs) navigationRef.dispatch({ type: 'JUMP_TO', payload: { name }, target: tabs.key })
+      else router.navigate(NAV_HREF[name])
+    })
   }
   const menuItems: QuickAddItem[] = [
     { label: 'Log expense', icon: Plus, tint: tokens.accent, tintSoft: tokens.accentSoft, onPress: () => router.push(LOG_EXPENSE_PATH) },
@@ -64,12 +83,12 @@ export function LogExpenseNavigation() {
     <TabBar visible={visible} overrideContent={<>
       <FloatingNav
         active={pendingTab?.tab ?? active}
-        addActive={addActive}
-        addSaving={addActive && submitState.saving}
-        addSuccess={addActive && submitState.success}
-        addInvalid={addActive && addInvalid}
-        addDisabled={addActive && addDisabled}
-        addHint={addHint}
+        addActive={floodNav}
+        addSaving={floodNav && submitState.saving}
+        addSuccess={floodNav && submitState.success}
+        addInvalid={floodNav && addInvalid}
+        addDisabled={floodNav && addDisabled}
+        addHint={floodNav && addHint}
         onSelect={selectTab}
         onAdd={() => (addActive ? submitState.submit() : router.push(LOG_EXPENSE_PATH))}
         onAddInvalid={submitState.onInvalid}

@@ -8,7 +8,7 @@ import { ArrowLeft } from '@/src/components/shared/icons'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
-import { sendMagicAuthCode, verifyMagicAuthCode } from '@/src/api/magicAuth'
+import { sendMagicAuthCode, verifyMagicAuthCode, SignInFailedError } from '@/src/api/magicAuth'
 import { resendEmailCode, verifyEmailChange } from '@/src/api/account'
 import { CodeBoxes } from '@/src/components/auth/CodeBoxes'
 import { Numpad } from '@/src/components/ui/Numpad'
@@ -91,6 +91,8 @@ export default function CodeScreen() {
   const [pending, setPending] = useState(false)
   const [error, setError] = useState('')
   const [done, setDone] = useState(false)
+  // The code is used up after our own failure, so resend can't wait out the cooldown.
+  const [codeSpent, setCodeSpent] = useState(false)
 
   // Mirrors web's @keyframes shakeRow: 0%,100%=0, 12%=-9, 28%=8, 45%=-6,
   // 62%=4, 80%=-2, .5s cubic-bezier(.36,.07,.19,.97).
@@ -138,12 +140,15 @@ export default function CodeScreen() {
         setCode('')
         triggerShake()
       }
-    }).catch(() => {
-      // Transport failure: both verify calls throw on one. Not the user's
-      // typo, so no wrong_code event and no shake.
+    }).catch((e) => {
+      // Transport failure (both verify calls throw on one) or our own 5xx.
+      // Not the user's typo, so no wrong_code event and no shake.
       if (cancelledRef.current) return
       setPending(false)
-      setError("Couldn't check the code. Check your connection and try again.")
+      if (e instanceof SignInFailedError) setCodeSpent(true)
+      setError(e instanceof SignInFailedError
+        ? 'Something went wrong on our side. Send a new code and try again.'
+        : "Couldn't check the code. Check your connection and try again.")
       setCode('')
     })
   }
@@ -193,7 +198,13 @@ export default function CodeScreen() {
           {error !== '' && (
             <Text style={[styles.error, { color: tokens.coral, fontFamily: fontFamily.bodyMedium }]}>{error}</Text>
           )}
-          <ResendTimer onResend={() => (isChangeEmail ? resendEmailCode().then(() => true) : sendMagicAuthCode(email))} />
+          <ResendTimer
+            ready={codeSpent}
+            onResend={() => {
+              setCodeSpent(false)
+              return isChangeEmail ? resendEmailCode().then(() => true) : sendMagicAuthCode(email)
+            }}
+          />
         </>
       )}
 

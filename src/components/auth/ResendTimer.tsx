@@ -5,11 +5,13 @@ import { fontFamily } from '@/src/theme/fonts'
 
 const RESEND_SECONDS = 30
 
-/** `onResend` resolves true when the code went out; false or a throw means it didn't. */
-export function ResendTimer({ onResend }: { onResend: () => Promise<boolean> }) {
+/** `onResend` resolves true when the code went out; false or a throw means it didn't.
+ * `ready` skips the cooldown, for when the current code is known to be dead. */
+export function ResendTimer({ onResend, ready = false }: { onResend: () => Promise<boolean>; ready?: boolean }) {
   const { tokens } = useTheme()
   const [seconds, setSeconds] = useState(RESEND_SECONDS)
   const [failed, setFailed] = useState(false)
+  const left = ready ? 0 : seconds
 
   useEffect(() => {
     if (seconds <= 0) return
@@ -18,7 +20,7 @@ export function ResendTimer({ onResend }: { onResend: () => Promise<boolean> }) 
   }, [seconds])
 
   const handlePress = () => {
-    if (seconds > 0) return
+    if (left > 0) return
     setFailed(false)
     setSeconds(RESEND_SECONDS)
     // Nothing went out, so drop the cooldown and let them retry right away.
@@ -32,9 +34,9 @@ export function ResendTimer({ onResend }: { onResend: () => Promise<boolean> }) 
   }
 
   return (
-    <Pressable onPress={handlePress} disabled={seconds > 0} hitSlop={8}>
-      <Text style={[styles.text, { color: seconds > 0 ? tokens.text3 : tokens.accent, fontFamily: fontFamily.bodySemiBold }]}>
-        {seconds > 0 ? `Resend code in ${seconds}s` : failed ? "Couldn't send. Try again" : "Didn't get it? Resend now"}
+    <Pressable onPress={handlePress} disabled={left > 0} hitSlop={8}>
+      <Text style={[styles.text, { color: left > 0 ? tokens.text3 : tokens.accent, fontFamily: fontFamily.bodySemiBold }]}>
+        {left > 0 ? `Resend code in ${left}s` : failed ? "Couldn't send. Try again" : "Didn't get it? Resend now"}
       </Text>
     </Pressable>
   )

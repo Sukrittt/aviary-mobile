@@ -81,6 +81,16 @@ describe('streamChat', () => {
     ])
   })
 
+  it('flags a message from the capture screen, and only then', async () => {
+    mockedFetch.mockResolvedValue(sse('data: [DONE]\n\n'))
+    await streamChat(null, [{ role: 'user', text: 'bike to turf 42' }], jest.fn(), undefined, undefined, undefined, true)
+    mockedFetch.mockResolvedValue(sse('data: [DONE]\n\n'))
+    await streamChat(null, [{ role: 'user', text: 'how much on food?' }], jest.fn())
+
+    expect(JSON.parse(mockedFetch.mock.calls[0][1].body).capture).toBe(true)
+    expect(JSON.parse(mockedFetch.mock.calls[1][1].body)).not.toHaveProperty('capture')
+  })
+
   it('ignores a malformed proposal frame', async () => {
     mockedFetch.mockResolvedValue(sse('data: {"proposal":{"id":"p1"}}\n\n', 'data: [DONE]\n\n'))
     const onProposal = jest.fn()
