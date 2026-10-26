@@ -1,4 +1,5 @@
 import { apiFetch, apiErrorMessage } from './client'
+import { budgetHeaders } from '@/src/lib/activeBudget'
 import type { CategoryRow } from '@/src/types'
 import { BUCKETS, type Bucket, type BucketTags } from '@/src/lib/budgetSplit'
 
@@ -19,11 +20,13 @@ export async function addCategory(name: string, group = '', icon?: string, color
 
 export async function updateCategory(
   name: string,
-  updates: { newName?: string; group?: string; alertPcts?: number[] | null; icon?: string; color?: string },
+  updates: { newName?: string; group?: string; alertPcts?: number[] | null; icon?: string; color?: string; weeklySince?: string | null },
+  // A pinned budget wins over whichever is active when the request goes out.
+  spaceId?: string | null,
 ): Promise<void> {
   const resp = await apiFetch('/api/categories', {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...budgetHeaders(spaceId) },
     body: JSON.stringify({ name, ...updates }),
   })
   if (!resp.ok) throw new Error(await apiErrorMessage(resp, 'Failed to update category'))

@@ -106,7 +106,7 @@ export function EnvelopeRow({
   // Switched on with the sheet open: the weeks grow in, so the card's top eases
   // up. Opened already on, the sheet's own slide covers it.
   const [weeklyJustOn, setWeeklyJustOn] = useState(false)
-  const { weekly, setWeekly } = useWeeklyCategories()
+  const { weekly, setWeekly, readOnly } = useWeeklyCategories()
   const money = (n: number) => formatCurrency(n, hideAmounts)
   // What carried in, on a long press of the pill, since the row no longer says it.
   const tip = hideAmounts ? null : rolledOverLine(envelope.rolledOver, currentMonthKey(), (n) => formatCurrency(n))
@@ -215,7 +215,7 @@ export function EnvelopeRow({
         <Collapse open={!!pace} animateOpen={weeklyJustOn}>
           {lastPace.current && <WeekBreakdown pace={lastPace.current} envelope={envelope} money={money} />}
         </Collapse>
-        {!envelope.isCreditCardPayment && (
+        {!envelope.isCreditCardPayment && !readOnly && (
           <View style={[styles.weeklySwitch, { borderBottomColor: tokens.border }]}>
             <View style={{ flex: 1 }}>
               <Text style={[styles.sheetBtnText, { color: tokens.text, fontFamily: fontFamily.bodyMedium }]}>Track weekly</Text>
