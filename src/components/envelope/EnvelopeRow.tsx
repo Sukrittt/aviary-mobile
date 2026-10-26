@@ -103,6 +103,9 @@ export function EnvelopeRow({
   const { tokens } = useTheme()
   const tintOf = useCategoryTint()
   const [sheetOpen, setSheetOpen] = useState(false)
+  // Switched on with the sheet open: the weeks fade in as the card eases up
+  // (BottomSheet animates its size). Opened already on, the sheet's slide covers it.
+  const [weeklyJustOn, setWeeklyJustOn] = useState(false)
   const { weekly, setWeekly } = useWeeklyCategories()
   const money = (n: number) => formatCurrency(n, hideAmounts)
   // What carried in, on a long press of the pill, since the row no longer says it.
@@ -122,6 +125,7 @@ export function EnvelopeRow({
 
   const closeSheet = useCallback(() => {
     setSheetOpen(false)
+    setWeeklyJustOn(false)
     onSheetOpenChange?.(false)
   }, [onSheetOpenChange])
 
@@ -205,7 +209,11 @@ export function EnvelopeRow({
         <Text style={[styles.sheetTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
           {name}
         </Text>
-        {pace && <WeekBreakdown pace={pace} envelope={envelope} money={money} />}
+        {pace && (
+          <Reanimated.View entering={weeklyJustOn ? FadeIn.duration(240).delay(80) : undefined}>
+            <WeekBreakdown pace={pace} envelope={envelope} money={money} />
+          </Reanimated.View>
+        )}
         {!envelope.isCreditCardPayment && (
           <View style={[styles.weeklySwitch, { borderBottomColor: tokens.border }]}>
             <View style={{ flex: 1 }}>
@@ -218,7 +226,10 @@ export function EnvelopeRow({
             </View>
             <Toggle
               value={weekly?.has(envelope.category) ?? false}
-              onValueChange={(on) => setWeekly(envelope.category, on)}
+              onValueChange={(on) => {
+                setWeeklyJustOn(on)
+                setWeekly(envelope.category, on)
+              }}
               // Until the saved set loads, a flip would save over it.
               disabled={weekly === undefined}
               accessibilityLabel={`Track ${name} weekly`}
@@ -265,7 +276,7 @@ export function EnvelopeRow({
   )
 }
 
-/** The sheet's week-by-week list: every week so far, this one with its tick. */
+/** The sheet's week-by-week list: the weeks you spent in so far, and this one with its tick. */
 function WeekBreakdown({ pace, envelope, money }: { pace: WeekPace; envelope: Envelope; money: (n: number) => string }) {
   const { tokens } = useTheme()
   const note = allowanceNote(pace, money)
@@ -274,7 +285,8 @@ function WeekBreakdown({ pace, envelope, money }: { pace: WeekPace; envelope: En
       <Text style={[styles.metaLine, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold, marginBottom: 4 }]}>
         {money(envelope.spent)} of {money(envelope.assigned + envelope.rolledOver)} this month
       </Text>
-      {pace.weeks.map((w, i) => {
+      {/* Weeks you spent in, and this one. Empty past weeks are just noise. */}
+      {pace.weeks.map((w, i) => ({ w, i })).filter(({ w, i }) => w.spent !== 0 || i === pace.weeks.length - 1).map(({ w, i }) => {
         const isNow = i === pace.weeks.length - 1
         const result = weekResult(w, isNow, pace.left, money)
         // This week's pill matches the row's on Home; a finished week is just under or over.

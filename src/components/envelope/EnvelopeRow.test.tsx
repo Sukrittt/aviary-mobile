@@ -127,4 +127,26 @@ describe('weekly row', () => {
     expect(getByText(/less than usual/)).toBeTruthy()
     expect(getByLabelText('Track Groceries weekly')).toBeTruthy()
   })
+
+  it('leaves out past weeks with no spending', () => {
+    const quiet = new Array(31).fill(0)
+    quiet[2] = 300
+    quiet[28] = 100
+    const { getByText, queryByText } = renderWithProviders(
+      <EnvelopeRow
+        envelope={{ category: 'Groceries', group: '', assigned: 4000, spent: 400, available: 3600, rolledOver: 0, isOverspent: false, spentPct: 10, isCreditCardPayment: false }}
+        icon="ShoppingCart"
+        hideAmounts={false}
+        onMoveMoney={jest.fn()}
+        onEditAmount={jest.fn()}
+        onViewTransactions={jest.fn()}
+        pace={weekPace(4000, quiet, '2026-10', 29)}
+      />,
+    )
+    fireEvent.press(getByText('Groceries'))
+    expect(getByText('Week 1')).toBeTruthy()
+    expect(queryByText('Week 2')).toBeNull()
+    expect(queryByText('Week 4')).toBeNull()
+    expect(getByText('This week')).toBeTruthy()
+  })
 })
