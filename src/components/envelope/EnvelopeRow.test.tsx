@@ -3,6 +3,7 @@ import { availablePill, EnvelopeRow } from './EnvelopeRow'
 import { lightTokens as t } from '@/src/theme/tokens'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import type { Envelope } from '@/src/lib/envelope'
+import { weekPace } from '@/src/lib/weekly'
 
 const env = (spentPct: number, isOverspent = false) => ({ spentPct, isOverspent }) as Envelope
 
@@ -84,5 +85,69 @@ describe('EnvelopeRow carry', () => {
     } finally {
       jest.useRealTimers()
     }
+  })
+})
+
+describe('weekly row', () => {
+  const days = new Array(31).fill(0)
+  days[0] = 400
+  days[5] = 1050
+  days[12] = 880
+  days[19] = 1130
+  days[28] = 380
+  const pace = weekPace(4121.4, days, '2026-10', 29)
+  const weeklyRow = () =>
+    renderWithProviders(
+      <EnvelopeRow
+        envelope={{ category: 'Groceries', group: '', assigned: 4121.4, spent: 3840, available: 281.4, rolledOver: 0, isOverspent: false, spentPct: 93, isCreditCardPayment: false }}
+        icon="ShoppingCart"
+        hideAmounts={false}
+        onMoveMoney={jest.fn()}
+        onEditAmount={jest.fn()}
+        onViewTransactions={jest.fn()}
+        pace={pace}
+      />,
+    )
+
+  it('keeps the month on Home, adds a pace tick, and says how this week is going', () => {
+    const { getByText, getAllByTestId, queryByText } = weeklyRow()
+    expect(getByText(/3,840.*\/.*4,121/)).toBeTruthy()
+    expect(queryByText(/380.*\/.*661/)).toBeNull()
+    expect(getByText('On track this week')).toBeTruthy()
+    expect(getByText('2d left')).toBeTruthy()
+    expect(getAllByTestId('progress-bar-tick')).toHaveLength(1)
+    expect(queryByText(/Last spent/)).toBeNull()
+  })
+
+  it('lists the weeks so far in its sheet, with the weekly switch', () => {
+    const { getByText, getByLabelText } = weeklyRow()
+    fireEvent.press(getByText('Groceries'))
+    expect(getByText('Week 1')).toBeTruthy()
+    expect(getByText('Week 4')).toBeTruthy()
+    expect(getByText('This week')).toBeTruthy()
+    expect(getByText(/less than usual/)).toBeTruthy()
+    expect(getByLabelText('Track Groceries weekly')).toBeTruthy()
+  })
+
+  it('leaves out past weeks with no spending', () => {
+    const quiet = new Array(31).fill(0)
+    quiet[2] = 300
+    quiet[28] = 100
+    const { getByText, queryByText } = renderWithProviders(
+      <EnvelopeRow
+        envelope={{ category: 'Groceries', group: '', assigned: 4000, spent: 400, available: 3600, rolledOver: 0, isOverspent: false, spentPct: 10, isCreditCardPayment: false }}
+        icon="ShoppingCart"
+        hideAmounts={false}
+        onMoveMoney={jest.fn()}
+        onEditAmount={jest.fn()}
+        onViewTransactions={jest.fn()}
+        pace={weekPace(4000, quiet, '2026-10', 29)}
+      />,
+    )
+    fireEvent.press(getByText('Groceries'))
+    expect(getByText('Week 1')).toBeTruthy()
+    expect(queryByText('Week 2')).toBeNull()
+    expect(queryByText('Week 4')).toBeNull()
+    expect(getByText('This week')).toBeTruthy()
   })
 })

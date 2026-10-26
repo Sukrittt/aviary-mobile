@@ -148,6 +148,14 @@ describe('refreshHabitNudges', () => {
     expect(mockFetchCopy).toHaveBeenCalledTimes(2)
   })
 
+  it("saves each habit's slot so the next refresh gives it the same id", async () => {
+    await refreshHabitNudges(footballRows(), now)
+    expect([...mockStorage.values()][0]).toMatchObject({ slots: { 'fun|football': 19 * 60 } })
+    // Gone for now, but its id stays taken.
+    await refreshHabitNudges([], now)
+    expect([...mockStorage.values()][0]).toMatchObject({ slots: { 'fun|football': 19 * 60 } })
+  })
+
   it('replaces the old plan instead of stacking a second one', async () => {
     await refreshHabitNudges(footballRows(), now)
     await refreshHabitNudges(footballRows(), now)

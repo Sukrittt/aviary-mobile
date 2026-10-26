@@ -16,6 +16,9 @@ import { DELTA_DELAY, DELTA_DURATION } from '@/src/components/envelope/DeltaBar'
 import { currentMonthKey, daysLeftInMonth, prevMonthKey } from '@/src/lib/envelope'
 import { fontFamily } from '@/src/theme/fonts'
 import { type } from '@/src/theme/scale'
+import { lightTokens } from '@/src/theme/tokens'
+import { habitNudgesReady } from '@/src/lib/habitNudges'
+import { toLocalDateString } from '@/src/lib/date'
 
 jest.mock('@/src/api/expenses', () => ({
   getRecentExpenses: jest.fn(),
@@ -60,6 +63,7 @@ jest.mock('expo-haptics', () => ({
 jest.mock('@/src/lib/reviewPrompt', () => ({
   recordLogAndMaybeAsk: jest.fn(() => Promise.resolve(false)),
 }))
+jest.mock('@/src/lib/habitNudges', () => ({ habitNudgesReady: jest.fn(async () => false), refreshHabitNudges: jest.fn(async () => {}) }))
 jest.mock('expo-audio', () => ({ useAudioPlayer: () => ({ play: jest.fn(), pause: jest.fn() }) }))
 
 // React Query's default notifyManager defers subscriber notifications to a
@@ -402,6 +406,49 @@ describe('we noticed', () => {
     const { findByText, queryByText } = setup({}, [milk('e0', TODAY)])
     await findByText('Milk')
     expect(queryByText(/regulars/)).toBeNull()
+  })
+})
+
+describe('habit progress', () => {
+  // Pooled habits look back from the real today, so these dates move with the clock.
+  const daysAgo = (n: number) => toLocalDateString(new Date(Date.now() - n * 86_400_000))
+  const now = daysAgo(0)
+  const milk = (id: string, date: string) => ({ id, date, item: 'Milk', timestamp: `${date}T09:00:00`, amount_inr: '50', category: '🛒 Groceries', source: 'manual', created_by: 'undo-user' })
+  const logNow = { id: 'now', date: now, timestamp: `${now}T09:30:00` }
+
+  beforeEach(() => (habitNudgesReady as jest.Mock).mockResolvedValue(true))
+  afterEach(() => (habitNudgesReady as jest.Mock).mockResolvedValue(false))
+
+  it('counts toward a nudge from the second day', async () => {
+    const { findByText } = setup(logNow, [milk('e1', daysAgo(1))])
+    expect(await findByText('Seen your milk 2 times. Nudges start after one more.')).toBeTruthy()
+  })
+
+  it('sits on the mint pill, like the UPI tip', async () => {
+    const { findByText } = setup(logNow, [milk('e1', daysAgo(1))])
+    const line = await findByText('Seen your milk 2 times. Nudges start after one more.')
+    expect(StyleSheet.flatten(line.props.style).color).toBe(lightTokens.onSuccess)
+    expect(StyleSheet.flatten(line.parent?.parent?.props.style).backgroundColor).toBe(lightTokens.successBg)
+  })
+
+  it('promises a nudge once it is a habit', async () => {
+    const { findByText } = setup(logNow, [milk('e1', daysAgo(1)), milk('e2', daysAgo(2))])
+    expect(await findByText("Noted. You'll get a nudge next time.")).toBeTruthy()
+  })
+
+  it('says nothing after a first log', async () => {
+    const { findByText, queryByText } = setup(logNow, [])
+    await findByText('Milk')
+    await waitFor(() => expect(habitNudgesReady).toHaveBeenCalled())
+    expect(queryByText(/Seen your|nudge/)).toBeNull()
+  })
+
+  it("doesn't promise nudges that can't fire", async () => {
+    ;(habitNudgesReady as jest.Mock).mockResolvedValue(false)
+    const { findByText, queryByText } = setup(logNow, [milk('e1', daysAgo(1)), milk('e2', daysAgo(2))])
+    await findByText('Milk')
+    await waitFor(() => expect(habitNudgesReady).toHaveBeenCalled())
+    expect(queryByText(/nudge/)).toBeNull()
   })
 })
 

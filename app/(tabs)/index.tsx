@@ -32,8 +32,6 @@ import {
   currentMonthKey,
   daysLeftInMonth,
   monthAbbrev,
-  overPlannedLine,
-  trimCandidates,
   type Envelope,
 } from '@/src/lib/envelope'
 
@@ -65,6 +63,8 @@ import appJson from '@/app.json'
 import { useUser, useUpdateUser } from '@/src/hooks/useUser'
 import { useFeatureNudge } from '@/src/hooks/useFeatureNudge'
 import { firstBanner } from '@/src/lib/homeBanner'
+import { useWeeklyCategories } from '@/src/hooks/useWeeklyCategories'
+import { lastWeekResults, spendByDay, weekPace, weeklyRecap, type WeekPace } from '@/src/lib/weekly'
 import { Alert } from '@/src/components/ui/AlertHost'
 import { isHidden } from '@/src/lib/features'
 import { ForecastLine } from '@/src/components/home/ForecastLine'
@@ -230,6 +230,36 @@ function HomeScreen() {
       .filter((g) => g.envelopes.length > 0)
   }, [envelopeState])
 
+  // Weekly-tracked categories get this week's pace instead of the month's bar.
+  const { weekly } = useWeeklyCategories()
+  const today = Number(todayLocal().slice(8, 10))
+  const paces = useMemo(() => {
+    const map = new Map<string, WeekPace>()
+    for (const e of envelopeState.envelopes) {
+      // Nothing to pace with no money in it: the month's own bar says it better.
+      const pot = e.assigned + e.rolledOver
+      if (!weekly?.has(e.category) || e.isCreditCardPayment || pot <= 0) continue
+      map.set(e.category, weekPace(pot, spendByDay(expenses, e.category, month), month, today))
+    }
+    return map
+  }, [envelopeState, weekly, expenses, month, today])
+  const weekFrom = paces.values().next().value?.current.from ?? 0
+  // Only categories already tracked when last week began get judged on it.
+  const lastWeekFrom = paces.values().next().value?.weeks.at(-2)?.from ?? 0
+  const lastWeek = lastWeekResults(
+    [...paces].filter(([category]) => (weekly?.get(category) ?? '') <= `${month}-${String(lastWeekFrom).padStart(2, '0')}`).map(([category, pace]) => ({ category, pace })),
+  )
+  const recap = lastWeek ? weeklyRecap(lastWeek, (n) => formatCurrency(n, hideAmounts), (c) => splitEmoji(c).text) : null
+  // Once per budget and week: the next Monday starts undismissed on its own.
+  const [recapDismissed, setRecapDismissed] = useDismissedRolloverBanner(`weekly-${activeBudget?.id ?? ''}-${month}-${weekFrom}`)
+  const [recapSeen, setRecapSeen] = useState(false)
+  const [recapLeaving, setRecapLeaving] = useState(false)
+  useEffect(() => {
+    if (!recapSeen) return
+    const t = setTimeout(() => setRecapLeaving(true), 1100)
+    return () => clearTimeout(t)
+  }, [recapSeen])
+
   // Rows that carried something roll in one after another, top to bottom.
   const rollOrder = useMemo(() => {
     const order = new Map<string, number>()
@@ -284,15 +314,20 @@ function HomeScreen() {
     ['update', showUpdateBanner && !!androidUpdate, false],
     ['trial', trialBucket !== null && trialBucket <= 3 && !!billing, trialDismissed],
     ['rollover', !!rollover && !!activeBudget && !readOnly, rolloverDismissed],
+    ['weekly', !!recap, recapDismissed],
     ['nudge', !!featureNudge.nudge && !showGetStarted, false],
   ])
   const nudge = banner === 'nudge' ? featureNudge.nudge : null
+  const recapShown = banner === 'weekly' && !!lastWeek
+  useEffect(() => {
+    if (recapShown && lastWeek) track('weekly_recap_shown', { under: lastWeek.under, total: lastWeek.total })
+    // Once per showing, not on every re-render while it's up.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recapShown])
   // Each bump rolls the carry into the Left pills: once when the strip first
   // shows, again whenever it's tapped. Nothing to roll once it's gone.
   const rollPlay = banner === 'rollover' ? rollReplays + 1 : 0
 
-  const overPlanned = overPlannedLine(envelopeState.readyToAssign, (n) => formatCurrency(n))
-  const trimFirst = trimCandidates(envelopeState.envelopes, 1)[0]
 
   function handleEditAmount(category: string) {
     router.push({ pathname: '/modals/edit-assigned-amount', params: { category } })
@@ -453,28 +488,6 @@ function HomeScreen() {
               </Text>
               <Icon icon={CaretRight} size={14} color={envelopeState.income === 0 ? tokens.accentInk : tokens.text2} />
             </AnimatedPressable>
-            {/* Usually a new month copying a plan last month's one-off extra
-                paid for. Says so, and opens the biggest plan to trim (the
-                screen switches categories in place). No plan at all (a
-                carried deficit alone): nothing to trim, so no line. */}
-            {!hideAmounts && overPlanned && trimFirst && (
-              <View style={styles.overPlanned}>
-                <Text style={{ color: tokens.coral, fontSize: type.caption, fontFamily: fontFamily.bodyMedium }}>{overPlanned}</Text>
-                {!readOnly && (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityHint={`Opens ${splitEmoji(trimFirst.category).text}, your biggest plan`}
-                    hitSlop={8}
-                    onPress={() => {
-                      tap()
-                      handleEditAmount(trimFirst.category)
-                    }}
-                  >
-                    <Text style={[styles.trim, { color: tokens.text, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }]}>Trim</Text>
-                  </Pressable>
-                )}
-              </View>
-            )}
           </View>
         )}
 
@@ -537,6 +550,38 @@ function HomeScreen() {
                 </Pressable>
               </Card>
             )}
+          </SlideStrip>
+        )}
+
+        {/* Monday's peak: last week closes on its best fact, with the shared check. */}
+        {banner === 'weekly' && recap && (
+          <SlideStrip
+            leaving={recapLeaving}
+            gap={space.lg}
+            onGone={() => {
+              setRecapDismissed(true)
+              setRecapLeaving(false)
+              setRecapSeen(false)
+            }}
+          >
+            <Card
+              style={[styles.rolloverCard, recap.tone === 'good' && { backgroundColor: tokens.pillGoodBg, borderColor: 'transparent' }]}
+              elevated={false}
+            >
+              <View style={{ flex: 1, gap: 2 }}>
+                <Text style={{ color: tokens.text, fontSize: type.body, fontFamily: fontFamily.bodySemiBold }}>{recap.title}</Text>
+                <Text style={{ color: tokens.text2, fontSize: type.caption, fontFamily: fontFamily.bodyMedium }}>{recap.detail}</Text>
+              </View>
+              <Pressable accessibilityRole="button" accessibilityLabel={recap.tone === 'good' ? 'Nice' : 'Got it'} onPress={() => setRecapSeen(true)} disabled={recapSeen} hitSlop={12}>
+                {recapSeen ? (
+                  <CheckIcon color={recap.tone === 'good' ? tokens.mint : tokens.text} size={18} />
+                ) : (
+                  <Text style={{ color: recap.tone === 'good' ? tokens.mint : tokens.accentInk, fontSize: type.caption, fontFamily: fontFamily.bodyExtraBold }}>
+                    {recap.tone === 'good' ? 'Nice' : 'Got it'}
+                  </Text>
+                )}
+              </Pressable>
+            </Card>
           </SlideStrip>
         )}
 
@@ -643,6 +688,7 @@ function HomeScreen() {
                   onSheetOpenChange={handleSheetOpenChange}
                   rollPlay={rollPlay}
                   rollOrder={rollOrder}
+                  paces={paces}
                 />
               ))}
             </View>
@@ -688,8 +734,6 @@ function HomeScreen() {
 const styles = StyleSheet.create({
   appIconButton: { width: 40, height: 40 },
   hero: { alignItems: 'center', gap: 6 },
-  overPlanned: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
-  trim: { textDecorationLine: 'underline' },
   incomePill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 6, marginTop: 4 },
   heroLabel: { fontSize: 12, letterSpacing: 0.6 },
   slimRta: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14 },

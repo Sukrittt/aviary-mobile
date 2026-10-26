@@ -1,6 +1,6 @@
 import { useCategoryTint } from '@/src/hooks/useCategories'
 import { useCurrency } from '@/src/context/CurrencyContext'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { View, Text, Pressable, StyleSheet } from 'react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
@@ -15,9 +15,12 @@ import { tap } from '@/src/lib/haptics'
 import type { Envelope } from '@/src/lib/envelope'
 import type { ThemeTokens } from '@/src/theme/tokens'
 import { RollingAmount } from './RollingAmount'
-import Reanimated, { FadeIn, FadeOut } from 'react-native-reanimated'
+import Reanimated, { Easing, FadeIn, FadeOut, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated'
 import { currentMonthKey } from '@/src/lib/envelope'
 import { rolledOverLine } from '@/src/lib/rollover'
+import { Toggle } from '@/src/components/ui/Toggle'
+import { useWeeklyCategories } from '@/src/hooks/useWeeklyCategories'
+import { allowanceNote, paceLine, resetChip, weekResult, type WeekPace } from '@/src/lib/weekly'
 
 const TIP_MS = 2000
 
@@ -30,6 +33,13 @@ export function availablePill(e: Envelope, tokens: ThemeTokens): { color: string
   if (e.isOverspent) return { color: tokens.pillOver, bg: tokens.pillOverBg }
   if (e.spentPct === 100) return { color: tokens.text3, bg: 'transparent' }
   if (e.spentPct > 75) return { color: tokens.pillLow, bg: tokens.pillLowBg }
+  return { color: tokens.pillGood, bg: tokens.pillGoodBg }
+}
+
+/** A pace-toned pill: green on track, amber ahead of the tick, red over. */
+export function weeklyPill(p: WeekPace, tokens: ThemeTokens): { color: string; bg: string } {
+  if (p.status === 'over') return { color: tokens.pillOver, bg: tokens.pillOverBg }
+  if (p.status === 'ahead') return { color: tokens.pillLow, bg: tokens.pillLowBg }
   return { color: tokens.pillGood, bg: tokens.pillGoodBg }
 }
 
@@ -70,6 +80,8 @@ interface Props {
   rollPlay?: number
   /** This row's wait in the top-to-bottom roll. */
   rollDelayMs?: number
+  /** This week's pace, when the category is tracked weekly (src/lib/weekly.ts). */
+  pace?: WeekPace
 }
 
 /** A single envelope row + its tap-to-open action sheet (move money / edit amount / view transactions). */
@@ -84,12 +96,18 @@ export function EnvelopeRow({
   onSheetOpenChange,
   rollPlay = 0,
   rollDelayMs = 0,
+  pace,
 }: Props) {
   const { formatCurrency } = useCurrency()
 
   const { tokens } = useTheme()
   const tintOf = useCategoryTint()
   const [sheetOpen, setSheetOpen] = useState(false)
+  // Switched on with the sheet open: the weeks grow in, so the card's top eases
+  // up. Opened already on, the sheet's own slide covers it.
+  const [weeklyJustOn, setWeeklyJustOn] = useState(false)
+  const { weekly, setWeekly, readOnly } = useWeeklyCategories()
+  const money = (n: number) => formatCurrency(n, hideAmounts)
   // What carried in, on a long press of the pill, since the row no longer says it.
   const tip = hideAmounts ? null : rolledOverLine(envelope.rolledOver, currentMonthKey(), (n) => formatCurrency(n))
   const [tipOpen, setTipOpen] = useState(false)
@@ -107,10 +125,16 @@ export function EnvelopeRow({
 
   const closeSheet = useCallback(() => {
     setSheetOpen(false)
+    setWeeklyJustOn(false)
     onSheetOpenChange?.(false)
   }, [onSheetOpenChange])
 
-  const pill = availablePill(envelope, tokens)
+  // Kept after weekly turns off, so the weeks can collapse instead of vanishing.
+  const lastPace = useRef(pace)
+  if (pace) lastPace.current = pace
+  // Home keeps the month for every row; a weekly row adds the pace tick and
+  // tones its bar and pill by month pace. The weeks live in the sheet.
+  const pill = pace ? weeklyPill({ ...pace, status: pace.monthStatus }, tokens) : availablePill(envelope, tokens)
   const Icon = CATEGORY_ICON_COMPONENTS[icon]
   const tint = tintOf(envelope.category)
   const name = displayName ?? splitEmoji(envelope.category).text
@@ -136,8 +160,20 @@ export function EnvelopeRow({
               : `${formatCurrency(envelope.spent, hideAmounts)}/${formatCurrency(envelope.assigned, hideAmounts)}`}
           </Text>
         </View>
-        <ProgressBar pct={envelope.spentPct} over={envelope.isOverspent} />
-        {!envelope.isCreditCardPayment && (
+        {pace ? (
+          <>
+            <ProgressBar pct={pace.monthSpentPct} over={pace.monthStatus === 'over'} tick={pace.monthTickPct} />
+            <View style={styles.paceLine}>
+              <Text style={[styles.metaLine, styles.paceText, { color: pace.status === 'over' ? tokens.pillOver : tokens.text3, fontFamily: fontFamily.bodySemiBold }]} numberOfLines={1}>
+                {paceLine(pace, money)}
+              </Text>
+              <Text style={[styles.metaLine, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>{resetChip(pace)}</Text>
+            </View>
+          </>
+        ) : (
+          <ProgressBar pct={envelope.spentPct} over={envelope.isOverspent} />
+        )}
+        {!pace && !envelope.isCreditCardPayment && (
           <Text style={[styles.metaLine, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>
             {unbudgeted ? 'Not budgeted · ' : ''}Last spent {lastSpentLabel(envelope.lastSpentDate)}
           </Text>
@@ -176,6 +212,31 @@ export function EnvelopeRow({
         <Text style={[styles.sheetTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
           {name}
         </Text>
+        <Collapse open={!!pace} animateOpen={weeklyJustOn}>
+          {lastPace.current && <WeekBreakdown pace={lastPace.current} envelope={envelope} money={money} />}
+        </Collapse>
+        {!envelope.isCreditCardPayment && !readOnly && (
+          <View style={[styles.weeklySwitch, { borderBottomColor: tokens.border }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.sheetBtnText, { color: tokens.text, fontFamily: fontFamily.bodyMedium }]}>Track weekly</Text>
+              {!pace && (
+                <Text style={[styles.metaLine, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>
+                  {"Split the month into weeks and see if you're on pace."}
+                </Text>
+              )}
+            </View>
+            <Toggle
+              value={weekly?.has(envelope.category) ?? false}
+              onValueChange={(on) => {
+                setWeeklyJustOn(on)
+                setWeekly(envelope.category, on)
+              }}
+              // Until the saved set loads, a flip would save over it.
+              disabled={weekly === undefined}
+              accessibilityLabel={`Track ${name} weekly`}
+            />
+          </View>
+        )}
         <Pressable
           style={styles.sheetBtn}
           onPress={() => {
@@ -216,6 +277,82 @@ export function EnvelopeRow({
   )
 }
 
+/**
+ * Animates its own height between 0 and its content's, so the bottom-anchored
+ * sheet's top edge glides both ways while its bottom stays put. (BottomSheet
+ * itself can't use a layout transition: see the note in Modal.tsx.) The
+ * content is absolutely placed so it measures at full height even while the
+ * box is collapsed.
+ */
+function Collapse({ open, animateOpen, children }: { open: boolean; animateOpen: boolean; children: React.ReactNode }) {
+  const height = useSharedValue(0)
+  const measured = useSharedValue(0)
+  const ease = { duration: 280, easing: Easing.out(Easing.cubic) }
+
+  useEffect(() => {
+    if (!open) height.value = withTiming(0, ease)
+    else if (measured.value > 0) height.value = animateOpen ? withTiming(measured.value, ease) : measured.value
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
+
+  const style = useAnimatedStyle(() => ({ height: height.value, opacity: measured.value ? Math.min(1, height.value / Math.min(measured.value, 160)) : 0 }))
+  return (
+    <Reanimated.View style={[styles.collapse, style]}>
+      <View
+        style={styles.collapseInner}
+        onLayout={(e) => {
+          const h = e.nativeEvent.layout.height
+          if (h === measured.value) return
+          measured.value = h
+          if (open) height.value = animateOpen ? withTiming(h, ease) : h
+        }}
+      >
+        {children}
+      </View>
+    </Reanimated.View>
+  )
+}
+
+/** The sheet's week-by-week list: the weeks you spent in so far, and this one with its tick. */
+function WeekBreakdown({ pace, envelope, money }: { pace: WeekPace; envelope: Envelope; money: (n: number) => string }) {
+  const { tokens } = useTheme()
+  const note = allowanceNote(pace, money)
+  return (
+    <View style={styles.weeks}>
+      <Text style={[styles.metaLine, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold, marginBottom: 4 }]}>
+        {money(envelope.spent)} of {money(envelope.assigned + envelope.rolledOver)} this month
+      </Text>
+      {/* Weeks you spent in, and this one. Empty past weeks are just noise. */}
+      {pace.weeks.map((w, i) => ({ w, i })).filter(({ w, i }) => w.spent !== 0 || i === pace.weeks.length - 1).map(({ w, i }) => {
+        const isNow = i === pace.weeks.length - 1
+        const result = weekResult(w, isNow, pace.left, money)
+        // This week's pill matches the row's on Home; a finished week is just under or over.
+        const tone = isNow ? weeklyPill(pace, tokens) : result.over ? { color: tokens.pillOver, bg: tokens.pillOverBg } : { color: tokens.pillGood, bg: tokens.pillGoodBg }
+        return (
+          <View key={w.from} style={styles.weekRow}>
+            <Text style={[styles.weekLabel, { color: isNow ? tokens.text : tokens.text2, fontFamily: isNow ? fontFamily.bodySemiBold : fontFamily.bodyMedium }]}>
+              {isNow ? 'This week' : `Week ${i + 1}`}
+            </Text>
+            <View style={{ flex: 1 }}>
+              {isNow ? (
+                <ProgressBar pct={pace.spentPct} over={pace.status === 'over'} tick={pace.tickPct} />
+              ) : (
+                <ProgressBar pct={w.allowance > 0 ? Math.min(100, (w.spent / w.allowance) * 100) : w.spent > 0 ? 100 : 0} over={w.spent > w.allowance} tick={100} />
+              )}
+            </View>
+            <View style={styles.weekAmountCol}>
+              <Text style={[styles.weekPill, { color: tone.color, backgroundColor: tone.bg, fontFamily: fontFamily.bodySemiBold }]}>{result.text}</Text>
+            </View>
+          </View>
+        )
+      })}
+      {note && (
+        <Text style={[styles.note, { color: tokens.text2, backgroundColor: tokens.inputBg, fontFamily: fontFamily.bodyMedium }]}>{note}</Text>
+      )}
+    </View>
+  )
+}
+
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
   main: { flex: 1, gap: 6 },
@@ -232,4 +369,16 @@ const styles = StyleSheet.create({
   sheetTitle: { fontSize: 16, marginBottom: 8 },
   sheetBtn: { paddingVertical: 12 },
   sheetBtnText: { fontSize: 14 },
+  paceLine: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  collapse: { overflow: 'hidden' },
+  collapseInner: { position: 'absolute', left: 0, right: 0, top: 0 },
+  paceText: { flex: 1 },
+  weeklySwitch: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth },
+  weeks: { gap: 2, marginBottom: 8 },
+  weekRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6 },
+  weekLabel: { width: 64, fontSize: 12 },
+  // Same width as the row's pill column, so the week bars end where Home's do.
+  weekAmountCol: { width: 84, alignItems: 'flex-end' },
+  weekPill: { fontSize: 12, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, overflow: 'hidden', fontVariant: ['tabular-nums'] },
+  note: { fontSize: 12, lineHeight: 17, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, marginTop: 6, overflow: 'hidden' },
 })
