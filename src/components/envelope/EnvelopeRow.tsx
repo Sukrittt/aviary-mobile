@@ -1,6 +1,6 @@
 import { useCategoryTint } from '@/src/hooks/useCategories'
 import { useCurrency } from '@/src/context/CurrencyContext'
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { View, Text, Pressable, StyleSheet } from 'react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
@@ -15,7 +15,7 @@ import { tap } from '@/src/lib/haptics'
 import type { Envelope } from '@/src/lib/envelope'
 import type { ThemeTokens } from '@/src/theme/tokens'
 import { RollingAmount } from './RollingAmount'
-import Reanimated, { FadeIn, FadeOut } from 'react-native-reanimated'
+import Reanimated, { Easing, FadeIn, FadeOut, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated'
 import { currentMonthKey } from '@/src/lib/envelope'
 import { rolledOverLine } from '@/src/lib/rollover'
 import { Toggle } from '@/src/components/ui/Toggle'
@@ -103,8 +103,8 @@ export function EnvelopeRow({
   const { tokens } = useTheme()
   const tintOf = useCategoryTint()
   const [sheetOpen, setSheetOpen] = useState(false)
-  // Switched on with the sheet open: the weeks fade in as the card eases up
-  // (BottomSheet animates its size). Opened already on, the sheet's slide covers it.
+  // Switched on with the sheet open: the weeks grow in, so the card's top eases
+  // up. Opened already on, the sheet's own slide covers it.
   const [weeklyJustOn, setWeeklyJustOn] = useState(false)
   const { weekly, setWeekly } = useWeeklyCategories()
   const money = (n: number) => formatCurrency(n, hideAmounts)
@@ -129,6 +129,9 @@ export function EnvelopeRow({
     onSheetOpenChange?.(false)
   }, [onSheetOpenChange])
 
+  // Kept after weekly turns off, so the weeks can collapse instead of vanishing.
+  const lastPace = useRef(pace)
+  if (pace) lastPace.current = pace
   const pill = pace ? weeklyPill(pace, tokens) : availablePill(envelope, tokens)
   const Icon = CATEGORY_ICON_COMPONENTS[icon]
   const tint = tintOf(envelope.category)
@@ -209,11 +212,9 @@ export function EnvelopeRow({
         <Text style={[styles.sheetTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
           {name}
         </Text>
-        {pace && (
-          <Reanimated.View entering={weeklyJustOn ? FadeIn.duration(240).delay(80) : undefined}>
-            <WeekBreakdown pace={pace} envelope={envelope} money={money} />
-          </Reanimated.View>
-        )}
+        <Collapse open={!!pace} animateOpen={weeklyJustOn}>
+          {lastPace.current && <WeekBreakdown pace={lastPace.current} envelope={envelope} money={money} />}
+        </Collapse>
         {!envelope.isCreditCardPayment && (
           <View style={[styles.weeklySwitch, { borderBottomColor: tokens.border }]}>
             <View style={{ flex: 1 }}>
@@ -276,6 +277,42 @@ export function EnvelopeRow({
   )
 }
 
+/**
+ * Animates its own height between 0 and its content's, so the bottom-anchored
+ * sheet's top edge glides both ways while its bottom stays put. (BottomSheet
+ * itself can't use a layout transition: see the note in Modal.tsx.) The
+ * content is absolutely placed so it measures at full height even while the
+ * box is collapsed.
+ */
+function Collapse({ open, animateOpen, children }: { open: boolean; animateOpen: boolean; children: React.ReactNode }) {
+  const height = useSharedValue(0)
+  const measured = useSharedValue(0)
+  const ease = { duration: 280, easing: Easing.out(Easing.cubic) }
+
+  useEffect(() => {
+    if (!open) height.value = withTiming(0, ease)
+    else if (measured.value > 0) height.value = animateOpen ? withTiming(measured.value, ease) : measured.value
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
+
+  const style = useAnimatedStyle(() => ({ height: height.value, opacity: measured.value ? Math.min(1, height.value / Math.min(measured.value, 160)) : 0 }))
+  return (
+    <Reanimated.View style={[styles.collapse, style]}>
+      <View
+        style={styles.collapseInner}
+        onLayout={(e) => {
+          const h = e.nativeEvent.layout.height
+          if (h === measured.value) return
+          measured.value = h
+          if (open) height.value = animateOpen ? withTiming(h, ease) : h
+        }}
+      >
+        {children}
+      </View>
+    </Reanimated.View>
+  )
+}
+
 /** The sheet's week-by-week list: the weeks you spent in so far, and this one with its tick. */
 function WeekBreakdown({ pace, envelope, money }: { pace: WeekPace; envelope: Envelope; money: (n: number) => string }) {
   const { tokens } = useTheme()
@@ -333,6 +370,8 @@ const styles = StyleSheet.create({
   sheetBtn: { paddingVertical: 12 },
   sheetBtnText: { fontSize: 14 },
   paceLine: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  collapse: { overflow: 'hidden' },
+  collapseInner: { position: 'absolute', left: 0, right: 0, top: 0 },
   paceText: { flex: 1 },
   weeklySwitch: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth },
   weeks: { gap: 2, marginBottom: 8 },

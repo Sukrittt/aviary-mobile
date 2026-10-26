@@ -9,7 +9,7 @@ import {
   StyleSheet,
   useWindowDimensions,
 } from 'react-native'
-import Reanimated, { Easing, Extrapolation, interpolate, LinearTransition, runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated'
+import Reanimated, { Extrapolation, interpolate, runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { elevation, motion, radius } from '@/src/theme/scale'
@@ -86,9 +86,6 @@ export function BottomSheet({ visible, onClose, children }: Props) {
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <Pressable testID="bottom-sheet-backdrop" style={styles.backdrop} onPress={handleBackdrop}>
           <Reanimated.View
-            // Content that grows or shrinks while open (a section appearing)
-            // eases the card's top edge instead of jumping it.
-            layout={LinearTransition.duration(280).easing(Easing.out(Easing.cubic))}
             style={[styles.float, { marginBottom: INSET }, cardStyle]}
             onLayout={(e) => (travel.value = e.nativeEvent.layout.height + INSET)}
           >
