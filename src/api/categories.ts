@@ -19,7 +19,7 @@ export async function addCategory(name: string, group = '', icon?: string, color
 
 export async function updateCategory(
   name: string,
-  updates: { newName?: string; group?: string; alertPcts?: number[] | null; icon?: string; color?: string },
+  updates: { newName?: string; group?: string; alertPcts?: number[] | null; icon?: string; color?: string; weeklySince?: string | null },
 ): Promise<void> {
   const resp = await apiFetch('/api/categories', {
     method: 'PUT',

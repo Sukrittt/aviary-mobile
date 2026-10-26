@@ -17,6 +17,7 @@ import { isTransportFailure } from '@/src/api/client'
 import { budgetsKey } from '@/src/hooks/useBudgets'
 
 const key = ['categories'] as const
+export const categoriesKey = key
 
 /**
  * Write-through cache point for the category list. Every fetch that lands
