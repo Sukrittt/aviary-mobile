@@ -44,7 +44,7 @@ type Store = {
   copy: Record<string, NudgeCopy>
   /** When fetching a habit's copy last failed, so it isn't retried every app open. */
   copyFailedAt: Record<string, number>
-  /** Each habit id's minute, so findHabits gives a time slot the same id next refresh. */
+  /** Each habit id's minute, so findHabits gives a time slot the same id next refresh. Never dropped: a gone slot's id (and mute) mustn't go to a new one. */
   slots: Record<string, number>
 }
 
@@ -186,7 +186,7 @@ export function refreshHabitNudges(rows: ExpenseRow[], now = new Date()): Promis
     if (scheduled.length && planKey(scheduled) !== planKey(before)) {
       track('habit_nudges_scheduled', { count: scheduled.length, habits: habits.length })
     }
-    return { ...keep([...waiting, ...scheduled], copy, copyFailedAt), slots: Object.fromEntries(habits.map((h) => [h.id, h.minute])) }
+    return { ...keep([...waiting, ...scheduled], copy, copyFailedAt), slots: { ...store.slots, ...Object.fromEntries(habits.map((h) => [h.id, h.minute])) } }
   }).then(() => undefined)
 }
 
