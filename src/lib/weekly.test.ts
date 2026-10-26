@@ -1,4 +1,4 @@
-import { allowanceNote, lastWeekResults, monthWeeks, paceLine, resetChip, spendByDay, weekPace, weeklyRecap } from './weekly'
+import { allowanceNote, lastWeekResults, monthWeeks, paceLine, resetChip, spendByDay, weekPace, weeklyRecap, weekResult } from './weekly'
 
 const money = (n: number) => `₹${n.toFixed(2)}`
 
@@ -136,5 +136,23 @@ describe('weeklyRecap', () => {
       title: 'Groceries ran ₹165.00 over',
       detail: 'This week covers it.',
     })
+  })
+})
+
+describe('weekResult', () => {
+  const p = october(26, 206.66)
+
+  it('gives a past week what it came in under or over by, like Home’s pills', () => {
+    expect(weekResult(p.weeks[0], false, p.left, money)).toEqual({ text: '₹132.00', over: false })
+    expect(weekResult(p.weeks[1], false, p.left, money)).toEqual({ text: '-₹85.00', over: true })
+  })
+
+  it('gives this week what it has left, or how far over it is', () => {
+    expect(weekResult(p.current, true, p.left, money)).toEqual({ text: '₹455.00', over: false })
+    expect(weekResult(p.current, true, -40, money)).toEqual({ text: '-₹40.00', over: true })
+  })
+
+  it('never shows a week a few paise over as fine', () => {
+    expect(weekResult({ from: 1, to: 7, days: 7, spent: 500.4, allowance: 500, usual: 500 }, false, 0, money)).toEqual({ text: '-₹0.40', over: true })
   })
 })

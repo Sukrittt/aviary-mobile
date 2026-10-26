@@ -20,7 +20,7 @@ import { currentMonthKey } from '@/src/lib/envelope'
 import { rolledOverLine } from '@/src/lib/rollover'
 import { Toggle } from '@/src/components/ui/Toggle'
 import { useWeeklyCategories } from '@/src/hooks/useWeeklyCategories'
-import { allowanceNote, paceLine, resetChip, type WeekPace } from '@/src/lib/weekly'
+import { allowanceNote, paceLine, resetChip, weekResult, type WeekPace } from '@/src/lib/weekly'
 
 const TIP_MS = 2000
 
@@ -276,6 +276,9 @@ function WeekBreakdown({ pace, envelope, money }: { pace: WeekPace; envelope: En
       </Text>
       {pace.weeks.map((w, i) => {
         const isNow = i === pace.weeks.length - 1
+        const result = weekResult(w, isNow, pace.left, money)
+        // This week's pill matches the row's on Home; a finished week is just under or over.
+        const tone = isNow ? weeklyPill(pace, tokens) : result.over ? { color: tokens.pillOver, bg: tokens.pillOverBg } : { color: tokens.pillGood, bg: tokens.pillGoodBg }
         return (
           <View key={w.from} style={styles.weekRow}>
             <Text style={[styles.weekLabel, { color: isNow ? tokens.text : tokens.text2, fontFamily: isNow ? fontFamily.bodySemiBold : fontFamily.bodyMedium }]}>
@@ -288,9 +291,9 @@ function WeekBreakdown({ pace, envelope, money }: { pace: WeekPace; envelope: En
                 <ProgressBar pct={w.allowance > 0 ? Math.min(100, (w.spent / w.allowance) * 100) : w.spent > 0 ? 100 : 0} over={w.spent > w.allowance} tick={100} />
               )}
             </View>
-            <Text style={[styles.weekAmount, { color: w.spent > w.allowance ? tokens.pillOver : tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
-              {money(w.spent)}/{money(w.allowance)}
-            </Text>
+            <View style={styles.weekAmountCol}>
+              <Text style={[styles.weekPill, { color: tone.color, backgroundColor: tone.bg, fontFamily: fontFamily.bodySemiBold }]}>{result.text}</Text>
+            </View>
           </View>
         )
       })}
@@ -323,6 +326,8 @@ const styles = StyleSheet.create({
   weeks: { gap: 2, marginBottom: 8 },
   weekRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6 },
   weekLabel: { width: 64, fontSize: 12 },
-  weekAmount: { minWidth: 92, textAlign: 'right', fontSize: 12, fontVariant: ['tabular-nums'] },
+  // Same width as the row's pill column, so the week bars end where Home's do.
+  weekAmountCol: { width: 84, alignItems: 'flex-end' },
+  weekPill: { fontSize: 12, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, overflow: 'hidden', fontVariant: ['tabular-nums'] },
   note: { fontSize: 12, lineHeight: 17, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, marginTop: 6, overflow: 'hidden' },
 })
