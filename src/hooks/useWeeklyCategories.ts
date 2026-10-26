@@ -6,6 +6,8 @@ import { track } from '@/src/lib/analytics'
 import { todayLocal } from '@/src/lib/date'
 import { categoriesKey, useCategories } from '@/src/hooks/useCategories'
 import { useBudgetSpaces } from '@/src/hooks/useBudgetSpaces'
+import { activeBudgetId } from '@/src/lib/activeBudget'
+import { currentUserId } from '@/src/api/accessMode'
 
 /**
  * Categories tracked week by week, with the day each was switched on (so
@@ -29,7 +31,8 @@ export function useWeeklyCategories() {
     // One queue for every flip: a quick on-then-off saves in tap order, so the
     // last tap is what the server keeps.
     scope: { id: 'weekly-categories' },
-    mutationFn: ({ category, since }: { category: string; since: string | null }) => updateCategory(category, { weeklySince: since }),
+    mutationFn: ({ category, since, spaceId }: { category: string; since: string | null; spaceId: string | null }) =>
+      updateCategory(category, { weeklySince: since }, spaceId),
     onMutate: async ({ category, since }) => {
       await qc.cancelQueries({ queryKey: categoriesKey })
       const previous = qc.getQueryData<CategoryRow[]>(categoriesKey)
@@ -49,7 +52,10 @@ export function useWeeklyCategories() {
   })
 
   function setWeekly(category: string, on: boolean) {
-    mutation.mutate({ category, since: on ? todayLocal() : null })
+    // Pinned to the budget it was tapped in: a queued flip mustn't land on a
+    // same-named category if the budget switches before it runs. Same pin as
+    // the offline expense queue (useExpenses).
+    mutation.mutate({ category, since: on ? todayLocal() : null, spaceId: activeBudgetId() ?? currentUserId() })
     track('weekly_pacing_toggled', { on })
   }
 
