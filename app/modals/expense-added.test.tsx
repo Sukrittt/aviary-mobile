@@ -16,6 +16,7 @@ import { DELTA_DELAY, DELTA_DURATION } from '@/src/components/envelope/DeltaBar'
 import { currentMonthKey, daysLeftInMonth, prevMonthKey } from '@/src/lib/envelope'
 import { fontFamily } from '@/src/theme/fonts'
 import { type } from '@/src/theme/scale'
+import { lightTokens } from '@/src/theme/tokens'
 import { habitNudgesReady } from '@/src/lib/habitNudges'
 import { toLocalDateString } from '@/src/lib/date'
 
@@ -421,6 +422,13 @@ describe('habit progress', () => {
   it('counts toward a nudge from the second day', async () => {
     const { findByText } = setup(logNow, [milk('e1', daysAgo(1))])
     expect(await findByText('Seen your milk 2 times. Nudges start after one more.')).toBeTruthy()
+  })
+
+  it('sits on the mint pill, like the UPI tip', async () => {
+    const { findByText } = setup(logNow, [milk('e1', daysAgo(1))])
+    const line = await findByText('Seen your milk 2 times. Nudges start after one more.')
+    expect(StyleSheet.flatten(line.props.style).color).toBe(lightTokens.onSuccess)
+    expect(StyleSheet.flatten(line.parent?.parent?.props.style).backgroundColor).toBe(lightTokens.successBg)
   })
 
   it('promises a nudge once it is a habit', async () => {
