@@ -75,3 +75,5 @@ scripts/widget-previews/.out/
 .playwright-mcp/
 
 .claude/
+
+.superpowers/
