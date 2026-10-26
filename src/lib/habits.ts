@@ -148,15 +148,16 @@ export function findHabits(rows: ExpenseRow[], today: string): Habit[] {
     // A row can sit in both a weekday slot and a pooled one.
     const grouped = groups.map((group) => ({ group, hits: [...new Set(group.flatMap((s) => s.hits))] }))
     // HabitState is keyed by id, so the longest-running group keeps the bare
-    // key when a new slot shows up, and any other is named by its hour.
+    // key when a new slot shows up. ponytail: the rest are numbered by time of
+    // day, so a new earlier slot renumbers them; persist slot ids if that bites.
     const oldest = (hits: Hit[]) => hits.reduce((a, h) => (h.row.date < a ? h.row.date : a), today)
     const main = grouped.reduce((a, g) => (oldest(g.hits) < oldest(a.hits) ? g : a), grouped[0])
-    for (const g of grouped) {
+    grouped.forEach((g, i) => {
       const { group, hits } = g
       const newest = hits.reduce((a, b) => (b.row.timestamp > a.row.timestamp ? b : a))
       const minute = median(hits.map((h) => h.minute))
       habits.push({
-        id: g === main ? key : `${key}#${Math.floor(minute / 60)}`,
+        id: g === main ? key : `${key}#${i}`,
         item: mostCommon(hits.map((h) => h.row.item.trim())),
         category: newest.row.category,
         amountInr: median(hits.map((h) => Number(h.row.amount_inr))),
@@ -165,7 +166,7 @@ export function findHabits(rows: ExpenseRow[], today: string): Habit[] {
         minute,
         count: hits.length,
       })
-    }
+    })
   }
   return habits.sort((a, b) => a.minute - b.minute)
 }

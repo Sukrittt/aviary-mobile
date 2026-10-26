@@ -155,7 +155,9 @@ describe('findHabits, across weekdays', () => {
     const morning = weekly('2026-09-30', 4, '09:00', 'Coffee', 100)
     expect(findHabits(morning, TODAY).map((h) => h.id)).toEqual(['groceries|coffee'])
     const habits = findHabits([...morning, ...daily(3, '16:00', 'Coffee')], TODAY)
-    expect(habits.map((h) => h.id)).toEqual(['groceries|coffee', 'groceries|coffee#16'])
+    expect(habits.map((h) => h.id)).toEqual(['groceries|coffee', 'groceries|coffee#1'])
+    // A log a minute either side of the hour doesn't rename the newer one.
+    expect(findHabits([...morning, ...daily(3, '15:59', 'Coffee'), row('2026-09-30', '16:01', 'Coffee', 100)], TODAY).map((h) => h.id)).toEqual(['groceries|coffee', 'groceries|coffee#1'])
   })
 
   it('leaves a weekly spend to the weekday rule', () => {
