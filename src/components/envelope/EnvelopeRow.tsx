@@ -18,6 +18,9 @@ import { RollingAmount } from './RollingAmount'
 import Reanimated, { FadeIn, FadeOut } from 'react-native-reanimated'
 import { currentMonthKey } from '@/src/lib/envelope'
 import { rolledOverLine } from '@/src/lib/rollover'
+import { Toggle } from '@/src/components/ui/Toggle'
+import { useWeeklyCategories } from '@/src/hooks/useWeeklyCategories'
+import { allowanceNote, paceLine, resetChip, weekLabel, type WeekPace } from '@/src/lib/weekly'
 
 const TIP_MS = 2000
 
@@ -30,6 +33,13 @@ export function availablePill(e: Envelope, tokens: ThemeTokens): { color: string
   if (e.isOverspent) return { color: tokens.pillOver, bg: tokens.pillOverBg }
   if (e.spentPct === 100) return { color: tokens.text3, bg: 'transparent' }
   if (e.spentPct > 75) return { color: tokens.pillLow, bg: tokens.pillLowBg }
+  return { color: tokens.pillGood, bg: tokens.pillGoodBg }
+}
+
+/** A weekly row's pill: what's left this week, toned by pace rather than fullness. */
+export function weeklyPill(p: WeekPace, tokens: ThemeTokens): { color: string; bg: string } {
+  if (p.status === 'over') return { color: tokens.pillOver, bg: tokens.pillOverBg }
+  if (p.status === 'ahead') return { color: tokens.pillLow, bg: tokens.pillLowBg }
   return { color: tokens.pillGood, bg: tokens.pillGoodBg }
 }
 
@@ -70,6 +80,8 @@ interface Props {
   rollPlay?: number
   /** This row's wait in the top-to-bottom roll. */
   rollDelayMs?: number
+  /** This week's pace, when the category is tracked weekly (src/lib/weekly.ts). */
+  pace?: WeekPace
 }
 
 /** A single envelope row + its tap-to-open action sheet (move money / edit amount / view transactions). */
@@ -84,12 +96,15 @@ export function EnvelopeRow({
   onSheetOpenChange,
   rollPlay = 0,
   rollDelayMs = 0,
+  pace,
 }: Props) {
   const { formatCurrency } = useCurrency()
 
   const { tokens } = useTheme()
   const tintOf = useCategoryTint()
   const [sheetOpen, setSheetOpen] = useState(false)
+  const { weekly, setWeekly } = useWeeklyCategories()
+  const money = (n: number) => formatCurrency(n, hideAmounts)
   // What carried in, on a long press of the pill, since the row no longer says it.
   const tip = hideAmounts ? null : rolledOverLine(envelope.rolledOver, currentMonthKey(), (n) => formatCurrency(n))
   const [tipOpen, setTipOpen] = useState(false)
@@ -110,7 +125,7 @@ export function EnvelopeRow({
     onSheetOpenChange?.(false)
   }, [onSheetOpenChange])
 
-  const pill = availablePill(envelope, tokens)
+  const pill = pace ? weeklyPill(pace, tokens) : availablePill(envelope, tokens)
   const Icon = CATEGORY_ICON_COMPONENTS[icon]
   const tint = tintOf(envelope.category)
   const name = displayName ?? splitEmoji(envelope.category).text
@@ -131,13 +146,27 @@ export function EnvelopeRow({
             {name}
           </Text>
           <Text style={[styles.spentOf, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
-            {unbudgeted
+            {pace
+              ? `${money(pace.current.spent)}/${money(pace.current.allowance)}`
+              : unbudgeted
               ? `${formatCurrency(envelope.spent, hideAmounts)} spent`
               : `${formatCurrency(envelope.spent, hideAmounts)}/${formatCurrency(envelope.assigned, hideAmounts)}`}
           </Text>
         </View>
-        <ProgressBar pct={envelope.spentPct} over={envelope.isOverspent} />
-        {!envelope.isCreditCardPayment && (
+        {pace ? (
+          <>
+            <ProgressBar pct={pace.spentPct} over={pace.status === 'over'} tick={pace.tickPct} />
+            <View style={styles.paceLine}>
+              <Text style={[styles.metaLine, styles.paceText, { color: pace.status === 'over' ? tokens.pillOver : tokens.text3, fontFamily: fontFamily.bodySemiBold }]} numberOfLines={1}>
+                {paceLine(pace, money)}
+              </Text>
+              <Text style={[styles.metaLine, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>{resetChip(pace)}</Text>
+            </View>
+          </>
+        ) : (
+          <ProgressBar pct={envelope.spentPct} over={envelope.isOverspent} />
+        )}
+        {!pace && !envelope.isCreditCardPayment && (
           <Text style={[styles.metaLine, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>
             {unbudgeted ? 'Not budgeted · ' : ''}Last spent {lastSpentLabel(envelope.lastSpentDate)}
           </Text>
@@ -164,9 +193,9 @@ export function EnvelopeRow({
           color={pill.color}
           size={12}
           weight="bodySemiBold"
-          from={envelope.available - envelope.rolledOver}
-          to={envelope.available}
-          play={hideAmounts ? 0 : rollPlay}
+          from={pace ? pace.left : envelope.available - envelope.rolledOver}
+          to={pace ? pace.left : envelope.available}
+          play={hideAmounts || pace ? 0 : rollPlay}
           delayMs={rollDelayMs}
           tones={{ up: { color: tokens.pillGood, bg: tokens.pillGoodBg }, down: { color: tokens.pillOver, bg: tokens.pillOverBg } }}
         />
@@ -176,6 +205,26 @@ export function EnvelopeRow({
         <Text style={[styles.sheetTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
           {name}
         </Text>
+        {pace && <WeekBreakdown pace={pace} envelope={envelope} money={money} />}
+        {!envelope.isCreditCardPayment && (
+          <View style={[styles.weeklySwitch, { borderBottomColor: tokens.border }]}>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.sheetBtnText, { color: tokens.text, fontFamily: fontFamily.bodyMedium }]}>Track weekly</Text>
+              {!pace && (
+                <Text style={[styles.metaLine, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>
+                  {"Split the month into weeks and see if you're on pace."}
+                </Text>
+              )}
+            </View>
+            <Toggle
+              value={weekly?.has(envelope.category) ?? false}
+              onValueChange={(on) => setWeekly(envelope.category, on)}
+              // Until the saved set loads, a flip would save over it.
+              disabled={weekly === undefined}
+              accessibilityLabel={`Track ${name} weekly`}
+            />
+          </View>
+        )}
         <Pressable
           style={styles.sheetBtn}
           onPress={() => {
@@ -216,6 +265,43 @@ export function EnvelopeRow({
   )
 }
 
+/** The sheet's week-by-week list: every week so far, this one with its tick. */
+function WeekBreakdown({ pace, envelope, money }: { pace: WeekPace; envelope: Envelope; money: (n: number) => string }) {
+  const { tokens } = useTheme()
+  const month = currentMonthKey()
+  const note = allowanceNote(pace, money)
+  return (
+    <View style={styles.weeks}>
+      <Text style={[styles.metaLine, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold, marginBottom: 4 }]}>
+        {money(envelope.spent)} of {money(envelope.assigned + envelope.rolledOver)} this month
+      </Text>
+      {pace.weeks.map((w, i) => {
+        const isNow = i === pace.weeks.length - 1
+        return (
+          <View key={w.from} style={styles.weekRow}>
+            <Text style={[styles.weekLabel, { color: isNow ? tokens.text : tokens.text2, fontFamily: isNow ? fontFamily.bodySemiBold : fontFamily.bodyMedium }]}>
+              {isNow ? 'This week' : weekLabel(w, month)}
+            </Text>
+            <View style={{ flex: 1 }}>
+              {isNow ? (
+                <ProgressBar pct={pace.spentPct} over={pace.status === 'over'} tick={pace.tickPct} />
+              ) : (
+                <ProgressBar pct={w.allowance > 0 ? Math.min(100, (w.spent / w.allowance) * 100) : w.spent > 0 ? 100 : 0} over={w.spent > w.allowance} tick={100} />
+              )}
+            </View>
+            <Text style={[styles.weekAmount, { color: w.spent > w.allowance ? tokens.pillOver : tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
+              {money(w.spent)}/{money(w.allowance)}
+            </Text>
+          </View>
+        )
+      })}
+      {note && (
+        <Text style={[styles.note, { color: tokens.text2, backgroundColor: tokens.inputBg, fontFamily: fontFamily.bodyMedium }]}>{note}</Text>
+      )}
+    </View>
+  )
+}
+
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
   main: { flex: 1, gap: 6 },
@@ -232,4 +318,12 @@ const styles = StyleSheet.create({
   sheetTitle: { fontSize: 16, marginBottom: 8 },
   sheetBtn: { paddingVertical: 12 },
   sheetBtnText: { fontSize: 14 },
+  paceLine: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  paceText: { flex: 1 },
+  weeklySwitch: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth },
+  weeks: { gap: 2, marginBottom: 8 },
+  weekRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6 },
+  weekLabel: { width: 64, fontSize: 12 },
+  weekAmount: { minWidth: 92, textAlign: 'right', fontSize: 12, fontVariant: ['tabular-nums'] },
+  note: { fontSize: 12, lineHeight: 17, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, marginTop: 6, overflow: 'hidden' },
 })
