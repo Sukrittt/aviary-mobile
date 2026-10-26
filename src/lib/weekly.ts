@@ -124,6 +124,18 @@ export function resetChip(p: WeekPace): string {
   return p.daysAfterToday > 0 ? `${p.daysAfterToday}d left` : 'Last day'
 }
 
+/**
+ * One readable result per week for the sheet, instead of spent/allowance:
+ * how a past week ended ("₹136 under", "₹221 over"), or what this week has
+ * left. The bar already shows how full it got.
+ */
+export function weekResult(w: WeekResult, isNow: boolean, left: number, money: (n: number) => string): { text: string; over: boolean } {
+  const diff = Math.round(isNow ? left : w.allowance - w.spent)
+  if (diff < 0) return { text: `${money(-diff)} over`, over: true }
+  if (isNow) return { text: `${money(diff)} left`, over: false }
+  return { text: diff === 0 ? 'Spot on' : `${money(diff)} under`, over: false }
+}
+
 /** Why this week's allowance isn't the usual share. Null when it's about the same. */
 export function allowanceNote(p: WeekPace, money: (n: number) => string): string | null {
   const diff = Math.round(p.current.allowance - p.current.usual)

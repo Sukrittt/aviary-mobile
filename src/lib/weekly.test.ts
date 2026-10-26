@@ -1,4 +1,4 @@
-import { allowanceNote, lastWeekResults, monthWeeks, paceLine, resetChip, spendByDay, weekPace, weeklyRecap } from './weekly'
+import { allowanceNote, lastWeekResults, monthWeeks, paceLine, resetChip, spendByDay, weekPace, weeklyRecap, weekResult } from './weekly'
 
 const money = (n: number) => `₹${n.toFixed(2)}`
 
@@ -136,5 +136,23 @@ describe('weeklyRecap', () => {
       title: 'Groceries ran ₹165.00 over',
       detail: 'This week covers it.',
     })
+  })
+})
+
+describe('weekResult', () => {
+  const p = october(26, 206.66)
+
+  it('says how a past week ended, in one number', () => {
+    expect(weekResult(p.weeks[0], false, p.left, money)).toEqual({ text: '₹132.00 under', over: false })
+    expect(weekResult(p.weeks[1], false, p.left, money)).toEqual({ text: '₹85.00 over', over: true })
+  })
+
+  it('says what this week has left, or how far over it is', () => {
+    expect(weekResult(p.current, true, p.left, money)).toEqual({ text: '₹455.00 left', over: false })
+    expect(weekResult(p.current, true, -40, money)).toEqual({ text: '₹40.00 over', over: true })
+  })
+
+  it('calls a week that landed exactly on its allowance spot on', () => {
+    expect(weekResult({ from: 1, to: 7, days: 7, spent: 500, allowance: 500, usual: 500 }, false, 0, money).text).toBe('Spot on')
   })
 })

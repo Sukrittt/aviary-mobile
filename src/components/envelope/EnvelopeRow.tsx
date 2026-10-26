@@ -20,7 +20,7 @@ import { currentMonthKey } from '@/src/lib/envelope'
 import { rolledOverLine } from '@/src/lib/rollover'
 import { Toggle } from '@/src/components/ui/Toggle'
 import { useWeeklyCategories } from '@/src/hooks/useWeeklyCategories'
-import { allowanceNote, paceLine, resetChip, type WeekPace } from '@/src/lib/weekly'
+import { allowanceNote, paceLine, resetChip, weekResult, type WeekPace } from '@/src/lib/weekly'
 
 const TIP_MS = 2000
 
@@ -276,6 +276,7 @@ function WeekBreakdown({ pace, envelope, money }: { pace: WeekPace; envelope: En
       </Text>
       {pace.weeks.map((w, i) => {
         const isNow = i === pace.weeks.length - 1
+        const result = weekResult(w, isNow, pace.left, money)
         return (
           <View key={w.from} style={styles.weekRow}>
             <Text style={[styles.weekLabel, { color: isNow ? tokens.text : tokens.text2, fontFamily: isNow ? fontFamily.bodySemiBold : fontFamily.bodyMedium }]}>
@@ -288,8 +289,13 @@ function WeekBreakdown({ pace, envelope, money }: { pace: WeekPace; envelope: En
                 <ProgressBar pct={w.allowance > 0 ? Math.min(100, (w.spent / w.allowance) * 100) : w.spent > 0 ? 100 : 0} over={w.spent > w.allowance} tick={100} />
               )}
             </View>
-            <Text style={[styles.weekAmount, { color: w.spent > w.allowance ? tokens.pillOver : tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
-              {money(w.spent)}/{money(w.allowance)}
+            <Text
+              style={[
+                styles.weekAmount,
+                { color: result.over ? tokens.pillOver : isNow ? tokens.text : tokens.text2, fontFamily: isNow || result.over ? fontFamily.bodySemiBold : fontFamily.bodyMedium },
+              ]}
+            >
+              {result.text}
             </Text>
           </View>
         )

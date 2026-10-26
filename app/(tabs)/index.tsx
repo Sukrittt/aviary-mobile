@@ -32,8 +32,6 @@ import {
   currentMonthKey,
   daysLeftInMonth,
   monthAbbrev,
-  overPlannedLine,
-  trimCandidates,
   type Envelope,
 } from '@/src/lib/envelope'
 
@@ -330,8 +328,6 @@ function HomeScreen() {
   // shows, again whenever it's tapped. Nothing to roll once it's gone.
   const rollPlay = banner === 'rollover' ? rollReplays + 1 : 0
 
-  const overPlanned = overPlannedLine(envelopeState.readyToAssign, (n) => formatCurrency(n))
-  const trimFirst = trimCandidates(envelopeState.envelopes, 1)[0]
 
   function handleEditAmount(category: string) {
     router.push({ pathname: '/modals/edit-assigned-amount', params: { category } })
@@ -492,28 +488,6 @@ function HomeScreen() {
               </Text>
               <Icon icon={CaretRight} size={14} color={envelopeState.income === 0 ? tokens.accentInk : tokens.text2} />
             </AnimatedPressable>
-            {/* Usually a new month copying a plan last month's one-off extra
-                paid for. Says so, and opens the biggest plan to trim (the
-                screen switches categories in place). No plan at all (a
-                carried deficit alone): nothing to trim, so no line. */}
-            {!hideAmounts && overPlanned && trimFirst && (
-              <View style={styles.overPlanned}>
-                <Text style={{ color: tokens.coral, fontSize: type.caption, fontFamily: fontFamily.bodyMedium }}>{overPlanned}</Text>
-                {!readOnly && (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityHint={`Opens ${splitEmoji(trimFirst.category).text}, your biggest plan`}
-                    hitSlop={8}
-                    onPress={() => {
-                      tap()
-                      handleEditAmount(trimFirst.category)
-                    }}
-                  >
-                    <Text style={[styles.trim, { color: tokens.pillOver, backgroundColor: tokens.pillOverBg, borderRadius: radius.full, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }]}>Trim</Text>
-                  </Pressable>
-                )}
-              </View>
-            )}
           </View>
         )}
 
@@ -760,9 +734,6 @@ function HomeScreen() {
 const styles = StyleSheet.create({
   appIconButton: { width: 40, height: 40 },
   hero: { alignItems: 'center', gap: 6 },
-  overPlanned: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
-  // A soft pill in the line's own red, so it reads as the button it is.
-  trim: { paddingHorizontal: 10, paddingVertical: 3, overflow: 'hidden' },
   incomePill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 6, marginTop: 4 },
   heroLabel: { fontSize: 12, letterSpacing: 0.6 },
   slimRta: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14 },
