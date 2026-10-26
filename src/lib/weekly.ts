@@ -125,18 +125,16 @@ export function resetChip(p: WeekPace): string {
 }
 
 /**
- * One readable result per week for the sheet, instead of spent/allowance:
- * how a past week ended ("₹136 under", "₹221 over"), or what this week has
- * left. The bar already shows how full it got.
+ * One amount per week for the sheet's pills, like Home's: what a past week
+ * came in under ("₹136") or over ("-₹221") by, or what this week has left.
+ * The bar already shows how full it got.
  */
 export function weekResult(w: WeekResult, isNow: boolean, left: number, money: (n: number) => string): { text: string; over: boolean } {
   // The sign comes from the exact difference, so it always agrees with the
   // bar; only the shown amount is rounded (to paise if it'd round to 0).
   const raw = round2(isNow ? left : w.allowance - w.spent)
   const shown = Math.round(Math.abs(raw)) || Math.abs(raw)
-  if (raw < 0) return { text: `${money(shown)} over`, over: true }
-  if (isNow) return { text: `${money(shown)} left`, over: false }
-  return { text: raw === 0 ? 'Spot on' : `${money(shown)} under`, over: false }
+  return raw < 0 ? { text: `-${money(shown)}`, over: true } : { text: money(shown), over: false }
 }
 
 /** Why this week's allowance isn't the usual share. Null when it's about the same. */
