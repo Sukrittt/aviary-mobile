@@ -152,6 +152,10 @@ describe('weekResult', () => {
     expect(weekResult(p.current, true, -40, money)).toEqual({ text: '₹40.00 over', over: true })
   })
 
+  it('never calls a week a few paise over spot on', () => {
+    expect(weekResult({ from: 1, to: 7, days: 7, spent: 500.4, allowance: 500, usual: 500 }, false, 0, money)).toEqual({ text: '₹0.40 over', over: true })
+  })
+
   it('calls a week that landed exactly on its allowance spot on', () => {
     expect(weekResult({ from: 1, to: 7, days: 7, spent: 500, allowance: 500, usual: 500 }, false, 0, money).text).toBe('Spot on')
   })

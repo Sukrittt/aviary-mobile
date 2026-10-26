@@ -130,10 +130,13 @@ export function resetChip(p: WeekPace): string {
  * left. The bar already shows how full it got.
  */
 export function weekResult(w: WeekResult, isNow: boolean, left: number, money: (n: number) => string): { text: string; over: boolean } {
-  const diff = Math.round(isNow ? left : w.allowance - w.spent)
-  if (diff < 0) return { text: `${money(-diff)} over`, over: true }
-  if (isNow) return { text: `${money(diff)} left`, over: false }
-  return { text: diff === 0 ? 'Spot on' : `${money(diff)} under`, over: false }
+  // The sign comes from the exact difference, so it always agrees with the
+  // bar; only the shown amount is rounded (to paise if it'd round to 0).
+  const raw = round2(isNow ? left : w.allowance - w.spent)
+  const shown = Math.round(Math.abs(raw)) || Math.abs(raw)
+  if (raw < 0) return { text: `${money(shown)} over`, over: true }
+  if (isNow) return { text: `${money(shown)} left`, over: false }
+  return { text: raw === 0 ? 'Spot on' : `${money(shown)} under`, over: false }
 }
 
 /** Why this week's allowance isn't the usual share. Null when it's about the same. */
