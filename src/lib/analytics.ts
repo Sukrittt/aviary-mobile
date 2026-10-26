@@ -312,8 +312,11 @@ export function identifyUser(profile: { email?: string; name?: string | null }):
  */
 export function initAnalytics(): void {
   // Web sends 'web' into the same PostHog project, so one person who uses both
-  // apps stays one person and every chart can split by platform.
-  const platformContext = { platform: Platform.OS }
+  // apps stays one person and every chart can split by platform. The OTA
+  // update id rides along so you can see which update a person is running.
+  // Same key PostHog already puts on $exception events, so one filter covers both.
+  const platformContext: EventProperties = { platform: Platform.OS }
+  if (Updates.updateId) platformContext.$expo_update_id = Updates.updateId
   setEventContext(platformContext)
 
   accessMode.subscribe((mode) => {

@@ -1,5 +1,6 @@
 import { accessMode, currentUserId, type AccessMode } from '../api/accessMode'
 import { Platform } from 'react-native'
+import * as Updates from 'expo-updates'
 import { flushAnalytics, identifyUser, initAnalytics, isAnalyticsEnabled, posthog, setAnalyticsEnabled, setEventContext, startTimer, track, trackFirst, trackScreen } from './analytics'
 
 jest.mock('../api/accessMode', () => ({
@@ -62,10 +63,10 @@ describe('initAnalytics', () => {
 
   // reset() clears registered properties too, which used to leave every event
   // after a sign-out without `platform` until the next cold start.
-  it('puts platform back after the logout reset', () => {
+  it('puts platform and the update id back after the logout reset', () => {
     ;(posthog.register as jest.Mock).mockClear()
     notifyLogout()
-    expect(posthog.register).toHaveBeenCalledWith({ platform: Platform.OS })
+    expect(posthog.register).toHaveBeenCalledWith({ platform: Platform.OS, $expo_update_id: Updates.updateId })
     expect((posthog.reset as jest.Mock).mock.invocationCallOrder[0]).toBeLessThan(
       (posthog.register as jest.Mock).mock.invocationCallOrder[0],
     )
@@ -149,8 +150,8 @@ describe('trackFirst', () => {
 })
 
 describe('event context', () => {
-  it('registers the platform on init, so web and mobile split in one project', () => {
-    expect(posthog.register).toHaveBeenCalledWith({ platform: Platform.OS })
+  it('registers the platform and the running OTA update id on init', () => {
+    expect(posthog.register).toHaveBeenCalledWith({ platform: Platform.OS, $expo_update_id: Updates.updateId })
   })
 
   it('registers context properties for every later event', () => {
