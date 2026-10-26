@@ -160,6 +160,18 @@ describe('findHabits, across weekdays', () => {
     expect(findHabits([...morning, ...daily(3, '15:59', 'Coffee'), row('2026-09-30', '16:01', 'Coffee', 100)], TODAY).map((h) => h.id)).toEqual(['groceries|coffee', 'groceries|coffee#1'])
   })
 
+  it('keeps each slot its id once seen, whichever has the oldest log', () => {
+    const slotsOf = (hs: Habit[]) => Object.fromEntries(hs.map((h) => [h.id, h.minute]))
+    const first = findHabits([...weekly('2026-09-28', 3, '08:00', 'Coffee', 100), ...weekly('2026-09-28', 4, '19:00', 'Coffee', 100)], TODAY)
+    expect(first.map((h) => [h.minute, h.id])).toEqual([[8 * 60, 'groceries|coffee#0'], [19 * 60, 'groceries|coffee']])
+    // The evening's oldest log ages out and the morning's goes back further: the morning is now the older slot.
+    const later = [...weekly('2026-09-28', 4, '08:00', 'Coffee', 100), ...weekly('2026-09-28', 3, '19:00', 'Coffee', 100)]
+    expect(findHabits(later, TODAY, slotsOf(first)).map((h) => h.id)).toEqual(['groceries|coffee#0', 'groceries|coffee'])
+    // A slot that's new gets an id no known slot has, so it can't inherit a mute.
+    const third = findHabits([...later, ...weekly('2026-09-28', 3, '13:00', 'Coffee', 100)], TODAY, slotsOf(first))
+    expect(third.map((h) => h.id)).toEqual(['groceries|coffee#0', 'groceries|coffee#1', 'groceries|coffee'])
+  })
+
   it('leaves a weekly spend to the weekday rule', () => {
     expect(findHabits(weekly('2026-09-25', 2, '22:00', 'Uber', 300), TODAY)).toEqual([])
     expect(findHabits(weekly('2026-09-25', 3, '22:00', 'Uber', 300), TODAY)[0].weekdays).toEqual([5])
