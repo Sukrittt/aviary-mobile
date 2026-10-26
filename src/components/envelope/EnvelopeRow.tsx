@@ -20,7 +20,7 @@ import { currentMonthKey } from '@/src/lib/envelope'
 import { rolledOverLine } from '@/src/lib/rollover'
 import { Toggle } from '@/src/components/ui/Toggle'
 import { useWeeklyCategories } from '@/src/hooks/useWeeklyCategories'
-import { allowanceNote, paceLine, resetChip, weekLabel, type WeekPace } from '@/src/lib/weekly'
+import { allowanceNote, paceLine, resetChip, type WeekPace } from '@/src/lib/weekly'
 
 const TIP_MS = 2000
 
@@ -268,7 +268,6 @@ export function EnvelopeRow({
 /** The sheet's week-by-week list: every week so far, this one with its tick. */
 function WeekBreakdown({ pace, envelope, money }: { pace: WeekPace; envelope: Envelope; money: (n: number) => string }) {
   const { tokens } = useTheme()
-  const month = currentMonthKey()
   const note = allowanceNote(pace, money)
   return (
     <View style={styles.weeks}>
@@ -280,7 +279,7 @@ function WeekBreakdown({ pace, envelope, money }: { pace: WeekPace; envelope: En
         return (
           <View key={w.from} style={styles.weekRow}>
             <Text style={[styles.weekLabel, { color: isNow ? tokens.text : tokens.text2, fontFamily: isNow ? fontFamily.bodySemiBold : fontFamily.bodyMedium }]}>
-              {isNow ? 'This week' : weekLabel(w, month)}
+              {isNow ? 'This week' : `Week ${i + 1}`}
             </Text>
             <View style={{ flex: 1 }}>
               {isNow ? (

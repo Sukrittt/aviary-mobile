@@ -121,7 +121,8 @@ describe('weekly row', () => {
   it('lists the weeks so far in its sheet, with the weekly switch', () => {
     const { getByText, getByLabelText } = weeklyRow()
     fireEvent.press(getByText('Groceries'))
-    expect(getByText('1–4 Oct')).toBeTruthy()
+    expect(getByText('Week 1')).toBeTruthy()
+    expect(getByText('Week 4')).toBeTruthy()
     expect(getByText('This week')).toBeTruthy()
     expect(getByText(/less than usual/)).toBeTruthy()
     expect(getByLabelText('Track Groceries weekly')).toBeTruthy()

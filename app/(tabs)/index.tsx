@@ -509,7 +509,7 @@ function HomeScreen() {
                       handleEditAmount(trimFirst.category)
                     }}
                   >
-                    <Text style={[styles.trim, { color: tokens.text, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }]}>Trim</Text>
+                    <Text style={[styles.trim, { color: tokens.pillOver, backgroundColor: tokens.pillOverBg, borderRadius: radius.full, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }]}>Trim</Text>
                   </Pressable>
                 )}
               </View>
@@ -761,7 +761,8 @@ const styles = StyleSheet.create({
   appIconButton: { width: 40, height: 40 },
   hero: { alignItems: 'center', gap: 6 },
   overPlanned: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
-  trim: { textDecorationLine: 'underline' },
+  // A soft pill in the line's own red, so it reads as the button it is.
+  trim: { paddingHorizontal: 10, paddingVertical: 3, overflow: 'hidden' },
   incomePill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 6, marginTop: 4 },
   heroLabel: { fontSize: 12, letterSpacing: 0.6 },
   slimRta: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14 },
