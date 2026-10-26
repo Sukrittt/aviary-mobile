@@ -103,9 +103,10 @@ export function EnvelopeRow({
   const { tokens } = useTheme()
   const tintOf = useCategoryTint()
   const [sheetOpen, setSheetOpen] = useState(false)
-  // Switched on with the sheet open: the weeks grow in, so the card's top eases
-  // up. Opened already on, the sheet's own slide covers it.
-  const [weeklyJustOn, setWeeklyJustOn] = useState(false)
+  // Flipped with the sheet open: the weeks and the switch's caption trade
+  // places on one curve, so the card's top eases. Opened already on or off,
+  // the sheet's own slide covers it.
+  const [weeklyFlipped, setWeeklyFlipped] = useState(false)
   const { weekly, setWeekly, readOnly } = useWeeklyCategories()
   const money = (n: number) => formatCurrency(n, hideAmounts)
   // What carried in, on a long press of the pill, since the row no longer says it.
@@ -125,7 +126,7 @@ export function EnvelopeRow({
 
   const closeSheet = useCallback(() => {
     setSheetOpen(false)
-    setWeeklyJustOn(false)
+    setWeeklyFlipped(false)
     onSheetOpenChange?.(false)
   }, [onSheetOpenChange])
 
@@ -212,23 +213,25 @@ export function EnvelopeRow({
         <Text style={[styles.sheetTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
           {name}
         </Text>
-        <Collapse open={!!pace} animateOpen={weeklyJustOn}>
+        <Collapse open={!!pace} animateOpen={weeklyFlipped}>
           {lastPace.current && <WeekBreakdown pace={lastPace.current} envelope={envelope} money={money} />}
         </Collapse>
         {!envelope.isCreditCardPayment && !readOnly && (
           <View style={[styles.weeklySwitch, { borderBottomColor: tokens.border }]}>
             <View style={{ flex: 1 }}>
               <Text style={[styles.sheetBtnText, { color: tokens.text, fontFamily: fontFamily.bodyMedium }]}>Track weekly</Text>
-              {!pace && (
+              {/* Collapsed, not dropped, when tracking starts: unmounting it shrank the
+                  card a frame before the weeks began to grow, a visible jolt. */}
+              <Collapse open={!pace} animateOpen={weeklyFlipped}>
                 <Text style={[styles.metaLine, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>
                   {"Split the month into weeks and see if you're on pace."}
                 </Text>
-              )}
+              </Collapse>
             </View>
             <Toggle
               value={weekly?.has(envelope.category) ?? false}
               onValueChange={(on) => {
-                setWeeklyJustOn(on)
+                setWeeklyFlipped(true)
                 setWeekly(envelope.category, on)
               }}
               // Until the saved set loads, a flip would save over it.
@@ -282,7 +285,10 @@ export function EnvelopeRow({
  * sheet's top edge glides both ways while its bottom stays put. (BottomSheet
  * itself can't use a layout transition: see the note in Modal.tsx.) The
  * content is absolutely placed so it measures at full height even while the
- * box is collapsed.
+ * box is collapsed, and pinned to the box's bottom: the box's bottom edge is
+ * what stays put on screen, so the content holds still and the top edge lifts
+ * off it. Pinned to the top it rode up with the edge while the bottom clipped
+ * it, row by row.
  */
 function Collapse({ open, animateOpen, children }: { open: boolean; animateOpen: boolean; children: React.ReactNode }) {
   const height = useSharedValue(0)
@@ -295,7 +301,9 @@ function Collapse({ open, animateOpen, children }: { open: boolean; animateOpen:
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
-  const style = useAnimatedStyle(() => ({ height: height.value, opacity: measured.value ? Math.min(1, height.value / Math.min(measured.value, 160)) : 0 }))
+  // A short fade, just enough to cover the clip edge's first frames; longer
+  // and the rows sat washed out for most of the travel.
+  const style = useAnimatedStyle(() => ({ height: height.value, opacity: measured.value ? Math.min(1, height.value / Math.min(measured.value, 24)) : 0 }))
   return (
     <Reanimated.View style={[styles.collapse, style]}>
       <View
@@ -371,7 +379,7 @@ const styles = StyleSheet.create({
   sheetBtnText: { fontSize: 14 },
   paceLine: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   collapse: { overflow: 'hidden' },
-  collapseInner: { position: 'absolute', left: 0, right: 0, top: 0 },
+  collapseInner: { position: 'absolute', left: 0, right: 0, bottom: 0 },
   paceText: { flex: 1 },
   weeklySwitch: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth },
   weeks: { gap: 2, marginBottom: 8 },

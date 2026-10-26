@@ -129,6 +129,13 @@ describe('weekly row', () => {
     expect(getByLabelText('Track Groceries weekly')).toBeTruthy()
   })
 
+  it("collapses the switch's caption instead of dropping it, so the sheet eases rather than jumps", () => {
+    const { getByText } = weeklyRow()
+    fireEvent.press(getByText('Groceries'))
+    // Still mounted when tracked: its Collapse shrinks it in step with the weeks growing.
+    expect(getByText(/Split the month into weeks/)).toBeTruthy()
+  })
+
   it('leaves out past weeks with no spending', () => {
     const quiet = new Array(31).fill(0)
     quiet[2] = 300
