@@ -109,9 +109,10 @@ describe('weekly row', () => {
       />,
     )
 
-  it('shows this week against its allowance, with a pace tick and the reset countdown', () => {
+  it('keeps the month on Home, adds a pace tick, and says how this week is going', () => {
     const { getByText, getAllByTestId, queryByText } = weeklyRow()
-    expect(getByText(/380.*\/.*661/)).toBeTruthy()
+    expect(getByText(/3,840.*\/.*4,121/)).toBeTruthy()
+    expect(queryByText(/380.*\/.*661/)).toBeNull()
     expect(getByText('On track this week')).toBeTruthy()
     expect(getByText('2d left')).toBeTruthy()
     expect(getAllByTestId('progress-bar-tick')).toHaveLength(1)

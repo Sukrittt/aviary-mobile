@@ -39,6 +39,12 @@ export interface WeekPace {
   left: number
   /** What's left per day for the rest of the week, when there's a rest of the week. */
   perDay: number | null
+  /** Home's month bar: where the fill should be by the end of today, 0–100. */
+  monthTickPct: number
+  /** The month's spend against its pot, 0–100. */
+  monthSpentPct: number
+  /** The month bar's tone: behind the tick, past it, or over the pot. */
+  monthStatus: PaceStatus
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100
@@ -99,7 +105,11 @@ export function weekPace(pot: number, spendByDay: number[], monthKey: string, to
   const daysAfterToday = current.to - today
   const left = round2(Math.min(current.allowance - current.spent, monthLeft))
   const perDay = daysAfterToday > 0 && left > 0 ? round2(left / daysAfterToday) : null
-  return { weeks, current, tickPct, spentPct, daysAfterToday, status, left, perDay }
+  const monthSpent = pot - monthLeft
+  const monthTickPct = (today / dim) * 100
+  const monthSpentPct = pot > 0 ? Math.min(100, (monthSpent / pot) * 100) : monthSpent > 0 ? 100 : 0
+  const monthStatus: PaceStatus = monthLeft < 0 ? 'over' : monthSpentPct > monthTickPct ? 'ahead' : 'onTrack'
+  return { weeks, current, tickPct, spentPct, daysAfterToday, status, left, perDay, monthTickPct, monthSpentPct, monthStatus }
 }
 
 /** Day-of-month spend for one category, from expense rows. */
@@ -112,10 +122,10 @@ export function spendByDay(rows: { date: string; category: string; amount_inr: s
   return out
 }
 
-/** The line under a weekly bar. */
+/** The line under a weekly row's month bar: how this week is going. */
 export function paceLine(p: WeekPace, money: (n: number) => string): string {
   if (p.status === 'over') return `${money(p.current.spent - p.current.allowance)} over this week`
-  if (p.status === 'ahead') return p.perDay != null ? `Ahead · ${money(Math.round(p.perDay))}/day from here` : `Ahead · ${money(p.left)} left today`
+  if (p.status === 'ahead') return p.perDay != null ? `Ahead · ${money(Math.round(p.perDay))}/day this week` : `Ahead · ${money(p.left)} left today`
   return 'On track this week'
 }
 

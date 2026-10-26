@@ -36,7 +36,7 @@ export function availablePill(e: Envelope, tokens: ThemeTokens): { color: string
   return { color: tokens.pillGood, bg: tokens.pillGoodBg }
 }
 
-/** A weekly row's pill: what's left this week, toned by pace rather than fullness. */
+/** A pace-toned pill: green on track, amber ahead of the tick, red over. */
 export function weeklyPill(p: WeekPace, tokens: ThemeTokens): { color: string; bg: string } {
   if (p.status === 'over') return { color: tokens.pillOver, bg: tokens.pillOverBg }
   if (p.status === 'ahead') return { color: tokens.pillLow, bg: tokens.pillLowBg }
@@ -132,7 +132,9 @@ export function EnvelopeRow({
   // Kept after weekly turns off, so the weeks can collapse instead of vanishing.
   const lastPace = useRef(pace)
   if (pace) lastPace.current = pace
-  const pill = pace ? weeklyPill(pace, tokens) : availablePill(envelope, tokens)
+  // Home keeps the month for every row; a weekly row adds the pace tick and
+  // tones its bar and pill by month pace. The weeks live in the sheet.
+  const pill = pace ? weeklyPill({ ...pace, status: pace.monthStatus }, tokens) : availablePill(envelope, tokens)
   const Icon = CATEGORY_ICON_COMPONENTS[icon]
   const tint = tintOf(envelope.category)
   const name = displayName ?? splitEmoji(envelope.category).text
@@ -153,16 +155,14 @@ export function EnvelopeRow({
             {name}
           </Text>
           <Text style={[styles.spentOf, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
-            {pace
-              ? `${money(pace.current.spent)}/${money(pace.current.allowance)}`
-              : unbudgeted
+            {unbudgeted
               ? `${formatCurrency(envelope.spent, hideAmounts)} spent`
               : `${formatCurrency(envelope.spent, hideAmounts)}/${formatCurrency(envelope.assigned, hideAmounts)}`}
           </Text>
         </View>
         {pace ? (
           <>
-            <ProgressBar pct={pace.spentPct} over={pace.status === 'over'} tick={pace.tickPct} />
+            <ProgressBar pct={pace.monthSpentPct} over={pace.monthStatus === 'over'} tick={pace.monthTickPct} />
             <View style={styles.paceLine}>
               <Text style={[styles.metaLine, styles.paceText, { color: pace.status === 'over' ? tokens.pillOver : tokens.text3, fontFamily: fontFamily.bodySemiBold }]} numberOfLines={1}>
                 {paceLine(pace, money)}
@@ -200,9 +200,9 @@ export function EnvelopeRow({
           color={pill.color}
           size={12}
           weight="bodySemiBold"
-          from={pace ? pace.left : envelope.available - envelope.rolledOver}
-          to={pace ? pace.left : envelope.available}
-          play={hideAmounts || pace ? 0 : rollPlay}
+          from={envelope.available - envelope.rolledOver}
+          to={envelope.available}
+          play={hideAmounts ? 0 : rollPlay}
           delayMs={rollDelayMs}
           tones={{ up: { color: tokens.pillGood, bg: tokens.pillGoodBg }, down: { color: tokens.pillOver, bg: tokens.pillOverBg } }}
         />

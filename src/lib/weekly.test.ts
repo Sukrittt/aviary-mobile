@@ -66,10 +66,23 @@ describe('weekPace', () => {
   })
 })
 
+describe('month pace', () => {
+  it('ticks the month bar at the end of today, and tones it by month pace', () => {
+    const p = october(26, 206.66)
+    expect(p.monthTickPct).toBeCloseTo((26 / 31) * 100)
+    expect(p.monthSpentPct).toBeCloseTo((3666.66 / 4121.4) * 100)
+    expect(p.monthStatus).toBe('ahead')
+    expect(weekPace(4000, new Array(31).fill(0), '2026-10', 26).monthStatus).toBe('onTrack')
+    const over = new Array(31).fill(0)
+    over[0] = 4500
+    expect(weekPace(4000, over, '2026-10', 26).monthStatus).toBe('over')
+  })
+})
+
 describe('copy', () => {
   it('says how the week is going', () => {
     expect(paceLine(october(29, 380), money)).toBe('On track this week')
-    expect(paceLine(october(29, 470.4), money)).toBe('Ahead · ₹96.00/day from here')
+    expect(paceLine(october(29, 470.4), money)).toBe('Ahead · ₹96.00/day this week')
     expect(paceLine(october(29, 700), money)).toBe('₹38.60 over this week')
     expect(resetChip(october(29, 0))).toBe('2d left')
     expect(resetChip(october(31, 0))).toBe('Last day')
