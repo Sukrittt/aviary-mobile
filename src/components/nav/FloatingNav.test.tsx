@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { act, fireEvent } from '@testing-library/react-native'
 import * as Haptics from 'expo-haptics'
 import { Animated, StyleSheet } from 'react-native'
+import * as Reanimated from 'react-native-reanimated'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import {
   FloatingNav,
@@ -125,6 +126,20 @@ describe('FloatingNav', () => {
     expect(getByLabelText('Log expense').props.accessibilityState.selected).toBe(true)
   })
 
+  // The screen cuts on touch-down, so the glyphs cut with it: a fade left the
+  // old tab lit over the new screen.
+  it('swaps the fill to the new tab in the same render', () => {
+    function Nav() {
+      const [active, setActive] = useState<NavRoute>('index')
+      return <FloatingNav active={active} onSelect={setActive} onAdd={jest.fn()} />
+    }
+    const { getByLabelText, getByTestId } = renderWithProviders(<Nav />)
+    fireEvent(getByLabelText('Categories'), 'pressIn')
+    expect(layerOpacity(getByTestId('phosphor-react-native-squares-four-fill'))).toBe(1)
+    expect(layerOpacity(getByTestId('phosphor-react-native-house-fill'))).toBe(0)
+    expect(layerOpacity(getByTestId('phosphor-react-native-house-regular'))).toBe(1)
+  })
+
   // A switch is two small hard ticks: one on touch-down, one when the highlight lands.
   it('ticks on touch-down and again when the highlight lands on the new tab', () => {
     jest.mocked(Haptics.impactAsync).mockClear()
@@ -137,6 +152,20 @@ describe('FloatingNav', () => {
     expect(Haptics.impactAsync).toHaveBeenCalledTimes(2)
     expect(Haptics.impactAsync).toHaveBeenNthCalledWith(1, Haptics.ImpactFeedbackStyle.Rigid)
     expect(Haptics.impactAsync).toHaveBeenNthCalledWith(2, Haptics.ImpactFeedbackStyle.Rigid)
+  })
+
+  // Android stalls the UI thread while it attaches the new tab, right as the
+  // slide starts. On the clock, the slide finished inside the stall and the
+  // highlight jumped; stepped by frame, a stalled frame moves it one 60Hz step.
+  it('slides over the same number of frames when every frame stalls', () => {
+    function Nav() {
+      const [active, setActive] = useState<NavRoute>('index')
+      return <FloatingNav active={active} onSelect={setActive} onAdd={jest.fn()} />
+    }
+    const { getByLabelText } = renderWithProviders(<Nav />)
+    fireEvent(getByLabelText('More'), 'pressIn')
+    // 110ms at 60Hz, whatever each frame actually took.
+    expect((Reanimated as unknown as { __lastFrameRun: { frames: number } }).__lastFrameRun.frames).toBe(Math.ceil(110 / (1000 / 60)))
   })
 
   it('hides the highlight on log-expense, where no tab is current', () => {

@@ -63,14 +63,13 @@ export function LogExpenseNavigation() {
     // Straight to the tab by route name, on touch-down. router.navigate(href)
     // parsed the path and handed the tab fresh params, which re-rendered the
     // whole screen being shown: a few hundred ms before the switch painted.
-    // A frame later, though: in the same commit as the lit tab, the nav only
-    // changed once Android had re-attached the new tab's views, the slow part
-    // (Perfetto, 2026-10-24: a 60ms frame on Activity, lit tab inside it).
-    requestAnimationFrame(() => {
-      const tabs = tabsState(navigationRef.getRootState())
-      if (tabs) navigationRef.dispatch({ type: 'JUMP_TO', payload: { name }, target: tabs.key })
-      else router.navigate(NAV_HREF[name])
-    })
+    // In the same commit as the lit tab, so the glyph and the screen change in
+    // one frame and the highlight slides after them (stepped by frame, see
+    // TabPill). Lighting the tab a frame first put the screen's attach stall
+    // in the middle of the slide, which froze it halfway.
+    const tabs = tabsState(navigationRef.getRootState())
+    if (tabs) navigationRef.dispatch({ type: 'JUMP_TO', payload: { name }, target: tabs.key })
+    else router.navigate(NAV_HREF[name])
   }
   const menuItems: QuickAddItem[] = [
     { label: 'Log expense', icon: Plus, tint: tokens.accent, tintSoft: tokens.accentSoft, onPress: () => router.push(LOG_EXPENSE_PATH) },
