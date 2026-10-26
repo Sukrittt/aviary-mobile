@@ -12,6 +12,7 @@ import Reanimated, {
   useSharedValue,
   useAnimatedStyle,
   useDerivedValue,
+  useFrameCallback,
   withSpring,
   withTiming,
   interpolateColor,
@@ -20,6 +21,8 @@ import Reanimated, {
   runOnJS,
   useReducedMotion,
   Easing,
+  type FrameCallback,
+  type FrameInfo,
   type SharedValue,
 } from 'react-native-reanimated'
 import * as Haptics from 'expo-haptics'
@@ -103,7 +106,7 @@ export function nextNavCover(prev: NavCover, pathname: string, onLogExpense: boo
 /** Height of the pill and diameter of the add disc beside it. */
 const BAR = 56
 const PILL_PAD = 5
-/** Width of one tab inside the pill; the highlight is the same size and sits behind the selected one. */
+/** Width of one tab inside the pill; the highlight is the same size and slides between them. */
 const TAB_W = 56
 const TAB_H = BAR - 2 * PILL_PAD
 const ICON = 26
@@ -126,14 +129,21 @@ const NAV_BOTTOM_GAP = 10
 // Fade above the backdrop so scrolled content dissolves into it instead of
 // being cut off at a hard edge.
 const BACKDROP_FADE = 24
+/** How long the highlight takes to slide between tabs. */
+const NAV_SLIDE_MS = 110
+/** The highlight's slide: quick and flat, no bounce, so the landing tap follows the press tap closely. */
+const SLIDE_EASE = Easing.out(Easing.cubic)
+/** The most one frame may advance the slide, so a stalled frame can't skip it. */
+const MAX_FRAME_MS = 1000 / 60
+
 /**
  * Floating navigation: one pill holding the four tabs, and the add action as
  * its own disc beside it. Content scrolls underneath, so every screen
  * reserves NAV_HEIGHT of bottom padding (see Screen / useNavPadding).
  *
- * The selected tab sits on a highlight. A tab switch cuts, highlight and
- * glyphs together, in the same render as the screen it switches to, and is
- * felt as one small hard tick on touch-down (see `tap` in src/lib/haptics).
+ * The selected tab sits on a highlight that slides along the pill. A tab
+ * switch is felt as two small hard ticks: one on touch-down, one when the
+ * highlight lands on the new tab (see `tap` in src/lib/haptics).
  *
  * Add is an action, not a destination, so it lives outside the pill as the
  * one solid accent thing in the bar. It stays in the same spot on every
@@ -249,12 +259,14 @@ export function FloatingNav({
 }
 
 /**
- * The four tabs on one pill, with a highlight behind the selected one.
- * Nothing is highlighted off the tabs (log-expense).
+ * The four tabs on one pill, with a highlight behind the selected one that
+ * slides across on a switch. Nothing is highlighted off the tabs (log-expense).
  *
- * The highlight's position is a plain style, not a shared value, so it lands
- * in the same commit as the screen switch. A slide trailed the screen, which
- * cuts on touch-down, and the screen's mount froze it halfway on Android.
+ * The slide is stepped frame by frame, each step capped at 1/60s, rather than
+ * run on the clock. Android stalls the UI thread right after a switch while it
+ * attaches the new tab's views (130-480ms measured on the emulator), and a
+ * clock-driven slide finished inside the stall: the highlight jumped. Stepped,
+ * a stall only delays it, so the screen cuts and the highlight still slides.
  */
 function TabPill({
   active,
@@ -268,17 +280,70 @@ function TabPill({
   idleIcon: string
 }) {
   const { tokens } = useTheme()
+  const reduceMotion = useReducedMotion()
   const index = NAV_ROUTES.findIndex((r) => r.name === active)
-  // Where it was last shown, so it fades out in place on log-expense.
-  const lastIndex = useRef(Math.max(index, 0))
-  if (index >= 0) lastIndex.current = index
+  const x = useSharedValue(Math.max(index, 0) * TAB_W)
   const shown = useSharedValue(index >= 0 ? 1 : 0)
+  const from = useSharedValue(0)
+  const to = useSharedValue(Math.max(index, 0) * TAB_W)
+  // Slide progress, 0 to 1. Set to 0 to start a slide from wherever the highlight is.
+  const progress = useSharedValue(1)
+  const slideRef = useRef<FrameCallback | null>(null)
+  // Which slide is current. A landing reaches JS a frame late, and one from a
+  // slide a quick second tap already replaced mustn't stop the new one.
+  const slideId = useRef(0)
+  const currentSlide = useSharedValue(0)
+  const land = useCallback((id: number) => {
+    if (id !== slideId.current) return
+    slideRef.current?.setActive(false)
+    tap()
+  }, [])
+  const step = useCallback(
+    (frame: FrameInfo) => {
+      'worklet'
+      if (progress.value >= 1) return
+      if (progress.value === 0) from.value = x.value
+      progress.value = Math.min(1, progress.value + Math.min(frame.timeSincePreviousFrame ?? 0, MAX_FRAME_MS) / NAV_SLIDE_MS)
+      x.value = from.value + (to.value - from.value) * SLIDE_EASE(progress.value)
+      if (progress.value >= 1) runOnJS(land)(currentSlide.value)
+    },
+    [progress, from, to, x, land, currentSlide],
+  )
+  const slide = useFrameCallback(step, false)
+  slideRef.current = slide
+  // Where the highlight was last sent, kept on the JS side. Reading x or
+  // shown back here isn't reliable: a JS write lands on the UI thread
+  // asynchronously and a JS read can return a stale copy, which skipped the
+  // slide and left the highlight stuck on the old tab.
+  const prevIndex = useRef(index)
 
   useEffect(() => {
-    shown.value = withTiming(index >= 0 ? 1 : 0, { duration: 160 })
-  }, [index, shown])
+    const prev = prevIndex.current
+    prevIndex.current = index
+    if (index < 0) {
+      // Stopping ends the slide unfinished, so it never taps out of sight.
+      slide.setActive(false)
+      progress.value = 1
+      // Hidden and shown as a cut, like the glyphs: a fade left the lit glyph
+      // bare for 160ms coming back from log-expense.
+      shown.value = 0
+      return
+    }
+    // Coming from no highlight (leaving log-expense or a pushed screen): appear in place rather than sliding in from wherever it was last.
+    to.value = index * TAB_W
+    if (prev < 0 || reduceMotion) {
+      slide.setActive(false)
+      progress.value = 1
+      x.value = index * TAB_W
+    } else if (prev !== index) {
+      currentSlide.value = ++slideId.current
+      progress.value = 0
+      slide.setActive(true)
+    }
+    shown.value = 1
+  }, [index, reduceMotion, x, shown, to, progress, slide, currentSlide])
 
-  const highlightStyle = useAnimatedStyle(() => ({ opacity: shown.value }))
+  const highlightStyle = useAnimatedStyle(() => ({ opacity: shown.value, transform: [{ translateX: x.value }] }))
 
   return (
     <View
@@ -293,7 +358,7 @@ function TabPill({
       <Reanimated.View
         testID="nav-highlight"
         pointerEvents="none"
-        style={[styles.highlight, { left: PILL_PAD + lastIndex.current * TAB_W, backgroundColor: tokens.accentSoft }, highlightStyle]}
+        style={[styles.highlight, { backgroundColor: tokens.accentSoft }, highlightStyle]}
       />
       {NAV_ROUTES.map((r) => (
         <NavTab
@@ -378,37 +443,31 @@ function useColorFade(color: string, duration = 200, snap = false): SharedValue<
 }
 
 /**
- * A tab's glyph, both looks always mounted and cross-faded by opacity.
- * Swapping the weight re-rendered the SVG, and Android paints a
- * new SVG a frame or more after the rest of a switch, so the tab lit up after
- * the screen had already changed (screen recording, 2026-10-24: up to 66ms).
+ * A tab's glyph, both looks always mounted and swapped by opacity, as a cut
+ * in the same commit as the screen. Swapping the weight re-rendered the SVG,
+ * and Android paints a new SVG a frame or more after the rest of a switch, so
+ * the tab lit up after the screen had already changed (screen recording,
+ * 2026-10-24: up to 66ms). A fade left the old tab lit over the new screen.
  */
 function TabIcon({ icon: Icon, selected, color, idleColor, size }: { icon: NavIconComponent; selected: boolean; color: string; idleColor: string; size: number }) {
-  const on = useSharedValue(selected ? 1 : 0)
-  useEffect(() => {
-    on.value = withTiming(selected ? 1 : 0, { duration: 200 })
-  }, [selected, on])
-  const onStyle = useAnimatedStyle(() => ({ opacity: on.value }))
-  const offStyle = useAnimatedStyle(() => ({ opacity: 1 - on.value }))
   return (
     <View style={{ width: size, height: size }}>
-      <Reanimated.View style={[StyleSheet.absoluteFill, offStyle]} pointerEvents="none">
+      <View style={[StyleSheet.absoluteFill, { opacity: selected ? 0 : 1 }]} pointerEvents="none">
         <Icon size={size} color={idleColor} weight="regular" />
-      </Reanimated.View>
-      <Reanimated.View style={[StyleSheet.absoluteFill, onStyle]} pointerEvents="none">
+      </View>
+      <View style={[StyleSheet.absoluteFill, { opacity: selected ? 1 : 0 }]} pointerEvents="none">
         <Icon size={size} color={color} weight="fill" />
-      </Reanimated.View>
+      </View>
     </View>
   )
 }
 
 /**
  * One tab in the pill. Fires on touch-down like a native tab bar; the
- * highlight behind it is the pill's, so the tab itself only swaps its glyph,
- * as a cut (no NavIcon cross-fade) to match the screen.
+ * highlight behind it is the pill's, so the tab itself only swaps its glyph.
  */
 function NavTab({
-  glyph: Glyph,
+  glyph,
   label,
   selected,
   color,
@@ -541,7 +600,7 @@ const styles = StyleSheet.create({
   },
   backdropFade: { position: 'absolute', left: 0, right: 0, top: -BACKDROP_FADE, height: BACKDROP_FADE },
   pill: { flexDirection: 'row', height: BAR, padding: PILL_PAD, borderRadius: BAR / 2 },
-  highlight: { position: 'absolute', top: PILL_PAD, width: TAB_W, height: TAB_H, borderRadius: TAB_H / 2 },
+  highlight: { position: 'absolute', left: PILL_PAD, top: PILL_PAD, width: TAB_W, height: TAB_H, borderRadius: TAB_H / 2 },
   tab: { width: TAB_W, height: TAB_H, alignItems: 'center', justifyContent: 'center' },
   disc: { width: BAR, height: BAR, borderRadius: BAR / 2, alignItems: 'center', justifyContent: 'center' },
   disabled: { opacity: 0.5 },

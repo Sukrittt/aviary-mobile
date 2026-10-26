@@ -88,8 +88,8 @@ export default function TabsLayout() {
 
   return (
     <View style={{ flex: 1 }}>
-      {/* Tab switches cut, like native tab bars, and the nav cuts with them;
-          the touch-down haptic says what changed. Pushed screens still slide. */}
+      {/* Tab switches cut, like native tab bars: the nav highlight's slide and
+          haptic already say what changed. Pushed screens still slide. */}
       <Tabs
         tabBar={() => null}
         screenOptions={{ headerShown: false, animation: 'none', sceneStyle: { backgroundColor: tokens.bg } }}

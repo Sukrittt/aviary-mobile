@@ -1,5 +1,5 @@
 import { useLayoutEffect } from 'react'
-import { act, fireEvent } from '@testing-library/react-native'
+import { fireEvent } from '@testing-library/react-native'
 import { createTestQueryClient, renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { userKey } from '@/src/hooks/useUser'
 import { LogExpenseNavigation } from './LogExpenseNavigation'
@@ -98,31 +98,24 @@ it('sends scan a bill through the photo picker on More', () => {
 })
 
 // The highlight is derived from the pathname, which only changes once the new
-// tab has rendered. Lighting the tapped slot first keeps the nav from sitting
-// stale for that whole render.
-// The switch itself waits a frame: committed together, the nav's change was
-// held back until the new tab's screen had attached, which is the slow part.
-it('lights the tapped tab, then jumps straight to it a frame later', () => {
-  jest.useFakeTimers()
+// tab has rendered. Lighting the tapped slot in the same press keeps the nav
+// from sitting stale for that whole render.
+// The switch goes in that same commit, with no frame between: lit first, the
+// nav moved and the screen caught up a frame or more later.
+it('lights the tapped tab and jumps straight to it in the same press', () => {
   const { getByRole } = renderNav()
   fireEvent.press(getByRole('tab', { name: 'Activity' }))
   expect(getByRole('tab', { name: 'Activity' }).props.accessibilityState.selected).toBe(true)
   expect(getByRole('tab', { name: 'Home' }).props.accessibilityState.selected).toBe(false)
-  expect(mockDispatch).not.toHaveBeenCalled()
-  act(() => jest.runOnlyPendingTimers())
   // By route name, with no new params: router.navigate re-rendered the whole tab.
   expect(mockDispatch).toHaveBeenCalledWith({ type: 'JUMP_TO', payload: { name: 'activity' }, target: 'tabs-1' })
   expect(mockNavigate).not.toHaveBeenCalled()
-  jest.useRealTimers()
 })
 
 it("falls back to the router when the tabs aren't mounted yet", () => {
-  jest.useFakeTimers()
   mockRootState = undefined
   const { getByRole } = renderNav()
   fireEvent.press(getByRole('tab', { name: 'More' }))
-  act(() => jest.runOnlyPendingTimers())
   expect(mockNavigate).toHaveBeenCalledWith('/more')
   expect(mockDispatch).not.toHaveBeenCalled()
-  jest.useRealTimers()
 })
