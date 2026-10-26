@@ -44,6 +44,8 @@ type Store = {
   copy: Record<string, NudgeCopy>
   /** When fetching a habit's copy last failed, so it isn't retried every app open. */
   copyFailedAt: Record<string, number>
+  /** Each habit id's minute, so findHabits gives a time slot the same id next refresh. Never dropped: a gone slot's id (and mute) mustn't go to a new one. */
+  slots: Record<string, number>
 }
 
 /** What a nudge carries: enough to prefill log-expense or log it outright. */
@@ -60,7 +62,7 @@ export type NudgeData = {
   paymentMethod: string
 }
 
-const EMPTY: Store = { enabled: true, state: {}, scheduled: [], handled: [], copy: {}, copyFailedAt: {} }
+const EMPTY: Store = { enabled: true, state: {}, scheduled: [], handled: [], copy: {}, copyFailedAt: {}, slots: {} }
 const storeKey = (uid: string) => `${STORE_PREFIX}:${uid}`
 
 async function readStore(uid: string): Promise<Store> {
@@ -123,6 +125,7 @@ export function refreshHabitNudges(rows: ExpenseRow[], now = new Date()): Promis
       handled: store.handled.filter((id) => scheduled.some((n) => n.id === id)),
       copy,
       copyFailedAt,
+      slots: store.slots,
     })
 
     if (!store.enabled || (await Notifications.getPermissionsAsync()).status !== 'granted') {
@@ -130,7 +133,7 @@ export function refreshHabitNudges(rows: ExpenseRow[], now = new Date()): Promis
       return keep(waiting)
     }
 
-    const habits = findHabits(rows, toLocalDateString(now))
+    const habits = findHabits(rows, toLocalDateString(now), store.slots)
     const plan = planNudges(habits, state, now, rows)
     const byId = new Map(habits.map((h) => [h.id, h]))
     const currency = await readCurrencyPreference()
@@ -183,7 +186,7 @@ export function refreshHabitNudges(rows: ExpenseRow[], now = new Date()): Promis
     if (scheduled.length && planKey(scheduled) !== planKey(before)) {
       track('habit_nudges_scheduled', { count: scheduled.length, habits: habits.length })
     }
-    return keep([...waiting, ...scheduled], copy, copyFailedAt)
+    return { ...keep([...waiting, ...scheduled], copy, copyFailedAt), slots: { ...store.slots, ...Object.fromEntries(habits.map((h) => [h.id, h.minute])) } }
   }).then(() => undefined)
 }
 
