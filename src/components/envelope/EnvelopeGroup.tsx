@@ -11,6 +11,7 @@ import { CategoryIcon } from '@/src/components/shared/CategoryIcon'
 import { Icon } from '@/src/components/shared/Icon'
 import { EnvelopeRow } from './EnvelopeRow'
 import type { Envelope } from '@/src/lib/envelope'
+import type { WeekPace } from '@/src/lib/weekly'
 
 const SPRING = { damping: 90, stiffness: 900 }
 const TRANSITION = LinearTransition.springify().damping(SPRING.damping).stiffness(SPRING.stiffness)
@@ -33,6 +34,8 @@ interface Props {
   rollPlay?: number
   /** Each carrying row's place in Home's top-to-bottom roll. */
   rollOrder?: Map<string, number>
+  /** This week's pace for each weekly-tracked category. */
+  paces?: Map<string, WeekPace>
 }
 
 /** Expandable group header + its category rows, matching the dc.html "Envelopes" panel. */
@@ -50,6 +53,7 @@ export function EnvelopeGroup({
   onSheetOpenChange,
   rollPlay = 0,
   rollOrder,
+  paces,
 }: Props) {
   const { formatCurrency } = useCurrency()
 
@@ -97,6 +101,7 @@ export function EnvelopeGroup({
                 onSheetOpenChange={onSheetOpenChange}
                 rollPlay={rollPlay}
                 rollDelayMs={Math.min(rollOrder?.get(e.category) ?? 0, 5) * 150}
+                pace={paces?.get(e.category)}
               />
             </View>
           ))}

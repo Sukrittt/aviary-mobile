@@ -46,6 +46,9 @@ export type AppEvent =
   | 'share_read'
   | 'upi_share_tip_shown'
   | 'fresh_start_logged'
+  // Weekly pacing: a category's switch flipped ({ on }), and Monday's recap card shown ({ under, total }).
+  | 'weekly_pacing_toggled'
+  | 'weekly_recap_shown'
   // Sign-in. `method` is 'google' or 'email'; `reason` is a fixed slug, never
   // the raw error text.
   | 'sign_in_started'

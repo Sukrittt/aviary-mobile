@@ -55,7 +55,9 @@ export function fillSoftColorStops(from: number, to: number, tokens: ThemeTokens
  * `from` turns the fill into a tween: the bar holds at that percentage and then
  * slides to `pct`. Reserve it for showing a *change* (the expense that was just
  * logged eating into its envelope) — a list of bars all animating is noise. */
-export function ProgressBar({ pct, from, over }: { pct: number; from?: number; over?: boolean }) {
+/** `tick` (0–100) marks where the fill should be by now, for weekly pacing.
+ * With it, colour means pace: mint behind the tick, amber past it. */
+export function ProgressBar({ pct, from, over, tick }: { pct: number; from?: number; over?: boolean; tick?: number }) {
   const { tokens } = useTheme()
   const [trackWidth, setTrackWidth] = useState(0)
   const clamped = clamp(pct)
@@ -63,7 +65,9 @@ export function ProgressBar({ pct, from, over }: { pct: number; from?: number; o
   const animated = from != null
   const onLayout = animated ? (e: LayoutChangeEvent) => setTrackWidth(e.nativeEvent.layout.width) : undefined
 
-  return (
+  const staticColor = over ? tokens.coral : tick != null ? (clamped > tick ? tokens.warn : tokens.mint) : fillColor(clamped, tokens)
+
+  const bar = (
     <View
       testID="progress-bar-track"
       style={[styles.track, { backgroundColor: tokens.borderStrong }]}
@@ -74,9 +78,22 @@ export function ProgressBar({ pct, from, over }: { pct: number; from?: number; o
       ) : (
         <View
           testID="progress-bar-fill"
-          style={[styles.fill, { width: `${clamped}%`, backgroundColor: over ? tokens.coral : fillColor(clamped, tokens) }]}
+          style={[styles.fill, { width: `${clamped}%`, backgroundColor: staticColor }]}
         />
       )}
+    </View>
+  )
+  // At 100 the whole bar is fair game and a tick at the end says nothing.
+  if (tick == null || tick >= 100) return bar
+  // Outside the track, which clips, so the tick can stand taller than the bar.
+  return (
+    <View>
+      {bar}
+      <View
+        testID="progress-bar-tick"
+        pointerEvents="none"
+        style={[styles.tick, { left: `${clamp(tick)}%`, backgroundColor: tokens.text, borderColor: tokens.cardSolid }]}
+      />
     </View>
   )
 }
@@ -112,4 +129,5 @@ function AnimatedFill({ from, to, trackWidth }: { from: number; to: number; trac
 const styles = StyleSheet.create({
   track: { height: 5, borderRadius: 100, overflow: 'hidden' },
   fill: { height: '100%', borderRadius: 100 },
+  tick: { position: 'absolute', top: -4, width: 4, height: 13, marginLeft: -2, borderRadius: 2, borderWidth: 1 },
 })
