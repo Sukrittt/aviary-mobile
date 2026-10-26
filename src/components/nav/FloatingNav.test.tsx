@@ -101,18 +101,21 @@ describe('FloatingNav', () => {
     expect(getByLabelText('Log expense').props.accessibilityState.selected).toBe(true)
   })
 
-  // A switch is two small hard ticks: one on touch-down, one when the highlight lands.
-  it('ticks on touch-down and again when the highlight lands on the new tab', () => {
+  // The screen cuts on touch-down, so the nav has to cut with it. A slide or
+  // fade left the old tab lit over the new screen, and the screen's mount
+  // froze the slide halfway on Android.
+  it('moves the highlight and the fill to the new tab in the same render, with one tick', () => {
     jest.mocked(Haptics.impactAsync).mockClear()
     function Nav() {
       const [active, setActive] = useState<NavRoute>('index')
       return <FloatingNav active={active} onSelect={setActive} onAdd={jest.fn()} />
     }
-    const { getByLabelText } = renderWithProviders(<Nav />)
-    fireEvent(getByLabelText('Activity'), 'pressIn')
-    expect(Haptics.impactAsync).toHaveBeenCalledTimes(2)
-    expect(Haptics.impactAsync).toHaveBeenNthCalledWith(1, Haptics.ImpactFeedbackStyle.Rigid)
-    expect(Haptics.impactAsync).toHaveBeenNthCalledWith(2, Haptics.ImpactFeedbackStyle.Rigid)
+    const { getByLabelText, getByTestId, queryByTestId } = renderWithProviders(<Nav />)
+    fireEvent(getByLabelText('Categories'), 'pressIn')
+    expect(StyleSheet.flatten(getByTestId('nav-highlight').props.style).left).toBe(5 + 2 * 56)
+    expect(getByTestId('phosphor-react-native-squares-four-fill')).toBeTruthy()
+    expect(queryByTestId('phosphor-react-native-house-fill')).toBeNull()
+    expect(Haptics.impactAsync).toHaveBeenCalledTimes(1)
   })
 
   it('hides the highlight on log-expense, where no tab is current', () => {

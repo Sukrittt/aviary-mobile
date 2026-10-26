@@ -104,7 +104,7 @@ export function nextNavCover(prev: NavCover, pathname: string, onLogExpense: boo
 /** Height of the pill and diameter of the add disc beside it. */
 const BAR = 56
 const PILL_PAD = 5
-/** Width of one tab inside the pill; the highlight is the same size and slides between them. */
+/** Width of one tab inside the pill; the highlight is the same size and sits behind the selected one. */
 const TAB_W = 56
 const TAB_H = BAR - 2 * PILL_PAD
 const ICON = 26
@@ -127,19 +127,14 @@ const NAV_BOTTOM_GAP = 10
 // Fade above the backdrop so scrolled content dissolves into it instead of
 // being cut off at a hard edge.
 const BACKDROP_FADE = 24
-/** How long the highlight takes to slide between tabs. */
-const NAV_SLIDE_MS = 110
-/** The highlight's slide: quick and flat, no bounce, so the landing tap follows the press tap closely. */
-const SLIDE = { duration: NAV_SLIDE_MS, easing: Easing.out(Easing.cubic) }
-
 /**
  * Floating navigation: one pill holding the four tabs, and the add action as
  * its own disc beside it. Content scrolls underneath, so every screen
  * reserves NAV_HEIGHT of bottom padding (see Screen / useNavPadding).
  *
- * The selected tab sits on a highlight that slides along the pill. A tab
- * switch is felt as two small hard ticks: one on touch-down, one when the
- * highlight lands on the new tab (see `tap` in src/lib/haptics).
+ * The selected tab sits on a highlight. A tab switch cuts, highlight and
+ * glyphs together, in the same render as the screen it switches to, and is
+ * felt as one small hard tick on touch-down (see `tap` in src/lib/haptics).
  *
  * Add is an action, not a destination, so it lives outside the pill as the
  * one solid accent thing in the bar. It stays in the same spot on every
@@ -255,8 +250,12 @@ export function FloatingNav({
 }
 
 /**
- * The four tabs on one pill, with a highlight behind the selected one that
- * slides across on a switch. Nothing is highlighted off the tabs (log-expense).
+ * The four tabs on one pill, with a highlight behind the selected one.
+ * Nothing is highlighted off the tabs (log-expense).
+ *
+ * The highlight's position is a plain style, not a shared value, so it lands
+ * in the same commit as the screen switch. A slide trailed the screen, which
+ * cuts on touch-down, and the screen's mount froze it halfway on Android.
  */
 function TabPill({
   active,
@@ -270,37 +269,17 @@ function TabPill({
   idleIcon: string
 }) {
   const { tokens } = useTheme()
-  const reduceMotion = useReducedMotion()
   const index = NAV_ROUTES.findIndex((r) => r.name === active)
-  const x = useSharedValue(Math.max(index, 0) * TAB_W)
+  // Where it was last shown, so it fades out in place on log-expense.
+  const lastIndex = useRef(Math.max(index, 0))
+  if (index >= 0) lastIndex.current = index
   const shown = useSharedValue(index >= 0 ? 1 : 0)
-  // Where the highlight was last sent, kept on the JS side. Reading x or
-  // shown back here isn't reliable: a JS write lands on the UI thread
-  // asynchronously and a JS read can return a stale copy, which skipped the
-  // slide and left the highlight stuck on the old tab.
-  const prevIndex = useRef(index)
 
   useEffect(() => {
-    const prev = prevIndex.current
-    prevIndex.current = index
-    if (index < 0) {
-      // Cancelling ends the slide unfinished, so it never taps out of sight.
-      cancelAnimation(x)
-      shown.value = withTiming(0, { duration: 160 })
-      return
-    }
-    // Coming from no highlight (leaving log-expense or a pushed screen): appear in place rather than sliding in from wherever it was last.
-    if (prev < 0 || reduceMotion) {
-      x.value = index * TAB_W
-    } else if (prev !== index) {
-      x.value = withTiming(index * TAB_W, SLIDE, (finished) => {
-        if (finished) runOnJS(tap)()
-      })
-    }
-    shown.value = withTiming(1, { duration: 160 })
-  }, [index, reduceMotion, x, shown])
+    shown.value = withTiming(index >= 0 ? 1 : 0, { duration: 160 })
+  }, [index, shown])
 
-  const highlightStyle = useAnimatedStyle(() => ({ opacity: shown.value, transform: [{ translateX: x.value }] }))
+  const highlightStyle = useAnimatedStyle(() => ({ opacity: shown.value }))
 
   return (
     <View
@@ -315,7 +294,7 @@ function TabPill({
       <Reanimated.View
         testID="nav-highlight"
         pointerEvents="none"
-        style={[styles.highlight, { backgroundColor: tokens.accentSoft }, highlightStyle]}
+        style={[styles.highlight, { left: PILL_PAD + lastIndex.current * TAB_W, backgroundColor: tokens.accentSoft }, highlightStyle]}
       />
       {NAV_ROUTES.map((r) => (
         <NavTab
@@ -438,10 +417,11 @@ function NavIcon({ icon: Icon, color, weight, size }: { icon: NavIconComponent; 
 
 /**
  * One tab in the pill. Fires on touch-down like a native tab bar; the
- * highlight behind it is the pill's, so the tab itself only swaps its glyph.
+ * highlight behind it is the pill's, so the tab itself only swaps its glyph,
+ * as a cut (no NavIcon cross-fade) to match the screen.
  */
 function NavTab({
-  glyph,
+  glyph: Glyph,
   label,
   selected,
   color,
@@ -480,7 +460,7 @@ function NavTab({
       }}
       style={styles.tab}
     >
-      <NavIcon icon={glyph} color={color} weight={selected ? 'fill' : 'regular'} size={ICON} />
+      <Glyph size={ICON} color={color} weight={selected ? 'fill' : 'regular'} />
     </Pressable>
   )
 }
@@ -564,7 +544,7 @@ const styles = StyleSheet.create({
   },
   backdropFade: { position: 'absolute', left: 0, right: 0, top: -BACKDROP_FADE, height: BACKDROP_FADE },
   pill: { flexDirection: 'row', height: BAR, padding: PILL_PAD, borderRadius: BAR / 2 },
-  highlight: { position: 'absolute', left: PILL_PAD, top: PILL_PAD, width: TAB_W, height: TAB_H, borderRadius: TAB_H / 2 },
+  highlight: { position: 'absolute', top: PILL_PAD, width: TAB_W, height: TAB_H, borderRadius: TAB_H / 2 },
   tab: { width: TAB_W, height: TAB_H, alignItems: 'center', justifyContent: 'center' },
   disc: { width: BAR, height: BAR, borderRadius: BAR / 2, alignItems: 'center', justifyContent: 'center' },
   disabled: { opacity: 0.5 },
