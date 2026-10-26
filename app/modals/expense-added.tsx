@@ -13,6 +13,10 @@ import { useBudgets, useCarry } from "@/src/hooks/useBudgets";
 import { useCategories } from "@/src/hooks/useCategories";
 import { useDeleteExpense, useRecentExpenses, useUndoPendingExpense } from "@/src/hooks/useExpenses";
 import { noticedLine, weeklyRepeat } from "@/src/lib/noticed";
+import { habitProgress, type HabitProgress } from "@/src/lib/habits";
+import { habitNudgesReady } from "@/src/lib/habitNudges";
+import { useOwnRecentExpenses } from "@/src/hooks/useHabitNudges";
+import { toLocalDateString } from "@/src/lib/date";
 import { useGroups } from "@/src/hooks/useGroups";
 import {
   computeEnvelopeState,
@@ -189,6 +193,14 @@ function AnimatedUsedPercentage({
  * after the delta and its `+₹X` tag have landed — the final payoff, not part
  * of the card's first paint.
  */
+/** Nothing after a first log, so a one-off never promises a nudge. */
+function progressLine(progress: HabitProgress | null, item: string): string | null {
+  if (!progress) return null;
+  if (progress.habit) return "Noted. You'll get a nudge next time.";
+  if (progress.seen < 2) return null;
+  return `Seen your ${item.trim().toLowerCase()} ${progress.seen} times. Nudges start after ${progress.left === 1 ? "one more" : `${progress.left} more`}.`;
+}
+
 export default function ExpenseAddedScreen() {
   const { formatMoney } = useCurrency()
 
@@ -326,11 +338,25 @@ export default function ExpenseAddedScreen() {
   // Falls back to the category name when the logged item has no name of its own.
   const subtitle = item || categoryName;
   const subtitleIsCategory = !item && !!category;
-  // A small "we're learning you" moment: only once the item is a habit this week.
-  const noticed = useMemo(
-    () => noticedLine(weeklyRepeat(expensesQ.data ?? [], { id: id || undefined, timestamp: timestamp || undefined, item, date, amount }).count),
-    [expensesQ.data, id, timestamp, item, date, amount],
-  );
+  // A small "we're learning you" moment. With nudges able to fire, it's how
+  // close this spend is to getting one; otherwise the old weekly regulars line.
+  const ownRows = useOwnRecentExpenses();
+  const [nudgesReady, setNudgesReady] = useState(false);
+  useEffect(() => {
+    let live = true;
+    habitNudgesReady().then((ready) => { if (live) setNudgesReady(ready); }, () => {});
+    return () => { live = false; };
+  }, []);
+  const noticed = useMemo(() => {
+    const progress = nudgesReady
+      ? habitProgress(
+          ownRows ?? [],
+          { id: id || undefined, timestamp, date, item, category, amount_inr: String(amount), amount: String(amount), notes, source: "manual", description: "", payment_method: paymentMethod },
+          toLocalDateString(),
+        )
+      : null;
+    return progressLine(progress, item) ?? noticedLine(weeklyRepeat(expensesQ.data ?? [], { id: id || undefined, timestamp: timestamp || undefined, item, date, amount }).count);
+  }, [nudgesReady, ownRows, expensesQ.data, id, timestamp, item, category, date, notes, paymentMethod, amount]);
 
   // Once, after a first bank (likely UPI) log: logging the next one can start from the payment app.
   const [upiTip, setUpiTip] = useState(false);

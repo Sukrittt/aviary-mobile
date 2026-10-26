@@ -217,6 +217,13 @@ export async function habitNudgesEnabled(): Promise<boolean> {
   return uid ? (await readStore(uid)).enabled : false
 }
 
+/** Whether a habit found now would really nudge: the switch is on and notifications are allowed. */
+export async function habitNudgesReady(): Promise<boolean> {
+  const Notifications = getNotifications()
+  if (!Notifications || !(await habitNudgesEnabled())) return false
+  return (await Notifications.getPermissionsAsync()).status === 'granted'
+}
+
 /** The settings switch. Turning it back on reschedules from `rows` right away. */
 export async function setHabitNudgesEnabled(enabled: boolean, rows: ExpenseRow[]): Promise<void> {
   const uid = currentUserId()
