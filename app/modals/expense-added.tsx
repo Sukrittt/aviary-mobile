@@ -482,9 +482,9 @@ export default function ExpenseAddedScreen() {
           {noticed && (
             <Reanimated.View
               entering={FadeInDown.delay(STAGGER.detail + 120).duration(420)}
-              style={[styles.noticed, { backgroundColor: tokens.mintSoft }]}
+              style={[styles.noticed, { backgroundColor: tokens.successBg }]}
             >
-              <Text style={{ color: tokens.text, fontFamily: fontFamily.bodyBold, fontSize: type.body, textAlign: "center" }}>
+              <Text style={{ color: tokens.onSuccess, fontFamily: fontFamily.bodyBold, fontSize: type.body, textAlign: "center" }}>
                 {noticed}
               </Text>
             </Reanimated.View>
