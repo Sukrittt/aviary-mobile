@@ -145,21 +145,27 @@ export function findHabits(rows: ExpenseRow[], today: string): Habit[] {
       else groups.push([slot])
     }
 
-    groups.forEach((group, i) => {
-      // A row can sit in both a weekday slot and a pooled one.
-      const hits = [...new Set(group.flatMap((s) => s.hits))]
+    // A row can sit in both a weekday slot and a pooled one.
+    const grouped = groups.map((group) => ({ group, hits: [...new Set(group.flatMap((s) => s.hits))] }))
+    // HabitState is keyed by id, so the longest-running group keeps the bare
+    // key when a new slot shows up, and any other is named by its hour.
+    const oldest = (hits: Hit[]) => hits.reduce((a, h) => (h.row.date < a ? h.row.date : a), today)
+    const main = grouped.reduce((a, g) => (oldest(g.hits) < oldest(a.hits) ? g : a), grouped[0])
+    for (const g of grouped) {
+      const { group, hits } = g
       const newest = hits.reduce((a, b) => (b.row.timestamp > a.row.timestamp ? b : a))
+      const minute = median(hits.map((h) => h.minute))
       habits.push({
-        id: groups.length > 1 ? `${key}#${i}` : key,
+        id: g === main ? key : `${key}#${Math.floor(minute / 60)}`,
         item: mostCommon(hits.map((h) => h.row.item.trim())),
         category: newest.row.category,
         amountInr: median(hits.map((h) => Number(h.row.amount_inr))),
         paymentMethod: mostCommon(hits.map((h) => h.row.payment_method || 'bank')),
         weekdays: [...new Set(group.flatMap((s) => s.weekdays))].sort((a, b) => a - b),
-        minute: median(hits.map((h) => h.minute)),
+        minute,
         count: hits.length,
       })
-    })
+    }
   }
   return habits.sort((a, b) => a.minute - b.minute)
 }
@@ -189,7 +195,7 @@ export function habitProgress(rows: ExpenseRow[], expense: ExpenseRow, today: st
       .filter((s) => s.minute >= self.minute - SLOT_MIN && s.minute <= self.minute)
       .map((s) => dayCount(near.filter((h) => h.minute >= s.minute && h.minute <= s.minute + SLOT_MIN))),
   )
-  const habit = findHabits(all, today).some((h) => keyOf(h) === key)
+  const habit = findHabits(all, today).some((h) => keyOf(h) === key && Math.abs(h.minute - self.minute) <= SLOT_MIN)
   return { seen, left: habit ? 0 : Math.max(MIN_HITS - seen, 1), habit }
 }
 

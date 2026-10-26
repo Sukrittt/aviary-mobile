@@ -151,6 +151,13 @@ describe('findHabits, across weekdays', () => {
     expect(habits[0].weekdays).toEqual([0, 1, 2, 3, 4, 5, 6])
   })
 
+  it('keeps an established habit id when a new time slot shows up', () => {
+    const morning = weekly('2026-09-30', 4, '09:00', 'Coffee', 100)
+    expect(findHabits(morning, TODAY).map((h) => h.id)).toEqual(['groceries|coffee'])
+    const habits = findHabits([...morning, ...daily(3, '16:00', 'Coffee')], TODAY)
+    expect(habits.map((h) => h.id)).toEqual(['groceries|coffee', 'groceries|coffee#16'])
+  })
+
   it('leaves a weekly spend to the weekday rule', () => {
     expect(findHabits(weekly('2026-09-25', 2, '22:00', 'Uber', 300), TODAY)).toEqual([])
     expect(findHabits(weekly('2026-09-25', 3, '22:00', 'Uber', 300), TODAY)[0].weekdays).toEqual([5])
@@ -184,6 +191,12 @@ describe('habitProgress', () => {
   it('is a habit when the weekday rule already found one', () => {
     const rows = weekly('2026-09-24', 3, '09:00', 'Coffee', 100)
     expect(habitProgress(rows, coffee(TODAY, '09:00'), TODAY)).toMatchObject({ habit: true })
+  })
+
+  it('only counts a habit at this time of day', () => {
+    const evening = weekly('2026-09-30', 4, '20:00', 'Coffee', 100)
+    expect(habitProgress(evening, coffee(TODAY), TODAY)).toEqual({ seen: 1, left: 2, habit: false })
+    expect(habitProgress([...evening, coffee('2026-09-30')], coffee(TODAY), TODAY)).toEqual({ seen: 2, left: 1, habit: false })
   })
 
   it('has nothing to say about spends nudges never cover', () => {
