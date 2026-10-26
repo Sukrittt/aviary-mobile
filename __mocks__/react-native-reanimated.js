@@ -48,6 +48,40 @@ function useAnimatedScrollHandler() {
   return () => {}
 }
 
+// Runs the callback as soon as it's activated, frame after frame, until it
+// deactivates itself: it settles at once, like withTiming below. Every frame
+// after the first is a 1s stall, the worst case for anything stepped by frame.
+// `__lastFrameRun.frames` counts how many frames the last run took.
+const lastFrameRun = { frames: 0 }
+function useFrameCallback(callback, autostart = true) {
+  const latest = React.useRef(callback)
+  latest.current = callback
+  const ref = React.useRef(null)
+  if (!ref.current) {
+    const handle = {
+      isActive: false,
+      callbackId: 0,
+      setActive(active) {
+        handle.isActive = active
+        if (!active || handle.running) return
+        handle.running = true
+        lastFrameRun.frames = 0
+        latest.current({ timestamp: 0, timeSincePreviousFrame: null, timeSinceFirstFrame: 0 })
+        for (let i = 1; handle.isActive && i < 1000; i++) {
+          lastFrameRun.frames = i
+          latest.current({ timestamp: i * 1000, timeSincePreviousFrame: 1000, timeSinceFirstFrame: i * 1000 })
+        }
+        handle.running = false
+      },
+    }
+    ref.current = handle
+  }
+  React.useEffect(() => {
+    if (autostart) ref.current.setActive(true)
+  }, [autostart])
+  return ref.current
+}
+
 const identity = (toValue) => toValue
 
 const Easing = {
@@ -120,6 +154,8 @@ module.exports = {
   useAnimatedReaction,
   useAnimatedRef,
   useAnimatedScrollHandler,
+  useFrameCallback,
+  __lastFrameRun: lastFrameRun,
   useReducedMotion: () => false,
   withSpring: identity,
   // Settles at once, so completion callbacks (finished: true) run too.
