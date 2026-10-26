@@ -219,6 +219,8 @@ export function EnvelopeRow({
             <Toggle
               value={weekly?.has(envelope.category) ?? false}
               onValueChange={(on) => setWeekly(envelope.category, on)}
+              // Until the saved set loads, a flip would save over it.
+              disabled={weekly === undefined}
               accessibilityLabel={`Track ${name} weekly`}
             />
           </View>
