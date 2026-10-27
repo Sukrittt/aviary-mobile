@@ -38,6 +38,8 @@ interface Props {
   rollOrder?: Map<string, number>
   /** This week's pace for each weekly-tracked category. */
   paces?: Map<string, WeekPace>
+  /** False while a screen covers Home, so a Left pill's rise waits to roll where it's seen. */
+  active?: boolean
 }
 
 /** Expandable group header + its category rows, matching the dc.html "Envelopes" panel. */
@@ -57,6 +59,7 @@ export function EnvelopeGroup({
   rollPlay = 0,
   rollOrder,
   paces,
+  active = true,
 }: Props) {
   const { formatCurrency } = useCurrency()
 
@@ -112,6 +115,7 @@ export function EnvelopeGroup({
                 rollPlay={rollPlay}
                 rollDelayMs={Math.min(rollOrder?.get(e.category) ?? 0, 5) * 150}
                 pace={paces?.get(e.category)}
+                active={active}
               />
             </View>
           ))}

@@ -74,7 +74,7 @@ export function ProgressBar({ pct, from, over, tick }: { pct: number; from?: num
       onLayout={onLayout}
     >
       {animated ? (
-        <AnimatedFill from={clamp(from)} to={clamped} trackWidth={trackWidth} />
+        <AnimatedFill from={clamp(from)} to={clamped} trackWidth={trackWidth} color={tick != null ? staticColor : undefined} />
       ) : (
         <View
           testID="progress-bar-fill"
@@ -106,7 +106,7 @@ export function ProgressBar({ pct, from, over, tick }: { pct: number; from?: num
  * interpolation — under Fabric the interpolated `'x%'` width painted as an empty
  * bar until the animation ran, so the starting position was never seen.
  */
-function AnimatedFill({ from, to, trackWidth }: { from: number; to: number; trackWidth: number }) {
+function AnimatedFill({ from, to, trackWidth, color: fixed }: { from: number; to: number; trackWidth: number; color?: string }) {
   const { tokens } = useTheme()
   const width = useProgressWidth(trackWidth, to, from)
 
@@ -115,13 +115,13 @@ function AnimatedFill({ from, to, trackWidth }: { from: number; to: number; trac
   const lo = Math.min(from, to)
   const hi = Math.max(from, to)
   const stops = fillColorStops(from, to, tokens)
-  const color =
+  const color = fixed ?? (
     hi > lo && trackWidth > 0
       ? width.interpolate({
           inputRange: stops.inputRange.map((pct) => (pct / 100) * trackWidth),
           outputRange: stops.outputRange,
         })
-      : fillColor(to, tokens)
+      : fillColor(to, tokens))
 
   return <Animated.View testID="progress-bar-fill" style={[styles.fill, { width, backgroundColor: color }]} />
 }

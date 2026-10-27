@@ -1,3 +1,4 @@
+import * as reanimated from 'react-native-reanimated'
 import { act, fireEvent } from '@testing-library/react-native'
 import { availablePill, EnvelopeRow } from './EnvelopeRow'
 import { lightTokens as t } from '@/src/theme/tokens'
@@ -185,6 +186,13 @@ describe('a goal row', () => {
     expect(getByText('Behind · ₹2,250/mo by ' + shortMonth(shiftMonthKey(month, 3)))).toBeTruthy()
     fireEvent.press(getByText('Set'))
     expect(onMoveMoney).toHaveBeenCalledWith('Trip', 2250)
+  })
+
+  it("shows a behind goal's Set as plain text under reduced motion", () => {
+    const spy = jest.spyOn(reanimated, 'useReducedMotion').mockReturnValue(true)
+    const { getByText } = goalRow({ amount: 12000, by: shiftMonthKey(month, 3) }, { available: 3000, rolledOver: 3000 })
+    expect(getByText('Set')).toBeTruthy()
+    spy.mockRestore()
   })
 
   it('offers a repeat or a way back to spending once its month is done', () => {

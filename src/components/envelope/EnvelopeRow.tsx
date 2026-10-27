@@ -23,6 +23,7 @@ import { useWeeklyCategories } from '@/src/hooks/useWeeklyCategories'
 import { allowanceNote, paceLine, resetChip, weekResult, type WeekPace } from '@/src/lib/weekly'
 import { goalProgress } from '@/src/lib/goal'
 import { GoalLine } from './GoalFields'
+import { ShimmerText } from '@/src/components/shared/ShimmerText'
 
 const TIP_MS = 2000
 
@@ -87,6 +88,8 @@ interface Props {
   rollDelayMs?: number
   /** This week's pace, when the category is tracked weekly (src/lib/weekly.ts). */
   pace?: WeekPace
+  /** False while a screen covers Home (Pull money's modal), so a rise waits to roll where it can be seen. */
+  active?: boolean
 }
 
 /** A single envelope row + its tap-to-open action sheet (move money / edit amount / view transactions). */
@@ -101,6 +104,7 @@ export function EnvelopeRow({
   onEditGoal,
   onSheetOpenChange,
   rollPlay = 0,
+  active = true,
   rollDelayMs = 0,
   pace: weeklyPace,
 }: Props) {
@@ -120,6 +124,20 @@ export function EnvelopeRow({
   const categories = useCategories().data
   const row = envelope.isCreditCardPayment ? undefined : categories?.find((c) => c.name === envelope.category)
   const goal = row?.goal ? goalProgress({ goal: row.goal, month, available: envelope.available, assigned: envelope.assigned, spent: envelope.spent, since: row.since }) : null
+  // A goal's bar grows from where it was when money lands (Set, Pull money, Edit amount), alongside the pill's roll.
+  const [seenPct, setSeenPct] = useState(goal?.pct)
+  const [grow, setGrow] = useState<{ from: number; n: number } | null>(null)
+  if (goal && goal.pct !== seenPct) {
+    setSeenPct(goal.pct)
+    if (seenPct !== undefined && goal.pct > seenPct && !hideAmounts) setGrow({ from: seenPct, n: (grow?.n ?? 0) + 1 })
+  }
+  // Played once Home's in front; then back to a plain bar, so a later modal doesn't hold it at the old fill.
+  useEffect(() => {
+    if (!grow || !active) return
+    const t = setTimeout(() => setGrow(null), 2500)
+    return () => clearTimeout(t)
+  }, [grow, active])
+  const behind = !readOnly && goal?.status === 'behind' && goal.behindBy ? goal.behindBy : 0
   const pace = goal ? undefined : weeklyPace
   // What carried in, on a long press of the pill, since the row no longer says it.
   const tip = hideAmounts ? null : rolledOverLine(envelope.rolledOver, currentMonthKey(), (n) => formatCurrency(n))
@@ -178,7 +196,13 @@ export function EnvelopeRow({
         {goal && row?.goal ? (
           <>
             {/* tick at 100: mint all the way, filling up is the point. */}
-            <ProgressBar pct={goal.pct} tick={100} />
+            {grow ? (
+              // One mounted bar per rise: held at the old fill while covered, then its target moves.
+              // Remounting on focus would draw it empty for a frame.
+              <ProgressBar key={grow.n} pct={active ? goal.pct : grow.from} from={grow.from} tick={100} />
+            ) : (
+              <ProgressBar pct={goal.pct} tick={100} />
+            )}
             <GoalLine category={envelope.category} goal={row.goal} progress={goal} month={month} money={money} onPull={readOnly ? undefined : onMoveMoney} />
           </>
         ) : pace ? (
@@ -226,7 +250,17 @@ export function EnvelopeRow({
           play={hideAmounts ? 0 : rollPlay}
           delayMs={rollDelayMs}
           tones={{ up: { color: tokens.pillGood, bg: tokens.pillGoodBg }, down: { color: tokens.pillOver, bg: tokens.pillOverBg } }}
+          rise={!hideAmounts}
+          active={active}
         />
+        {/* A behind goal's Set sits under its Left pill: the money column, and the same spot on every row. */}
+        {behind > 0 && (
+          <Pressable onPress={() => onMoveMoney(envelope.category, behind)} hitSlop={10} accessibilityRole="button" accessibilityLabel={`Set ${name}: pull ${money(behind)}`}
+            style={[styles.setPill, { backgroundColor: tokens.pillLowBg }]}>
+            {/* One pass of the shimmer as it arrives, so a behind goal's Set catches the eye once. */}
+            <ShimmerText on text="Set" style={[styles.setText, { color: tokens.pillLow, fontFamily: fontFamily.bodySemiBold }]} />
+          </Pressable>
+        )}
       </Pressable>
 
       <BottomSheet visible={sheetOpen} onClose={closeSheet}>
@@ -403,7 +437,9 @@ const styles = StyleSheet.create({
   metaLine: { fontSize: 12, marginTop: 2 },
   spentOf: { marginLeft: 'auto', fontSize: 12, fontVariant: ['tabular-nums'] },
   // Fixed width so every row's bar ends at the same x, whatever the amount.
-  availableCol: { width: 84, alignItems: 'flex-end' },
+  availableCol: { width: 84, alignItems: 'flex-end', gap: 8 },
+  setPill: { paddingHorizontal: 12, paddingVertical: 4, borderRadius: 6 },
+  setText: { fontSize: 12 },
   availablePill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
   tip: { position: 'absolute', bottom: '100%', right: 0, marginBottom: 6, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, zIndex: 1 },
   tipText: { fontSize: 11 },

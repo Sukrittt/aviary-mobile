@@ -190,13 +190,20 @@ function HomeScreen() {
   const [displayedReadyToAssign, setDisplayedReadyToAssign] = useState(envelopeState.readyToAssign)
   const [, setFocusTick] = useState(0)
   const rtaPending = displayedReadyToAssign !== envelopeState.readyToAssign
+  // Same for a Left pill's rise (Set, Pull money): balances as last seen uncovered,
+  // so focus asks for a render only when one went up while Home was covered.
+  const seenAvailable = useRef<Map<string, number>>(new Map())
+  const risePending = envelopeState.envelopes.some((e) => e.available > (seenAvailable.current.get(e.category) ?? e.available))
+  useEffect(() => {
+    if (!covered) seenAvailable.current = new Map(envelopeState.envelopes.map((e) => [e.category, e.available]))
+  })
   // The month and days left are read off the clock on render, so a day that
   // turned over while Home sat behind another tab needs a render too.
   const renderedDay = todayLocal()
   useFocusEffect(
     useCallback(() => {
-      if (rtaPending || todayLocal() !== renderedDay) setFocusTick((n) => n + 1)
-    }, [rtaPending, renderedDay]),
+      if (rtaPending || risePending || todayLocal() !== renderedDay) setFocusTick((n) => n + 1)
+    }, [rtaPending, risePending, renderedDay]),
   )
   // Adjusting state during render (not in an effect) so the sync happens in
   // the same commit as the value that triggered it, with no extra render.
@@ -698,6 +705,7 @@ function HomeScreen() {
                   rollPlay={rollPlay}
                   rollOrder={rollOrder}
                   paces={paces}
+                  active={!covered}
                 />
               ))}
             </View>

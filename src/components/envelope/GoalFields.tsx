@@ -5,7 +5,6 @@ import { fontFamily } from '@/src/theme/fonts'
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { Chip } from '@/src/components/ui/Chip'
 import { Icon } from '@/src/components/shared/Icon'
-import { ShimmerText } from '@/src/components/shared/ShimmerText'
 import { CalendarBlank, CaretDown, CaretLeft, CaretRight } from '@/src/components/shared/icons'
 import { BottomSheet } from '@/src/components/shared/Modal'
 import { Wheel } from '@/src/components/ui/Wheel'
@@ -186,10 +185,9 @@ export function shortGoalLine(p: GoalProgress, money: (n: number) => string): st
 }
 
 /**
- * The row's one line under a goal's bar, with its actions as pills at the end:
- * Set pulls what a behind goal is short this month; a done one can repeat or
- * go back to spending. Nothing changes without the tap; without onPull it's
- * the plain line.
+ * The row's one line under a goal's bar. A done goal gets Repeat and Back to
+ * spending as pills at the end; a behind goal's Set lives in the row's money
+ * column (EnvelopeRow). Without onPull it's the plain line.
  */
 export function GoalLine({ category, goal, progress, month, money, onPull }: {
   category: string
@@ -197,7 +195,7 @@ export function GoalLine({ category, goal, progress, month, money, onPull }: {
   progress: GoalProgress
   month: string
   money: (n: number) => string
-  /** Opens Pull money into this category for what it's behind by. Omitted: no actions (read-only). */
+  /** Present where the goal can be changed. Omitted: no actions (read-only). */
   onPull?: (category: string, amount: number) => void
 }) {
   const { tokens } = useTheme()
@@ -217,20 +215,16 @@ export function GoalLine({ category, goal, progress, month, money, onPull }: {
       setBusy(null)
     }
   }
-  // `sweep`: one pass of the shimmer as the pill arrives, so a behind goal's Set catches the eye once.
-  const pill = (label: string, tone: { color: string; bg: string }, onPress: () => void, sweep = false) => (
+  const pill = (label: string, tone: { color: string; bg: string }, onPress: () => void) => (
     <Pressable key={label} onPress={onPress} disabled={!!busy} hitSlop={10} accessibilityRole="button"
       style={[styles.pill, { backgroundColor: tone.bg, opacity: busy ? 0.6 : 1 }]}>
-      <ShimmerText on={sweep} text={label} style={[styles.pillText, { color: tone.color, fontFamily: fontFamily.bodySemiBold }]} />
+      <Text style={[styles.pillText, { color: tone.color, fontFamily: fontFamily.bodySemiBold }]}>{label}</Text>
     </Pressable>
   )
 
   const done = progress.status === 'done'
   const actions: ReactNode[] = []
-  if (onPull && progress.status === 'behind' && progress.behindBy) {
-    const short = progress.behindBy
-    actions.push(pill('Set', { color: tokens.pillLow, bg: tokens.pillLowBg }, () => onPull(category, short), true))
-  } else if (onPull && done) {
+  if (onPull && done) {
     const neutral = { color: tokens.text, bg: tokens.inputBg }
     if (goal.by) actions.push(pill(busy === 'repeat' ? 'Saving…' : 'Repeat', neutral, () => void run('repeat', { ...goal, by: nextGoalMonth(progress.by ?? goal.by!, month) })))
     actions.push(pill(busy === 'remove' ? 'Saving…' : 'Back to spending', neutral, () => void run('remove', null)))

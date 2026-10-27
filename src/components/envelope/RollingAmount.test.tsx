@@ -72,3 +72,39 @@ describe('RollingAmount', () => {
     expect(r.getByLabelText('₹1,000')).toBeTruthy()
   })
 })
+
+describe('RollingAmount rise', () => {
+  // A harness owns `to` and `active`, since rerender would drop renderWithProviders' providers.
+  let set = (_: { to?: number; active?: boolean }) => {}
+  function Harness() {
+    const [s, setS] = useState({ to: 1600, active: true })
+    set = (next) => setS((prev) => ({ ...prev, ...next }))
+    return <RollingAmount from={s.to} to={s.to} play={0} color="green" size={12} weight="bodySemiBold" tones={tones} rise active={s.active} />
+  }
+
+  it('rolls up from the old amount when money lands, like Web', () => {
+    const r = renderWithProviders(<Harness />)
+    act(() => set({ to: 2600 }))
+    expect(r.getByLabelText('₹1,600')).toBeTruthy()
+    expect(bg(r)).toBe('mint')
+    act(() => jest.advanceTimersByTime(3500))
+    expect(r.getByLabelText('₹2,600')).toBeTruthy()
+  })
+
+  it('waits while a screen covers it, then rolls once it is back in front', () => {
+    const r = renderWithProviders(<Harness />)
+    act(() => set({ active: false }))
+    act(() => set({ to: 2600 }))
+    act(() => jest.advanceTimersByTime(5000))
+    expect(r.getByLabelText('₹1,600')).toBeTruthy()
+    act(() => set({ active: true }))
+    act(() => jest.advanceTimersByTime(3500))
+    expect(r.getByLabelText('₹2,600')).toBeTruthy()
+  })
+
+  it('just updates going down', () => {
+    const r = renderWithProviders(<Harness />)
+    act(() => set({ to: 900 }))
+    expect(r.getByLabelText('₹900')).toBeTruthy()
+  })
+})

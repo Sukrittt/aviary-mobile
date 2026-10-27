@@ -32,7 +32,7 @@ export function rollSteps(from: number, to: number, steps = STEPS): number[] {
  * shortfall eating into this month), then settles back into `color`/`style`.
  * Twin of Web's src/components/home/RollingAmount.tsx.
  */
-export function RollingAmount({ from, to, play, delayMs = 0, style, color, size, weight, tones }: {
+export function RollingAmount({ from, to, play, delayMs = 0, style, color, size, weight, tones, rise = false, active = true }: {
   from: number
   to: number
   play: number
@@ -42,6 +42,10 @@ export function RollingAmount({ from, to, play, delayMs = 0, style, color, size,
   size: number
   weight: keyof typeof fontFamily
   tones?: { up: Tone; down: Tone }
+  /** Also roll on its own whenever `to` goes up (money assigned or moved in), from the amount it showed before. Web's rise. */
+  rise?: boolean
+  /** False while another screen covers this one (a modal over Home): a roll waits for it instead of playing unseen. */
+  active?: boolean
 }) {
   const ref = useRef<View>(null)
   const reduceMotion = useReducedMotion()
@@ -55,21 +59,34 @@ export function RollingAmount({ from, to, play, delayMs = 0, style, color, size,
 
   // A new play goes back to the old amount during render, so the new one never
   // flashes first. Re-renders with the same play leave a roll alone.
+  // Where the current roll started: `from` on a play, the last shown amount on a rise.
+  const [start, setStart] = useState(from)
   const [seenPlay, setSeenPlay] = useState(0)
   if (play !== seenPlay) {
     setSeenPlay(play)
     if (play > 0 && !reduceMotion && from !== to) {
       setShown(from)
+      setStart(from)
       setArmed(play)
+    }
+  }
+  // A rise, same way: back to the old amount before it can flash the new one.
+  const [seenTo, setSeenTo] = useState(to)
+  if (to !== seenTo) {
+    setSeenTo(to)
+    if (rise && to > seenTo && !reduceMotion && !armed) {
+      setShown(seenTo)
+      setStart(seenTo)
+      setArmed(-1) // any non-zero key; plays are positive
     }
   }
 
   useEffect(() => {
-    if (!armed) return
+    if (!armed || !active) return
     let started = false
     const timers: ReturnType<typeof setTimeout>[] = []
     const roll = () => {
-      const steps = rollSteps(from, to)
+      const steps = rollSteps(start, to)
       steps.forEach((n, i) => timers.push(setTimeout(() => setShown(n), HOLD_MS + delayMs + i * STEP_MS)))
       // After the last tick's odometer roll: settle, pop, splash.
       timers.push(setTimeout(() => {
@@ -94,9 +111,9 @@ export function RollingAmount({ from, to, play, delayMs = 0, style, color, size,
       clearInterval(poll)
       timers.forEach(clearTimeout)
     }
-  }, [armed]) // eslint-disable-line react-hooks/exhaustive-deps -- from/to are read at the start of a roll
+  }, [armed, active]) // eslint-disable-line react-hooks/exhaustive-deps -- start/to are read at the start of a roll
 
-  const tone = shown !== null && tones ? (to < from ? tones.down : tones.up) : null
+  const tone = shown !== null && tones ? (to < start ? tones.down : tones.up) : null
   return (
     <View>
       <Reanimated.View
