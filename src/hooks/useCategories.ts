@@ -129,7 +129,7 @@ export function useAddCategory() {
 export function useUpdateCategory() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (params: { name: string; updates: { newName?: string; group?: string; alertPcts?: number[] | null; icon?: string; color?: string; goal?: CategoryGoal | null } }) =>
+    mutationFn: (params: { name: string; updates: { newName?: string; group?: string; alertPcts?: number[] | null; icon?: string; color?: string; goal?: CategoryGoal | null; note?: string | null } }) =>
       updateCategory(params.name, params.updates),
     onSuccess: async (_data, { name, updates }) => {
       const newName = updates.newName
