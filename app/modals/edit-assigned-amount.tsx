@@ -311,19 +311,8 @@ function EditAmountBody({
           )}
         </View>
 
-        <View style={styles.quickRow}>
-          {QUICK_PICKS.map((v) => (
-            <QuickChip
-              key={v}
-              label={formatMoney(v)}
-              active={value === v}
-              onPress={() => setAmountText(String(v))}
-              tokens={tokens}
-              radius={radius}
-            />
-          ))}
-        </View>
-        {!!goalNeed && (
+        {/* A goal with a deadline has one amount that matters, so it gets that chip alone. Round numbers and last month are for spending. */}
+        {goalNeed ? (
           <View style={styles.quickRow}>
             <QuickChip
               label={`${formatCurrency(goalNeed.amount, hideAmounts)} makes it by ${shortMonth(goalNeed.by)}`}
@@ -333,17 +322,32 @@ function EditAmountBody({
               radius={radius}
             />
           </View>
-        )}
-        {!isCreditCardPayment && !!lastMonthAssigned && (
-          <View style={styles.quickRow}>
-            <QuickChip
-              label={`Last month · ${formatCurrency(lastMonthAssigned, hideAmounts)}`}
-              active={value === lastMonthAssigned}
-              onPress={() => setAmountText(String(Math.round(lastMonthAssigned)))}
-              tokens={tokens}
-              radius={radius}
-            />
-          </View>
+        ) : (
+          <>
+            <View style={styles.quickRow}>
+              {QUICK_PICKS.map((v) => (
+                <QuickChip
+                  key={v}
+                  label={formatMoney(v)}
+                  active={value === v}
+                  onPress={() => setAmountText(String(v))}
+                  tokens={tokens}
+                  radius={radius}
+                />
+              ))}
+            </View>
+            {!isCreditCardPayment && !!lastMonthAssigned && (
+              <View style={styles.quickRow}>
+                <QuickChip
+                  label={`Last month · ${formatCurrency(lastMonthAssigned, hideAmounts)}`}
+                  active={value === lastMonthAssigned}
+                  onPress={() => setAmountText(String(Math.round(lastMonthAssigned)))}
+                  tokens={tokens}
+                  radius={radius}
+                />
+              </View>
+            )}
+          </>
         )}
 
         {error !== '' && <Text style={{ color: tokens.coral, fontSize: 12 }}>{error}</Text>}

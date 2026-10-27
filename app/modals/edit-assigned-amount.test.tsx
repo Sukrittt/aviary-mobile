@@ -5,7 +5,8 @@ import { getBudgets, updateBudget, getCarry } from '@/src/api/budgets'
 import { getCategories } from '@/src/api/categories'
 import { getGroups } from '@/src/api/groups'
 import EditAssignedAmountModal from './edit-assigned-amount'
-import { currentMonthKey, prevMonthKey } from '@/src/lib/envelope'
+import { currentMonthKey, prevMonthKey, shiftMonthKey } from '@/src/lib/envelope'
+import { shortMonth } from '@/src/lib/goal'
 import { BudgetWriteError } from '@/src/lib/budgetConflict'
 import * as Haptics from 'expo-haptics'
 
@@ -272,4 +273,21 @@ it("won't act on balances without last month's carry", async () => {
   ;(getCarry as jest.Mock).mockRejectedValueOnce(new Error('503'))
   const { findByText } = renderWithProviders(<EditAssignedAmountModal />)
   expect(await findByText("Couldn't load your balances. Check your connection and try again.")).toBeTruthy()
+})
+
+it("a goal with a deadline gets its monthly amount as the only chip", async () => {
+  mockParams = { category: 'Food' }
+  ;(getExpenses as jest.Mock).mockResolvedValue([])
+  ;(getBudgets as jest.Mock).mockResolvedValue([
+    { month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0', version: 2 },
+    { month: MONTH, category: 'Food', assigned: '0', rolled_over: '0', version: 7 },
+    { month: PREV_MONTH, category: 'Food', assigned: '3000', rolled_over: '0', version: 1 },
+  ])
+  ;(getCategories as jest.Mock).mockResolvedValue([{ name: 'Food', group: 'Everyday', goal: { amount: 6000, by: shiftMonthKey(MONTH, 1) } }])
+  ;(getGroups as jest.Mock).mockResolvedValue(['Everyday'])
+  const { getByText, queryByText } = renderWithProviders(<EditAssignedAmountModal />)
+  // 6,000 over this month and next, with nothing in it yet.
+  await waitFor(() => expect(getByText(`₹3,000 makes it by ${shortMonth(shiftMonthKey(MONTH, 1))}`)).toBeTruthy())
+  expect(queryByText('₹500')).toBeNull()
+  expect(queryByText(/Last month/)).toBeNull()
 })
