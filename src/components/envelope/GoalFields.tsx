@@ -6,8 +6,8 @@ import { useCurrency } from '@/src/context/CurrencyContext'
 import { Chip } from '@/src/components/ui/Chip'
 import { Icon } from '@/src/components/shared/Icon'
 import { CaretLeft, CaretRight } from '@/src/components/shared/icons'
-import { currentMonthKey, shiftMonthKey } from '@/src/lib/envelope'
-import { goalLine, nextGoalMonth, shortMonth, type GoalProgress } from '@/src/lib/goal'
+import { currentMonthKey, monthAbbrev, shiftMonthKey } from '@/src/lib/envelope'
+import { nextGoalMonth, shortMonth, type GoalProgress } from '@/src/lib/goal'
 import { useUpdateCategory } from '@/src/hooks/useCategories'
 import type { CategoryGoal } from '@/src/types'
 
@@ -81,9 +81,26 @@ export function GoalFields({ draft, onChange, autoFocus }: { draft: GoalDraft; o
 }
 
 /**
- * The row's one line under a goal's bar, with its actions inline: pull the
- * money a behind goal needs this month, or repeat or end a done one. Nothing
- * changes without the tap; without onPull it's the plain line.
+ * Web's goalLine, cut to fit one line on a phone: the deadline's month and
+ * year stay, "to make it by" goes. Web's line also wraps; this one can't.
+ */
+export function shortGoalLine(p: GoalProgress, money: (n: number) => string): string {
+  switch (p.status) {
+    case 'funded': return 'Funded'
+    case 'done': return 'Done'
+    case 'onTrack':
+      if (p.nextNeed === undefined || !p.nextMonth || !p.by) return 'On track'
+      return p.nextMonth === p.by ? `On track · ${money(p.nextNeed)} more in ${monthAbbrev(p.by)}` : `On track · ${money(p.nextNeed)}/mo from ${monthAbbrev(p.nextMonth)}`
+    case 'behind': return p.by && p.monthlyNeed !== undefined ? `Behind · ${money(p.monthlyNeed)}/mo by ${shortMonth(p.by)}` : 'Behind'
+    case 'saving': return p.paceMonth ? `At this pace, by ${shortMonth(p.paceMonth)}` : 'Assign monthly to see when'
+  }
+}
+
+/**
+ * The row's one line under a goal's bar, with its actions as pills at the end:
+ * Set pulls what a behind goal is short this month; a done one can repeat or
+ * go back to spending. Nothing changes without the tap; without onPull it's
+ * the plain line.
  */
 export function GoalLine({ category, goal, progress, month, money, onPull }: {
   category: string
@@ -111,30 +128,34 @@ export function GoalLine({ category, goal, progress, month, money, onPull }: {
       setBusy(null)
     }
   }
-  const link = (label: string, onPress: () => void) => (
-    <Text style={{ color: tokens.accentInk, textDecorationLine: 'underline' }} disabled={!!busy} onPress={onPress} accessibilityRole="button">
-      {label}
-    </Text>
+  const pill = (label: string, tone: { color: string; bg: string }, onPress: () => void) => (
+    <Pressable key={label} onPress={onPress} disabled={!!busy} hitSlop={10} accessibilityRole="button"
+      style={[styles.pill, { backgroundColor: tone.bg, opacity: busy ? 0.6 : 1 }]}>
+      <Text style={[styles.pillText, { color: tone.color, fontFamily: fontFamily.bodySemiBold }]}>{label}</Text>
+    </Pressable>
   )
 
   const done = progress.status === 'done'
-  let line: ReactNode = goalLine(progress, money)
-  if (onPull && progress.status === 'behind' && progress.monthlyNeed !== undefined && progress.by && progress.behindBy) {
+  const actions: ReactNode[] = []
+  if (onPull && progress.status === 'behind' && progress.behindBy) {
     const short = progress.behindBy
-    line = <>Behind by {money(short)} · {link(`Set ${money(progress.monthlyNeed)}/mo`, () => onPull(category, short))} to make it by {shortMonth(progress.by)}</>
+    actions.push(pill('Set', { color: tokens.pillLow, bg: tokens.pillLowBg }, () => onPull(category, short)))
   } else if (onPull && done) {
-    line = <>
-      Done
-      {!!goal.by && <> · {link(busy === 'repeat' ? 'Saving…' : 'Repeat next year', () => void run('repeat', { ...goal, by: nextGoalMonth(progress.by ?? goal.by!, month) }))}</>}
-      {' · '}{link(busy === 'remove' ? 'Saving…' : 'Back to spending', () => void run('remove', null))}
-    </>
+    const neutral = { color: tokens.text, bg: tokens.inputBg }
+    if (goal.by) actions.push(pill(busy === 'repeat' ? 'Saving…' : 'Repeat', neutral, () => void run('repeat', { ...goal, by: nextGoalMonth(progress.by ?? goal.by!, month) })))
+    actions.push(pill(busy === 'remove' ? 'Saving…' : 'Back to spending', neutral, () => void run('remove', null)))
   }
   const color = progress.status === 'behind' ? tokens.pillLow : progress.status === 'funded' || done ? tokens.pillGood : tokens.text3
   return (
-    <Text style={[styles.line, { color, fontFamily: fontFamily.bodySemiBold }]}>
-      {line}
-      {!!error && <Text style={{ color: tokens.coral }}> {error}</Text>}
-    </Text>
+    <>
+      <View style={styles.lineRow}>
+        <Text style={[styles.line, { color, fontFamily: fontFamily.bodySemiBold }]} numberOfLines={1}>
+          {shortGoalLine(progress, money)}
+        </Text>
+        {actions}
+      </View>
+      {!!error && <Text style={[styles.line, { color: tokens.coral, fontFamily: fontFamily.bodyMedium }]}>{error}</Text>}
+    </>
   )
 }
 
@@ -147,5 +168,8 @@ const styles = StyleSheet.create({
   month: { fontSize: 14 },
   hint: { fontSize: 12, marginTop: 6 },
   chips: { flexDirection: 'row', gap: 8, marginTop: 10 },
-  line: { fontSize: 12, marginTop: 2 },
+  lineRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
+  line: { flexShrink: 1, fontSize: 12 },
+  pill: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 6 },
+  pillText: { fontSize: 12 },
 })
