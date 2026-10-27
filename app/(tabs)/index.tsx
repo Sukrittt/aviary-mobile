@@ -340,6 +340,10 @@ function HomeScreen() {
     router.push({ pathname: '/modals/move-money', params: { fromCategory: category, ...(amount ? { amount: String(amount), quick: '1' } : {}) } })
   }
 
+  function handleEditGoal(category: string) {
+    router.push({ pathname: '/modals/goal', params: { category } })
+  }
+
   function handleViewTransactions(category: string) {
     router.push({ pathname: '/(tabs)/activity', params: { category } })
   }
@@ -687,6 +691,7 @@ function HomeScreen() {
                   onMoveMoney={handleMoveMoney}
                   onEditAmount={handleEditAmount}
                   onViewTransactions={handleViewTransactions}
+                  onEditGoal={handleEditGoal}
                   expanded={!collapsedGroups.has(group)}
                   onToggle={toggleGroup}
                   onSheetOpenChange={handleSheetOpenChange}

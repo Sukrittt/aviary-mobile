@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
@@ -6,7 +6,9 @@ import { useCurrency } from '@/src/context/CurrencyContext'
 import { Chip } from '@/src/components/ui/Chip'
 import { Icon } from '@/src/components/shared/Icon'
 import { ShimmerText } from '@/src/components/shared/ShimmerText'
-import { CaretLeft, CaretRight } from '@/src/components/shared/icons'
+import { CalendarBlank, CaretDown, CaretLeft, CaretRight } from '@/src/components/shared/icons'
+import { BottomSheet } from '@/src/components/shared/Modal'
+import { Wheel } from '@/src/components/ui/Wheel'
 import { currentMonthKey, monthAbbrev, shiftMonthKey } from '@/src/lib/envelope'
 import { nextGoalMonth, shortMonth, type GoalProgress } from '@/src/lib/goal'
 import { useUpdateCategory } from '@/src/hooks/useCategories'
@@ -30,19 +32,13 @@ export function goalOf(d: GoalDraft): CategoryGoal | null {
 
 export const GOAL_SAVE_FAILED = "Couldn't save. Check your connection and try again."
 
-/** Target, optional month, and once or every year. Shared by the envelope sheet and Categories. */
+/** Target, optional month, and once or every year, for the Categories sheets (their name field already has the keyboard up). */
 export function GoalFields({ draft, onChange, autoFocus }: { draft: GoalDraft; onChange: (d: GoalDraft) => void; autoFocus?: boolean }) {
   const { tokens } = useTheme()
   const { currencySymbol } = useCurrency()
-  const thisMonth = currentMonthKey()
-  const over = !!draft.by && !draft.yearly && draft.by < thisMonth
-  const label = [styles.label, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]
-  // No date sits just before this month: step back past it to clear the deadline.
-  const back = () => onChange({ ...draft, by: draft.by > thisMonth ? shiftMonthKey(draft.by, -1) : '' })
-  const forward = () => onChange({ ...draft, by: draft.by ? shiftMonthKey(draft.by, 1) : thisMonth })
   return (
     <>
-      <Text style={label}>TARGET</Text>
+      <Text style={[styles.label, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>TARGET</Text>
       <View style={[styles.amount, { backgroundColor: tokens.inputBg, borderColor: tokens.borderStrong }]}>
         <Text style={[styles.symbol, { color: tokens.text3, fontFamily: fontFamily.bodyBold }]}>{currencySymbol}</Text>
         <TextInput
@@ -56,8 +52,21 @@ export function GoalFields({ draft, onChange, autoFocus }: { draft: GoalDraft; o
           autoFocus={autoFocus}
         />
       </View>
-      <Text style={label}>BY</Text>
-      <View style={[styles.stepper, { backgroundColor: tokens.inputBg, borderColor: tokens.border }]}>
+      <GoalByFields draft={draft} onChange={onChange} />
+    </>
+  )
+}
+
+/** The deadline half: a month stepper (No date sits just before this month) and once or every year. */
+export function GoalByFields({ draft, onChange, compact }: { draft: GoalDraft; onChange: (d: GoalDraft) => void; compact?: boolean }) {
+  const { tokens } = useTheme()
+  const thisMonth = currentMonthKey()
+  const over = !!draft.by && !draft.yearly && draft.by < thisMonth
+  const back = () => onChange({ ...draft, by: draft.by > thisMonth ? shiftMonthKey(draft.by, -1) : '' })
+  const forward = () => onChange({ ...draft, by: draft.by ? shiftMonthKey(draft.by, 1) : thisMonth })
+  const [picking, setPicking] = useState(false)
+  const stepper = (
+      <View style={[compact ? styles.stepperCompact : styles.stepper, { backgroundColor: tokens.inputBg, borderColor: tokens.border }]}>
         <Pressable onPress={back} disabled={!draft.by} hitSlop={8} accessibilityRole="button" accessibilityLabel="Earlier month" style={{ opacity: draft.by ? 1 : 0.3 }}>
           <Icon icon={CaretLeft} size={16} color={tokens.text2} />
         </Pressable>
@@ -68,6 +77,35 @@ export function GoalFields({ draft, onChange, autoFocus }: { draft: GoalDraft; o
           <Icon icon={CaretRight} size={16} color={tokens.text2} />
         </Pressable>
       </View>
+  )
+  // One row under the goal screen's amount: the month (a tap opens the wheels), and a repeat toggle once there is one.
+  if (compact) {
+    return (
+      <>
+        <View style={styles.compactRow}>
+          <Pressable
+            onPress={() => setPicking(true)}
+            accessibilityRole="button"
+            accessibilityLabel={draft.by ? `By ${shortMonth(draft.by)}. Change the month` : 'Pick a month'}
+            style={[styles.stepperCompact, { backgroundColor: tokens.inputBg, borderColor: tokens.border }]}
+          >
+            <Icon icon={CalendarBlank} size={16} color={tokens.text2} />
+            <Text style={[styles.month, { color: draft.by ? tokens.text : tokens.text2, fontFamily: fontFamily.bodyBold }]}>
+              {draft.by ? shortMonth(draft.by) : 'Pick a month'}
+            </Text>
+            <Icon icon={CaretDown} size={14} color={tokens.text2} />
+          </Pressable>
+          {!!draft.by && <Chip label="Every year" selected={draft.yearly} onPress={() => onChange({ ...draft, yearly: !draft.yearly })} />}
+        </View>
+        {over && <Text style={[styles.hint, { color: tokens.coral, fontFamily: fontFamily.bodyMedium, textAlign: 'center' }]}>{"That month's over. Pick this one or later."}</Text>}
+        <MonthPickerSheet visible={picking} value={draft.by} onClose={() => setPicking(false)} onPick={(by) => { setPicking(false); onChange({ ...draft, by }) }} />
+      </>
+    )
+  }
+  return (
+    <>
+      <Text style={[styles.label, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>BY</Text>
+      {stepper}
       <Text style={[styles.hint, { color: over ? tokens.coral : tokens.text3, fontFamily: fontFamily.bodyMedium }]}>
         {over ? "That month's over. Pick this one or later." : draft.by ? 'Need it again next year? Repeat it.' : 'No date means you save at your own pace.'}
       </Text>
@@ -77,6 +115,56 @@ export function GoalFields({ draft, onChange, autoFocus }: { draft: GoalDraft; o
           <Chip label="Every year" selected={draft.yearly} onPress={() => onChange({ ...draft, yearly: true })} />
         </View>
       )}
+    </>
+  )
+}
+
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+const YEARS_AHEAD = 30
+
+/** A month and year on two wheels, like Apple's. A month that's already over springs back to this one. '' is No date. */
+function MonthPickerSheet({ visible, value, onClose, onPick }: { visible: boolean; value: string; onClose: () => void; onPick: (by: string) => void }) {
+  return (
+    <BottomSheet visible={visible} onClose={onClose}>
+      {/* Mounted per open, so the wheels start on the goal's month every time. */}
+      {visible && <MonthWheels value={value} onPick={onPick} />}
+    </BottomSheet>
+  )
+}
+
+function MonthWheels({ value, onPick }: { value: string; onPick: (by: string) => void }) {
+  const { tokens } = useTheme()
+  const thisMonth = currentMonthKey()
+  const thisYear = Number(thisMonth.slice(0, 4))
+  const start = value && value >= thisMonth ? value : thisMonth
+  const [year, setYear] = useState(Number(start.slice(0, 4)))
+  const [month, setMonth] = useState(Number(start.slice(5, 7)) - 1)
+  const years = useMemo(() => Array.from({ length: YEARS_AHEAD + 1 }, (_, i) => String(thisYear + i)), [thisYear])
+  const keyOf = (y: number, m: number) => `${y}-${String(m + 1).padStart(2, '0')}`
+
+  // Lands on a month that's over (this year, earlier month): back to this month, like Apple's grayed-out rows.
+  function set(y: number, m: number) {
+    const clamped = keyOf(y, m) < thisMonth ? thisMonth : keyOf(y, m)
+    setYear(Number(clamped.slice(0, 4)))
+    setMonth(Number(clamped.slice(5, 7)) - 1)
+  }
+
+  const action = (label: string, primary: boolean, onPress: () => void) => (
+    <Pressable onPress={onPress} accessibilityRole="button" style={[styles.sheetBtn, { backgroundColor: primary ? tokens.accent : tokens.inputBg }]}>
+      <Text style={{ color: primary ? tokens.onAccent : tokens.text2, fontFamily: fontFamily.bodyBold, fontSize: 15 }}>{label}</Text>
+    </Pressable>
+  )
+  return (
+    <>
+      <Text style={[styles.sheetTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Save it by</Text>
+      <View style={styles.wheels}>
+        <Wheel loop items={MONTHS} index={month} onChange={(m) => set(year, m)} accessibilityLabel="Month" />
+        <Wheel items={years} index={year - thisYear} onChange={(i) => set(thisYear + i, month)} accessibilityLabel="Year" />
+      </View>
+      <View style={styles.sheetActions}>
+        {action('No date', false, () => onPick(''))}
+        {action('Done', true, () => onPick(keyOf(year, month)))}
+      </View>
     </>
   )
 }
@@ -168,6 +256,12 @@ const styles = StyleSheet.create({
   amountInput: { flex: 1, paddingVertical: 14, fontSize: 15 },
   stepper: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 12 },
   month: { fontSize: 14 },
+  stepperCompact: { flexDirection: 'row', alignItems: 'center', gap: 14, borderWidth: 1, borderRadius: 100, paddingHorizontal: 14, paddingVertical: 8 },
+  sheetTitle: { fontSize: 16, marginBottom: 12 },
+  wheels: { flexDirection: 'row', gap: 8 },
+  sheetActions: { flexDirection: 'row', gap: 8, marginTop: 16 },
+  sheetBtn: { flex: 1, paddingVertical: 14, borderRadius: 100, alignItems: 'center', justifyContent: 'center' },
+  compactRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   hint: { fontSize: 12, marginTop: 6 },
   chips: { flexDirection: 'row', gap: 8, marginTop: 10 },
   // Wraps rather than spilling into the Left column when the pills don't fit (big text, narrow phone).
