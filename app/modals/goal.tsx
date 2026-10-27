@@ -97,9 +97,10 @@ function GoalBody({ category, goal }: { category: string; goal?: CategoryGoal })
   return (
     <View style={[styles.container, { backgroundColor: tokens.bg }]}>
       <ScreenHeader title={goal ? `Goal for ${name}` : `Make ${name} a goal`} onBack={close} close backDisabled={busy} />
-      <View style={{ flex: 1, paddingHorizontal: space.lg, paddingTop: space.lg }}>
-        <Text style={[styles.stepLabel, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold, fontSize: type.micro }]}>TARGET</Text>
+      {/* Centred in the space over the numpad, a touch above true centre so it doesn't read as sinking. */}
+      <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: space.lg, paddingBottom: space.xl * 2 }}>
         <View style={[styles.amountWrap, { gap: space.md }]}>
+          <Text style={[styles.stepLabel, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold, fontSize: type.micro }]}>TARGET</Text>
           <Animated.View style={{ transform: [{ translateX: shake.interpolate({ inputRange: [-1, 1], outputRange: [-8, 8] }) }] }}>
             <AmountText value={Number(amount) || 0} rawText={formatAmountInput(amount)} fit size={type.hero} weight="displayBold" animate ignoreHide />
           </Animated.View>
