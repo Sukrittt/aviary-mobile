@@ -473,6 +473,7 @@ function HomeScreen() {
                 animate
                 settle
                 id="ready-to-assign"
+                sweep={displayedReadyToAssign > 0}
               />
             </AnimatedPressable>
             {/* The hero tap is invisible, so this pill names where the number

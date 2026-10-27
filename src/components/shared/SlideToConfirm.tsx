@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import type { SharedValue } from 'react-native-reanimated'
 import { Platform, StyleSheet, Text, View } from 'react-native'
 import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Animated, {
@@ -19,6 +18,7 @@ import * as Haptics from 'expo-haptics'
 import Svg, { Path } from 'react-native-svg'
 import { CaretRight, type PhosphorIcon } from '@/src/components/shared/icons'
 import { BIRD_PATH } from '@/src/components/splash/birdPath'
+import { ShimmerText } from '@/src/components/shared/ShimmerText'
 import { tap } from '@/src/lib/haptics'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
@@ -63,7 +63,6 @@ export function SlideToConfirm({ label, onConfirm, disabled = false, icon: KnobI
   const bob = useSharedValue(0)
   const flight = useSharedValue(0)
   const flown = useSharedValue(false)
-  const sweep = useSharedValue(0)
   // 1 when live, 0 when disabled. The disabled look is a layer that fades over the live one, so the
   // track, label, knob and bird all change together instead of the text snapping before the fill.
   const live = useSharedValue(disabled ? 0 : 1)
@@ -78,12 +77,6 @@ export function SlideToConfirm({ label, onConfirm, disabled = false, icon: KnobI
     const ease = Easing.inOut(Easing.cubic)
     x.value = withDelay(500, withSequence(withTiming(14, { duration: 420, easing: ease }), withTiming(0, { duration: 420, easing: ease })))
   }, [reduceMotion, disabled, width, x])
-
-  // A soft bright band sweeps across the label, left to right, pointing the way.
-  useEffect(() => {
-    if (reduceMotion || disabled) return
-    sweep.value = withRepeat(withSequence(withTiming(1, { duration: 1500, easing: Easing.inOut(Easing.quad) }), withDelay(900, withTiming(0, { duration: 0 }))), -1)
-  }, [reduceMotion, disabled, sweep])
 
   // A slow breathing bob while it waits.
   useEffect(() => {
@@ -169,16 +162,10 @@ export function SlideToConfirm({ label, onConfirm, disabled = false, icon: KnobI
         style={[styles.track, { backgroundColor: tokens.accent }]}
       >
         <Animated.View pointerEvents="none" style={[styles.trail, { backgroundColor: tokens.onAccent }, trailStyle]} />
-        <Animated.View pointerEvents="none" style={[styles.labelWrap, labelStyle]}>
-          {reduceMotion ? (
-            <Text numberOfLines={1} style={[styles.label, { color: tokens.onAccent }]}>{label}</Text>
-          ) : (
-            <View style={styles.shimmerRow}>
-              {Array.from(label).map((ch, i, all) => (
-                <ShimmerChar key={i} ch={ch} index={i} count={all.length} sweep={sweep} color={tokens.onAccent} />
-              ))}
-            </View>
-          )}
+        {/* Hidden from screen readers: the track above already carries the label. */}
+        <Animated.View pointerEvents="none" importantForAccessibility="no-hide-descendants" accessibilityElementsHidden style={[styles.labelWrap, labelStyle]}>
+          {/* A soft bright band sweeps across the label, left to right, pointing the way. */}
+          <ShimmerText text={label} on={!disabled} loop style={[styles.label, { color: tokens.onAccent }]} />
         </Animated.View>
         <GestureDetector gesture={pan}>
           <Animated.View hitSlop={12} style={[styles.knob, { backgroundColor: tokens.onAccent }, knobStyle]}>
@@ -214,26 +201,11 @@ export function SlideToConfirm({ label, onConfirm, disabled = false, icon: KnobI
   )
 }
 
-// How many letters either side of the band's centre catch some of the light.
-const BAND = 3
-
-/** One letter of the label, lit up as the sweep passes over it. */
-function ShimmerChar({ ch, index, count, sweep, color }: { ch: string; index: number; count: number; sweep: SharedValue<number>; color: string }) {
-  const style = useAnimatedStyle(() => {
-    // The band starts off the left edge and finishes off the right, so every pass reads as one motion.
-    const centre = -BAND + sweep.value * (count + BAND * 2)
-    const lit = Math.max(0, 1 - Math.abs(index - centre) / BAND)
-    return { opacity: 0.78 + lit * 0.22 }
-  })
-  return <Animated.Text style={[styles.label, { color }, style]}>{ch}</Animated.Text>
-}
-
 const styles = StyleSheet.create({
   track: { height: HEIGHT, borderRadius: HEIGHT / 2, justifyContent: 'center', overflow: 'hidden' },
   trail: { position: 'absolute', left: 0, top: 0, bottom: 0, borderRadius: HEIGHT / 2, opacity: 0.18 },
   labelWrap: { ...StyleSheet.absoluteFill, alignItems: 'center', justifyContent: 'center', paddingHorizontal: KNOB + PAD * 2 },
   dim: { position: 'absolute', left: 0, right: 0, top: 0 },
-  shimmerRow: { flexDirection: 'row' },
   label: { fontFamily: fontFamily.bodyBold, fontSize: 15 },
   bird: { position: 'absolute', right: PAD + (KNOB - BIRD) / 2, top: (HEIGHT - BIRD) / 2 },
   knob: { position: 'absolute', left: PAD, width: KNOB, height: KNOB, borderRadius: KNOB / 2, alignItems: 'center', justifyContent: 'center' },
