@@ -1,6 +1,6 @@
 import * as Haptics from 'expo-haptics'
 import { Platform } from 'react-native'
-import { rippleHaptic, rippleTickTimes, tap } from './haptics'
+import { rippleHaptic, rippleTickTimes, tap, wheelTick } from './haptics'
 
 describe('rippleTickTimes', () => {
   it('gives one tick per item, starting immediately', () => {
@@ -51,5 +51,29 @@ describe('rippleHaptic', () => {
     expect(impact).not.toHaveBeenCalled()
     jest.useRealTimers()
     jest.restoreAllMocks()
+  })
+})
+
+describe('wheelTick', () => {
+  const os = Platform.OS
+  afterEach(() => {
+    Platform.OS = os
+    jest.restoreAllMocks()
+  })
+
+  it("is the light clock tick on Android, not selection's buzzy fallback", () => {
+    Platform.OS = 'android'
+    const selection = jest.spyOn(Haptics, 'selectionAsync').mockResolvedValue()
+    const android = jest.spyOn(Haptics, 'performAndroidHapticsAsync').mockResolvedValue()
+    wheelTick()
+    expect(android).toHaveBeenCalledWith(Haptics.AndroidHaptics.Clock_Tick)
+    expect(selection).not.toHaveBeenCalled()
+  })
+
+  it("is iOS's own picker tick on iOS", () => {
+    Platform.OS = 'ios'
+    const selection = jest.spyOn(Haptics, 'selectionAsync').mockResolvedValue()
+    wheelTick()
+    expect(selection).toHaveBeenCalled()
   })
 })

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Animated, Pressable, ScrollView, StyleSheet, View, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native'
-import * as Haptics from 'expo-haptics'
+import { wheelTick } from '@/src/lib/haptics'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 
@@ -72,7 +72,7 @@ export function Wheel({ items, index, onChange, loop = false, accessibilityLabel
       const row = Math.round(y / ROW)
       if (row !== ticked.current) {
         ticked.current = row
-        Haptics.selectionAsync().catch(() => {})
+        wheelTick()
       }
     },
   })
