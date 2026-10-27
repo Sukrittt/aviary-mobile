@@ -5,7 +5,7 @@ import { fontFamily } from '@/src/theme/fonts'
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { Chip } from '@/src/components/ui/Chip'
 import { Icon } from '@/src/components/shared/Icon'
-import { CalendarBlank, CaretDown, CaretLeft, CaretRight } from '@/src/components/shared/icons'
+import { CalendarBlank, CaretLeft, CaretRight } from '@/src/components/shared/icons'
 import { BottomSheet } from '@/src/components/shared/Modal'
 import { Wheel } from '@/src/components/ui/Wheel'
 import { currentMonthKey, monthAbbrev, shiftMonthKey } from '@/src/lib/envelope'
@@ -65,7 +65,7 @@ export function GoalByFields({ draft, onChange, compact }: { draft: GoalDraft; o
   const forward = () => onChange({ ...draft, by: draft.by ? shiftMonthKey(draft.by, 1) : thisMonth })
   const [picking, setPicking] = useState(false)
   const stepper = (
-      <View style={[compact ? styles.stepperCompact : styles.stepper, { backgroundColor: tokens.inputBg, borderColor: tokens.border }]}>
+      <View style={[styles.stepper, { backgroundColor: tokens.inputBg, borderColor: tokens.border }]}>
         <Pressable onPress={back} disabled={!draft.by} hitSlop={8} accessibilityRole="button" accessibilityLabel="Earlier month" style={{ opacity: draft.by ? 1 : 0.3 }}>
           <Icon icon={CaretLeft} size={16} color={tokens.text2} />
         </Pressable>
@@ -82,19 +82,15 @@ export function GoalByFields({ draft, onChange, compact }: { draft: GoalDraft; o
     return (
       <>
         <View style={styles.compactRow}>
-          <Pressable
+          {/* Log expense's date chips: soft red once a month's picked, neutral while it asks. Bounce and tick from Chip. */}
+          <Chip
+            soft
+            selected={!!draft.by}
+            icon={(color) => <Icon icon={CalendarBlank} size={14} color={color} />}
+            label={draft.by ? shortMonth(draft.by) : 'Pick a month'}
             onPress={() => setPicking(true)}
-            accessibilityRole="button"
-            accessibilityLabel={draft.by ? `By ${shortMonth(draft.by)}. Change the month` : 'Pick a month'}
-            style={[styles.stepperCompact, { backgroundColor: tokens.inputBg, borderColor: tokens.border }]}
-          >
-            <Icon icon={CalendarBlank} size={16} color={tokens.text2} />
-            <Text style={[styles.month, { color: draft.by ? tokens.text : tokens.text2, fontFamily: fontFamily.bodyBold }]}>
-              {draft.by ? shortMonth(draft.by) : 'Pick a month'}
-            </Text>
-            <Icon icon={CaretDown} size={14} color={tokens.text2} />
-          </Pressable>
-          {!!draft.by && <Chip label="Every year" selected={draft.yearly} onPress={() => onChange({ ...draft, yearly: !draft.yearly })} />}
+          />
+          {!!draft.by && <Chip soft label="Every year" selected={draft.yearly} onPress={() => onChange({ ...draft, yearly: !draft.yearly })} />}
         </View>
         {over && <Text style={[styles.hint, { color: tokens.coral, fontFamily: fontFamily.bodyMedium, textAlign: 'center' }]}>{"That month's over. Pick this one or later."}</Text>}
         <MonthPickerSheet visible={picking} value={draft.by} onClose={() => setPicking(false)} onPick={(by) => { setPicking(false); onChange({ ...draft, by }) }} />
@@ -250,7 +246,6 @@ const styles = StyleSheet.create({
   amountInput: { flex: 1, paddingVertical: 14, fontSize: 15 },
   stepper: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 12 },
   month: { fontSize: 14 },
-  stepperCompact: { flexDirection: 'row', alignItems: 'center', gap: 14, borderWidth: 1, borderRadius: 100, paddingHorizontal: 14, paddingVertical: 8 },
   sheetTitle: { fontSize: 16, marginBottom: 12 },
   wheels: { flexDirection: 'row', gap: 8 },
   sheetActions: { flexDirection: 'row', gap: 8, marginTop: 16 },

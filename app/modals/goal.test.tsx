@@ -38,7 +38,7 @@ it('types the target on the numpad and saves it with its month', async () => {
   expect(getByText('Type a target to get started')).toBeTruthy()
   for (const d of ['5', '0', '0', '0']) fireEvent.press(getByLabelText(d))
   // The month opens on two wheels, starting at this month. A turn of the month wheel is next month.
-  fireEvent.press(getByLabelText('Pick a month'))
+  fireEvent.press(getByText('Pick a month'))
   fireEvent(getByLabelText('Month'), 'accessibilityAction', { nativeEvent: { actionName: 'increment' } })
   fireEvent.press(getByText('Done'))
   // The row's own math: 5,000 over this month and next, from nothing before this month's 1,500.
@@ -63,7 +63,7 @@ it("springs a month that's over back to this one", async () => {
   const { getByText, getByLabelText } = renderWithProviders(<GoalModal />)
   await waitFor(() => expect(getByText('Make Trip a goal')).toBeTruthy())
   fireEvent.press(getByLabelText('1'))
-  fireEvent.press(getByLabelText('Pick a month'))
+  fireEvent.press(getByText('Pick a month'))
   fireEvent(getByLabelText('Month'), 'accessibilityAction', { nativeEvent: { actionName: 'decrement' } })
   fireEvent.press(getByText('Done'))
   await act(async () => { fireEvent.press(getByText('Save goal')) })
