@@ -162,6 +162,7 @@ describe('weekly row', () => {
 describe('a goal row', () => {
   const { createTestQueryClient } = jest.requireActual('@/src/test-utils/renderWithProviders')
   const { currentMonthKey, shiftMonthKey } = jest.requireActual('@/src/lib/envelope')
+  const { shortMonth } = jest.requireActual('@/src/lib/goal')
   const month = currentMonthKey()
   const goalRow = (goal: object, e: Partial<Envelope>, onMoveMoney = jest.fn()) => {
     const queryClient = createTestQueryClient()
@@ -181,13 +182,14 @@ describe('a goal row', () => {
     const { getByText, queryByText } = goalRow({ amount: 12000, by: shiftMonthKey(month, 3) }, { available: 3000, rolledOver: 3000 }, onMoveMoney)
     expect(getByText('₹3,000 of ₹12,000')).toBeTruthy()
     expect(queryByText(/Last spent/)).toBeNull()
-    fireEvent.press(getByText('Set ₹2,250/mo'))
+    expect(getByText('Behind · ₹2,250/mo by ' + shortMonth(shiftMonthKey(month, 3)))).toBeTruthy()
+    fireEvent.press(getByText('Set'))
     expect(onMoveMoney).toHaveBeenCalledWith('Trip', 2250)
   })
 
   it('offers a repeat or a way back to spending once its month is done', () => {
     const { getByText } = goalRow({ amount: 5000, by: month }, { assigned: 0, available: 1000, spent: 4000, rolledOver: 5000 })
-    expect(getByText('Repeat next year')).toBeTruthy()
+    expect(getByText('Repeat')).toBeTruthy()
     expect(getByText('Back to spending')).toBeTruthy()
   })
 
