@@ -28,6 +28,7 @@ interface Props {
   onMoveMoney: (category: string, amount?: number) => void
   onEditAmount: (category: string) => void
   onViewTransactions: (category: string) => void
+  onEditGoal?: (category: string) => void
   expanded: boolean
   onToggle: (group: string) => void
   onSheetOpenChange?: (open: boolean) => void
@@ -49,6 +50,7 @@ export function EnvelopeGroup({
   onMoveMoney,
   onEditAmount,
   onViewTransactions,
+  onEditGoal,
   expanded,
   onToggle,
   onSheetOpenChange,
@@ -105,6 +107,7 @@ export function EnvelopeGroup({
                 onMoveMoney={onMoveMoney}
                 onEditAmount={onEditAmount}
                 onViewTransactions={onViewTransactions}
+                onEditGoal={onEditGoal}
                 onSheetOpenChange={onSheetOpenChange}
                 rollPlay={rollPlay}
                 rollDelayMs={Math.min(rollOrder?.get(e.category) ?? 0, 5) * 150}

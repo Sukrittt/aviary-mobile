@@ -193,12 +193,20 @@ describe('a goal row', () => {
     expect(getByText('Back to spending')).toBeTruthy()
   })
 
-  it('trades Track weekly for Edit goal in its sheet', () => {
-    const { getByText, queryByText } = goalRow({ amount: 5000 }, { available: 1000, rolledOver: 1000 })
+  it('trades Track weekly for Edit goal, which opens the goal screen', () => {
+    const onEditGoal = jest.fn()
+    const queryClient = createTestQueryClient()
+    queryClient.setQueryData(['categories'], [{ name: 'Trip', group: 'Goals', goal: { amount: 5000 } }])
+    const { getByText, queryByText } = renderWithProviders(
+      <EnvelopeRow
+        envelope={{ category: 'Trip', group: 'Goals', assigned: 0, spent: 0, available: 1000, rolledOver: 1000, isOverspent: false, spentPct: 0, isCreditCardPayment: false }}
+        icon="SoccerBall" hideAmounts={false} onMoveMoney={jest.fn()} onEditAmount={jest.fn()} onViewTransactions={jest.fn()} onEditGoal={onEditGoal}
+      />,
+      { queryClient },
+    )
     fireEvent.press(getByText('Trip'))
     expect(queryByText('Track weekly')).toBeNull()
     fireEvent.press(getByText('Edit goal'))
-    expect(getByText('Goal for Trip')).toBeTruthy()
-    expect(getByText('Back to spending')).toBeTruthy()
+    expect(onEditGoal).toHaveBeenCalledWith('Trip')
   })
 })

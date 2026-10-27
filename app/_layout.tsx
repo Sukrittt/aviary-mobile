@@ -452,6 +452,7 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
           <Stack.Screen name="modals/shared-payment" options={{ presentation: 'card', animation: 'fade' }} />
           <Stack.Screen name="modals/move-money" options={{ presentation: 'modal' }} />
           <Stack.Screen name="modals/edit-assigned-amount" options={{ presentation: 'modal' }} />
+          <Stack.Screen name="modals/goal" options={{ presentation: 'modal' }} />
           <Stack.Screen name="modals/edit-ready-to-assign" options={{ presentation: 'modal' }} />
           <Stack.Screen name="modals/edit-month-income" options={{ presentation: 'modal' }} />
           <Stack.Screen name="modals/add-income" options={{ presentation: 'modal' }} />

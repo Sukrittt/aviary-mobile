@@ -29,19 +29,13 @@ export function goalOf(d: GoalDraft): CategoryGoal | null {
 
 export const GOAL_SAVE_FAILED = "Couldn't save. Check your connection and try again."
 
-/** Target, optional month, and once or every year. Shared by the envelope sheet and Categories. */
+/** Target, optional month, and once or every year, for the Categories sheets (their name field already has the keyboard up). */
 export function GoalFields({ draft, onChange, autoFocus }: { draft: GoalDraft; onChange: (d: GoalDraft) => void; autoFocus?: boolean }) {
   const { tokens } = useTheme()
   const { currencySymbol } = useCurrency()
-  const thisMonth = currentMonthKey()
-  const over = !!draft.by && !draft.yearly && draft.by < thisMonth
-  const label = [styles.label, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]
-  // No date sits just before this month: step back past it to clear the deadline.
-  const back = () => onChange({ ...draft, by: draft.by > thisMonth ? shiftMonthKey(draft.by, -1) : '' })
-  const forward = () => onChange({ ...draft, by: draft.by ? shiftMonthKey(draft.by, 1) : thisMonth })
   return (
     <>
-      <Text style={label}>TARGET</Text>
+      <Text style={[styles.label, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>TARGET</Text>
       <View style={[styles.amount, { backgroundColor: tokens.inputBg, borderColor: tokens.borderStrong }]}>
         <Text style={[styles.symbol, { color: tokens.text3, fontFamily: fontFamily.bodyBold }]}>{currencySymbol}</Text>
         <TextInput
@@ -55,7 +49,21 @@ export function GoalFields({ draft, onChange, autoFocus }: { draft: GoalDraft; o
           autoFocus={autoFocus}
         />
       </View>
-      <Text style={label}>BY</Text>
+      <GoalByFields draft={draft} onChange={onChange} />
+    </>
+  )
+}
+
+/** The deadline half: a month stepper (No date sits just before this month) and once or every year. */
+export function GoalByFields({ draft, onChange }: { draft: GoalDraft; onChange: (d: GoalDraft) => void }) {
+  const { tokens } = useTheme()
+  const thisMonth = currentMonthKey()
+  const over = !!draft.by && !draft.yearly && draft.by < thisMonth
+  const back = () => onChange({ ...draft, by: draft.by > thisMonth ? shiftMonthKey(draft.by, -1) : '' })
+  const forward = () => onChange({ ...draft, by: draft.by ? shiftMonthKey(draft.by, 1) : thisMonth })
+  return (
+    <>
+      <Text style={[styles.label, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>BY</Text>
       <View style={[styles.stepper, { backgroundColor: tokens.inputBg, borderColor: tokens.border }]}>
         <Pressable onPress={back} disabled={!draft.by} hitSlop={8} accessibilityRole="button" accessibilityLabel="Earlier month" style={{ opacity: draft.by ? 1 : 0.3 }}>
           <Icon icon={CaretLeft} size={16} color={tokens.text2} />
