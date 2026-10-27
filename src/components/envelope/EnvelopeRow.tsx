@@ -1,4 +1,4 @@
-import { useCategoryTint } from '@/src/hooks/useCategories'
+import { useCategories, useCategoryTint, useUpdateCategory } from '@/src/hooks/useCategories'
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { View, Text, Pressable, StyleSheet } from 'react-native'
@@ -21,6 +21,10 @@ import { rolledOverLine } from '@/src/lib/rollover'
 import { Toggle } from '@/src/components/ui/Toggle'
 import { useWeeklyCategories } from '@/src/hooks/useWeeklyCategories'
 import { allowanceNote, paceLine, resetChip, weekResult, type WeekPace } from '@/src/lib/weekly'
+import { goalProgress } from '@/src/lib/goal'
+import { CheckIcon } from '@/src/components/shared/CheckIcon'
+import { draftOf, goalOf, GoalFields, GoalLine, GOAL_SAVE_FAILED } from './GoalFields'
+import type { CategoryGoal } from '@/src/types'
 
 const TIP_MS = 2000
 
@@ -67,7 +71,8 @@ interface Props {
   hideAmounts: boolean
   /** Overrides the displayed name (used for the Credit Card Payment special envelope). */
   displayName?: string
-  onMoveMoney: (category: string) => void
+  /** With an amount: a goal's Set, which opens on the sources for that much. */
+  onMoveMoney: (category: string, amount?: number) => void
   /** Opens the full-screen edit-assigned-amount modal (app/modals/edit-assigned-amount.tsx). */
   onEditAmount: (category: string) => void
   onViewTransactions: (category: string) => void
@@ -96,7 +101,7 @@ export function EnvelopeRow({
   onSheetOpenChange,
   rollPlay = 0,
   rollDelayMs = 0,
-  pace,
+  pace: weeklyPace,
 }: Props) {
   const { formatCurrency } = useCurrency()
 
@@ -109,6 +114,14 @@ export function EnvelopeRow({
   const [weeklyFlipped, setWeeklyFlipped] = useState(false)
   const { weekly, setWeekly, readOnly } = useWeeklyCategories()
   const money = (n: number) => formatCurrency(n, hideAmounts)
+  // A goal row is about filling up, so its bar and line say that instead of spending or pace.
+  const month = currentMonthKey()
+  const categories = useCategories().data
+  const row = envelope.isCreditCardPayment ? undefined : categories?.find((c) => c.name === envelope.category)
+  const goal = row?.goal ? goalProgress({ goal: row.goal, month, available: envelope.available, assigned: envelope.assigned, spent: envelope.spent, since: row.since }) : null
+  const pace = goal ? undefined : weeklyPace
+  // The sheet swaps its actions for the goal's fields, rather than stacking a second sheet.
+  const [goalOpen, setGoalOpen] = useState(false)
   // What carried in, on a long press of the pill, since the row no longer says it.
   const tip = hideAmounts ? null : rolledOverLine(envelope.rolledOver, currentMonthKey(), (n) => formatCurrency(n))
   const [tipOpen, setTipOpen] = useState(false)
@@ -120,6 +133,8 @@ export function EnvelopeRow({
 
   function openSheet() {
     tap()
+    // Reset here, not on close, so the goal fields don't flip back mid-slide.
+    setGoalOpen(false)
     setSheetOpen(true)
     onSheetOpenChange?.(true)
   }
@@ -156,12 +171,20 @@ export function EnvelopeRow({
             {name}
           </Text>
           <Text style={[styles.spentOf, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
-            {unbudgeted
+            {goal
+              ? `${money(goal.saved)} of ${money(goal.target)}`
+              : unbudgeted
               ? `${formatCurrency(envelope.spent, hideAmounts)} spent`
               : `${formatCurrency(envelope.spent, hideAmounts)}/${formatCurrency(envelope.assigned, hideAmounts)}`}
           </Text>
         </View>
-        {pace ? (
+        {goal && row?.goal ? (
+          <>
+            {/* tick at 100: mint all the way, filling up is the point. */}
+            <ProgressBar pct={goal.pct} tick={100} />
+            <GoalLine category={envelope.category} goal={row.goal} progress={goal} month={month} money={money} onPull={readOnly ? undefined : onMoveMoney} />
+          </>
+        ) : pace ? (
           <>
             <ProgressBar pct={pace.monthSpentPct} over={pace.monthStatus === 'over'} tick={pace.monthTickPct} />
             <View style={styles.paceLine}>
@@ -174,7 +197,7 @@ export function EnvelopeRow({
         ) : (
           <ProgressBar pct={envelope.spentPct} over={envelope.isOverspent} />
         )}
-        {!pace && !envelope.isCreditCardPayment && (
+        {!pace && !goal && !envelope.isCreditCardPayment && (
           <Text style={[styles.metaLine, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>
             {unbudgeted ? 'Not budgeted · ' : ''}Last spent {lastSpentLabel(envelope.lastSpentDate)}
           </Text>
@@ -210,13 +233,14 @@ export function EnvelopeRow({
       </Pressable>
 
       <BottomSheet visible={sheetOpen} onClose={closeSheet}>
+        {goalOpen ? <GoalSheetBody category={envelope.category} name={name} goal={row?.goal} onClose={closeSheet} /> : <>
         <Text style={[styles.sheetTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
           {name}
         </Text>
         <Collapse open={!!pace} animateOpen={weeklyFlipped}>
           {lastPace.current && <WeekBreakdown pace={lastPace.current} envelope={envelope} money={money} />}
         </Collapse>
-        {!envelope.isCreditCardPayment && !readOnly && (
+        {!envelope.isCreditCardPayment && !readOnly && !row?.goal && (
           <View style={[styles.weeklySwitch, { borderBottomColor: tokens.border }]}>
             <View style={{ flex: 1 }}>
               <Text style={[styles.sheetBtnText, { color: tokens.text, fontFamily: fontFamily.bodyMedium }]}>Track weekly</Text>
@@ -262,6 +286,13 @@ export function EnvelopeRow({
             Edit assigned amount
           </Text>
         </Pressable>
+        {!envelope.isCreditCardPayment && !readOnly && (
+          <Pressable style={styles.sheetBtn} onPress={() => setGoalOpen(true)}>
+            <Text style={[styles.sheetBtnText, { color: tokens.text, fontFamily: fontFamily.bodyMedium }]}>
+              {row?.goal ? 'Edit goal' : 'Make this a goal'}
+            </Text>
+          </Pressable>
+        )}
         {!envelope.isCreditCardPayment && (
           <Pressable
             style={styles.sheetBtn}
@@ -275,8 +306,70 @@ export function EnvelopeRow({
             </Text>
           </Pressable>
         )}
+        </>}
       </BottomSheet>
     </View>
+  )
+}
+
+/** Make an envelope a goal, change it, or turn it back into a spending category. */
+function GoalSheetBody({ category, name, goal, onClose }: { category: string; name: string; goal?: CategoryGoal; onClose: () => void }) {
+  const { tokens } = useTheme()
+  const update = useUpdateCategory()
+  const [draft, setDraft] = useState(() => draftOf(goal))
+  const [pending, setPending] = useState<'save' | 'remove' | null>(null)
+  const [success, setSuccess] = useState<'save' | 'remove' | null>(null)
+  const [error, setError] = useState('')
+  const next = goalOf(draft)
+  const busy = !!pending || !!success
+
+  // Let the inline checkmark finish drawing before the sheet closes.
+  useEffect(() => {
+    if (!success) return
+    const t = setTimeout(onClose, 1100)
+    return () => clearTimeout(t)
+  }, [success, onClose])
+
+  async function write(key: 'save' | 'remove', value: CategoryGoal | null) {
+    if (busy) return
+    setPending(key)
+    setError('')
+    try {
+      await update.mutateAsync({ name: category, updates: { goal: value } })
+      setSuccess(key)
+    } catch {
+      setError(GOAL_SAVE_FAILED)
+    } finally {
+      setPending(null)
+    }
+  }
+
+  const button = (key: 'save' | 'remove', label: string, primary: boolean, disabled: boolean, onPress: () => void) => {
+    const bg = success === key ? tokens.successBg : primary && !disabled ? tokens.accent : tokens.inputBg
+    return (
+      <Pressable style={[styles.goalBtn, { backgroundColor: bg, opacity: pending === key ? 0.6 : 1 }]} disabled={disabled || busy} onPress={onPress} accessibilityRole="button">
+        {success === key ? <CheckIcon color={tokens.onSuccess} /> : (
+          <Text style={{ color: primary && !disabled ? tokens.onAccent : tokens.text2, fontFamily: fontFamily.bodyBold }}>{pending === key ? 'Saving…' : label}</Text>
+        )}
+      </Pressable>
+    )
+  }
+
+  return (
+    <>
+      <Text style={[styles.sheetTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
+        {goal ? `Goal for ${name}` : `Make ${name} a goal`}
+      </Text>
+      <Text style={[styles.metaLine, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
+        {"It fills from what you assign. No spending alerts or weekly pace while it's a goal."}
+      </Text>
+      <GoalFields draft={draft} onChange={setDraft} autoFocus={!goal} />
+      {!!error && <Text style={[styles.metaLine, { color: tokens.coral, fontFamily: fontFamily.bodyMedium, marginTop: 8 }]}>{error}</Text>}
+      <View style={styles.goalActions}>
+        {goal && button('remove', 'Back to spending', false, false, () => void write('remove', null))}
+        {button('save', 'Save goal', true, !next, () => next && void write('save', next))}
+      </View>
+    </>
   )
 }
 
@@ -388,5 +481,7 @@ const styles = StyleSheet.create({
   // Same width as the row's pill column, so the week bars end where Home's do.
   weekAmountCol: { width: 84, alignItems: 'flex-end' },
   weekPill: { fontSize: 12, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6, overflow: 'hidden', fontVariant: ['tabular-nums'] },
+  goalActions: { flexDirection: 'row', gap: 8, marginTop: 20 },
+  goalBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 14, borderRadius: 100 },
   note: { fontSize: 12, lineHeight: 17, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, marginTop: 6, overflow: 'hidden' },
 })

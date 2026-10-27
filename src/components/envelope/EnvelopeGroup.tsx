@@ -10,6 +10,7 @@ import { categoryIconKey } from '@/src/lib/categoryIcons'
 import { CategoryIcon } from '@/src/components/shared/CategoryIcon'
 import { Icon } from '@/src/components/shared/Icon'
 import { EnvelopeRow } from './EnvelopeRow'
+import { useCategories } from '@/src/hooks/useCategories'
 import type { Envelope } from '@/src/lib/envelope'
 import type { WeekPace } from '@/src/lib/weekly'
 
@@ -24,7 +25,7 @@ interface Props {
   categoryIcons?: Map<string, string>
   envelopes: Envelope[]
   hideAmounts: boolean
-  onMoveMoney: (category: string) => void
+  onMoveMoney: (category: string, amount?: number) => void
   onEditAmount: (category: string) => void
   onViewTransactions: (category: string) => void
   expanded: boolean
@@ -59,6 +60,10 @@ export function EnvelopeGroup({
 
   const { tokens } = useTheme()
   const totalAvailable = envelopes.reduce((s, e) => s + e.available, 0)
+  // A group of nothing but goals is about filling up, so its total says how full.
+  const categories = useCategories().data
+  const goals = envelopes.map((e) => categories?.find((c) => c.name === e.category)?.goal)
+  const goalTarget = goals.every(Boolean) ? goals.reduce((s, goal) => s + (goal?.amount ?? 0), 0) : 0
   const chevronStyle = useAnimatedStyle(() => ({
     transform: [{ rotate: withSpring(expanded ? '90deg' : '0deg', SPRING) }],
   }))
@@ -78,7 +83,9 @@ export function EnvelopeGroup({
         {/* A summary, so neutral: color is the rows' pills' job. Red only when
             the group as a whole is over. */}
         <Text style={[styles.available, { color: totalAvailable < 0 ? tokens.pillOver : tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
-          {totalAvailable < 0
+          {goalTarget > 0
+            ? `${formatCurrency(totalAvailable, hideAmounts)} of ${formatCurrency(goalTarget, hideAmounts)} saved`
+            : totalAvailable < 0
             ? `${formatCurrency(-totalAvailable, hideAmounts)} over`
             : `${formatCurrency(totalAvailable, hideAmounts)} left`}
         </Text>

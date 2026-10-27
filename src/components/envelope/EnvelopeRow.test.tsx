@@ -158,3 +158,45 @@ describe('weekly row', () => {
     expect(getByText('This week')).toBeTruthy()
   })
 })
+
+describe('a goal row', () => {
+  const { createTestQueryClient } = jest.requireActual('@/src/test-utils/renderWithProviders')
+  const { currentMonthKey, shiftMonthKey } = jest.requireActual('@/src/lib/envelope')
+  const month = currentMonthKey()
+  const goalRow = (goal: object, e: Partial<Envelope>, onMoveMoney = jest.fn()) => {
+    const queryClient = createTestQueryClient()
+    queryClient.setQueryData(['categories'], [{ name: 'Trip', group: 'Goals', goal }])
+    return renderWithProviders(
+      <EnvelopeRow
+        envelope={{ category: 'Trip', group: 'Goals', assigned: 0, spent: 0, available: 0, rolledOver: 0, isOverspent: false, spentPct: 0, isCreditCardPayment: false, ...e }}
+        icon="SoccerBall" hideAmounts={false} onMoveMoney={onMoveMoney} onEditAmount={jest.fn()} onViewTransactions={jest.fn()}
+      />,
+      { queryClient },
+    )
+  }
+
+  it('shows saved of target, and Set pulls what this month is behind by', () => {
+    const onMoveMoney = jest.fn()
+    // 3,000 in, 9,000 to go over this month and the next three.
+    const { getByText, queryByText } = goalRow({ amount: 12000, by: shiftMonthKey(month, 3) }, { available: 3000, rolledOver: 3000 }, onMoveMoney)
+    expect(getByText('₹3,000 of ₹12,000')).toBeTruthy()
+    expect(queryByText(/Last spent/)).toBeNull()
+    fireEvent.press(getByText('Set ₹2,250/mo'))
+    expect(onMoveMoney).toHaveBeenCalledWith('Trip', 2250)
+  })
+
+  it('offers a repeat or a way back to spending once its month is done', () => {
+    const { getByText } = goalRow({ amount: 5000, by: month }, { assigned: 0, available: 1000, spent: 4000, rolledOver: 5000 })
+    expect(getByText('Repeat next year')).toBeTruthy()
+    expect(getByText('Back to spending')).toBeTruthy()
+  })
+
+  it('trades Track weekly for Edit goal in its sheet', () => {
+    const { getByText, queryByText } = goalRow({ amount: 5000 }, { available: 1000, rolledOver: 1000 })
+    fireEvent.press(getByText('Trip'))
+    expect(queryByText('Track weekly')).toBeNull()
+    fireEvent.press(getByText('Edit goal'))
+    expect(getByText('Goal for Trip')).toBeTruthy()
+    expect(getByText('Back to spending')).toBeTruthy()
+  })
+})

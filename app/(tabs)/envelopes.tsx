@@ -40,12 +40,16 @@ import { PopOnChange } from '@/src/components/shared/PopOnChange'
 import { EnvelopesSkeleton } from '@/src/components/shared/TabSkeleton'
 import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { BottomSheet } from '@/src/components/shared/Modal'
+import { draftOf, goalOf, GoalFields, type GoalDraft } from '@/src/components/envelope/GoalFields'
+import { goalTemplate, type GoalTemplateKey } from '@/src/lib/goal'
+import { currentMonthKey } from '@/src/lib/envelope'
+import { useCurrency } from '@/src/context/CurrencyContext'
 import { SheetOption, SheetTitle } from '@/src/components/shared/SheetOption'
 import { Icon } from '@/src/components/shared/Icon'
 import { useRefresh } from '@/src/hooks/useRefresh'
 import { useCollapsedGroups } from '@/src/hooks/useCollapsedGroups'
 import { DEFAULT_ALERT_PCTS, ALERT_PRESET_PCTS, MAX_ALERT_PCTS } from '@/src/lib/alerts'
-import type { CategoryRow } from '@/src/types'
+import type { CategoryGoal, CategoryRow } from '@/src/types'
 import { EMPTY } from '@/src/lib/constants'
 import { OfflineScreen } from '@/src/components/shared/OfflineScreen'
 import { ErrorScreen } from '@/src/components/shared/ErrorScreen'
@@ -498,6 +502,17 @@ function DraggableGroupCard({
   )
 }
 
+/** The festive pick follows the budget's currency: Diwali for rupees, the year-end holidays elsewhere. */
+const goalPicks = (currencyCode: string): { key: GoalTemplateKey | 'custom'; label: string }[] => [
+  { key: 'emergency', label: 'Emergency fund' },
+  currencyCode === 'INR' ? { key: 'diwali', label: 'Diwali' } : { key: 'holidays', label: 'Holidays' },
+  { key: 'insurance', label: 'Insurance' },
+  { key: 'custom', label: 'Custom' },
+]
+
+/** Where a new goal lands unless you pick a group yourself. Made on first use. */
+const GOALS_GROUP = 'Goals'
+
 type SheetState =
   | { kind: 'addCategory' }
   | { kind: 'renameCategory'; name: string }
@@ -543,6 +558,13 @@ function EnvelopesScreen() {
   const [customAlertInput, setCustomAlertInput] = useState('')
   const [sheetError, setSheetError] = useState('')
   const [sheetSuccess, setSheetSuccess] = useState(false)
+  // A savings goal: a template or Custom on Add, Goal on Edit. Null: no goal (and clears one on save).
+  const [goalPick, setGoalPick] = useState<GoalTemplateKey | 'custom' | null>(null)
+  const [goalDraft, setGoalDraft] = useState<GoalDraft>(draftOf())
+  // A group tapped here wins; otherwise a new goal goes to Goals.
+  const [groupPicked, setGroupPicked] = useState(false)
+  const [addGroupFrom, setAddGroupFrom] = useState('')
+  const GOAL_PICKS = goalPicks(useCurrency().currencyCode)
 
   const [deletingGroup, setDeletingGroup] = useState(false)
 
@@ -673,6 +695,10 @@ function EnvelopesScreen() {
   function openAddCategory(group = '') {
     setDraftName('')
     setDraftGroup(group)
+    setAddGroupFrom(group)
+    setGroupPicked(false)
+    setGoalPick(null)
+    setGoalDraft(draftOf())
     setPickedIcon(null)
     setPickedColor(null)
     setDraftAlertPcts(DEFAULT_ALERT_PCTS)
@@ -690,6 +716,8 @@ function EnvelopesScreen() {
     setPickedColor(isCategoryColor(cat?.color) ? cat.color : null)
     setDraftAlertPcts(cat?.alertPcts ? sortedPcts(cat.alertPcts) : DEFAULT_ALERT_PCTS)
     setCustomAlertInput('')
+    setGoalPick(cat?.goal ? 'custom' : null)
+    setGoalDraft(draftOf(cat?.goal))
     setSheetError('')
     setSheet({ kind: 'renameCategory', name })
   }
@@ -708,6 +736,20 @@ function EnvelopesScreen() {
       if (prev.includes(n) || prev.length >= MAX_ALERT_PCTS) return prev
       return sortedPcts([...prev, n])
     })
+  }
+  function pickGoal(key: GoalTemplateKey | 'custom' | null) {
+    setGoalPick(key)
+    if (sheet?.kind !== 'addCategory') return
+    if (!groupPicked) setDraftGroup(key ? GOALS_GROUP : addGroupFrom)
+    if (!key || key === 'custom') return
+    const t = goalTemplate(key, currentMonthKey())
+    setGoalDraft((d) => ({ ...d, by: t.by, yearly: t.yearly }))
+    // Names the category too, unless you've typed your own.
+    if (!draftName.trim() || GOAL_PICKS.some((p) => p.label === draftName.trim())) setDraftName(t.name)
+  }
+  function pickGroup(g: string) {
+    setDraftGroup(g)
+    setGroupPicked(true)
   }
   function openAddGroup() {
     setDraftName('')
@@ -751,13 +793,18 @@ function EnvelopesScreen() {
     if (!composed) return
     try {
       if (sheet.kind === 'addCategory') {
-        await addCategory.mutateAsync({ name: composed, group: draftGroup, icon: draftIcon, ...(pickedColor ? { color: pickedColor } : {}) })
+        if (draftGroup && !groups.includes(draftGroup)) {
+          // Goals is made on first use. Someone else may have just made it; that's fine.
+          await addGroup.mutateAsync({ name: draftGroup }).catch((err) => { if (!/already exists/i.test(String(err))) throw err })
+        }
+        await addCategory.mutateAsync({ name: composed, group: draftGroup, icon: draftIcon, ...(pickedColor ? { color: pickedColor } : {}), ...(draftGoal ? { goal: draftGoal } : {}) })
       } else if (sheet.kind === 'renameCategory') {
         const current = categories.find((c) => c.name === sheet.name)
         const currentGroup = current?.group ?? ''
         const currentAlertPcts = current?.alertPcts ? sortedPcts(current.alertPcts) : DEFAULT_ALERT_PCTS
         const sortedDraft = sortedPcts(draftAlertPcts)
-        const updates: { newName?: string; group?: string; alertPcts?: number[] | null; icon?: string; color?: string } = {}
+        const updates: { newName?: string; group?: string; alertPcts?: number[] | null; icon?: string; color?: string; goal?: CategoryGoal | null } = {}
+        if (JSON.stringify(draftGoal) !== JSON.stringify(current?.goal ?? null)) updates.goal = draftGoal
         const newName = withOldEmoji(sheet.name, composed)
         if (newName !== sheet.name) updates.newName = newName
         if (draftIcon !== categoryIconKey(sheet.name, current?.icon, currentGroup)) updates.icon = draftIcon
@@ -848,6 +895,9 @@ function EnvelopesScreen() {
   }
 
   const isCatSheet = sheet?.kind === 'addCategory' || sheet?.kind === 'renameCategory'
+  const draftGoal = goalPick ? goalOf(goalDraft) : null
+  // The Goals chip shows before the group exists, so the auto-pick is visible.
+  const groupChips = groups.includes(draftGroup) || draftGroup === '' ? groups : [...groups, draftGroup]
   const isRenameSheet = sheet?.kind === 'renameCategory' || sheet?.kind === 'renameGroup'
   const draftIcon: CategoryIconKey = pickedIcon ?? (isCatSheet ? categoryIconKey(draftName, undefined, draftGroup) : groupIconKey(draftName))
   // The same colour the row wears on the list, so the sheet's tile matches it.
@@ -876,7 +926,7 @@ function EnvelopesScreen() {
       onSubmitEditing={submitSheet}
     />
   )
-  const draftValid = draftName.trim().length > 0
+  const draftValid = draftName.trim().length > 0 && !(isCatSheet && goalPick && !draftGoal)
   const saveLabel = submitting ? 'Saving…' : isCatSheet ? (isRenameSheet ? 'Save' : 'Add category') : isRenameSheet ? 'Save' : 'Create group'
 
   return (
@@ -1077,7 +1127,7 @@ function EnvelopesScreen() {
             <Text style={[styles.sectionLabel, { color: tokens.text3 }]}>GROUP</Text>
             <View style={styles.chipRow}>
               <Pressable
-                onPress={() => setDraftGroup('')}
+                onPress={() => pickGroup('')}
                 style={[
                   styles.chip,
                   {
@@ -1096,10 +1146,10 @@ function EnvelopesScreen() {
                   Other
                 </Text>
               </Pressable>
-              {groups.map((g) => (
+              {groupChips.map((g) => (
                 <Pressable
                   key={g}
-                  onPress={() => setDraftGroup(g)}
+                  onPress={() => pickGroup(g)}
                   style={[
                     styles.chip,
                     {
@@ -1124,7 +1174,37 @@ function EnvelopesScreen() {
           </>
         )}
 
-        {sheet?.kind === 'renameCategory' && (
+        {isCatSheet && (
+          <>
+            <Text style={[styles.sectionLabel, { color: tokens.text3 }]}>SAVING FOR SOMETHING?</Text>
+            <View style={styles.chipRow}>
+              {[{ key: null, label: 'No goal' }, ...(sheet?.kind === 'addCategory' ? GOAL_PICKS : [{ key: 'custom' as const, label: 'Goal' }])].map((p) => {
+                const on = goalPick === p.key
+                return (
+                  <Pressable
+                    key={p.label}
+                    onPress={() => pickGoal(p.key)}
+                    disabled={submitting}
+                    accessibilityState={{ selected: on }}
+                    style={[styles.chip, { backgroundColor: on ? tokens.accent : tokens.inputBg, borderColor: on ? tokens.accent : tokens.border }]}
+                  >
+                    <Text style={{ color: on ? tokens.onAccent : tokens.text2, fontSize: 12, fontFamily: fontFamily.bodyBold }}>{p.label}</Text>
+                  </Pressable>
+                )
+              })}
+            </View>
+            {goalPick && <GoalFields draft={goalDraft} onChange={setGoalDraft} />}
+          </>
+        )}
+
+        {/* Goals get no threshold alerts (Web's lib/notifications/rules.ts): spending their money is the plan. */}
+        {sheet?.kind === 'renameCategory' && goalPick && (
+          <>
+            <Text style={[styles.sectionLabel, { color: tokens.text3 }]}>ALERT AT</Text>
+            <Text style={{ color: tokens.text3, fontSize: 12, fontFamily: fontFamily.bodySemiBold }}>{"Spending alerts are off while it's a goal."}</Text>
+          </>
+        )}
+        {sheet?.kind === 'renameCategory' && !goalPick && (
           <>
             <Text style={[styles.sectionLabel, { color: tokens.text3 }]}>ALERT AT</Text>
             <View style={styles.chipRow}>

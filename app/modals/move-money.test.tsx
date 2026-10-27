@@ -63,7 +63,7 @@ function setup(overrides: Partial<typeof BASE_PARAMS> = {}, expenses: object[] =
   return renderWithProviders(<MoveMoneyModal />)
 }
 
-const BASE_PARAMS: { fromCategory: string; amount?: string } = { fromCategory: 'Electricity' }
+const BASE_PARAMS: { fromCategory: string; amount?: string; quick?: string } = { fromCategory: 'Electricity' }
 
 beforeEach(() => {
   jest.clearAllMocks()
@@ -270,4 +270,14 @@ it("won't act on balances without last month's carry", async () => {
   ;(getCarry as jest.Mock).mockRejectedValueOnce(new Error('503'))
   const { findByText } = renderWithProviders(<MoveMoneyModal />)
   expect(await findByText("Couldn't load your balances. Check your connection and try again.")).toBeTruthy()
+})
+
+it("a goal's Set opens on the sources with Ready to Assign already covering it", async () => {
+  ;(getCarry as jest.Mock).mockResolvedValue({ ready_to_assign: 10000, rolled_over: {} })
+  ;(transferBudget as jest.Mock).mockResolvedValue({})
+  const { getByText, queryByText } = setup({ amount: '300.5', quick: '1' })
+  await waitFor(() => expect(getByText('Move ₹300.50')).toBeTruthy())
+  expect(queryByText('Pick sources →')).toBeNull()
+  fireEvent.press(getByText('Move ₹300.50'))
+  await waitFor(() => expect(transferBudget).toHaveBeenCalledWith(MONTH, 'Electricity', [{ category: '__ready_to_assign__', amount: 300.5 }]))
 })

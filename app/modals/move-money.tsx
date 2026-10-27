@@ -77,7 +77,9 @@ function MoveMoneyModal() {
   // Web's MoveMoneyModal `targetCategory` prop. The source(s) are chosen below.
   const targetCategoryName = str(params.fromCategory)
   // Insights' forecast "Top up ₹X" passes the shortfall it showed, so the numpad opens on it.
-  const prefill = /^\d+$/.test(str(params.amount)) ? str(params.amount) : ''
+  const prefill = /^\d+(\.\d{1,2})?$/.test(str(params.amount)) ? str(params.amount) : ''
+  // A goal's Set: open on the sources, Ready to Assign already picked.
+  const quick = str(params.quick) === '1' && Number(prefill) > 0
 
   const budgetsQ = useBudgets()
   const expensesQ = useRecentExpenses()
@@ -109,7 +111,7 @@ function MoveMoneyModal() {
     (e) => e.available > 0 && e.category !== targetCategoryName && !e.isCreditCardPayment,
   )
 
-  const [step, setStep] = useState<'amount' | 'sources'>('amount')
+  const [step, setStep] = useState<'amount' | 'sources'>(quick ? 'sources' : 'amount')
   const [allocs, setAllocs] = useState<Record<string, number>>({})
   const { amount: amountStr, setAmount: setAmountStr, pushDigit, handleBackspace, shake } = useAmountEntry(prefill || (isOverspent ? String(Math.round(shortfall)) : ''), { onChange: () => setAllocs({}) })
   const [query, setQuery] = useState('')
@@ -154,6 +156,13 @@ function MoveMoneyModal() {
   const poolRows = sources.filter((s) => !(s.key in allocs) && (!q || s.name.toLowerCase().includes(q)))
 
   const isLoading = budgetsQ.isLoading || expensesQ.isLoading || categoriesQ.isLoading || groupsQ.isLoading || carryQ.isLoading
+
+  // Quick start picks Ready to Assign once the data's in, so the rest can come from categories.
+  const [seeded, setSeeded] = useState(!quick)
+  if (!seeded && !isLoading) {
+    setSeeded(true)
+    if (readyToAssign > 0) setAllocs({ [RTA_SENTINEL]: Math.min(readyToAssign, amount) })
+  }
 
   // Let the inline checkmark finish drawing before navigating back.
   // The app can launch into Log expense, which "Added" then replaced with this

@@ -18,6 +18,7 @@ import { splitEmoji } from '@/src/lib/emoji'
 import { categoryIconKey, type CategoryIconKey } from '@/src/lib/categoryIcons'
 import { CATEGORY_ICON_COMPONENTS } from '@/src/components/shared/CategoryIcon'
 import { computeEnvelopeState,currentMonthKey,prevMonthKey } from '@/src/lib/envelope'
+import { goalProgress, shortMonth } from '@/src/lib/goal'
 import { BudgetWriteError } from '@/src/lib/budgetConflict'
 import { amountSeed } from '@/src/lib/calcAmount'
 import type { BudgetRow } from '@/src/types'
@@ -80,6 +81,8 @@ function EditAssignedAmountModal() {
 
   const envelope = envelopeState.envelopes.find((e) => e.category === category)
   const lastMonthAssigned = prevEnvelopeState.envelopes.find((e) => e.category === category)?.assigned
+  const row = categories.find((c) => c.name === category)
+  const goal = row?.goal && envelope ? goalProgress({ goal: row.goal, month, available: envelope.available, assigned: envelope.assigned, spent: envelope.spent, since: row.since }) : null
 
   // Mounted only once data has settled, so its initial amountText (below)
   // seeds correctly from the real envelope instead of a still-loading '0'.
@@ -102,6 +105,7 @@ function EditAssignedAmountModal() {
       group={envelope?.group ?? ''}
       icon={categories.find((c) => c.name === category)?.icon}
       lastMonthAssigned={lastMonthAssigned}
+      goalNeed={goal?.monthlyNeed !== undefined && goal.by ? { amount: goal.monthlyNeed, by: goal.by } : undefined}
       readyToAssign={envelopeState.readyToAssign}
     />
   )
@@ -118,6 +122,7 @@ function EditAmountBody({
   group,
   icon,
   lastMonthAssigned,
+  goalNeed,
   readyToAssign,
   onSwitch,
 }: {
@@ -132,6 +137,8 @@ function EditAmountBody({
   group: string
   icon: string | undefined
   lastMonthAssigned: number | undefined
+  /** A goal's monthly amount to make its deadline (src/lib/goal.ts), offered as a pick. */
+  goalNeed?: { amount: number; by: string }
   readyToAssign: number
   onSwitch: (category: string) => Promise<void>
 }) {
@@ -316,6 +323,17 @@ function EditAmountBody({
             />
           ))}
         </View>
+        {!!goalNeed && (
+          <View style={styles.quickRow}>
+            <QuickChip
+              label={`${formatCurrency(goalNeed.amount, hideAmounts)} makes it by ${shortMonth(goalNeed.by)}`}
+              active={value === goalNeed.amount}
+              onPress={() => setAmountText(String(goalNeed.amount))}
+              tokens={tokens}
+              radius={radius}
+            />
+          </View>
+        )}
         {!isCreditCardPayment && !!lastMonthAssigned && (
           <View style={styles.quickRow}>
             <QuickChip
