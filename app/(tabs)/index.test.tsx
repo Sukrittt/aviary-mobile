@@ -1,6 +1,6 @@
 import { Profiler, useState } from 'react'
 import * as mockReact from 'react'
-import { Animated, Linking, Platform } from 'react-native'
+import { Animated, Linking, Platform, StyleSheet } from 'react-native'
 import { act, fireEvent, waitFor } from '@testing-library/react-native'
 import * as SecureStore from 'expo-secure-store'
 import { Path } from 'react-native-svg'
@@ -307,6 +307,13 @@ describe('HomeScreen · Ready to Assign', () => {
     const second = renderHome()
     expect(second.getByTestId('rta-hero')).toBeTruthy()
     expect(second.queryByTestId('rta-slim')).toBeNull()
+  })
+
+  it('sweeps the Ready to Assign amount once, then every digit rests at full strength', () => {
+    const hero = renderHome().getByTestId('rta-hero')
+    const lit = hero.findAll((n) => typeof n.type === 'string' && typeof StyleSheet.flatten(n.props.style)?.opacity === 'number')
+    expect(lit.length).toBeGreaterThan(1)
+    expect(lit.every((n) => StyleSheet.flatten(n.props.style).opacity === 1)).toBe(true)
   })
 
   it('uses the app icon as the home header brand', () => {

@@ -468,22 +468,22 @@ it('shows the pill picking while the AI looks up a category, then lands on its a
   let answer: (v: string) => void = () => {}
   const utils = setup()
   ;(suggestCategoryLLM as jest.Mock).mockImplementation(() => new Promise<string>((r) => { answer = r }))
-  const { getByPlaceholderText, findByText, getByText, queryByText, getByLabelText } = utils
+  const { getByPlaceholderText, findByText, getByLabelText, queryByLabelText } = utils
   // Wait for the category map to load; the suggest effect waits on it.
   await act(async () => { await Promise.resolve(); await Promise.resolve() })
 
   fireEvent.changeText(getByPlaceholderText('What was it for?'), 'weekly shop')
   await act(async () => { jest.advanceTimersByTime(300 + 150) })
-  expect(getByText('Picking…')).toBeTruthy()
+  expect(getByLabelText('Picking…')).toBeTruthy()
 
   await act(async () => { answer('Groceries'); await Promise.resolve() })
   // The gate's minimum spin, then (once React has committed and scheduled
   // them) the roll's settle steps: at least 2s of slot animation in all.
   await act(async () => { jest.advanceTimersByTime(MIN_SPIN_MS) })
   await act(async () => { jest.advanceTimersByTime(SETTLE_MS - 1) })
-  expect(getByText('Picking…')).toBeTruthy()
+  expect(getByLabelText('Picking…')).toBeTruthy()
   await act(async () => { jest.advanceTimersByTime(1) })
-  expect(queryByText('Picking…')).toBeNull()
+  expect(queryByLabelText('Picking…')).toBeNull()
   expect(await findByText('Groceries')).toBeTruthy()
   expect(getByLabelText('Category: Groceries, picked for you')).toBeTruthy()
 })
@@ -492,17 +492,17 @@ it('lands on Miscellaneous, not marked as picked for you, when the AI finds noth
   let answer: (v: string) => void = () => {}
   const utils = setup({}, [], [{ name: 'Groceries', group: 'Food' }, { name: '🎟️ Miscellaneous', group: 'Fun' }])
   ;(suggestCategoryLLM as jest.Mock).mockImplementation(() => new Promise<string>((r) => { answer = r }))
-  const { getByPlaceholderText, findByText, getByText, queryByText, getByLabelText } = utils
+  const { getByPlaceholderText, findByText, getByLabelText, queryByLabelText } = utils
   await act(async () => { await Promise.resolve(); await Promise.resolve() })
 
   fireEvent.changeText(getByPlaceholderText('What was it for?'), 'random thing')
   await act(async () => { jest.advanceTimersByTime(300 + 150) })
-  expect(getByText('Picking…')).toBeTruthy()
+  expect(getByLabelText('Picking…')).toBeTruthy()
 
   await act(async () => { answer(''); await Promise.resolve() })
   await act(async () => { jest.advanceTimersByTime(MIN_SPIN_MS) })
   await act(async () => { jest.advanceTimersByTime(SETTLE_MS) })
-  expect(queryByText('Picking…')).toBeNull()
+  expect(queryByLabelText('Picking…')).toBeNull()
   expect(await findByText('Miscellaneous')).toBeTruthy()
   expect(getByLabelText('Category: Miscellaneous')).toBeTruthy()
 })

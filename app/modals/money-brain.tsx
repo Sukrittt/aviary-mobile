@@ -37,6 +37,7 @@ import { ChatMarkdown } from '@/src/components/brain/ChatMarkdown'
 import { BrainThinking } from '@/src/components/brain/BrainThinking'
 import { BirdLandingMark } from '@/src/components/splash/BirdLandingMark'
 import { PopIn } from '@/src/components/shared/PopIn'
+import { ShimmerText } from '@/src/components/shared/ShimmerText'
 import { EmptyState } from '@/src/components/shared/EmptyState'
 import { streamChat, getChatSession, updateProposalStatus, CAPTURE_FAILED_MESSAGE, type ChatMessage } from '@/src/api/ai'
 import { CaptureReview } from '@/src/components/brain/CaptureReview'
@@ -454,11 +455,12 @@ export default function MoneyBrainModal() {
             <Text style={[styles.title, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
               {captureMode ? 'Log a few spends' : 'Ask Aviary'}
             </Text>
-            <Text numberOfLines={1} style={[styles.subtitle, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
-              {captureMode
-                ? "Type them, I'll sort them"
-                : brief ? `Reading ${brief.meta.txnCountThisMonth} transactions` : 'Reading your budget…'}
-            </Text>
+            <ShimmerText
+              on={!captureMode}
+              loop
+              text={captureMode ? "Type them, I'll sort them" : brief ? `Reading ${brief.meta.txnCountThisMonth} transactions` : 'Reading your budget…'}
+              style={[styles.subtitle, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}
+            />
           </View>
         </View>
         {captureMode && (

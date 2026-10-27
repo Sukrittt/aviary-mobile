@@ -5,6 +5,7 @@ import { fontFamily } from '@/src/theme/fonts'
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { Chip } from '@/src/components/ui/Chip'
 import { Icon } from '@/src/components/shared/Icon'
+import { ShimmerText } from '@/src/components/shared/ShimmerText'
 import { CaretLeft, CaretRight } from '@/src/components/shared/icons'
 import { currentMonthKey, monthAbbrev, shiftMonthKey } from '@/src/lib/envelope'
 import { nextGoalMonth, shortMonth, type GoalProgress } from '@/src/lib/goal'
@@ -128,10 +129,11 @@ export function GoalLine({ category, goal, progress, month, money, onPull }: {
       setBusy(null)
     }
   }
-  const pill = (label: string, tone: { color: string; bg: string }, onPress: () => void) => (
+  // `sweep`: one pass of the shimmer as the pill arrives, so a behind goal's Set catches the eye once.
+  const pill = (label: string, tone: { color: string; bg: string }, onPress: () => void, sweep = false) => (
     <Pressable key={label} onPress={onPress} disabled={!!busy} hitSlop={10} accessibilityRole="button"
       style={[styles.pill, { backgroundColor: tone.bg, opacity: busy ? 0.6 : 1 }]}>
-      <Text style={[styles.pillText, { color: tone.color, fontFamily: fontFamily.bodySemiBold }]}>{label}</Text>
+      <ShimmerText on={sweep} text={label} style={[styles.pillText, { color: tone.color, fontFamily: fontFamily.bodySemiBold }]} />
     </Pressable>
   )
 
@@ -139,7 +141,7 @@ export function GoalLine({ category, goal, progress, month, money, onPull }: {
   const actions: ReactNode[] = []
   if (onPull && progress.status === 'behind' && progress.behindBy) {
     const short = progress.behindBy
-    actions.push(pill('Set', { color: tokens.pillLow, bg: tokens.pillLowBg }, () => onPull(category, short)))
+    actions.push(pill('Set', { color: tokens.pillLow, bg: tokens.pillLowBg }, () => onPull(category, short), true))
   } else if (onPull && done) {
     const neutral = { color: tokens.text, bg: tokens.inputBg }
     if (goal.by) actions.push(pill(busy === 'repeat' ? 'Saving…' : 'Repeat', neutral, () => void run('repeat', { ...goal, by: nextGoalMonth(progress.by ?? goal.by!, month) })))

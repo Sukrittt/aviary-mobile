@@ -19,6 +19,7 @@ import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { CATEGORY_ICON_COMPONENTS } from '@/src/components/shared/CategoryIcon'
 import type { CategoryIconKey } from '@/src/lib/categoryIcons'
+import { ShimmerText } from '@/src/components/shared/ShimmerText'
 
 // While the AI fallback is looking for a category, the pill's icon slot spins
 // like a slot-machine reel through the user's own category icons, then eases
@@ -223,7 +224,13 @@ export function AutoCategoryPill({ selected, thinking, auto, highlighted, rollIc
             <IconReel phase={phase} target={selected?.icon ?? null} rollIn={mounted.current} pool={pool} color={ink} />
           )
         )}
-        {labelText(labelStyle)}
+        {busy ? (
+          <Reanimated.View style={[labelStyle, { marginLeft: hasIcon ? space.xs : 0 }]}>
+            <ShimmerText loop text={label} style={[styles.label, { color: ink, fontFamily: fontFamily.bodySemiBold }]} />
+          </Reanimated.View>
+        ) : (
+          labelText(labelStyle)
+        )}
         </View>
       </AnimatedPressable>
       {popTick > 0 && !!selected && widthReadyLabel === label && !busy && !reduceMotion && <PickBurst key={popTick} />}
