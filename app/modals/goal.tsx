@@ -107,7 +107,10 @@ function GoalBody({ category, goal }: { category: string; goal?: CategoryGoal })
             {"It fills from what you assign. No spending alerts or weekly pace while it's a goal."}
           </Text>
         </View>
-        <GoalByFields draft={draft} onChange={(d) => setWhen({ by: d.by, yearly: d.yearly })} />
+        {/* Held still while saving, like the numpad, so what's saved is what's shown. */}
+        <View pointerEvents={busy ? 'none' : 'auto'}>
+          <GoalByFields draft={draft} onChange={(d) => setWhen({ by: d.by, yearly: d.yearly })} />
+        </View>
         {!!error && <Text style={{ color: tokens.coral, fontSize: 12, marginTop: space.sm }}>{error}</Text>}
       </ScrollView>
       <View style={{ paddingHorizontal: space.lg, paddingTop: space.sm, paddingBottom: insets.bottom + space.sm, gap: space.md }}>
