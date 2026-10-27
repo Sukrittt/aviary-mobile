@@ -68,8 +68,11 @@ it('saves a tick right away as [x]', async () => {
   const s = open({ note: '- pay rent\n- call owner' })
   fireEvent.press(s.getAllByRole('checkbox')[0])
   await waitFor(() => expect(update).toHaveBeenCalledWith('Rent', { note: '[x] pay rent\n- call owner' }))
-  await waitFor(() => expect(s.getByText('1/2')).toBeTruthy())
   expect(s.getAllByRole('checkbox')[0]).toBeChecked()
+  // The row's badge holds until the sheet is out of the way.
+  expect(s.getByText('0/2')).toBeTruthy()
+  await act(async () => fireEvent.press(s.getByTestId('bottom-sheet-backdrop')))
+  await waitFor(() => expect(s.getByText('1/2')).toBeTruthy())
 })
 
 it('shows a read-only budget the note and nothing to edit it with', () => {

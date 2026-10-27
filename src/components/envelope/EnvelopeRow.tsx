@@ -161,10 +161,13 @@ export function EnvelopeRow({
   const [notePop, setNotePop] = useState(0)
   const [noteEditing, setNoteEditing] = useState(false)
   const pendingNote = useRef<(() => string | undefined) | null>(null)
+  // The row's note as the sheet opened: a change lands on the row once the sheet is gone, not behind it.
+  const [noteAtOpen, setNoteAtOpen] = useState<string | undefined>()
   const updateCategory = useUpdateCategory()
 
   function openSheet() {
     tap()
+    setNoteAtOpen(row?.note)
     setSheetOpen(true)
     onSheetOpenChange?.(true)
   }
@@ -208,7 +211,8 @@ export function EnvelopeRow({
   const name = displayName ?? splitEmoji(envelope.category).text
   // Spending with nothing assigned: "₹713/₹0" and "Used ∞" said nothing useful.
   const unbudgeted = envelope.assigned === 0 && envelope.spent > 0
-  const todos = row?.note ? checklistCount(row.note) : null
+  const rowNote = sheetOpen ? noteAtOpen : row?.note
+  const todos = rowNote ? checklistCount(rowNote) : null
 
   return (
     <View style={styles.row}>
