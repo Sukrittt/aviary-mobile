@@ -148,3 +148,19 @@ it('highlights an amount in any currency symbol', () => {
   const [line] = parseNote('¥500 and ₩3k and ₹ 20', TODAY)
   expect(line.segments.filter((s) => s.kind === 'amount').map((s) => s.text)).toEqual(['¥500', '₩3k', '₹ 20'])
 })
+
+it('reads highlights without matchAll groups, which Hermes leaves null', () => {
+  const matchAll = String.prototype.matchAll
+  // eslint-disable-next-line no-extend-native
+  String.prototype.matchAll = function (this: string, re: RegExp) {
+    return [...matchAll.call(this, re)].map((m) => Object.assign(m, { groups: null }))[Symbol.iterator]()
+  } as typeof matchAll
+  try {
+    expect(kinds(parseNote('call 9876543210 by 15 Nov, ₹5,000', TODAY)[0].segments)).toEqual([
+      ['phone', '9876543210'], ['date', '15 Nov'], ['amount', '₹5,000'],
+    ])
+  } finally {
+    // eslint-disable-next-line no-extend-native
+    String.prototype.matchAll = matchAll
+  }
+})

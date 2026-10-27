@@ -74,7 +74,9 @@ function segmentsOf(text: string, today: string): Segment[] {
     if (segment.kind === 'text' && last?.kind === 'text') last.text += segment.text
     else if (segment.text) out.push(segment)
   }
-  for (const m of text.matchAll(TOKEN_RE)) {
+  // exec, not matchAll: Hermes's matchAll hands back `groups` as null, so every token read as plain text.
+  TOKEN_RE.lastIndex = 0
+  for (let m = TOKEN_RE.exec(text); m; m = TOKEN_RE.exec(text)) {
     const g = m.groups ?? {}
     let raw = m[0]
     let segment: Segment = { kind: 'text', text: raw }
