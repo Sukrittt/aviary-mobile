@@ -55,16 +55,14 @@ export function GoalFields({ draft, onChange, autoFocus }: { draft: GoalDraft; o
 }
 
 /** The deadline half: a month stepper (No date sits just before this month) and once or every year. */
-export function GoalByFields({ draft, onChange }: { draft: GoalDraft; onChange: (d: GoalDraft) => void }) {
+export function GoalByFields({ draft, onChange, compact }: { draft: GoalDraft; onChange: (d: GoalDraft) => void; compact?: boolean }) {
   const { tokens } = useTheme()
   const thisMonth = currentMonthKey()
   const over = !!draft.by && !draft.yearly && draft.by < thisMonth
   const back = () => onChange({ ...draft, by: draft.by > thisMonth ? shiftMonthKey(draft.by, -1) : '' })
   const forward = () => onChange({ ...draft, by: draft.by ? shiftMonthKey(draft.by, 1) : thisMonth })
-  return (
-    <>
-      <Text style={[styles.label, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>BY</Text>
-      <View style={[styles.stepper, { backgroundColor: tokens.inputBg, borderColor: tokens.border }]}>
+  const stepper = (
+      <View style={[compact ? styles.stepperCompact : styles.stepper, { backgroundColor: tokens.inputBg, borderColor: tokens.border }]}>
         <Pressable onPress={back} disabled={!draft.by} hitSlop={8} accessibilityRole="button" accessibilityLabel="Earlier month" style={{ opacity: draft.by ? 1 : 0.3 }}>
           <Icon icon={CaretLeft} size={16} color={tokens.text2} />
         </Pressable>
@@ -75,6 +73,23 @@ export function GoalByFields({ draft, onChange }: { draft: GoalDraft; onChange: 
           <Icon icon={CaretRight} size={16} color={tokens.text2} />
         </Pressable>
       </View>
+  )
+  // One row under the goal screen's amount: the month, and a repeat toggle once there is one. Text only when the month's over.
+  if (compact) {
+    return (
+      <>
+        <View style={styles.compactRow}>
+          {stepper}
+          {!!draft.by && <Chip label="Every year" selected={draft.yearly} onPress={() => onChange({ ...draft, yearly: !draft.yearly })} />}
+        </View>
+        {over && <Text style={[styles.hint, { color: tokens.coral, fontFamily: fontFamily.bodyMedium, textAlign: 'center' }]}>{"That month's over. Pick this one or later."}</Text>}
+      </>
+    )
+  }
+  return (
+    <>
+      <Text style={[styles.label, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>BY</Text>
+      {stepper}
       <Text style={[styles.hint, { color: over ? tokens.coral : tokens.text3, fontFamily: fontFamily.bodyMedium }]}>
         {over ? "That month's over. Pick this one or later." : draft.by ? 'Need it again next year? Repeat it.' : 'No date means you save at your own pace.'}
       </Text>
@@ -174,6 +189,8 @@ const styles = StyleSheet.create({
   amountInput: { flex: 1, paddingVertical: 14, fontSize: 15 },
   stepper: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 12 },
   month: { fontSize: 14 },
+  stepperCompact: { flexDirection: 'row', alignItems: 'center', gap: 14, borderWidth: 1, borderRadius: 100, paddingHorizontal: 14, paddingVertical: 8 },
+  compactRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   hint: { fontSize: 12, marginTop: 6 },
   chips: { flexDirection: 'row', gap: 8, marginTop: 10 },
   // Wraps rather than spilling into the Left column when the pills don't fit (big text, narrow phone).

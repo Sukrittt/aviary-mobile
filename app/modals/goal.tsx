@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ActivityIndicator, Animated, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { ActivityIndicator, Animated, Pressable, StyleSheet, Text, View } from 'react-native'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useTheme } from '@/src/theme/ThemeProvider'
@@ -38,7 +38,7 @@ function GoalModal() {
 
 function GoalBody({ category, goal }: { category: string; goal?: CategoryGoal }) {
   const { tokens, space, radius, type } = useTheme()
-  const { formatAmountInput, formatCurrency } = useCurrency()
+  const { formatAmountInput } = useCurrency()
   const insets = useSafeAreaInsets()
   const router = useRouter()
   const update = useUpdateCategory()
@@ -47,7 +47,6 @@ function GoalBody({ category, goal }: { category: string; goal?: CategoryGoal })
   const start = draftOf(goal)
   const { amount, setAmount, pushDigit, handleBackspace, shake } = useAmountEntry(start.amount)
   const [when, setWhen] = useState({ by: start.by, yearly: start.yearly })
-  const [step, setStep] = useState<'target' | 'by'>('target')
   const draft = { amount, ...when }
   const next = goalOf(draft)
   const [pending, setPending] = useState<'save' | 'remove' | null>(null)
@@ -95,68 +94,28 @@ function GoalBody({ category, goal }: { category: string; goal?: CategoryGoal })
     )
   }
 
-  const header = (
-    <ScreenHeader
-      title={goal ? `Goal for ${name}` : `Make ${name} a goal`}
-      onBack={() => (step === 'by' ? setStep('target') : close())}
-      close={step === 'target'}
-      backDisabled={busy}
-    />
-  )
-  const stepLabel = (text: string) => (
-    <Text style={[styles.stepLabel, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold, fontSize: type.micro }]}>{text}</Text>
-  )
-  const footer = { paddingHorizontal: space.lg, paddingTop: space.sm, paddingBottom: insets.bottom + space.sm, gap: space.md }
-
-  // Step 1: just the amount and the numpad. The month lives on its own step, so neither crowds the other.
-  if (step === 'target') {
-    const hasTarget = Number(amount) > 0
-    return (
-      <View style={[styles.container, { backgroundColor: tokens.bg }]}>
-        {header}
-        <View style={{ flex: 1, paddingHorizontal: space.lg, paddingTop: space.lg }}>
-          {stepLabel('STEP 1 OF 2 · TARGET')}
-          <View style={[styles.amountWrap, { gap: space.sm }]}>
-            <Animated.View style={{ transform: [{ translateX: shake.interpolate({ inputRange: [-1, 1], outputRange: [-8, 8] }) }] }}>
-              <AmountText value={Number(amount) || 0} rawText={formatAmountInput(amount)} fit size={type.hero} weight="displayBold" animate ignoreHide />
-            </Animated.View>
-            <Text style={{ color: tokens.text2, fontSize: type.caption, fontFamily: fontFamily.bodyMedium }}>{"What you're saving up to"}</Text>
-          </View>
-        </View>
-        <View style={footer}>
-          <Numpad extraKey="." onDigit={pushDigit} onBackspace={handleBackspace} onClear={() => setAmount('')} />
-          <Pressable
-            style={[styles.next, { borderRadius: radius.full, backgroundColor: hasTarget ? tokens.accent : tokens.inputBg }]}
-            disabled={!hasTarget}
-            onPress={() => setStep('by')}
-            accessibilityRole="button"
-          >
-            <Text style={{ color: hasTarget ? tokens.onAccent : tokens.text3, fontFamily: fontFamily.bodyBold, fontSize: type.body }}>
-              {hasTarget ? 'Pick a month →' : 'Add a target'}
-            </Text>
-          </Pressable>
-        </View>
-      </View>
-    )
-  }
-
   return (
     <View style={[styles.container, { backgroundColor: tokens.bg }]}>
-      {header}
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: space.lg, paddingTop: space.lg }}>
-        {stepLabel('STEP 2 OF 2 · DEADLINE')}
-        <Text style={{ color: tokens.text, fontSize: type.title, fontFamily: fontFamily.displaySemiBold, marginTop: space.sm }}>
-          {formatCurrency(Number(amount))} for {name}
-        </Text>
-        {/* Held still while saving, so what's saved is what's shown. */}
-        <View pointerEvents={busy ? 'none' : 'auto'}>
-          <GoalByFields draft={draft} onChange={(d) => setWhen({ by: d.by, yearly: d.yearly })} />
+      <ScreenHeader title={goal ? `Goal for ${name}` : `Make ${name} a goal`} onBack={close} close backDisabled={busy} />
+      <View style={{ flex: 1, paddingHorizontal: space.lg, paddingTop: space.lg }}>
+        <Text style={[styles.stepLabel, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold, fontSize: type.micro }]}>TARGET</Text>
+        <View style={[styles.amountWrap, { gap: space.md }]}>
+          <Animated.View style={{ transform: [{ translateX: shake.interpolate({ inputRange: [-1, 1], outputRange: [-8, 8] }) }] }}>
+            <AmountText value={Number(amount) || 0} rawText={formatAmountInput(amount)} fit size={type.hero} weight="displayBold" animate ignoreHide />
+          </Animated.View>
+          {/* Held still while saving, like the numpad, so what's saved is what's shown. */}
+          <View pointerEvents={busy ? 'none' : 'auto'}>
+            <GoalByFields compact draft={draft} onChange={(d) => setWhen({ by: d.by, yearly: d.yearly })} />
+          </View>
         </View>
-        {!!error && <Text style={{ color: tokens.coral, fontSize: 12, marginTop: space.sm }}>{error}</Text>}
-      </ScrollView>
-      <View style={[footer, styles.actions]}>
-        {goal && button('remove', 'Back to spending', false, false, () => void write('remove', null))}
-        {button('save', 'Save goal', true, !next, () => next && void write('save', next))}
+        {!!error && <Text style={{ color: tokens.coral, fontSize: 12, textAlign: 'center' }}>{error}</Text>}
+      </View>
+      <View style={{ paddingHorizontal: space.lg, paddingTop: space.sm, paddingBottom: insets.bottom + space.sm, gap: space.md }}>
+        <Numpad extraKey="." onDigit={pushDigit} onBackspace={handleBackspace} onClear={() => setAmount('')} disabled={busy} />
+        <View style={styles.actions}>
+          {goal && button('remove', 'Back to spending', false, false, () => void write('remove', null))}
+          {button('save', amount ? 'Save goal' : 'Add a target', true, !next, () => next && void write('save', next))}
+        </View>
       </View>
     </View>
   )
@@ -169,7 +128,6 @@ const styles = StyleSheet.create({
   amountWrap: { alignItems: 'center', paddingVertical: 8 },
   actions: { flexDirection: 'row', gap: 8 },
   button: { flex: 1, paddingVertical: 15, alignItems: 'center', justifyContent: 'center' },
-  next: { paddingVertical: 15, alignItems: 'center', justifyContent: 'center' },
 })
 
 export default withReadOnlyGate(GoalModal)
