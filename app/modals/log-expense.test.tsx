@@ -571,7 +571,7 @@ it('creates a category from a populated picker, closes the modal and uses it for
   fireEvent.changeText(utils.getByPlaceholderText('New category name'), '  🏋️ Gym  ')
   fireEvent.press(utils.getByText('Food'))
   await act(async () => { fireEvent.press(utils.getByLabelText('Save category')) })
-  expect(addCategory).toHaveBeenCalledWith('🏋️ Gym', 'Food', 'Barbell', undefined)
+  expect(addCategory).toHaveBeenCalledWith('🏋️ Gym', 'Food', 'Barbell', undefined, undefined)
   expect(utils.getByText('Saving…')).toBeTruthy()
   // The category refetch stays unresolved: selection must appear immediately.
   ;(getCategories as jest.Mock).mockImplementation(() => new Promise(() => {}))
@@ -593,7 +593,7 @@ it('saves the colour picked for a new category', async () => {
   fireEvent.changeText(utils.getByPlaceholderText('New category name'), 'Gym')
   fireEvent.press(utils.getByLabelText('Purple'))
   await act(async () => { fireEvent.press(utils.getByLabelText('Save category')) })
-  expect(addCategory).toHaveBeenCalledWith('Gym', '', expect.any(String), 'violet')
+  expect(addCategory).toHaveBeenCalledWith('Gym', '', expect.any(String), 'violet', undefined)
 })
 
 it('keeps category creation errors in the modal and lets the user retry', async () => {
@@ -638,7 +638,7 @@ it('offers category creation when there are no categories yet', async () => {
   fireEvent.press(utils.getByLabelText('Add category in picker'))
   fireEvent.changeText(utils.getByPlaceholderText('New category name'), 'First category')
   await act(async () => { fireEvent.press(utils.getByLabelText('Save category')) })
-  expect(addCategory).toHaveBeenCalledWith('First category', '', 'Wallet', undefined)
+  expect(addCategory).toHaveBeenCalledWith('First category', '', 'Wallet', undefined, undefined)
   expect(utils.getByLabelText('Category: First category')).toBeTruthy()
 })
 

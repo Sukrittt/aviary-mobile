@@ -7,7 +7,7 @@ import {
   moveCategory,
   updateCategory,
 } from '@/src/api/categories'
-import type { CategoryRow } from '@/src/types'
+import type { CategoryGoal, CategoryRow } from '@/src/types'
 import { track } from '@/src/lib/analytics'
 import { categoryIconKey } from '@/src/lib/categoryIcons'
 import { categoryTint } from '@/src/lib/emoji'
@@ -112,8 +112,8 @@ export function useCategoryTint(): (name: string) => { bg: string; ink: string }
 export function useAddCategory() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (params: { name: string; group?: string; icon?: string; color?: string }) =>
-      addCategory(params.name, params.group, params.icon, params.color),
+    mutationFn: (params: { name: string; group?: string; icon?: string; color?: string; goal?: CategoryGoal }) =>
+      addCategory(params.name, params.group, params.icon, params.color, params.goal),
     onSuccess: (_data, params) => {
       // Envelopes get created from two places: the setup wizard and the
       // inline "new category" row inside log-expense. $screen_name tells them
@@ -129,7 +129,7 @@ export function useAddCategory() {
 export function useUpdateCategory() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (params: { name: string; updates: { newName?: string; group?: string; alertPcts?: number[] | null; icon?: string; color?: string } }) =>
+    mutationFn: (params: { name: string; updates: { newName?: string; group?: string; alertPcts?: number[] | null; icon?: string; color?: string; goal?: CategoryGoal | null } }) =>
       updateCategory(params.name, params.updates),
     onSuccess: async (_data, { name, updates }) => {
       const newName = updates.newName
