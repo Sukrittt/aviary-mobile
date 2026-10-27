@@ -168,7 +168,8 @@ const styles = StyleSheet.create({
   month: { fontSize: 14 },
   hint: { fontSize: 12, marginTop: 6 },
   chips: { flexDirection: 'row', gap: 8, marginTop: 10 },
-  lineRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 },
+  // Wraps rather than spilling into the Left column when the pills don't fit (big text, narrow phone).
+  lineRow: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginTop: 2 },
   line: { flexShrink: 1, fontSize: 12 },
   pill: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: 6 },
   pillText: { fontSize: 12 },
