@@ -233,16 +233,18 @@ function HomeScreen() {
   // Weekly-tracked categories get this week's pace instead of the month's bar.
   const { weekly } = useWeeklyCategories()
   const today = Number(todayLocal().slice(8, 10))
+  const goalNames = useMemo(() => new Set(categories.filter((c) => c.goal).map((c) => c.name)), [categories])
   const paces = useMemo(() => {
     const map = new Map<string, WeekPace>()
     for (const e of envelopeState.envelopes) {
       // Nothing to pace with no money in it: the month's own bar says it better.
       const pot = e.assigned + e.rolledOver
-      if (!weekly?.has(e.category) || e.isCreditCardPayment || pot <= 0) continue
+      // A goal is saving, not spending: no pace for it (Web's EnvelopeGrid does the same).
+      if (!weekly?.has(e.category) || e.isCreditCardPayment || pot <= 0 || goalNames.has(e.category)) continue
       map.set(e.category, weekPace(pot, spendByDay(expenses, e.category, month), month, today))
     }
     return map
-  }, [envelopeState, weekly, expenses, month, today])
+  }, [envelopeState, weekly, expenses, month, today, goalNames])
   const weekFrom = paces.values().next().value?.current.from ?? 0
   // Only categories already tracked when last week began get judged on it.
   const lastWeekFrom = paces.values().next().value?.weeks.at(-2)?.from ?? 0
@@ -333,8 +335,9 @@ function HomeScreen() {
     router.push({ pathname: '/modals/edit-assigned-amount', params: { category } })
   }
 
-  function handleMoveMoney(category: string) {
-    router.push({ pathname: '/modals/move-money', params: { fromCategory: category } })
+  function handleMoveMoney(category: string, amount?: number) {
+    // A goal's Set: open on the sources for what this month is behind by.
+    router.push({ pathname: '/modals/move-money', params: { fromCategory: category, ...(amount ? { amount: String(amount), quick: '1' } : {}) } })
   }
 
   function handleViewTransactions(category: string) {

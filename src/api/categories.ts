@@ -1,6 +1,6 @@
 import { apiFetch, apiErrorMessage } from './client'
 import { budgetHeaders } from '@/src/lib/activeBudget'
-import type { CategoryRow } from '@/src/types'
+import type { CategoryGoal, CategoryRow } from '@/src/types'
 import { BUCKETS, type Bucket, type BucketTags } from '@/src/lib/budgetSplit'
 
 export async function getCategories(): Promise<CategoryRow[]> {
@@ -9,18 +9,18 @@ export async function getCategories(): Promise<CategoryRow[]> {
   return resp.json()
 }
 
-export async function addCategory(name: string, group = '', icon?: string, color?: string): Promise<void> {
+export async function addCategory(name: string, group = '', icon?: string, color?: string, goal?: CategoryGoal): Promise<void> {
   const resp = await apiFetch('/api/categories', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, group, ...(icon ? { icon } : {}), ...(color ? { color } : {}) }),
+    body: JSON.stringify({ name, group, ...(icon ? { icon } : {}), ...(color ? { color } : {}), ...(goal ? { goal } : {}) }),
   })
   if (!resp.ok) throw new Error(await apiErrorMessage(resp, 'Failed to add category'))
 }
 
 export async function updateCategory(
   name: string,
-  updates: { newName?: string; group?: string; alertPcts?: number[] | null; icon?: string; color?: string; weeklySince?: string | null },
+  updates: { newName?: string; group?: string; alertPcts?: number[] | null; icon?: string; color?: string; weeklySince?: string | null; goal?: CategoryGoal | null },
   // A pinned budget wins over whichever is active when the request goes out.
   spaceId?: string | null,
 ): Promise<void> {
