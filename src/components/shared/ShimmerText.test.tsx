@@ -16,7 +16,7 @@ describe('ShimmerText', () => {
     expect(StyleSheet.flatten(getByText('Set').props.style)?.opacity).toBeUndefined()
   })
 
-  it('keeps nudging, resting at full strength between passes', () => {
+  it('keeps nudging, the letters at full strength off the streak', () => {
     const { getByLabelText, getByText, queryByText } = render(<ShimmerText nudge text="Set" />)
     expect(getByLabelText('Set')).toBeTruthy()
     expect(queryByText('Set')).toBeNull()
@@ -24,7 +24,7 @@ describe('ShimmerText', () => {
   })
 
   it('goes back to rest when turned off mid-pass, so no letter stays dim', () => {
-    const { result, rerender } = renderHook(({ on }: { on: boolean }) => useSweep(on, true, 3000), { initialProps: { on: true } })
+    const { result, rerender } = renderHook(({ on }: { on: boolean }) => useSweep(on, 'nudge'), { initialProps: { on: true } })
     result.current.sweep.value = 0.5
     rerender({ on: false })
     expect(result.current.sweep.value).toBe(0)

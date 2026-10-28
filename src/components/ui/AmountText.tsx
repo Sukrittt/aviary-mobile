@@ -6,7 +6,7 @@ import { fontFamily } from '@/src/theme/fonts'
 
 import { usePrivacy } from '@/src/context/PrivacyContext'
 import { rippleHaptic } from '@/src/lib/haptics'
-import { NUDGE_REST_MS, ShimmerSlot, useSweep } from '@/src/components/shared/ShimmerText'
+import { ShimmerSlot, useSweep } from '@/src/components/shared/ShimmerText'
 
 /**
  * Every money display in the app. Owns three things that were previously
@@ -61,8 +61,8 @@ export function AmountText({
   /** Shrink below `size` so the text fits the screen width. For numpad heroes,
    * where the user can type more digits than fit at full size. */
   fit?: boolean
-  /** While true, a shimmer pass across the digits every few seconds: the
-   * amount is waiting on the user. Animated (odometer) amounts only. */
+  /** While true, a bright streak runs across the digits nonstop: the amount
+   * is waiting on the user. Animated (odometer) amounts only. */
   sweep?: boolean
 }) {
   const { formatCurrency } = useCurrency()
@@ -118,7 +118,7 @@ function Odometer({
   sweep?: boolean
 }) {
   const { motion } = useTheme()
-  const shimmer = useSweep(!!sweep, true, NUDGE_REST_MS).sweep
+  const shimmer = useSweep(!!sweep, 'nudge').sweep
   const scale = useRef(new Animated.Value(1)).current
   // usePrevious: during this render prevRef still holds the previous string/value, so
   // each slot can diff old vs new before it is overwritten.
@@ -171,9 +171,9 @@ function Odometer({
             lengthChanged={lengthChanged}
           />
         )
-        // Between passes the digits rest at full opacity, so the wrapper is invisible then.
+        // Off the streak (and with sweep off) the digits sit at full opacity, so the wrapper is invisible.
         return sweep === undefined ? digit : (
-          <ShimmerSlot key={i} sweep={shimmer} index={i} count={chars.length}>
+          <ShimmerSlot key={i} sweep={shimmer} index={i} count={chars.length} mode="nudge">
             {digit}
           </ShimmerSlot>
         )
