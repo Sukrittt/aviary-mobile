@@ -189,7 +189,7 @@ export function EnvelopeRow({
           onToast?.(draft.trim() ? 'Note saved' : 'Note cleared')
         },
         (e) => {
-          keptDrafts.set(key, draft)
+          keptDrafts.set(key, pending)
           onToast?.(e instanceof HttpError && e.status === 409
             ? `${NOTE_CHANGED} Your draft's waiting in the sheet.`
             : "Couldn't save your note. It's waiting for you in the sheet.")

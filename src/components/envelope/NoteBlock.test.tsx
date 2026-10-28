@@ -227,3 +227,29 @@ it("doesn't save over a newer note when the sheet is dismissed mid-edit", async 
   await waitFor(() => expect(onToast).toHaveBeenCalledWith("This note changed on another device. Your draft's waiting in the sheet."))
   expect(mockRows[0].note).toBe('theirs')
 })
+
+it("doesn't replace their note when you close the sheet after being told it changed", async () => {
+  const onToast = jest.fn()
+  const s = open({ note: 'old note' }, onToast)
+  fireEvent.press(s.getByText('Edit note'))
+  fireEvent.changeText(s.getByTestId('note-input'), 'mine')
+  mockRows = [{ name: 'Rent', group: 'Bills', note: 'theirs' }]
+  fireEvent.press(s.getByLabelText('Save note'))
+  await waitFor(() => expect(s.getByText('This note changed on another device. Save again to replace it.')).toBeTruthy())
+  await act(async () => fireEvent.press(s.getByTestId('bottom-sheet-backdrop')))
+  await waitFor(() => expect(onToast).toHaveBeenCalledWith("This note changed on another device. Your draft's waiting in the sheet."))
+  expect(mockRows[0].note).toBe('theirs')
+})
+
+it('keeps the copy a kept draft was written from, so it still asks before replacing a newer note', async () => {
+  const s = open({ note: 'old note' })
+  fireEvent.press(s.getByText('Edit note'))
+  fireEvent.changeText(s.getByTestId('note-input'), 'mine')
+  s.unmount()
+  // A partner edits while the screen is away.
+  const again = open({ note: 'theirs' })
+  expect(again.getByTestId('note-input').props.value).toBe('mine')
+  fireEvent.press(again.getByLabelText('Save note'))
+  await waitFor(() => expect(again.getByText('This note changed on another device. Save again to replace it.')).toBeTruthy())
+  expect(mockRows[0].note).toBe('theirs')
+})
