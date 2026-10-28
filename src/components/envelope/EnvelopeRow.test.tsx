@@ -165,13 +165,13 @@ describe('a goal row', () => {
   const { currentMonthKey, shiftMonthKey } = jest.requireActual('@/src/lib/envelope')
   const { shortMonth } = jest.requireActual('@/src/lib/goal')
   const month = currentMonthKey()
-  const goalRow = (goal: object, e: Partial<Envelope>, onMoveMoney = jest.fn()) => {
+  const goalRow = (goal: object, e: Partial<Envelope>, onMoveMoney = jest.fn(), active = true) => {
     const queryClient = createTestQueryClient()
     queryClient.setQueryData(['categories'], [{ name: 'Trip', group: 'Goals', goal }])
     return renderWithProviders(
       <EnvelopeRow
         envelope={{ category: 'Trip', group: 'Goals', assigned: 0, spent: 0, available: 0, rolledOver: 0, isOverspent: false, spentPct: 0, isCreditCardPayment: false, ...e }}
-        icon="SoccerBall" hideAmounts={false} onMoveMoney={onMoveMoney} onEditAmount={jest.fn()} onViewTransactions={jest.fn()}
+        icon="SoccerBall" hideAmounts={false} onMoveMoney={onMoveMoney} onEditAmount={jest.fn()} onViewTransactions={jest.fn()} active={active}
       />,
       { queryClient },
     )
@@ -180,12 +180,20 @@ describe('a goal row', () => {
   it('shows saved of target, and Set pulls what this month is behind by', () => {
     const onMoveMoney = jest.fn()
     // 3,000 in, 9,000 to go over this month and the next three.
-    const { getByText, queryByText } = goalRow({ amount: 12000, by: shiftMonthKey(month, 3) }, { available: 3000, rolledOver: 3000 }, onMoveMoney)
+    const { getByText, getByLabelText, queryByText } = goalRow({ amount: 12000, by: shiftMonthKey(month, 3) }, { available: 3000, rolledOver: 3000 }, onMoveMoney)
     expect(getByText('₹3,000 of ₹12,000')).toBeTruthy()
     expect(queryByText(/Last spent/)).toBeNull()
     expect(getByText('Behind · ₹2,250/mo by ' + shortMonth(shiftMonthKey(month, 3)))).toBeTruthy()
-    fireEvent.press(getByText('Set'))
+    // Set keeps shimmering until it's acted on: lit letters, still read as one word.
+    expect(getByLabelText('Set')).toBeTruthy()
+    expect(queryByText('Set')).toBeNull()
+    fireEvent.press(getByLabelText('Set Trip: pull ₹2,250'))
     expect(onMoveMoney).toHaveBeenCalledWith('Trip', 2250)
+  })
+
+  it("rests a behind goal's Set as plain text while Home is covered", () => {
+    const { getByText } = goalRow({ amount: 12000, by: shiftMonthKey(month, 3) }, { available: 3000, rolledOver: 3000 }, jest.fn(), false)
+    expect(getByText('Set')).toBeTruthy()
   })
 
   it("shows a behind goal's Set as plain text under reduced motion", () => {
