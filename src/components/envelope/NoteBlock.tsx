@@ -92,14 +92,23 @@ export function NoteBlock({ row, readOnly, pending, onSaved, onEditingChange }: 
   const [error, setError] = useState('')
   const [picking, setPicking] = useState(false)
   const busy = saving || success
+  // Someone else's edit can land while the sheet is open. Read it in, so a tick
+  // builds on the latest note instead of writing the old one back over it.
+  const [seen, setSeen] = useState(row.note)
+  if (row.note !== seen) {
+    setSeen(row.note)
+    if (!editing && !ticking) setNote(row.note ?? '')
+  }
   const today = todayLocal()
   const dirty = draft.trim() !== note.trim()
 
   useEffect(() => onEditingChange?.(editing), [editing, onEditingChange])
   // Read on dismiss: what's typed and not saved yet, if anything.
   useEffect(() => {
-    pending.current = () => (editing && !busy && dirty ? draft : undefined)
-  }, [pending, editing, busy, dirty, draft])
+    // Still handed over while a Save is in flight: if that save fails, the
+    // dismissal's own save (or the kept draft) is what keeps the text.
+    pending.current = () => (editing && !success && dirty ? draft : undefined)
+  }, [pending, editing, success, dirty, draft])
   // Unmounted with a draft nobody took (going offline swaps Home for the offline
   // screen, sheet and all): keep it for the next time this sheet opens.
   const key = draftKey(row.name)

@@ -15,6 +15,7 @@ import { useTheme } from '@/src/theme/ThemeProvider'
 import { readCategoryCache, writeCategoryCache } from '@/src/lib/categoryCache'
 import { isTransportFailure } from '@/src/api/client'
 import { budgetsKey } from '@/src/hooks/useBudgets'
+import { activeBudgetId } from '@/src/lib/activeBudget'
 
 const key = ['categories'] as const
 export const categoriesKey = key
@@ -135,9 +136,15 @@ export function useAddCategory() {
 export function useSaveNote() {
   const qc = useQueryClient()
   return useCallback(async (name: string, note: string | null) => {
-    await updateCategory(name, { note })
+    // Pinned: a budget switch while this is in flight mustn't land it on another budget's same-named category.
+    const spaceId = activeBudgetId()
+    await updateCategory(name, { note }, spaceId)
+    if (activeBudgetId() !== spaceId) return
     const stored = note?.trim() || undefined
     qc.setQueriesData<CategoryRow[]>({ queryKey: key }, (rows) => rows?.map((r) => (r.name === name ? { ...r, note: stored } : r)))
+    // On disk too: a refetch that fails offline falls back to this list, and mustn't bring the old note back.
+    const rows = qc.getQueryData<CategoryRow[]>(key)
+    if (rows) void writeCategoryCache(rows).catch(() => {})
     void qc.invalidateQueries({ queryKey: key })
   }, [qc])
 }
