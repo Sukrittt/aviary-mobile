@@ -86,7 +86,8 @@ function Bar({ tokens, scheme, width, height }: Props) {
   return (
     <WidgetSurface tokens={tokens} scheme={scheme} mood="stale" style={{ padding: 0 }}>
       <OverlapWidget style={{ width: 'match_parent', height: 'match_parent' }}>
-        <SvgWidget svg={doodlesSvg(width, height, tokens, scheme)} style={{ width: 'match_parent', height: 'match_parent' }} />
+        {/* The ring and arc sit where the + goes; the pill's soft fill would show them through. */}
+        <SvgWidget svg={doodlesSvg(width, height, tokens, scheme, ['ring', 'arc'])} style={{ width: 'match_parent', height: 'match_parent' }} />
         <FlexWidget style={{ width: 'match_parent', height: 'match_parent', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'flex-end' }}>
           <SvgWidget
             svg={birdSvg({ mood: 'stale', tokens, scheme })}
