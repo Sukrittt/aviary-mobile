@@ -114,3 +114,20 @@ export function goalTemplate(key: GoalTemplateKey, month: string): { name: strin
     case 'insurance': return { name: 'Insurance', by: shiftMonthKey(month, 12), yearly: true }
   }
 }
+
+/**
+ * Splits Ready to Assign across behind goals, nearest deadline first, each up
+ * to what it's behind by. Works in paise so the total never tops Ready to Assign.
+ */
+export function fundBehindGoals(readyToAssign: number, goals: { category: string; by: string; behindBy: number }[]): { category: string; amount: number }[] {
+  let left = Math.round(readyToAssign * 100)
+  const out: { category: string; amount: number }[] = []
+  for (const g of [...goals].sort((a, b) => a.by.localeCompare(b.by))) {
+    if (left <= 0) break
+    const take = Math.min(left, Math.round(g.behindBy * 100))
+    if (take <= 0) continue
+    out.push({ category: g.category, amount: take / 100 })
+    left -= take
+  }
+  return out
+}

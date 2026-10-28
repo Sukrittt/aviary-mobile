@@ -1,4 +1,4 @@
-import { goalLine, goalProgress, goalTemplate, nextGoalMonth } from './goal'
+import { fundBehindGoals, goalLine, goalProgress, goalTemplate, nextGoalMonth } from './goal'
 
 // `available` is the envelope's balance this month, carry and this month's
 // assigned included (computeEnvelopeState). `assigned` is this month's plan.
@@ -203,5 +203,30 @@ describe('goalTemplate', () => {
 
   it('gives an emergency fund no deadline', () => {
     expect(goalTemplate('emergency', '2026-10')).toEqual({ name: 'Emergency fund', by: '', yearly: false })
+  })
+})
+
+describe('fundBehindGoals', () => {
+  it('covers every behind goal when there is enough', () => {
+    expect(fundBehindGoals(500, [{ category: 'Trip', by: '2026-12', behindBy: 200 }, { category: 'Car', by: '2027-03', behindBy: 100 }])).toEqual([
+      { category: 'Trip', amount: 200 },
+      { category: 'Car', amount: 100 },
+    ])
+  })
+  it('funds the nearest deadline first', () => {
+    expect(fundBehindGoals(150, [{ category: 'Car', by: '2027-03', behindBy: 100 }, { category: 'Trip', by: '2026-12', behindBy: 100 }])).toEqual([
+      { category: 'Trip', amount: 100 },
+      { category: 'Car', amount: 50 },
+    ])
+  })
+  it('never hands out a paisa more than Ready to Assign', () => {
+    expect(fundBehindGoals(100.1, [{ category: 'A', by: '2026-11', behindBy: 60.07 }, { category: 'B', by: '2026-12', behindBy: 80 }])).toEqual([
+      { category: 'A', amount: 60.07 },
+      { category: 'B', amount: 40.03 },
+    ])
+  })
+  it('gives nothing with nothing to give', () => {
+    expect(fundBehindGoals(0, [{ category: 'A', by: '2026-11', behindBy: 10 }])).toEqual([])
+    expect(fundBehindGoals(-5, [{ category: 'A', by: '2026-11', behindBy: 10 }])).toEqual([])
   })
 })

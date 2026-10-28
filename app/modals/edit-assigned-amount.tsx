@@ -52,6 +52,8 @@ function EditAssignedAmountModal() {
   // Switchable in place from the envelope card, so assigning across several
   // envelopes doesn't mean closing and reopening this screen for each one.
   const [category, setCategory] = useState(() => str(params.category))
+  // Home's negative Ready to Assign "Take it back": open lowered by what's over.
+  const takeBack = Number(str(params.takeBack)) || 0
 
   const budgetsQ = useBudgets()
   const carryQ = useCarry(currentMonthKey())
@@ -107,6 +109,7 @@ function EditAssignedAmountModal() {
       lastMonthAssigned={lastMonthAssigned}
       goalNeed={goal?.monthlyNeed !== undefined && goal.by ? { amount: goal.monthlyNeed, by: goal.by } : undefined}
       readyToAssign={envelopeState.readyToAssign}
+      takeBack={category === str(params.category) ? takeBack : 0}
     />
   )
 }
@@ -124,6 +127,7 @@ function EditAmountBody({
   lastMonthAssigned,
   goalNeed,
   readyToAssign,
+  takeBack,
   onSwitch,
 }: {
   category: string
@@ -140,6 +144,8 @@ function EditAmountBody({
   /** A goal's monthly amount to make its deadline (src/lib/goal.ts), offered as a pick. */
   goalNeed?: { amount: number; by: string }
   readyToAssign: number
+  /** Start this much below currentAssigned (never below 0). */
+  takeBack: number
   onSwitch: (category: string) => Promise<void>
 }) {
   const { formatCurrency, formatAmountInput, formatMoney } = useCurrency()
@@ -154,7 +160,7 @@ function EditAmountBody({
   const name = isCreditCardPayment ? 'Credit Card Payment' : splitEmoji(category).text
   const iconKey: CategoryIconKey = isCreditCardPayment ? 'CreditCard' : categoryIconKey(category, icon, group)
 
-  const { amount: amountText, setAmount: setAmountText, pushDigit, handleBackspace, shake } = useAmountEntry(amountSeed(currentAssigned))
+  const { amount: amountText, setAmount: setAmountText, pushDigit, handleBackspace, shake } = useAmountEntry(amountSeed(Math.max(0, Math.round((currentAssigned - takeBack) * 100) / 100)))
   const [saving, setSaving] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState('')

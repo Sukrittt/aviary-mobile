@@ -291,3 +291,30 @@ it("a goal with a deadline gets its monthly amount as the only chip", async () =
   expect(queryByText('₹500')).toBeNull()
   expect(queryByText(/Last month/)).toBeNull()
 })
+
+it('opens lowered by takeBack, so a plain Save frees it to Ready to Assign', async () => {
+  ;(updateBudget as jest.Mock).mockResolvedValue({})
+  const { getByLabelText, getByText } = setup([
+    { month: MONTH, category: '__income__', assigned: '4000', rolled_over: '0', version: 2 },
+    { month: MONTH, category: 'Food', assigned: '5000', rolled_over: '0', version: 7 },
+  ])
+  mockParams = { category: 'Food', takeBack: '1000' }
+
+  await waitFor(() => expect(getByLabelText('₹4,000')).toBeTruthy())
+  expect(getByText('Frees ₹1,000 back to Ready to Assign')).toBeTruthy()
+
+  await act(async () => {
+    fireEvent.press(getByText('Save'))
+  })
+  await waitFor(() => expect(updateBudget).toHaveBeenCalledWith(MONTH, 'Food', { assigned: '4000' }, 7))
+})
+
+it('never opens a takeBack below 0', async () => {
+  const { getByLabelText } = setup([
+    { month: MONTH, category: '__income__', assigned: '4000', rolled_over: '0', version: 2 },
+    { month: MONTH, category: 'Food', assigned: '500', rolled_over: '0', version: 7 },
+  ])
+  mockParams = { category: 'Food', takeBack: '1000' }
+
+  await waitFor(() => expect(getByLabelText('₹0')).toBeTruthy())
+})
