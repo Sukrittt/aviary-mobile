@@ -161,7 +161,7 @@ describe('HomeScreen · Ready to Assign', () => {
   })
 
   it('opens income options from the income pill', () => {
-    const { getByLabelText, getByText } = renderHome()
+    const { getByText } = renderHome()
 
     fireEvent.press(getByText('Income · ₹20,000'))
     expect(getByText('Income ₹20,000')).toBeTruthy()
