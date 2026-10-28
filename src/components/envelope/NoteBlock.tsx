@@ -12,6 +12,8 @@ import { useOnline } from '@/src/lib/netStatus'
 import { toLocalDateString, todayLocal } from '@/src/lib/date'
 import { addTodo, dayLabel, goalFit, insertAt, noteDate, parseNote, toggleLine, type Segment } from '@/src/lib/noteRender'
 import { tap } from '@/src/lib/haptics'
+import { activeBudgetId } from '@/src/lib/activeBudget'
+import { currentUserId } from '@/src/api/accessMode'
 import type { CategoryRow } from '@/src/types'
 
 export const NOTE_MAX = 2000
@@ -25,6 +27,11 @@ const SUCCESS_MS = 1100
  * where you left off. ponytail: memory only, so a kill loses them; persist if that bites.
  */
 export const keptDrafts = new Map<string, string>()
+
+/** Whose draft, in which budget: a Rent draft mustn't turn up in another budget's Rent, or for the next person to sign in. */
+export function draftKey(category: string): string {
+  return `${currentUserId() ?? ''}:${activeBudgetId() ?? ''}:${category}`
+}
 
 function placeholderFor(row: CategoryRow): string {
   if (row.goal || /sav|goal|fund|invest/i.test(row.group)) return "What's it for? Break it down"
@@ -75,7 +82,7 @@ export function NoteBlock({ row, readOnly, pending, onSaved, onEditingChange }: 
   const box = useRef<TextInput>(null)
   const caret = useRef(0)
   const caretAfter = useRef<number | null>(null)
-  const kept = keptDrafts.get(row.name)
+  const kept = keptDrafts.get(draftKey(row.name))
   const [note, setNote] = useState(row.note ?? '')
   const [editing, setEditing] = useState(kept !== undefined && !readOnly)
   const [draft, setDraft] = useState(kept ?? row.note ?? '')
@@ -93,9 +100,14 @@ export function NoteBlock({ row, readOnly, pending, onSaved, onEditingChange }: 
   useEffect(() => {
     pending.current = () => (editing && !busy && dirty ? draft : undefined)
   }, [pending, editing, busy, dirty, draft])
+  // Unmounted with a draft nobody took (going offline swaps Home for the offline
+  // screen, sheet and all): keep it for the next time this sheet opens.
+  const key = draftKey(row.name)
   useEffect(() => () => {
+    const left = pending.current?.()
+    if (left !== undefined) keptDrafts.set(key, left)
     pending.current = null
-  }, [pending])
+  }, [pending, key])
 
   useEffect(() => {
     if (!success) return
@@ -124,7 +136,7 @@ export function NoteBlock({ row, readOnly, pending, onSaved, onEditingChange }: 
   }
 
   function cancel() {
-    keptDrafts.delete(row.name)
+    keptDrafts.delete(draftKey(row.name))
     setDraft(note)
     setError('')
     setEditing(false)
@@ -137,7 +149,7 @@ export function NoteBlock({ row, readOnly, pending, onSaved, onEditingChange }: 
     try {
       // Blank clears it: the server trims and stores null.
       await update.mutateAsync({ name: row.name, updates: { note: draft.trim() || null } })
-      keptDrafts.delete(row.name)
+      keptDrafts.delete(draftKey(row.name))
       setSuccess(true)
     } catch {
       setError(SAVE_FAILED)

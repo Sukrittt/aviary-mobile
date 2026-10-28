@@ -24,7 +24,7 @@ import { allowanceNote, paceLine, resetChip, weekResult, type WeekPace } from '@
 import { goalProgress } from '@/src/lib/goal'
 import { GoalLine } from './GoalFields'
 import { ShimmerText } from '@/src/components/shared/ShimmerText'
-import { NoteBlock, keptDrafts } from './NoteBlock'
+import { NoteBlock, draftKey, keptDrafts } from './NoteBlock'
 import { checklistCount } from '@/src/lib/noteRender'
 import { Note } from '@/src/components/shared/icons'
 import { PopIn } from '@/src/components/shared/PopIn'
@@ -175,16 +175,19 @@ export function EnvelopeRow({
   function closeSheet() {
     // Closing mid-edit keeps what was typed: save it on the way out.
     const draft = pendingNote.current?.()
+    // Taken: the sheet's unmount mustn't keep it as unsaved too.
+    pendingNote.current = null
     if (draft !== undefined) {
+      const key = draftKey(envelope.category)
       const category = envelope.category
       updateCategory.mutateAsync({ name: category, updates: { note: draft.trim() || null } }).then(
         () => {
-          keptDrafts.delete(category)
+          keptDrafts.delete(key)
           setNotePop((n) => n + 1)
           onToast?.(draft.trim() ? 'Note saved' : 'Note cleared')
         },
         () => {
-          keptDrafts.set(category, draft)
+          keptDrafts.set(key, draft)
           onToast?.("Couldn't save your note. It's waiting for you in the sheet.")
         },
       )

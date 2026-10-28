@@ -1,5 +1,6 @@
 import { act, fireEvent, waitFor } from '@testing-library/react-native'
 import { EnvelopeRow } from './EnvelopeRow'
+import { keptDrafts } from './NoteBlock'
 import { createTestQueryClient, renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { updateCategory } from '@/src/api/categories'
 import { useOnline } from '@/src/lib/netStatus'
@@ -22,6 +23,7 @@ let mockRows: CategoryRow[] = []
 const update = updateCategory as jest.Mock
 
 beforeEach(() => {
+  keptDrafts.clear()
   update.mockClear()
   ;(useOnline as jest.Mock).mockReturnValue(true)
   ;(useBudgetSpaces as jest.Mock).mockReturnValue({ active: { readOnly: false } })
@@ -112,4 +114,26 @@ it('turns the line into a to-do from the chip', () => {
   fireEvent.press(s.getByText('Add a note'))
   fireEvent.press(s.getByText('Add to-do'))
   expect(s.getByTestId('note-input').props.value).toBe('- ')
+})
+
+it('keeps a draft the sheet was torn down with, and reopens on it', () => {
+  const s = open()
+  fireEvent.press(s.getByText('Add a note'))
+  fireEvent.changeText(s.getByTestId('note-input'), 'typed, then the screen went offline')
+  s.unmount()
+  expect(update).not.toHaveBeenCalled()
+  const again = open()
+  expect(again.getByTestId('note-input').props.value).toBe('typed, then the screen went offline')
+})
+
+it("doesn't carry a kept draft into another budget's category of the same name", () => {
+  const { setActiveBudget } = jest.requireActual<typeof import('@/src/lib/activeBudget')>('@/src/lib/activeBudget')
+  setActiveBudget('budget-a')
+  const s = open()
+  fireEvent.press(s.getByText('Add a note'))
+  fireEvent.changeText(s.getByTestId('note-input'), 'for budget A only')
+  s.unmount()
+  setActiveBudget('budget-b')
+  expect(open().queryByTestId('note-input')).toBeNull()
+  setActiveBudget(null)
 })
