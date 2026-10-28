@@ -180,11 +180,14 @@ describe('a goal row', () => {
   it('shows saved of target, and Set pulls what this month is behind by', () => {
     const onMoveMoney = jest.fn()
     // 3,000 in, 9,000 to go over this month and the next three.
-    const { getByText, queryByText } = goalRow({ amount: 12000, by: shiftMonthKey(month, 3) }, { available: 3000, rolledOver: 3000 }, onMoveMoney)
+    const { getByText, getByLabelText, queryByText } = goalRow({ amount: 12000, by: shiftMonthKey(month, 3) }, { available: 3000, rolledOver: 3000 }, onMoveMoney)
     expect(getByText('₹3,000 of ₹12,000')).toBeTruthy()
     expect(queryByText(/Last spent/)).toBeNull()
     expect(getByText('Behind · ₹2,250/mo by ' + shortMonth(shiftMonthKey(month, 3)))).toBeTruthy()
-    fireEvent.press(getByText('Set'))
+    // Set keeps shimmering until it's acted on: lit letters, still read as one word.
+    expect(getByLabelText('Set')).toBeTruthy()
+    expect(queryByText('Set')).toBeNull()
+    fireEvent.press(getByLabelText('Set Trip: pull ₹2,250'))
     expect(onMoveMoney).toHaveBeenCalledWith('Trip', 2250)
   })
 

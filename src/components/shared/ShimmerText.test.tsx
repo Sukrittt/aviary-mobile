@@ -16,6 +16,13 @@ describe('ShimmerText', () => {
     expect(StyleSheet.flatten(getByText('Set').props.style)?.opacity).toBeUndefined()
   })
 
+  it('keeps nudging, resting at full strength between passes', () => {
+    const { getByLabelText, getByText, queryByText } = render(<ShimmerText nudge text="Set" />)
+    expect(getByLabelText('Set')).toBeTruthy()
+    expect(queryByText('Set')).toBeNull()
+    expect(StyleSheet.flatten(getByText('S').props.style)?.opacity).toBe(1)
+  })
+
   it('stays plain text when off', () => {
     expect(render(<ShimmerText loop on={false} text="Reading…" />).getByText('Reading…')).toBeTruthy()
   })
