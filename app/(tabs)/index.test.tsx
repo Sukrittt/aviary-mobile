@@ -185,7 +185,7 @@ describe('HomeScreen · Ready to Assign', () => {
     expect(getByText('Give this ₹15,000 a job')).toBeTruthy()
 
     fireEvent.press(getByLabelText('Ready to Assign options'))
-    expect(getByText('Or pick a category')).toBeTruthy()
+    expect(getByText('Pick a category')).toBeTruthy()
     // The sheet's row, after the envelope list's.
     fireEvent.press(getAllByText('Food').at(-1)!)
     expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/modals/edit-assigned-amount', params: { category: 'Food' } })

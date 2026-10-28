@@ -810,7 +810,7 @@ function HomeScreen() {
           />
         )}
         <Text style={[styles.sheetLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
-          {rta > 0 ? 'Or pick a category' : 'Take it back from'}
+          {rta > 0 ? (goalFunding.length > 0 ? 'Or pick a category' : 'Pick a category') : 'Take it back from'}
         </Text>
         {rtaCategories.map((e) => (
           <SheetOption
