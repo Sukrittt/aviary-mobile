@@ -355,26 +355,14 @@ function SingleDatePicker({ value, onChange, disableFuture = true, onAccent = fa
   const [open, setOpen] = useState(false)
   const today = new Date()
   const selected = parseISO(value)
-  const [view, setView] = useState(() => monthStart(selected ?? today))
   const stripRef = useRef<ScrollView>(null)
   const stripWidth = useRef(0)
-
-  function openCalendar() {
-    setView(monthStart(selected ?? today))
-    setOpen(true)
-  }
 
   function pick(d: Date) {
     Haptics.selectionAsync().catch(() => {})
     onChange(toISO(d))
   }
 
-  function pickFromCalendar(d: Date) {
-    pick(d)
-    setOpen(false)
-  }
-
-  const cells = buildCells(view, today, selected, disableFuture)
   const kToday = key(today)
   const kYesterday = key(addDays(today, -1))
   const kSel = selected ? key(selected) : null
@@ -444,67 +432,96 @@ function SingleDatePicker({ value, onChange, disableFuture = true, onAccent = fa
         })}
       </ScrollView>
 
-      <Pressable onPress={openCalendar} style={styles.linkRow} hitSlop={8}>
+      <Pressable onPress={() => setOpen(true)} style={styles.linkRow} hitSlop={8}>
         <CalendarBlank size={14} color={onAccent ? tokens.onAccent : tokens.accent} />
         <Text style={[styles.link, { color: onAccent ? tokens.onAccent : tokens.accent, fontFamily: fontFamily.bodySemiBold }]}>
           Another date…
         </Text>
       </Pressable>
 
-      <BottomSheet visible={open} onClose={() => setOpen(false)}>
-        <View style={styles.sheetBody}>
-          <Text style={[styles.sheetTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Pick a date</Text>
+      <CalendarSheet visible={open} value={value} disableFuture={disableFuture} onPick={pick} onClose={() => setOpen(false)} />
+    </View>
+  )
+}
 
-          <View style={styles.nav}>
-            <MonthNavButton dir="prev" onPress={() => setView((v) => new Date(v.getFullYear(), v.getMonth() - 1, 1))} />
-            <Text style={[styles.monthLabel, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
-              {MONTHS[view.getMonth()]} {view.getFullYear()}
+
+/** The month grid in its own sheet: picking a day calls `onPick`, then closes. Opens on `value`'s month (YYYY-MM-DD), or today's. */
+export function CalendarSheet({ visible, value, disableFuture = true, onPick, onClose }: {
+  visible: boolean
+  value?: string
+  disableFuture?: boolean
+  onPick: (d: Date) => void
+  onClose: () => void
+}) {
+  const { tokens } = useTheme()
+  const today = new Date()
+  const selected = value ? parseISO(value) : null
+  const [view, setView] = useState(() => monthStart(selected ?? today))
+  // Back to the picked month each time it opens.
+  const [wasVisible, setWasVisible] = useState(visible)
+  if (visible !== wasVisible) {
+    setWasVisible(visible)
+    if (visible) setView(monthStart(selected ?? today))
+  }
+  const cells = buildCells(view, today, selected, disableFuture)
+
+  return (
+  <BottomSheet visible={visible} onClose={onClose}>
+      <View style={styles.sheetBody}>
+        <Text style={[styles.sheetTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Pick a date</Text>
+
+        <View style={styles.nav}>
+          <MonthNavButton dir="prev" onPress={() => setView((v) => new Date(v.getFullYear(), v.getMonth() - 1, 1))} />
+          <Text style={[styles.monthLabel, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
+            {MONTHS[view.getMonth()]} {view.getFullYear()}
+          </Text>
+          <MonthNavButton dir="next" onPress={() => setView((v) => new Date(v.getFullYear(), v.getMonth() + 1, 1))} />
+        </View>
+
+        <View style={styles.weekdays}>
+          {WEEKDAY_SHORT2.map((w, i) => (
+            <Text key={i} style={[styles.weekday, { color: tokens.text3 }]}>
+              {w}
             </Text>
-            <MonthNavButton dir="next" onPress={() => setView((v) => new Date(v.getFullYear(), v.getMonth() + 1, 1))} />
-          </View>
+          ))}
+        </View>
 
-          <View style={styles.weekdays}>
-            {WEEKDAY_SHORT2.map((w, i) => (
-              <Text key={i} style={[styles.weekday, { color: tokens.text3 }]}>
-                {w}
-              </Text>
-            ))}
-          </View>
-
-          <View style={styles.grid}>
-            {Array.from({ length: Math.ceil(cells.length / 7) }, (_, row) => (
-              <View key={row} style={styles.gridRow}>
-                {Array.from({ length: 7 }, (_, i) => cells[row * 7 + i]).map((c, i) => (
-                  <View key={i} style={styles.cellWrapLarge}>
-                    {c?.date && (
-                      <Pressable
-                        disabled={c.disabled}
-                        onPress={() => pickFromCalendar(c.date!)}
+        <View style={styles.grid}>
+          {Array.from({ length: Math.ceil(cells.length / 7) }, (_, row) => (
+            <View key={row} style={styles.gridRow}>
+              {Array.from({ length: 7 }, (_, i) => cells[row * 7 + i]).map((c, i) => (
+                <View key={i} style={styles.cellWrapLarge}>
+                  {c?.date && (
+                    <Pressable
+                      disabled={c.disabled}
+                      onPress={() => {
+                        onPick(c.date!)
+                        onClose()
+                      }}
+                      style={[
+                        styles.cellLarge,
+                        { borderColor: c.isToday && !c.isSelected ? tokens.accent : 'transparent' },
+                        c.isSelected && { backgroundColor: tokens.accent },
+                        c.disabled && { opacity: 0.4 },
+                      ]}
+                    >
+                      <Text
                         style={[
-                          styles.cellLarge,
-                          { borderColor: c.isToday && !c.isSelected ? tokens.accent : 'transparent' },
-                          c.isSelected && { backgroundColor: tokens.accent },
-                          c.disabled && { opacity: 0.4 },
+                          styles.cellText,
+                          { color: c.disabled ? tokens.text3 : c.isSelected ? tokens.onAccent : tokens.text, fontFamily: fontFamily.bodySemiBold },
                         ]}
                       >
-                        <Text
-                          style={[
-                            styles.cellText,
-                            { color: c.disabled ? tokens.text3 : c.isSelected ? tokens.onAccent : tokens.text, fontFamily: fontFamily.bodySemiBold },
-                          ]}
-                        >
-                          {c.day}
-                        </Text>
-                      </Pressable>
-                    )}
-                  </View>
-                ))}
-              </View>
-            ))}
-          </View>
+                        {c.day}
+                      </Text>
+                    </Pressable>
+                  )}
+                </View>
+              ))}
+            </View>
+          ))}
         </View>
-      </BottomSheet>
-    </View>
+      </View>
+    </BottomSheet>
   )
 }
 

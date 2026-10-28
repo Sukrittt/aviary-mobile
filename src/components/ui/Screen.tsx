@@ -80,6 +80,10 @@ export const Screen = forwardRef<ScrollView, {
           ref={ref}
           style={styles.flex}
           refreshControl={refreshControl}
+          // A sheet's Modal is still this ScrollView's child in React's tree, and touches
+          // bubble through that tree: on "never" it took every tap in a sheet while the
+          // keyboard was up, and only closed the keyboard. Taps on nothing still close it.
+          keyboardShouldPersistTaps="handled"
           contentContainerStyle={[{ paddingHorizontal: space.lg, paddingBottom: bottomPad }, contentContainerStyle]}
         >
           {children}

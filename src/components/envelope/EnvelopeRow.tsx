@@ -1,6 +1,6 @@
-import { useCategories, useCategoryTint } from '@/src/hooks/useCategories'
+import { useCategories, useCategoryTint, useSaveNote } from '@/src/hooks/useCategories'
 import { useCurrency } from '@/src/context/CurrencyContext'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { View, Text, Pressable, StyleSheet } from 'react-native'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
@@ -24,6 +24,12 @@ import { allowanceNote, paceLine, resetChip, weekResult, type WeekPace } from '@
 import { goalProgress } from '@/src/lib/goal'
 import { GoalLine } from './GoalFields'
 import { ShimmerText } from '@/src/components/shared/ShimmerText'
+import { NoteBlock, draftKey, keptDrafts } from './NoteBlock'
+import { checklistCount } from '@/src/lib/noteRender'
+import { Note } from '@/src/components/shared/icons'
+import { PopIn } from '@/src/components/shared/PopIn'
+import { PopOnChange } from '@/src/components/shared/PopOnChange'
+import { motion } from '@/src/theme/scale'
 
 const TIP_MS = 2000
 
@@ -90,6 +96,8 @@ interface Props {
   pace?: WeekPace
   /** False while a screen covers Home (Pull money's modal), so a rise waits to roll where it can be seen. */
   active?: boolean
+  /** Shows a quiet notice on the screen, e.g. a note saved as its sheet closed. */
+  onToast?: (message: string) => void
 }
 
 /** A single envelope row + its tap-to-open action sheet (move money / edit amount / view transactions). */
@@ -107,6 +115,7 @@ export function EnvelopeRow({
   active = true,
   rollDelayMs = 0,
   pace: weeklyPace,
+  onToast,
 }: Props) {
   const { formatCurrency } = useCurrency()
 
@@ -148,17 +157,51 @@ export function EnvelopeRow({
     return () => clearTimeout(t)
   }, [tipOpen])
 
+  // Bumped when a note lands, so the row's glyph pops in once the sheet is out of the way.
+  const [notePop, setNotePop] = useState(0)
+  const [noteEditing, setNoteEditing] = useState(false)
+  const pendingNote = useRef<(() => string | undefined) | null>(null)
+  // The row's note as the sheet opened: a change lands on the row once the sheet is gone, not behind it.
+  const [noteAtOpen, setNoteAtOpen] = useState<string | undefined>()
+  const saveNote = useSaveNote()
+
   function openSheet() {
     tap()
+    setNoteAtOpen(row?.note)
     setSheetOpen(true)
     onSheetOpenChange?.(true)
   }
 
-  const closeSheet = useCallback(() => {
+  function closeSheet() {
+    // Closing mid-edit keeps what was typed: save it on the way out.
+    const draft = pendingNote.current?.()
+    // Taken: the sheet's unmount mustn't keep it as unsaved too.
+    pendingNote.current = null
+    if (draft !== undefined) {
+      const key = draftKey(envelope.category)
+      const category = envelope.category
+      saveNote(category, draft.trim() || null).then(
+        () => {
+          keptDrafts.delete(key)
+          setNotePop((n) => n + 1)
+          onToast?.(draft.trim() ? 'Note saved' : 'Note cleared')
+        },
+        () => {
+          keptDrafts.set(key, draft)
+          onToast?.("Couldn't save your note. It's waiting for you in the sheet.")
+        },
+      )
+    }
     setSheetOpen(false)
     setWeeklyFlipped(false)
+    setNoteEditing(false)
     onSheetOpenChange?.(false)
-  }, [onSheetOpenChange])
+  }
+
+  function noteSaved() {
+    closeSheet()
+    setNotePop((n) => n + 1)
+  }
 
   // Kept after weekly turns off, so the weeks can collapse instead of vanishing.
   const lastPace = useRef(pace)
@@ -171,6 +214,8 @@ export function EnvelopeRow({
   const name = displayName ?? splitEmoji(envelope.category).text
   // Spending with nothing assigned: "₹713/₹0" and "Used ∞" said nothing useful.
   const unbudgeted = envelope.assigned === 0 && envelope.spent > 0
+  const rowNote = sheetOpen ? noteAtOpen : row?.note
+  const todos = rowNote ? checklistCount(rowNote) : null
 
   return (
     <View style={styles.row}>
@@ -185,6 +230,19 @@ export function EnvelopeRow({
           >
             {name}
           </Text>
+          {todos && (
+            // Keyed on notePop: a fresh note pops in after the sheet's slide-out; a first paint just sits there.
+            <PopIn key={notePop} play={notePop > 0} delay={motion.base} style={styles.noteGlyph}>
+              <View accessible accessibilityLabel={todos.total > todos.done ? `Note, ${todos.done} of ${todos.total} done` : 'Has a note'} style={styles.noteGlyph}>
+                <Note size={13} color={tokens.text3} />
+                {todos.total > todos.done && (
+                  <PopOnChange value={todos.done}>
+                    <Text style={[styles.noteCount, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>{todos.done}/{todos.total}</Text>
+                  </PopOnChange>
+                )}
+              </View>
+            </PopIn>
+          )}
           <Text style={[styles.spentOf, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
             {goal
               ? `${money(goal.saved)} of ${money(goal.target)}`
@@ -267,6 +325,9 @@ export function EnvelopeRow({
         <Text style={[styles.sheetTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>
           {name}
         </Text>
+        {row && <NoteBlock row={row} readOnly={readOnly} pending={pendingNote} onSaved={noteSaved} onEditingChange={setNoteEditing} />}
+        {/* Editing, the note is all the sheet holds: Save stays in reach above the keyboard. */}
+        {!noteEditing && <>
         <Collapse open={!!pace} animateOpen={weeklyFlipped}>
           {lastPace.current && <WeekBreakdown pace={lastPace.current} envelope={envelope} money={money} />}
         </Collapse>
@@ -342,6 +403,7 @@ export function EnvelopeRow({
             </Text>
           </Pressable>
         )}
+        </>}
       </BottomSheet>
     </View>
   )
@@ -443,6 +505,8 @@ const styles = StyleSheet.create({
   availablePill: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 6 },
   tip: { position: 'absolute', bottom: '100%', right: 0, marginBottom: 6, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, zIndex: 1 },
   tipText: { fontSize: 11 },
+  noteGlyph: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  noteCount: { fontSize: 12, fontVariant: ['tabular-nums'] },
   sheetTitle: { fontSize: 16, marginBottom: 8 },
   sheetBtn: { paddingVertical: 12 },
   sheetBtnText: { fontSize: 14 },

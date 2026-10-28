@@ -20,7 +20,7 @@ export async function addCategory(name: string, group = '', icon?: string, color
 
 export async function updateCategory(
   name: string,
-  updates: { newName?: string; group?: string; alertPcts?: number[] | null; icon?: string; color?: string; weeklySince?: string | null; goal?: CategoryGoal | null },
+  updates: { newName?: string; group?: string; alertPcts?: number[] | null; icon?: string; color?: string; weeklySince?: string | null; goal?: CategoryGoal | null; note?: string | null },
   // A pinned budget wins over whichever is active when the request goes out.
   spaceId?: string | null,
 ): Promise<void> {

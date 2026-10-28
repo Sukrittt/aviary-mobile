@@ -7,7 +7,9 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { View, Text, Pressable, RefreshControl, StyleSheet, Linking, Platform } from 'react-native'
 import { useQuery } from '@tanstack/react-query'
 import { useRouter, useNavigation, useFocusEffect } from 'expo-router'
-import { CaretRight, ChartLine, MoneyWavy, Plant } from '@/src/components/shared/icons'
+import { CaretRight, ChartLine, MoneyWavy, Note, Plant } from '@/src/components/shared/icons'
+import { Toast } from '@/src/components/ui/Toast'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Reanimated, { FadeIn, FadeInDown, FadeOut } from 'react-native-reanimated'
 import * as Haptics from 'expo-haptics'
 import { rippleHaptic, tap } from '@/src/lib/haptics'
@@ -85,6 +87,7 @@ function HomeScreen() {
   const { tokens, space, type, radius } = useTheme()
   const { refreshing, onRefresh } = useRefresh()
   const router = useRouter()
+  const insets = useSafeAreaInsets()
   const navigation = useNavigation()
   const online = useOnline()
 
@@ -354,6 +357,9 @@ function HomeScreen() {
   function handleViewTransactions(category: string) {
     router.push({ pathname: '/(tabs)/activity', params: { category } })
   }
+
+  const [toast, setToast] = useState({ message: '', n: 0 })
+  const showToast = useCallback((message: string) => setToast((t) => ({ message, n: t.n + 1 })), [])
 
   function handleSheetOpenChange(open: boolean) {
     setOpenSheetCount((c) => c + (open ? 1 : -1))
@@ -706,6 +712,7 @@ function HomeScreen() {
                   rollOrder={rollOrder}
                   paces={paces}
                   active={!covered}
+                  onToast={showToast}
                 />
               ))}
             </View>
@@ -744,6 +751,7 @@ function HomeScreen() {
         <SheetOption label="Cancel" tone="cancel" onPress={() => setIncomeSheetOpen(false)} />
       </BottomSheet>
       <GraceBanner status={billing} />
+      <Toast message={toast.message} trigger={toast.n} icon={Note} style={{ top: insets.top + 12 }} />
     </>
   )
 }

@@ -40,6 +40,7 @@ interface Props {
   paces?: Map<string, WeekPace>
   /** False while a screen covers Home, so a Left pill's rise waits to roll where it's seen. */
   active?: boolean
+  onToast?: (message: string) => void
 }
 
 /** Expandable group header + its category rows, matching the dc.html "Envelopes" panel. */
@@ -60,6 +61,7 @@ export function EnvelopeGroup({
   rollOrder,
   paces,
   active = true,
+  onToast,
 }: Props) {
   const { formatCurrency } = useCurrency()
 
@@ -116,6 +118,7 @@ export function EnvelopeGroup({
                 rollDelayMs={Math.min(rollOrder?.get(e.category) ?? 0, 5) * 150}
                 pace={paces?.get(e.category)}
                 active={active}
+                onToast={onToast}
               />
             </View>
           ))}

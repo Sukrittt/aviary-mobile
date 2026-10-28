@@ -66,6 +66,7 @@ jest.mock('@/src/hooks/useAccounts', () => ({ useAccounts: () => ({ data: [] }) 
 jest.mock('@/src/hooks/useCategories', () => ({
   useCategories: () => ({ data: [{ name: 'Food', group: 'Everyday' }], isLoading: false, error: null, refetch: jest.fn() }),
   useCategoryTint: () => () => ({ bg: '#eee', ink: '#333' }),
+  useSaveNote: () => jest.fn(),
 }))
 jest.mock('@/src/hooks/useGroups', () => ({
   useGroups: () => ({ data: ['Everyday'], isLoading: false, error: null, refetch: jest.fn() }),
