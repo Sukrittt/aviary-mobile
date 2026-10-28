@@ -23,12 +23,11 @@ export async function widgetTaskHandler(props: WidgetTaskHandlerProps) {
         readThemePreference(),
       ]);
       const { widgetName, width, height } = props.widgetInfo;
-      const compact = widgetName !== "Envelope";
 
       if (!data) {
         props.renderWidget(
           variants(preference, (tokens, scheme) => (
-            <SignInWidget tokens={tokens} scheme={scheme} compact={compact} />
+            <SignInWidget tokens={tokens} scheme={scheme} widgetName={widgetName} width={width} height={height} />
           )),
         );
         break;
