@@ -178,7 +178,7 @@ function GoalBody({ category, icon, goal, month, available, assigned, spent }: {
       <View style={{ paddingHorizontal: space.lg, paddingTop: space.sm, paddingBottom: insets.bottom + space.sm, gap: space.md }}>
         <Numpad extraKey="." onDigit={pushDigit} onBackspace={handleBackspace} onClear={() => setAmount('')} disabled={busy} />
         <View style={styles.actions}>
-          {goal && button('remove', 'Back to spending', false, false, () => void write('remove', null))}
+          {goal && button('remove', 'Remove goal', false, false, () => void write('remove', null))}
           {button('save', amount ? 'Save goal' : 'Add a target', true, !next, () => next && void write('save', next))}
         </View>
       </View>

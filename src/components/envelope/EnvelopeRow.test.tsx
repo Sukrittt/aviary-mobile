@@ -203,10 +203,10 @@ describe('a goal row', () => {
     spy.mockRestore()
   })
 
-  it('offers a repeat or a way back to spending once its month is done', () => {
+  it('offers a repeat or a remove once its month is done', () => {
     const { getByText } = goalRow({ amount: 5000, by: month }, { assigned: 0, available: 1000, spent: 4000, rolledOver: 5000 })
     expect(getByText('Repeat')).toBeTruthy()
-    expect(getByText('Back to spending')).toBeTruthy()
+    expect(getByText('Remove goal')).toBeTruthy()
   })
 
   it('trades Track weekly for Edit goal, which opens the goal screen', () => {

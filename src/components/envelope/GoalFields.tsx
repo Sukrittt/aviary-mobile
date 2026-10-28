@@ -223,7 +223,7 @@ export function GoalLine({ category, goal, progress, month, money, onPull }: {
   if (onPull && done) {
     const neutral = { color: tokens.text, bg: tokens.inputBg }
     if (goal.by) actions.push(pill(busy === 'repeat' ? 'Saving…' : 'Repeat', neutral, () => void run('repeat', { ...goal, by: nextGoalMonth(progress.by ?? goal.by!, month) })))
-    actions.push(pill(busy === 'remove' ? 'Saving…' : 'Back to spending', neutral, () => void run('remove', null)))
+    actions.push(pill(busy === 'remove' ? 'Saving…' : 'Remove goal', neutral, () => void run('remove', null)))
   }
   const color = progress.status === 'behind' ? tokens.pillLow : progress.status === 'funded' || done ? tokens.pillGood : tokens.text3
   return (

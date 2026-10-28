@@ -33,7 +33,7 @@ it('types the target on the numpad and saves it with its month', async () => {
   await waitFor(() => expect(getByText('Make Trip a goal')).toBeTruthy())
   // Nothing to save until there's a target, and no way back to spending for a category that isn't a goal.
   expect(getByText('Add a target')).toBeTruthy()
-  expect(queryByText('Back to spending')).toBeNull()
+  expect(queryByText('Remove goal')).toBeNull()
   expect(getByText('₹1,500 saved so far')).toBeTruthy()
   expect(getByText('Type a target to get started')).toBeTruthy()
   for (const d of ['5', '0', '0', '0']) fireEvent.press(getByLabelText(d))
@@ -47,13 +47,13 @@ it('types the target on the numpad and saves it with its month', async () => {
   expect(updateCategory).toHaveBeenCalledWith('Trip', { goal: { amount: 5000, by: shiftMonthKey(MONTH, 1) } })
 })
 
-it('starts from the saved goal, and Back to spending clears it', async () => {
+it('starts from the saved goal, and Remove goal clears it', async () => {
   ;(getCategories as jest.Mock).mockResolvedValue([{ name: 'Trip', group: 'Fun', goal: { amount: 1200 } }])
   ;(updateCategory as jest.Mock).mockResolvedValue(undefined)
   const { getByText, getByLabelText } = renderWithProviders(<GoalModal />)
   await waitFor(() => expect(getByText('Goal for Trip')).toBeTruthy())
   expect(getByLabelText('₹1,200')).toBeTruthy()
-  await act(async () => { fireEvent.press(getByText('Back to spending')) })
+  await act(async () => { fireEvent.press(getByText('Remove goal')) })
   expect(updateCategory).toHaveBeenCalledWith('Trip', { goal: null })
 })
 
