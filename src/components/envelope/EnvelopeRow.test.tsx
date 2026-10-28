@@ -165,13 +165,13 @@ describe('a goal row', () => {
   const { currentMonthKey, shiftMonthKey } = jest.requireActual('@/src/lib/envelope')
   const { shortMonth } = jest.requireActual('@/src/lib/goal')
   const month = currentMonthKey()
-  const goalRow = (goal: object, e: Partial<Envelope>, onMoveMoney = jest.fn()) => {
+  const goalRow = (goal: object, e: Partial<Envelope>, onMoveMoney = jest.fn(), active = true) => {
     const queryClient = createTestQueryClient()
     queryClient.setQueryData(['categories'], [{ name: 'Trip', group: 'Goals', goal }])
     return renderWithProviders(
       <EnvelopeRow
         envelope={{ category: 'Trip', group: 'Goals', assigned: 0, spent: 0, available: 0, rolledOver: 0, isOverspent: false, spentPct: 0, isCreditCardPayment: false, ...e }}
-        icon="SoccerBall" hideAmounts={false} onMoveMoney={onMoveMoney} onEditAmount={jest.fn()} onViewTransactions={jest.fn()}
+        icon="SoccerBall" hideAmounts={false} onMoveMoney={onMoveMoney} onEditAmount={jest.fn()} onViewTransactions={jest.fn()} active={active}
       />,
       { queryClient },
     )
@@ -189,6 +189,11 @@ describe('a goal row', () => {
     expect(queryByText('Set')).toBeNull()
     fireEvent.press(getByLabelText('Set Trip: pull ₹2,250'))
     expect(onMoveMoney).toHaveBeenCalledWith('Trip', 2250)
+  })
+
+  it("rests a behind goal's Set as plain text while Home is covered", () => {
+    const { getByText } = goalRow({ amount: 12000, by: shiftMonthKey(month, 3) }, { available: 3000, rolledOver: 3000 }, jest.fn(), false)
+    expect(getByText('Set')).toBeTruthy()
   })
 
   it("shows a behind goal's Set as plain text under reduced motion", () => {

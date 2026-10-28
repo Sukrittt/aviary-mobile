@@ -39,7 +39,11 @@ export function useSweep(on: boolean, loop = false, restMs = 900) {
     setRunning(on)
   }
   useEffect(() => {
-    if (!on || reduceMotion) return
+    // Off mid-pass: back to rest, not frozen where it was, or some letters stay dim.
+    if (!on || reduceMotion) {
+      sweep.value = 0
+      return
+    }
     sweep.value = 0
     sweep.value = loop
       ? withRepeat(withSequence(withTiming(1, PASS), withDelay(restMs, withTiming(0, { duration: 0 }))), -1)

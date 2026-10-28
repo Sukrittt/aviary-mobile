@@ -1,7 +1,7 @@
-import { render } from '@testing-library/react-native'
+import { render, renderHook } from '@testing-library/react-native'
 import { StyleSheet } from 'react-native'
 import * as reanimated from 'react-native-reanimated'
-import { ShimmerText } from './ShimmerText'
+import { ShimmerText, useSweep } from './ShimmerText'
 
 describe('ShimmerText', () => {
   it('splits a looping label into lit letters, still read as one label', () => {
@@ -21,6 +21,13 @@ describe('ShimmerText', () => {
     expect(getByLabelText('Set')).toBeTruthy()
     expect(queryByText('Set')).toBeNull()
     expect(StyleSheet.flatten(getByText('S').props.style)?.opacity).toBe(1)
+  })
+
+  it('goes back to rest when turned off mid-pass, so no letter stays dim', () => {
+    const { result, rerender } = renderHook(({ on }: { on: boolean }) => useSweep(on, true, 3000), { initialProps: { on: true } })
+    result.current.sweep.value = 0.5
+    rerender({ on: false })
+    expect(result.current.sweep.value).toBe(0)
   })
 
   it('stays plain text when off', () => {
