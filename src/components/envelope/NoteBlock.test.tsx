@@ -11,7 +11,11 @@ jest.mock('@/src/api/categories', () => ({
   ...jest.requireActual('@/src/api/categories'),
   // The refetch after a save hands back what was written.
   getCategories: jest.fn(() => Promise.resolve(mockRows)),
-  updateCategory: jest.fn((name: string, updates: { note?: string | null }) => {
+  // Like the server: a write made from an older copy of the note is refused.
+  updateCategory: jest.fn((name: string, updates: { note?: string | null; prevNote?: string }) => {
+    const { HttpError } = jest.requireActual<typeof import('@/src/api/client')>('@/src/api/client')
+    const current = mockRows.find((r) => r.name === name)?.note ?? ''
+    if (updates.prevNote !== undefined && current !== updates.prevNote) return Promise.reject(new HttpError(409, 'note changed'))
     mockRows = mockRows.map((r) => (r.name === name ? { ...r, note: updates.note ?? undefined } : r))
     return Promise.resolve()
   }),
@@ -55,7 +59,7 @@ it('adds a note: empty, type, save', async () => {
   expect(s.getByPlaceholderText('Due date, account no., autopay?')).toBeTruthy()
   fireEvent.changeText(s.getByTestId('note-input'), '  Due 5th, autopay on  ')
   fireEvent.press(s.getByLabelText('Save note'))
-  await waitFor(() => expect(update).toHaveBeenCalledWith('Rent', { note: 'Due 5th, autopay on' }, null))
+  await waitFor(() => expect(update).toHaveBeenCalledWith('Rent', { note: 'Due 5th, autopay on', prevNote: '' }, null))
 })
 
 it('clears with null when saved empty', async () => {
@@ -63,13 +67,13 @@ it('clears with null when saved empty', async () => {
   fireEvent.press(s.getByText('Edit note'))
   fireEvent.changeText(s.getByTestId('note-input'), '   ')
   fireEvent.press(s.getByLabelText('Save note'))
-  await waitFor(() => expect(update).toHaveBeenCalledWith('Rent', { note: null }, null))
+  await waitFor(() => expect(update).toHaveBeenCalledWith('Rent', { note: null, prevNote: 'old note' }, null))
 })
 
 it('saves a tick right away as [x]', async () => {
   const s = open({ note: '- pay rent\n- call owner' })
   fireEvent.press(s.getAllByRole('checkbox')[0])
-  await waitFor(() => expect(update).toHaveBeenCalledWith('Rent', { note: '[x] pay rent\n- call owner' }, null))
+  await waitFor(() => expect(update).toHaveBeenCalledWith('Rent', { note: '[x] pay rent\n- call owner', prevNote: '- pay rent\n- call owner' }, null))
   expect(s.getAllByRole('checkbox')[0]).toBeChecked()
   // The row's badge holds until the sheet is out of the way.
   expect(s.getByText('0/2')).toBeTruthy()
@@ -105,7 +109,7 @@ it('saves what was typed when the sheet is dismissed mid-edit', async () => {
   fireEvent.press(s.getByText('Add a note'))
   fireEvent.changeText(s.getByTestId('note-input'), 'half a thought')
   await act(async () => fireEvent.press(s.getByTestId('bottom-sheet-backdrop')))
-  expect(update).toHaveBeenCalledWith('Rent', { note: 'half a thought' }, null)
+  expect(update).toHaveBeenCalledWith('Rent', { note: 'half a thought', prevNote: '' }, null)
   await waitFor(() => expect(onToast).toHaveBeenCalledWith('Note saved'))
 })
 
@@ -163,7 +167,7 @@ it('ticks on top of an edit that landed while the sheet was open', async () => {
   act(() => queryClient.setQueryData(['categories'], [{ name: 'Rent', group: 'Bills', note: '- pay rent\n- partner added this' }]))
   await waitFor(() => expect(s.getByText('partner added this')).toBeTruthy())
   fireEvent.press(s.getAllByRole('checkbox')[0])
-  await waitFor(() => expect(update).toHaveBeenCalledWith('Rent', { note: '[x] pay rent\n- partner added this' }, null))
+  await waitFor(() => expect(update).toHaveBeenCalledWith('Rent', { note: '[x] pay rent\n- partner added this', prevNote: '- pay rent\n- partner added this' }, null))
 })
 
 it('still saves on dismiss when the Save in flight fails', async () => {
@@ -175,7 +179,7 @@ it('still saves on dismiss when the Save in flight fails', async () => {
   fireEvent.press(s.getByLabelText('Save note'))
   await act(async () => fireEvent.press(s.getByTestId('bottom-sheet-backdrop')))
   await waitFor(() => expect(update).toHaveBeenCalledTimes(2))
-  expect(update).toHaveBeenLastCalledWith('Rent', { note: 'keep me' }, null)
+  expect(update).toHaveBeenLastCalledWith('Rent', { note: 'keep me', prevNote: '' }, null)
 })
 
 it('pins the save to the budget it was written in', async () => {
@@ -185,6 +189,41 @@ it('pins the save to the budget it was written in', async () => {
   fireEvent.press(s.getByText('Add a note'))
   fireEvent.changeText(s.getByTestId('note-input'), 'ours')
   fireEvent.press(s.getByLabelText('Save note'))
-  await waitFor(() => expect(update).toHaveBeenCalledWith('Rent', { note: 'ours' }, 'shared-budget'))
+  await waitFor(() => expect(update).toHaveBeenCalledWith('Rent', { note: 'ours', prevNote: '' }, 'shared-budget'))
   setActiveBudget(null)
+})
+
+it("doesn't tick over a change the sheet hasn't seen, and shows the latest", async () => {
+  const s = open({ note: '- pay rent' })
+  // A partner's edit is on the server, but this sheet still has the old copy.
+  mockRows = [{ name: 'Rent', group: 'Bills', note: '- pay rent\n- partner added this' }]
+  fireEvent.press(s.getAllByRole('checkbox')[0])
+  await waitFor(() => expect(s.getByText("This note changed on another device. Here's the latest.")).toBeTruthy())
+  expect(s.getByText('partner added this')).toBeTruthy()
+  expect(mockRows[0].note).toBe('- pay rent\n- partner added this')
+})
+
+it("keeps your draft when the note changed elsewhere, and a second Save replaces it on purpose", async () => {
+  const s = open({ note: 'old note' })
+  fireEvent.press(s.getByText('Edit note'))
+  fireEvent.changeText(s.getByTestId('note-input'), 'mine')
+  mockRows = [{ name: 'Rent', group: 'Bills', note: 'theirs' }]
+  fireEvent.press(s.getByLabelText('Save note'))
+  await waitFor(() => expect(s.getByText('This note changed on another device. Save again to replace it.')).toBeTruthy())
+  expect(mockRows[0].note).toBe('theirs')
+  expect(s.getByTestId('note-input').props.value).toBe('mine')
+  fireEvent.press(s.getByLabelText('Save note'))
+  await waitFor(() => expect(mockRows[0].note).toBe('mine'))
+})
+
+it("doesn't save over a newer note when the sheet is dismissed mid-edit", async () => {
+  const onToast = jest.fn()
+  const s = open({ note: 'old note' }, onToast)
+  fireEvent.press(s.getByText('Edit note'))
+  fireEvent.changeText(s.getByTestId('note-input'), 'half a thought')
+  mockRows = [{ name: 'Rent', group: 'Bills', note: 'theirs' }]
+  await act(async () => fireEvent.press(s.getByTestId('bottom-sheet-backdrop')))
+  expect(update).toHaveBeenCalledWith('Rent', { note: 'half a thought', prevNote: 'old note' }, null)
+  await waitFor(() => expect(onToast).toHaveBeenCalledWith("This note changed on another device. Your draft's waiting in the sheet."))
+  expect(mockRows[0].note).toBe('theirs')
 })

@@ -24,7 +24,8 @@ import { allowanceNote, paceLine, resetChip, weekResult, type WeekPace } from '@
 import { goalProgress } from '@/src/lib/goal'
 import { GoalLine } from './GoalFields'
 import { ShimmerText } from '@/src/components/shared/ShimmerText'
-import { NoteBlock, draftKey, keptDrafts } from './NoteBlock'
+import { NOTE_CHANGED, NoteBlock, draftKey, keptDrafts } from './NoteBlock'
+import { HttpError } from '@/src/api/client'
 import { checklistCount } from '@/src/lib/noteRender'
 import { Note } from '@/src/components/shared/icons'
 import { PopIn } from '@/src/components/shared/PopIn'
@@ -160,7 +161,7 @@ export function EnvelopeRow({
   // Bumped when a note lands, so the row's glyph pops in once the sheet is out of the way.
   const [notePop, setNotePop] = useState(0)
   const [noteEditing, setNoteEditing] = useState(false)
-  const pendingNote = useRef<(() => string | undefined) | null>(null)
+  const pendingNote = useRef<(() => { text: string; base: string } | undefined) | null>(null)
   // The row's note as the sheet opened: a change lands on the row once the sheet is gone, not behind it.
   const [noteAtOpen, setNoteAtOpen] = useState<string | undefined>()
   const saveNote = useSaveNote()
@@ -174,21 +175,24 @@ export function EnvelopeRow({
 
   function closeSheet() {
     // Closing mid-edit keeps what was typed: save it on the way out.
-    const draft = pendingNote.current?.()
+    const pending = pendingNote.current?.()
     // Taken: the sheet's unmount mustn't keep it as unsaved too.
     pendingNote.current = null
-    if (draft !== undefined) {
+    if (pending !== undefined) {
+      const { text: draft, base } = pending
       const key = draftKey(envelope.category)
       const category = envelope.category
-      saveNote(category, draft.trim() || null).then(
+      saveNote(category, draft.trim() || null, base).then(
         () => {
           keptDrafts.delete(key)
           setNotePop((n) => n + 1)
           onToast?.(draft.trim() ? 'Note saved' : 'Note cleared')
         },
-        () => {
+        (e) => {
           keptDrafts.set(key, draft)
-          onToast?.("Couldn't save your note. It's waiting for you in the sheet.")
+          onToast?.(e instanceof HttpError && e.status === 409
+            ? `${NOTE_CHANGED} Your draft's waiting in the sheet.`
+            : "Couldn't save your note. It's waiting for you in the sheet.")
         },
       )
     }
