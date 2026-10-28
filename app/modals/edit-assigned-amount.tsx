@@ -53,8 +53,9 @@ function EditAssignedAmountModal() {
   // envelopes doesn't mean closing and reopening this screen for each one.
   const [category, setCategory] = useState(() => str(params.category))
   // Home's Ready to Assign tap: open already moved by what gets it to zero
-  // (raised by what's left, or lowered by what's over).
-  const adjust = Number(str(params.adjust)) || 0
+  // (raised by what's left, or lowered by what's over). Once only: switching
+  // away and back opens at what was saved, not adjusted again.
+  const [adjust, setAdjust] = useState(() => Number(str(params.adjust)) || 0)
 
   const budgetsQ = useBudgets()
   const carryQ = useCarry(currentMonthKey())
@@ -97,6 +98,7 @@ function EditAssignedAmountModal() {
         // A save just invalidated budgets; wait for fresh rows so the next
         // envelope starts from the real Ready to Assign, not the old one.
         await budgetsQ.refetch()
+        setAdjust(0)
         setCategory(next)
       }}
       month={month}
@@ -110,7 +112,7 @@ function EditAssignedAmountModal() {
       lastMonthAssigned={lastMonthAssigned}
       goalNeed={goal?.monthlyNeed !== undefined && goal.by ? { amount: goal.monthlyNeed, by: goal.by } : undefined}
       readyToAssign={envelopeState.readyToAssign}
-      adjust={category === str(params.category) ? adjust : 0}
+      adjust={adjust}
     />
   )
 }
