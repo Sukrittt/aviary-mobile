@@ -4,7 +4,7 @@ import { currencyUnit } from '@/src/lib/currencies'
 import { useRecurringIncomes } from '@/src/hooks/useIncomes'
 import { useAccounts } from '@/src/hooks/useAccounts'
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { View, Text, Pressable, RefreshControl, StyleSheet, Linking, Platform } from 'react-native'
+import { View, Text, Pressable, RefreshControl, ScrollView, StyleSheet, Linking, Platform } from 'react-native'
 import { useQuery } from '@tanstack/react-query'
 import { useRouter, useNavigation, useFocusEffect } from 'expo-router'
 import { CaretRight, ChartLine, MoneyWavy, Note, Plant } from '@/src/components/shared/icons'
@@ -812,16 +812,19 @@ function HomeScreen() {
         <Text style={[styles.sheetLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
           {rta > 0 ? (goalFunding.length > 0 ? 'Or pick a category' : 'Pick a category') : 'Take it back from'}
         </Text>
-        {rtaCategories.map((e) => (
-          <SheetOption
-            key={e.category}
-            label={splitEmoji(e.category).text}
-            onPress={() => {
-              setRtaSheetOpen(false)
-              router.push({ pathname: '/modals/edit-assigned-amount', params: { category: e.category, ...(rta < 0 ? { takeBack: String(-rta) } : {}) } })
-            }}
-          />
-        ))}
+        {/* Capped, so a long list scrolls in place and Cancel stays in reach. A half row peeks to say there's more. */}
+        <ScrollView style={styles.rtaList} nestedScrollEnabled showsVerticalScrollIndicator={false}>
+          {rtaCategories.map((e) => (
+            <SheetOption
+              key={e.category}
+              label={splitEmoji(e.category).text}
+              onPress={() => {
+                setRtaSheetOpen(false)
+                router.push({ pathname: '/modals/edit-assigned-amount', params: { category: e.category, ...(rta < 0 ? { takeBack: String(-rta) } : {}) } })
+              }}
+            />
+          ))}
+        </ScrollView>
         <SheetOption label="Cancel" tone="cancel" onPress={() => setRtaSheetOpen(false)} />
       </BottomSheet>
       <GraceBanner status={billing} />
@@ -836,6 +839,7 @@ const styles = StyleSheet.create({
   incomePill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 6, marginTop: 4 },
   heroLabel: { fontSize: 12, letterSpacing: 0.6 },
   heroHint: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 2 },
+  rtaList: { maxHeight: 300 }, // ~5.5 rows
   sheetLabel: { fontSize: 12, paddingTop: 14, paddingBottom: 6, textAlign: 'center' },
   slimRta: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14 },
   slimLabel: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 30 }, // minHeight = rtaIcon, so the row keeps its height while celebrating
