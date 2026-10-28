@@ -185,7 +185,7 @@ export function shortGoalLine(p: GoalProgress, money: (n: number) => string): st
  * spending as pills at the end; a behind goal's Set lives in the row's money
  * column (EnvelopeRow). Without onPull it's the plain line.
  */
-export function GoalLine({ category, goal, progress, month, money, onPull }: {
+export function GoalLine({ category, goal, progress, month, money, onPull, trailing }: {
   category: string
   goal: CategoryGoal
   progress: GoalProgress
@@ -193,6 +193,8 @@ export function GoalLine({ category, goal, progress, month, money, onPull }: {
   money: (n: number) => string
   /** Present where the goal can be changed. Omitted: no actions (read-only). */
   onPull?: (category: string, amount: number) => void
+  /** Sits right after the line's text, e.g. the row's note glyph. */
+  trailing?: ReactNode
 }) {
   const { tokens } = useTheme()
   const update = useUpdateCategory()
@@ -232,6 +234,7 @@ export function GoalLine({ category, goal, progress, month, money, onPull }: {
         <Text style={[styles.line, { color, fontFamily: fontFamily.bodySemiBold }]} numberOfLines={1}>
           {shortGoalLine(progress, money)}
         </Text>
+        {trailing}
         {actions}
       </View>
       {!!error && <Text style={[styles.line, { color: tokens.coral, fontFamily: fontFamily.bodyMedium }]}>{error}</Text>}

@@ -217,6 +217,21 @@ export function EnvelopeRow({
   const rowNote = sheetOpen ? noteAtOpen : row?.note
   const todos = rowNote ? checklistCount(rowNote) : null
 
+  // Rides the row's bottom line so the name keeps the top line's width. A card payment row has no bottom line.
+  const noteGlyph = todos && (
+    // Keyed on notePop: a fresh note pops in after the sheet's slide-out; a first paint just sits there.
+    <PopIn key={notePop} play={notePop > 0} delay={motion.base} style={styles.noteGlyph}>
+      <View accessible accessibilityLabel={todos.total > todos.done ? `Note, ${todos.done} of ${todos.total} done` : 'Has a note'} style={styles.noteGlyph}>
+        <Note size={13} color={tokens.text3} />
+        {todos.total > todos.done && (
+          <PopOnChange value={todos.done}>
+            <Text style={[styles.noteCount, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>{todos.done}/{todos.total}</Text>
+          </PopOnChange>
+        )}
+      </View>
+    </PopIn>
+  )
+
   return (
     <View style={styles.row}>
       <Pressable style={styles.main} onPress={openSheet}>
@@ -230,19 +245,7 @@ export function EnvelopeRow({
           >
             {name}
           </Text>
-          {todos && (
-            // Keyed on notePop: a fresh note pops in after the sheet's slide-out; a first paint just sits there.
-            <PopIn key={notePop} play={notePop > 0} delay={motion.base} style={styles.noteGlyph}>
-              <View accessible accessibilityLabel={todos.total > todos.done ? `Note, ${todos.done} of ${todos.total} done` : 'Has a note'} style={styles.noteGlyph}>
-                <Note size={13} color={tokens.text3} />
-                {todos.total > todos.done && (
-                  <PopOnChange value={todos.done}>
-                    <Text style={[styles.noteCount, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>{todos.done}/{todos.total}</Text>
-                  </PopOnChange>
-                )}
-              </View>
-            </PopIn>
-          )}
+          {envelope.isCreditCardPayment && noteGlyph}
           <Text style={[styles.spentOf, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
             {goal
               ? `${money(goal.saved)} of ${money(goal.target)}`
@@ -261,7 +264,7 @@ export function EnvelopeRow({
             ) : (
               <ProgressBar pct={goal.pct} tick={100} />
             )}
-            <GoalLine category={envelope.category} goal={row.goal} progress={goal} month={month} money={money} onPull={readOnly ? undefined : onMoveMoney} />
+            <GoalLine category={envelope.category} goal={row.goal} progress={goal} month={month} money={money} onPull={readOnly ? undefined : onMoveMoney} trailing={noteGlyph} />
           </>
         ) : pace ? (
           <>
@@ -270,16 +273,20 @@ export function EnvelopeRow({
               <Text style={[styles.metaLine, styles.paceText, { color: pace.status === 'over' ? tokens.pillOver : tokens.text3, fontFamily: fontFamily.bodySemiBold }]} numberOfLines={1}>
                 {paceLine(pace, money)}
               </Text>
-              <Text style={[styles.metaLine, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>{resetChip(pace)}</Text>
+              {noteGlyph}
+              <Text style={[styles.metaLine, styles.resetChip, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>{resetChip(pace)}</Text>
             </View>
           </>
         ) : (
           <ProgressBar pct={envelope.spentPct} over={envelope.isOverspent} />
         )}
         {!pace && !goal && !envelope.isCreditCardPayment && (
-          <Text style={[styles.metaLine, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>
-            {unbudgeted ? 'Not budgeted · ' : ''}Last spent {lastSpentLabel(envelope.lastSpentDate)}
-          </Text>
+          <View style={styles.paceLine}>
+            <Text style={[styles.metaLine, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>
+              {unbudgeted ? 'Not budgeted · ' : ''}Last spent {lastSpentLabel(envelope.lastSpentDate)}
+            </Text>
+            {noteGlyph}
+          </View>
         )}
       </Pressable>
       <Pressable
@@ -513,7 +520,8 @@ const styles = StyleSheet.create({
   paceLine: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   collapse: { overflow: 'hidden' },
   collapseInner: { position: 'absolute', left: 0, right: 0, bottom: 0 },
-  paceText: { flex: 1 },
+  paceText: { flexShrink: 1 },
+  resetChip: { marginLeft: 'auto' },
   weeklySwitch: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderBottomWidth: StyleSheet.hairlineWidth },
   weeks: { gap: 2, marginBottom: 8 },
   weekRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6 },
