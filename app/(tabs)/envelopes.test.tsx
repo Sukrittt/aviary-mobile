@@ -379,3 +379,16 @@ it("turning a goal off from Edit sends it back to spending, and its alerts come 
   expect(mockUpdateCategory).toHaveBeenCalledWith({ name: 'House category 0', updates: { goal: null } })
   delete (mockCategories[0] as { goal?: unknown }).goal
 })
+
+it('a finished one-off goal still lets Edit save a rename, and keeps the goal', async () => {
+  mockUpdateCategory.mockReset().mockResolvedValue(undefined)
+  const { currentMonthKey, shiftMonthKey } = jest.requireActual('@/src/lib/envelope')
+  mockCategories[0] = { ...mockCategories[0], goal: { amount: 5000, by: shiftMonthKey(currentMonthKey(), -1) } } as never
+  const screen = render(<EnvelopesScreen />)
+  fireEvent.press(screen.getByText('House category 0'))
+  fireEvent.press(screen.getByText('Edit'))
+  fireEvent.changeText(screen.getByLabelText('Name'), 'Trip')
+  await act(async () => { fireEvent.press(screen.getByText('Save')) })
+  expect(mockUpdateCategory).toHaveBeenCalledWith({ name: 'House category 0', updates: { newName: 'Trip' } })
+  delete (mockCategories[0] as { goal?: unknown }).goal
+})
