@@ -96,7 +96,7 @@ function OpenGapSheet({ since, onSeen }: { since: string; onSeen: (option: strin
           </View>
         </View>
         <View style={[styles.steps, { marginTop: space.md, paddingTop: space.md, borderTopColor: tokens.borderStrong }]}>
-          {['Share it', 'Aviary reads it', "You tick what's right"].map((step, i) => (
+          {['Share it', 'Aviary reads it', 'You check it'].map((step, i) => (
             <View key={step} style={styles.step}>
               {i > 0 && <Text style={{ color: tokens.borderStrong, fontSize: type.caption }}>›</Text>}
               <View style={[styles.stepNo, { backgroundColor: tokens.inputBg }]}>
