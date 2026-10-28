@@ -820,7 +820,7 @@ function HomeScreen() {
               label={splitEmoji(e.category).text}
               onPress={() => {
                 setRtaSheetOpen(false)
-                router.push({ pathname: '/modals/edit-assigned-amount', params: { category: e.category, ...(rta < 0 ? { takeBack: String(-rta) } : {}) } })
+                router.push({ pathname: '/modals/edit-assigned-amount', params: { category: e.category, adjust: String(rta) } })
               }}
             />
           ))}

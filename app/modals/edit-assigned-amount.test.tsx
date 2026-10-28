@@ -292,13 +292,13 @@ it("a goal with a deadline gets its monthly amount as the only chip", async () =
   expect(queryByText(/Last month/)).toBeNull()
 })
 
-it('opens lowered by takeBack, so a plain Save frees it to Ready to Assign', async () => {
+it('opens lowered by a negative adjust, so a plain Save frees it to Ready to Assign', async () => {
   ;(updateBudget as jest.Mock).mockResolvedValue({})
   const { getByLabelText, getByText } = setup([
     { month: MONTH, category: '__income__', assigned: '4000', rolled_over: '0', version: 2 },
     { month: MONTH, category: 'Food', assigned: '5000', rolled_over: '0', version: 7 },
   ])
-  mockParams = { category: 'Food', takeBack: '1000' }
+  mockParams = { category: 'Food', adjust: '-1000' }
 
   await waitFor(() => expect(getByLabelText('₹4,000')).toBeTruthy())
   expect(getByText('Frees ₹1,000 back to Ready to Assign')).toBeTruthy()
@@ -309,12 +309,52 @@ it('opens lowered by takeBack, so a plain Save frees it to Ready to Assign', asy
   await waitFor(() => expect(updateBudget).toHaveBeenCalledWith(MONTH, 'Food', { assigned: '4000' }, 7))
 })
 
-it('never opens a takeBack below 0', async () => {
+it('never opens a negative adjust below 0', async () => {
   const { getByLabelText } = setup([
     { month: MONTH, category: '__income__', assigned: '4000', rolled_over: '0', version: 2 },
     { month: MONTH, category: 'Food', assigned: '500', rolled_over: '0', version: 7 },
   ])
-  mockParams = { category: 'Food', takeBack: '1000' }
+  mockParams = { category: 'Food', adjust: '-1000' }
 
   await waitFor(() => expect(getByLabelText('₹0')).toBeTruthy())
+})
+
+it('opens raised by a positive adjust, so a plain Save empties Ready to Assign', async () => {
+  ;(updateBudget as jest.Mock).mockResolvedValue({})
+  const { getByLabelText, getByText } = setup([
+    { month: MONTH, category: '__income__', assigned: '10000', rolled_over: '0', version: 2 },
+    { month: MONTH, category: 'Food', assigned: '5000', rolled_over: '0', version: 7 },
+  ])
+  mockParams = { category: 'Food', adjust: '5000' }
+
+  await waitFor(() => expect(getByLabelText('₹10,000')).toBeTruthy())
+  expect(getByText('Pulls ₹5,000 from Ready to Assign')).toBeTruthy()
+  expect(getByText('₹0 left to assign')).toBeTruthy()
+
+  await act(async () => {
+    fireEvent.press(getByText('Save'))
+  })
+  await waitFor(() => expect(updateBudget).toHaveBeenCalledWith(MONTH, 'Food', { assigned: '10000' }, 7))
+})
+
+it('Give it all adds everything left in Ready to Assign on top of what is assigned', async () => {
+  const { getByLabelText, getByText } = setup([
+    { month: MONTH, category: '__income__', assigned: '10000', rolled_over: '0', version: 2 },
+    { month: MONTH, category: 'Food', assigned: '5000', rolled_over: '0', version: 7 },
+  ])
+
+  await waitFor(() => expect(getByLabelText('₹5,000')).toBeTruthy())
+  fireEvent.press(getByText('Give it all · ₹5,000'))
+  expect(getByLabelText('₹10,000')).toBeTruthy()
+  expect(getByText('₹0 left to assign')).toBeTruthy()
+})
+
+it('hides Give it all when there is nothing left to assign', async () => {
+  const { getByLabelText, queryByText } = setup([
+    { month: MONTH, category: '__income__', assigned: '5000', rolled_over: '0', version: 2 },
+    { month: MONTH, category: 'Food', assigned: '5000', rolled_over: '0', version: 7 },
+  ])
+
+  await waitFor(() => expect(getByLabelText('₹5,000')).toBeTruthy())
+  expect(queryByText(/Give it all/)).toBeNull()
 })
