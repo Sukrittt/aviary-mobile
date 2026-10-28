@@ -7,7 +7,7 @@ import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { CalendarSheet } from '@/src/components/shared/DatePicker'
 import { CalendarBlank, Check, CheckSquare, PencilSimple } from '@/src/components/shared/icons'
 import { Chip } from '@/src/components/ui/Chip'
-import { useUpdateCategory } from '@/src/hooks/useCategories'
+import { useSaveNote } from '@/src/hooks/useCategories'
 import { useOnline } from '@/src/lib/netStatus'
 import { toLocalDateString, todayLocal } from '@/src/lib/date'
 import { addTodo, dayLabel, goalFit, insertAt, noteDate, parseNote, toggleLine, type Segment } from '@/src/lib/noteRender'
@@ -78,7 +78,7 @@ export function NoteBlock({ row, readOnly, pending, onSaved, onEditingChange }: 
   const { tokens } = useTheme()
   const { formatCurrency, formatCompact, currencySymbol } = useCurrency()
   const online = useOnline()
-  const update = useUpdateCategory()
+  const saveNote = useSaveNote()
   const box = useRef<TextInput>(null)
   const caret = useRef(0)
   const caretAfter = useRef<number | null>(null)
@@ -148,7 +148,7 @@ export function NoteBlock({ row, readOnly, pending, onSaved, onEditingChange }: 
     setError('')
     try {
       // Blank clears it: the server trims and stores null.
-      await update.mutateAsync({ name: row.name, updates: { note: draft.trim() || null } })
+      await saveNote(row.name, draft.trim() || null)
       keptDrafts.delete(draftKey(row.name))
       setSuccess(true)
     } catch {
@@ -167,7 +167,7 @@ export function NoteBlock({ row, readOnly, pending, onSaved, onEditingChange }: 
     setTicking(true)
     setError('')
     try {
-      await update.mutateAsync({ name: row.name, updates: { note: next } })
+      await saveNote(row.name, next)
     } catch {
       setNote(before)
       setError(SAVE_FAILED)

@@ -2,7 +2,7 @@ import { act, fireEvent, waitFor } from '@testing-library/react-native'
 import { EnvelopeRow } from './EnvelopeRow'
 import { keptDrafts } from './NoteBlock'
 import { createTestQueryClient, renderWithProviders } from '@/src/test-utils/renderWithProviders'
-import { updateCategory } from '@/src/api/categories'
+import { getCategories, updateCategory } from '@/src/api/categories'
 import { useOnline } from '@/src/lib/netStatus'
 import { useBudgetSpaces } from '@/src/hooks/useBudgetSpaces'
 import type { CategoryRow } from '@/src/types'
@@ -136,4 +136,14 @@ it("doesn't carry a kept draft into another budget's category of the same name",
   setActiveBudget('budget-b')
   expect(open().queryByTestId('note-input')).toBeNull()
   setActiveBudget(null)
+})
+
+it("lands the save's check without waiting for the list to refetch", async () => {
+  ;(getCategories as jest.Mock).mockImplementationOnce(() => new Promise(() => {}))
+  const s = open()
+  fireEvent.press(s.getByText('Add a note'))
+  fireEvent.changeText(s.getByTestId('note-input'), 'rent on the 5th')
+  fireEvent.press(s.getByLabelText('Save note'))
+  await waitFor(() => expect(s.queryByText('Saving…')).toBeNull())
+  expect(s.queryByText('Save note')).toBeNull()
 })

@@ -126,6 +126,22 @@ export function useAddCategory() {
   })
 }
 
+/**
+ * Saves an envelope's note (null or blank clears it). Resolves once the server
+ * has it, not after the list refetches: the save's check is the moment people
+ * remember, so it shouldn't wait on a second round trip. The cached row takes
+ * the note right away and the refetch catches up behind it.
+ */
+export function useSaveNote() {
+  const qc = useQueryClient()
+  return useCallback(async (name: string, note: string | null) => {
+    await updateCategory(name, { note })
+    const stored = note?.trim() || undefined
+    qc.setQueriesData<CategoryRow[]>({ queryKey: key }, (rows) => rows?.map((r) => (r.name === name ? { ...r, note: stored } : r)))
+    void qc.invalidateQueries({ queryKey: key })
+  }, [qc])
+}
+
 export function useUpdateCategory() {
   const qc = useQueryClient()
   return useMutation({

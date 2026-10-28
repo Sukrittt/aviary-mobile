@@ -1,4 +1,4 @@
-import { useCategories, useCategoryTint, useUpdateCategory } from '@/src/hooks/useCategories'
+import { useCategories, useCategoryTint, useSaveNote } from '@/src/hooks/useCategories'
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { useEffect, useRef, useState } from 'react'
 import { View, Text, Pressable, StyleSheet } from 'react-native'
@@ -163,7 +163,7 @@ export function EnvelopeRow({
   const pendingNote = useRef<(() => string | undefined) | null>(null)
   // The row's note as the sheet opened: a change lands on the row once the sheet is gone, not behind it.
   const [noteAtOpen, setNoteAtOpen] = useState<string | undefined>()
-  const updateCategory = useUpdateCategory()
+  const saveNote = useSaveNote()
 
   function openSheet() {
     tap()
@@ -180,7 +180,7 @@ export function EnvelopeRow({
     if (draft !== undefined) {
       const key = draftKey(envelope.category)
       const category = envelope.category
-      updateCategory.mutateAsync({ name: category, updates: { note: draft.trim() || null } }).then(
+      saveNote(category, draft.trim() || null).then(
         () => {
           keptDrafts.delete(key)
           setNotePop((n) => n + 1)
