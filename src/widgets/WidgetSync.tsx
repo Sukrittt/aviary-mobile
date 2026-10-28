@@ -139,9 +139,9 @@ export async function lockWidgets(preference: ThemePreference): Promise<void> {
   for (const widgetName of ["Envelope", "EnvelopeBar", "EnvelopeMini"]) {
     void requestWidgetUpdate({
       widgetName,
-      renderWidget: () =>
+      renderWidget: (info: WidgetInfo) =>
         variants(preference, (tokens, scheme) => (
-          <SignInWidget tokens={tokens} scheme={scheme} compact={widgetName !== "Envelope"} />
+          <SignInWidget tokens={tokens} scheme={scheme} widgetName={widgetName} width={info.width} height={info.height} />
         )),
     });
   }
