@@ -762,7 +762,7 @@ const styles = StyleSheet.create({
   incomePill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 6, marginTop: 4 },
   heroLabel: { fontSize: 12, letterSpacing: 0.6 },
   slimRta: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14 },
-  slimLabel: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  slimLabel: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 30 }, // minHeight = rtaIcon, so the row keeps its height while celebrating
   rtaIcon: { width: 30, height: 30, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
   slimAmount: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   headerMonth: { alignItems: 'center' },
