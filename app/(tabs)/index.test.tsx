@@ -188,7 +188,7 @@ describe('HomeScreen · Ready to Assign', () => {
     expect(getByText('Pick a category')).toBeTruthy()
     // The sheet's row, after the envelope list's.
     fireEvent.press(getAllByText('Food').at(-1)!)
-    expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/modals/edit-assigned-amount', params: { category: 'Food' } })
+    expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/modals/edit-assigned-amount', params: { category: 'Food', adjust: '15000' } })
   })
 
   it('funds behind goals in one tap', async () => {
@@ -217,7 +217,7 @@ describe('HomeScreen · Ready to Assign', () => {
     expect(getByText('Take it back from')).toBeTruthy()
     // The sheet's row, after the envelope list's.
     fireEvent.press(getAllByText('Food').at(-1)!)
-    expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/modals/edit-assigned-amount', params: { category: 'Food', takeBack: '1000' } })
+    expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/modals/edit-assigned-amount', params: { category: 'Food', adjust: '-1000' } })
   })
 
   it('Change income edits the one monthly schedule, or sends you to pick among several', () => {

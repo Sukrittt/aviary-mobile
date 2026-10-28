@@ -52,8 +52,10 @@ function EditAssignedAmountModal() {
   // Switchable in place from the envelope card, so assigning across several
   // envelopes doesn't mean closing and reopening this screen for each one.
   const [category, setCategory] = useState(() => str(params.category))
-  // Home's negative Ready to Assign "Take it back": open lowered by what's over.
-  const takeBack = Number(str(params.takeBack)) || 0
+  // Home's Ready to Assign tap: open already moved by what gets it to zero
+  // (raised by what's left, or lowered by what's over). Once only: switching
+  // away and back opens at what was saved, not adjusted again.
+  const [adjust, setAdjust] = useState(() => Number(str(params.adjust)) || 0)
 
   const budgetsQ = useBudgets()
   const carryQ = useCarry(currentMonthKey())
@@ -96,6 +98,7 @@ function EditAssignedAmountModal() {
         // A save just invalidated budgets; wait for fresh rows so the next
         // envelope starts from the real Ready to Assign, not the old one.
         await budgetsQ.refetch()
+        setAdjust(0)
         setCategory(next)
       }}
       month={month}
@@ -109,7 +112,7 @@ function EditAssignedAmountModal() {
       lastMonthAssigned={lastMonthAssigned}
       goalNeed={goal?.monthlyNeed !== undefined && goal.by ? { amount: goal.monthlyNeed, by: goal.by } : undefined}
       readyToAssign={envelopeState.readyToAssign}
-      takeBack={category === str(params.category) ? takeBack : 0}
+      adjust={adjust}
     />
   )
 }
@@ -127,7 +130,7 @@ function EditAmountBody({
   lastMonthAssigned,
   goalNeed,
   readyToAssign,
-  takeBack,
+  adjust,
   onSwitch,
 }: {
   category: string
@@ -144,8 +147,8 @@ function EditAmountBody({
   /** A goal's monthly amount to make its deadline (src/lib/goal.ts), offered as a pick. */
   goalNeed?: { amount: number; by: string }
   readyToAssign: number
-  /** Start this much below currentAssigned (never below 0). */
-  takeBack: number
+  /** Start this much off currentAssigned, either way (never below 0). */
+  adjust: number
   onSwitch: (category: string) => Promise<void>
 }) {
   const { formatCurrency, formatAmountInput, formatMoney } = useCurrency()
@@ -160,7 +163,7 @@ function EditAmountBody({
   const name = isCreditCardPayment ? 'Credit Card Payment' : splitEmoji(category).text
   const iconKey: CategoryIconKey = isCreditCardPayment ? 'CreditCard' : categoryIconKey(category, icon, group)
 
-  const { amount: amountText, setAmount: setAmountText, pushDigit, handleBackspace, shake } = useAmountEntry(amountSeed(Math.max(0, Math.round((currentAssigned - takeBack) * 100) / 100)))
+  const { amount: amountText, setAmount: setAmountText, pushDigit, handleBackspace, shake } = useAmountEntry(amountSeed(Math.max(0, Math.round((currentAssigned + adjust) * 100) / 100)))
   const [saving, setSaving] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState('')
@@ -171,6 +174,7 @@ function EditAmountBody({
   const [pickerOpen, setPickerOpen] = useState(false)
 
   const value = Number(amountText) || 0
+  const giveAll = Math.round((baseAssigned + baseReadyToAssign) * 100) / 100
   const delta = value - baseAssigned
   const projectedRTA = baseReadyToAssign - delta
   // An untouched 0 has nothing to project, so it just shows what's left.
@@ -316,6 +320,19 @@ function EditAmountBody({
             </Text>
           )}
         </View>
+
+        {/* Everything left lands here, so you don't do the sum yourself. */}
+        {baseReadyToAssign > 0 && (
+          <View style={styles.quickRow}>
+            <QuickChip
+              label={`Give it all · ${formatCurrency(baseReadyToAssign, hideAmounts)}`}
+              active={value === giveAll}
+              onPress={() => setAmountText(amountSeed(giveAll))}
+              tokens={tokens}
+              radius={radius}
+            />
+          </View>
+        )}
 
         {/* A goal with a deadline has one amount that matters, so it gets that chip alone. Round numbers and last month are for spending. */}
         {goalNeed ? (
