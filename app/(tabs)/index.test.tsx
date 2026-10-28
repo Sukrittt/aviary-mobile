@@ -312,6 +312,7 @@ describe('HomeScreen · Ready to Assign', () => {
 
   it('keeps sweeping the Ready to Assign amount, every digit at full strength between passes', () => {
     const hero = renderHome().getByTestId('rta-hero')
+    expect(hero.find((n) => n.props.id === 'ready-to-assign').props.sweep).toBe(true)
     const lit = hero.findAll((n) => typeof n.type === 'string' && typeof StyleSheet.flatten(n.props.style)?.opacity === 'number')
     expect(lit.length).toBeGreaterThan(1)
     expect(lit.every((n) => StyleSheet.flatten(n.props.style).opacity === 1)).toBe(true)
@@ -378,6 +379,8 @@ describe('HomeScreen · Ready to Assign', () => {
     const { findByTestId, queryByText } = renderWithProviders(<HomeScreen />, { queryClient })
     expect(await findByTestId('read-only-banner')).toBeTruthy()
     expect(queryByText('Get started')).toBeNull()
+    // A viewer can't give the money a job, so the hero doesn't nudge.
+    expect((await findByTestId('rta-hero')).find((n) => n.props.id === 'ready-to-assign').props.sweep).toBe(false)
   })
 
   it('hides Get Started when skipped, and remembers it on this device', async () => {
