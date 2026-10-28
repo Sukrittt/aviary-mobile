@@ -895,7 +895,10 @@ function EnvelopesScreen() {
   }
 
   const isCatSheet = sheet?.kind === 'addCategory' || sheet?.kind === 'renameCategory'
-  const draftGoal = goalPick ? goalOf(goalDraft) : null
+  const editedGoal = sheet?.kind === 'renameCategory' ? categories.find((c) => c.name === sheet.name)?.goal : undefined
+  // A one-off goal whose month is over fails goalOf, but left as it was it's still fine to keep through a rename.
+  const goalUntouched = !!editedGoal && goalPick === 'custom' && JSON.stringify(goalDraft) === JSON.stringify(draftOf(editedGoal))
+  const draftGoal = goalUntouched ? editedGoal : goalPick ? goalOf(goalDraft) : null
   // The Goals chip shows before the group exists, so the auto-pick is visible.
   const groupChips = groups.includes(draftGroup) || draftGroup === '' ? groups : [...groups, draftGroup]
   const isRenameSheet = sheet?.kind === 'renameCategory' || sheet?.kind === 'renameGroup'
