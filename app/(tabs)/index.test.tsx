@@ -310,7 +310,7 @@ describe('HomeScreen · Ready to Assign', () => {
     expect(second.queryByTestId('rta-slim')).toBeNull()
   })
 
-  it('keeps sweeping the Ready to Assign amount, every digit at full strength between passes', () => {
+  it('keeps a streak running across the Ready to Assign amount, every digit at full strength off it', () => {
     const hero = renderHome().getByTestId('rta-hero')
     expect(hero.find((n) => n.props.id === 'ready-to-assign').props.sweep).toBe(true)
     const lit = hero.findAll((n) => typeof n.type === 'string' && typeof StyleSheet.flatten(n.props.style)?.opacity === 'number')

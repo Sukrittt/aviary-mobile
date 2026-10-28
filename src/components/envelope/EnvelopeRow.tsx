@@ -322,7 +322,7 @@ export function EnvelopeRow({
         {behind > 0 && (
           <Pressable onPress={() => onMoveMoney(envelope.category, behind)} hitSlop={10} accessibilityRole="button" accessibilityLabel={`Set ${name}: pull ${money(behind)}`}
             style={[styles.setPill, { backgroundColor: tokens.pillLowBg }]}>
-            {/* The shimmer comes back every few seconds: Set is something the user still has to do. */}
+            {/* A streak runs across Set nonstop: it's something the user still has to do. */}
             <ShimmerText nudge on={active} text="Set" style={[styles.setText, { color: tokens.pillLow, fontFamily: fontFamily.bodySemiBold }]} />
           </Pressable>
         )}

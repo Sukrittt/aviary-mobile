@@ -14,22 +14,28 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated'
 
+/**
+ * `loop`: "in progress", a soft band with the text resting at 78%.
+ * `once`: "just arrived", one soft pass.
+ * `nudge`: "needs you", a bright streak running nonstop across text at full strength.
+ */
+export type SweepMode = 'once' | 'loop' | 'nudge'
+
 // How many letters either side of the band's centre catch some of the light.
 const BAND = 3
+// The nudge's streak is narrower, so it reads as a glint rather than a wash.
+const NUDGE_BAND = 2
 const PASS = { duration: 1500, easing: Easing.inOut(Easing.quad) }
-/** A nudge's rest between passes: long enough to read as "still waiting on you", not "loading". */
-export const NUDGE_REST_MS = 3000
+const NUDGE_PASS = { duration: 1800, easing: Easing.inOut(Easing.quad) }
 
 /**
- * Drives a soft bright band across some text, left to right. Looping means
- * "in progress" or "needs you now"; a single pass means "just arrived". A
- * single pass runs on mount while `on`, and again each time `on` turns true.
- * `restMs` is the pause between looping passes.
+ * Drives a band across some text, left to right (see SweepMode). A single
+ * pass runs on mount while `on`, and again each time `on` turns true.
  * Remount with a new key to replay it. Reduced motion: never moves.
  * `running` is false once a single pass is over, so callers can go back to
  * plain text.
  */
-export function useSweep(on: boolean, loop = false, restMs = 900) {
+export function useSweep(on: boolean, mode: SweepMode = 'once') {
   const reduceMotion = useReducedMotion()
   const sweep = useSharedValue(0)
   const [prevOn, setPrevOn] = useState(on)
@@ -45,50 +51,58 @@ export function useSweep(on: boolean, loop = false, restMs = 900) {
       return
     }
     sweep.value = 0
-    sweep.value = loop
-      ? withRepeat(withSequence(withTiming(1, PASS), withDelay(restMs, withTiming(0, { duration: 0 }))), -1)
-      : withDelay(250, withTiming(1, PASS, (finished) => {
-          if (finished) runOnJS(setRunning)(false)
-        }))
+    sweep.value = mode === 'nudge'
+      ? withRepeat(withTiming(1, NUDGE_PASS), -1, false)
+      : mode === 'loop'
+        ? withRepeat(withSequence(withTiming(1, PASS), withDelay(900, withTiming(0, { duration: 0 }))), -1)
+        : withDelay(250, withTiming(1, PASS, (finished) => {
+            if (finished) runOnJS(setRunning)(false)
+          }))
     return () => cancelAnimation(sweep)
-  }, [on, loop, restMs, reduceMotion, sweep])
+  }, [on, mode, reduceMotion, sweep])
   return { sweep, running: on && running && !reduceMotion }
 }
 
-/** How lit one letter is as the band passes. A loop rests at 0.78; a single pass fades in and out of full. */
-function useShimmerStyle(sweep: SharedValue<number>, index: number, count: number, loop: boolean) {
+/**
+ * How strong one letter is as the band passes. A loop rests at 0.78 and the band
+ * lifts it to full; a single pass fades that dip in and out; a nudge stays at full
+ * and the streak fades it to 0.3, so on dark text it reads as light.
+ */
+function useShimmerStyle(sweep: SharedValue<number>, index: number, count: number, mode: SweepMode) {
   return useAnimatedStyle(() => {
+    const band = mode === 'nudge' ? NUDGE_BAND : BAND
     // The band starts off the left edge and finishes off the right, so every pass reads as one motion.
-    const centre = -BAND + sweep.value * (count + BAND * 2)
-    const lit = Math.max(0, 1 - Math.abs(index - centre) / BAND)
-    const depth = loop ? 1 : Math.min(1, 4 * Math.min(sweep.value, 1 - sweep.value))
+    const centre = -band + sweep.value * (count + band * 2)
+    const lit = Math.max(0, 1 - Math.abs(index - centre) / band)
+    if (mode === 'nudge') return { opacity: 1 - lit * 0.7 }
+    const depth = mode === 'loop' ? 1 : Math.min(1, 4 * Math.min(sweep.value, 1 - sweep.value))
     return { opacity: 1 - (1 - lit) * 0.22 * depth }
   })
 }
 
 /** One slot (a letter, an odometer digit) lit up as the sweep passes over it. */
-export function ShimmerSlot({ sweep, index, count, loop = false, children }: { sweep: SharedValue<number>; index: number; count: number; loop?: boolean; children: ReactNode }) {
-  return <Animated.View style={useShimmerStyle(sweep, index, count, loop)}>{children}</Animated.View>
+export function ShimmerSlot({ sweep, index, count, mode = 'once', children }: { sweep: SharedValue<number>; index: number; count: number; mode?: SweepMode; children: ReactNode }) {
+  return <Animated.View style={useShimmerStyle(sweep, index, count, mode)}>{children}</Animated.View>
 }
 
-function ShimmerChar({ ch, index, count, sweep, loop, style }: { ch: string; index: number; count: number; sweep: SharedValue<number>; loop: boolean; style: StyleProp<TextStyle> }) {
-  return <Animated.Text style={[style, useShimmerStyle(sweep, index, count, loop)]}>{ch}</Animated.Text>
+function ShimmerChar({ ch, index, count, sweep, mode, style }: { ch: string; index: number; count: number; sweep: SharedValue<number>; mode: SweepMode; style: StyleProp<TextStyle> }) {
+  return <Animated.Text style={[style, useShimmerStyle(sweep, index, count, mode)]}>{ch}</Animated.Text>
 }
 
 /**
  * One line of text with the shimmer over it. Plain text when it isn't sweeping.
- * `nudge` is for something waiting on the user: the single pass, again every
- * few seconds, with the text at full strength between passes.
+ * `loop` for "in progress", `nudge` for something waiting on the user (see SweepMode).
  */
 export function ShimmerText({ text, style, on = true, loop = false, nudge = false }: { text: string; style?: StyleProp<TextStyle>; on?: boolean; loop?: boolean; nudge?: boolean }) {
-  const { sweep, running } = useSweep(on, loop || nudge, nudge ? NUDGE_REST_MS : undefined)
+  const mode: SweepMode = nudge ? 'nudge' : loop ? 'loop' : 'once'
+  const { sweep, running } = useSweep(on, mode)
   if (!running) {
     return <Text numberOfLines={1} style={style}>{text}</Text>
   }
   return (
     <View style={styles.row} accessible accessibilityRole="text" accessibilityLabel={text}>
       {Array.from(text).map((ch, i, all) => (
-        <ShimmerChar key={i} ch={ch} index={i} count={all.length} sweep={sweep} loop={loop} style={style} />
+        <ShimmerChar key={i} ch={ch} index={i} count={all.length} sweep={sweep} mode={mode} style={style} />
       ))}
     </View>
   )
