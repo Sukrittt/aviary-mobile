@@ -131,14 +131,21 @@ export function useAddCategory() {
  * Saves an envelope's note (null or blank clears it). Resolves once the server
  * has it, not after the list refetches: the save's check is the moment people
  * remember, so it shouldn't wait on a second round trip. The cached row takes
- * the note right away and the refetch catches up behind it.
+ * the note right away and the refetch catches up behind it. `prevNote` is the
+ * copy it was written from: the server refuses it (409) if the note has moved on.
  */
 export function useSaveNote() {
   const qc = useQueryClient()
-  return useCallback(async (name: string, note: string | null) => {
+  return useCallback(async (name: string, note: string | null, prevNote: string) => {
     // Pinned: a budget switch while this is in flight mustn't land it on another budget's same-named category.
     const spaceId = activeBudgetId()
-    await updateCategory(name, { note }, spaceId)
+    try {
+      await updateCategory(name, { note, prevNote }, spaceId)
+    } catch (e) {
+      // A refused write means the list is stale too.
+      void qc.invalidateQueries({ queryKey: key })
+      throw e
+    }
     if (activeBudgetId() !== spaceId) return
     const stored = note?.trim() || undefined
     qc.setQueriesData<CategoryRow[]>({ queryKey: key }, (rows) => rows?.map((r) => (r.name === name ? { ...r, note: stored } : r)))

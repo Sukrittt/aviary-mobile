@@ -14,11 +14,14 @@ import { addTodo, dayLabel, goalFit, insertAt, noteDate, parseNote, toggleLine, 
 import { tap } from '@/src/lib/haptics'
 import { activeBudgetId } from '@/src/lib/activeBudget'
 import { currentUserId } from '@/src/api/accessMode'
+import { getCategories } from '@/src/api/categories'
+import { HttpError } from '@/src/api/client'
 import type { CategoryRow } from '@/src/types'
 
 export const NOTE_MAX = 2000
 const COUNTER_FROM = 1800
 const SAVE_FAILED = "Couldn't save. Check your connection and try again."
+export const NOTE_CHANGED = 'This note changed on another device.'
 // The success check's draw-on, then the sheet closes (CLAUDE.md's ~1100ms).
 const SUCCESS_MS = 1100
 
@@ -26,11 +29,24 @@ const SUCCESS_MS = 1100
  * Drafts a dismissed sheet couldn't save, by category, so reopening it picks up
  * where you left off. ponytail: memory only, so a kill loses them; persist if that bites.
  */
-export const keptDrafts = new Map<string, string>()
+export const keptDrafts = new Map<string, { text: string; base: string }>()
 
 /** Whose draft, in which budget: a Rent draft mustn't turn up in another budget's Rent, or for the next person to sign in. */
 export function draftKey(category: string): string {
   return `${currentUserId() ?? ''}:${activeBudgetId() ?? ''}:${category}`
+}
+
+/** The note as it's saved now, after a write was refused for being made from an older copy. Null if that can't be read either. */
+async function latestNote(e: unknown, name: string, spaceId: string | null): Promise<string | null> {
+  if (!(e instanceof HttpError) || e.status !== 409) return null
+  try {
+    const rows = await getCategories()
+    // Read from the active budget: if that's no longer the one written to, this isn't its note.
+    if (activeBudgetId() !== spaceId) return null
+    return rows.find((c) => c.name === name)?.note ?? ''
+  } catch {
+    return null
+  }
 }
 
 function placeholderFor(row: CategoryRow): string {
@@ -71,7 +87,8 @@ function Piece({ s }: { s: Segment }) {
 export function NoteBlock({ row, readOnly, pending, onSaved, onEditingChange }: {
   row: CategoryRow
   readOnly: boolean
-  pending: MutableRefObject<(() => string | undefined) | null>
+  /** The unsaved draft, and the copy it was written from. */
+  pending: MutableRefObject<(() => { text: string; base: string } | undefined) | null>
   onSaved: () => void
   onEditingChange?: (editing: boolean) => void
 }) {
@@ -83,9 +100,14 @@ export function NoteBlock({ row, readOnly, pending, onSaved, onEditingChange }: 
   const caret = useRef(0)
   const caretAfter = useRef<number | null>(null)
   const kept = keptDrafts.get(draftKey(row.name))
+  // The last copy the server confirmed: every write says it was made from this one.
   const [note, setNote] = useState(row.note ?? '')
   const [editing, setEditing] = useState(kept !== undefined && !readOnly)
-  const [draft, setDraft] = useState(kept ?? row.note ?? '')
+  const [draft, setDraft] = useState(kept?.text ?? row.note ?? '')
+  // The copy the draft was written from, kept with it: a dismissed or kept draft must still be refused if the note moved on.
+  const base = useRef(kept?.base ?? row.note ?? '')
+  // Set once Save was refused and the latest shown: the next Save replaces it on purpose. Dismissing still doesn't.
+  const replace = useRef(false)
   const [saving, setSaving] = useState(false)
   const [success, setSuccess] = useState(false)
   const [ticking, setTicking] = useState(false)
@@ -107,7 +129,7 @@ export function NoteBlock({ row, readOnly, pending, onSaved, onEditingChange }: 
   useEffect(() => {
     // Still handed over while a Save is in flight: if that save fails, the
     // dismissal's own save (or the kept draft) is what keeps the text.
-    pending.current = () => (editing && !success && dirty ? draft : undefined)
+    pending.current = () => (editing && !success && dirty ? { text: draft, base: base.current } : undefined)
   }, [pending, editing, success, dirty, draft])
   // Unmounted with a draft nobody took (going offline swaps Home for the offline
   // screen, sheet and all): keep it for the next time this sheet opens.
@@ -139,6 +161,8 @@ export function NoteBlock({ row, readOnly, pending, onSaved, onEditingChange }: 
   function edit() {
     if (readOnly || ticking) return
     tap()
+    base.current = note
+    replace.current = false
     setDraft(note)
     setError('')
     setEditing(true)
@@ -146,6 +170,7 @@ export function NoteBlock({ row, readOnly, pending, onSaved, onEditingChange }: 
 
   function cancel() {
     keptDrafts.delete(draftKey(row.name))
+    replace.current = false
     setDraft(note)
     setError('')
     setEditing(false)
@@ -155,13 +180,20 @@ export function NoteBlock({ row, readOnly, pending, onSaved, onEditingChange }: 
     if (busy || !online) return
     setSaving(true)
     setError('')
+    const spaceId = activeBudgetId()
     try {
       // Blank clears it: the server trims and stores null.
-      await saveNote(row.name, draft.trim() || null)
+      await saveNote(row.name, draft.trim() || null, replace.current ? note : base.current)
       keptDrafts.delete(draftKey(row.name))
       setSuccess(true)
-    } catch {
-      setError(SAVE_FAILED)
+    } catch (e) {
+      // Their version is shown, so saving again replaces it on purpose.
+      const fresh = await latestNote(e, row.name, spaceId)
+      if (fresh !== null) {
+        setNote(fresh)
+        replace.current = true
+      }
+      setError(fresh === null ? SAVE_FAILED : `${NOTE_CHANGED} Save again to replace it.`)
     } finally {
       setSaving(false)
     }
@@ -171,15 +203,18 @@ export function NoteBlock({ row, readOnly, pending, onSaved, onEditingChange }: 
     if (ticking || readOnly) return
     tap()
     const before = note
-    const next = toggleLine(note, index)
+    // Trimmed the way the server stores it, so the next tick's base matches.
+    const next = toggleLine(note, index).trim()
     setNote(next)
     setTicking(true)
     setError('')
+    const spaceId = activeBudgetId()
     try {
-      await saveNote(row.name, next)
-    } catch {
-      setNote(before)
-      setError(SAVE_FAILED)
+      await saveNote(row.name, next, before)
+    } catch (e) {
+      const fresh = await latestNote(e, row.name, spaceId)
+      setNote(fresh ?? before)
+      setError(fresh === null ? SAVE_FAILED : `${NOTE_CHANGED} Here's the latest.`)
     } finally {
       setTicking(false)
     }

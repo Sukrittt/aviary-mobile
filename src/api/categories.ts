@@ -1,4 +1,4 @@
-import { apiFetch, apiErrorMessage } from './client'
+import { apiFetch, apiErrorMessage, HttpError } from './client'
 import { budgetHeaders } from '@/src/lib/activeBudget'
 import type { CategoryGoal, CategoryRow } from '@/src/types'
 import { BUCKETS, type Bucket, type BucketTags } from '@/src/lib/budgetSplit'
@@ -20,7 +20,7 @@ export async function addCategory(name: string, group = '', icon?: string, color
 
 export async function updateCategory(
   name: string,
-  updates: { newName?: string; group?: string; alertPcts?: number[] | null; icon?: string; color?: string; weeklySince?: string | null; goal?: CategoryGoal | null; note?: string | null },
+  updates: { newName?: string; group?: string; alertPcts?: number[] | null; icon?: string; color?: string; weeklySince?: string | null; goal?: CategoryGoal | null; note?: string | null; prevNote?: string },
   // A pinned budget wins over whichever is active when the request goes out.
   spaceId?: string | null,
 ): Promise<void> {
@@ -29,7 +29,8 @@ export async function updateCategory(
     headers: { 'Content-Type': 'application/json', ...budgetHeaders(spaceId) },
     body: JSON.stringify({ name, ...updates }),
   })
-  if (!resp.ok) throw new Error(await apiErrorMessage(resp, 'Failed to update category'))
+  // A 409 is a note written from an older copy (see prevNote); callers tell it apart by status.
+  if (!resp.ok) throw new HttpError(resp.status, await apiErrorMessage(resp, 'Failed to update category'))
 }
 
 export async function deleteCategory(name: string): Promise<void> {
