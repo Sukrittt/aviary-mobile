@@ -175,6 +175,7 @@ function EditAmountBody({
 
   const value = Number(amountText) || 0
   const giveAll = Math.round((baseAssigned + baseReadyToAssign) * 100) / 100
+  const showLastMonth = !isCreditCardPayment && !!lastMonthAssigned
   const delta = value - baseAssigned
   const projectedRTA = baseReadyToAssign - delta
   // An untouched 0 has nothing to project, so it just shows what's left.
@@ -321,9 +322,11 @@ function EditAmountBody({
           )}
         </View>
 
-        {/* Everything left lands here, so you don't do the sum yourself. */}
-        {baseReadyToAssign > 0 && (
-          <View style={styles.quickRow}>
+        {/* At most two chips, both from your own numbers: everything left (so you
+            don't do the sum), then the goal's amount or last month's. Round numbers
+            only when there's neither, so the row is never empty. */}
+        <View style={styles.quickRow}>
+          {baseReadyToAssign > 0 && (
             <QuickChip
               label={`Give it all · ${formatCurrency(baseReadyToAssign, hideAmounts)}`}
               active={value === giveAll}
@@ -331,12 +334,8 @@ function EditAmountBody({
               tokens={tokens}
               radius={radius}
             />
-          </View>
-        )}
-
-        {/* A goal with a deadline has one amount that matters, so it gets that chip alone. Round numbers and last month are for spending. */}
-        {goalNeed ? (
-          <View style={styles.quickRow}>
+          )}
+          {goalNeed ? (
             <QuickChip
               label={`${formatCurrency(goalNeed.amount, hideAmounts)} makes it by ${shortMonth(goalNeed.by)}`}
               active={value === goalNeed.amount}
@@ -344,34 +343,28 @@ function EditAmountBody({
               tokens={tokens}
               radius={radius}
             />
-          </View>
-        ) : (
-          <>
-            <View style={styles.quickRow}>
-              {QUICK_PICKS.map((v) => (
-                <QuickChip
-                  key={v}
-                  label={formatMoney(v)}
-                  active={value === v}
-                  onPress={() => setAmountText(String(v))}
-                  tokens={tokens}
-                  radius={radius}
-                />
-              ))}
-            </View>
-            {!isCreditCardPayment && !!lastMonthAssigned && (
-              <View style={styles.quickRow}>
-                <QuickChip
-                  label={`Last month · ${formatCurrency(lastMonthAssigned, hideAmounts)}`}
-                  active={value === lastMonthAssigned}
-                  onPress={() => setAmountText(String(Math.round(lastMonthAssigned)))}
-                  tokens={tokens}
-                  radius={radius}
-                />
-              </View>
-            )}
-          </>
-        )}
+          ) : showLastMonth ? (
+            <QuickChip
+              label={`Last month · ${formatCurrency(lastMonthAssigned, hideAmounts)}`}
+              active={value === lastMonthAssigned}
+              onPress={() => setAmountText(String(Math.round(lastMonthAssigned)))}
+              tokens={tokens}
+              radius={radius}
+            />
+          ) : (
+            baseReadyToAssign <= 0 &&
+            QUICK_PICKS.map((v) => (
+              <QuickChip
+                key={v}
+                label={formatMoney(v)}
+                active={value === v}
+                onPress={() => setAmountText(String(v))}
+                tokens={tokens}
+                radius={radius}
+              />
+            ))
+          )}
+        </View>
 
         {error !== '' && <Text style={{ color: tokens.coral, fontSize: 12 }}>{error}</Text>}
       </ScrollView>

@@ -380,3 +380,16 @@ it('hides Give it all when there is nothing left to assign', async () => {
   await waitFor(() => expect(getByLabelText('₹5,000')).toBeTruthy())
   expect(queryByText(/Give it all/)).toBeNull()
 })
+
+it('shows only Give it all and Last month when both apply, without round numbers', async () => {
+  const { findByText, getByText, queryByText } = setup([
+    { month: MONTH, category: '__income__', assigned: '10000', rolled_over: '0', version: 2 },
+    { month: MONTH, category: 'Food', assigned: '5000', rolled_over: '0', version: 7 },
+    { month: PREV_MONTH, category: 'Food', assigned: '3000', rolled_over: '0', version: 1 },
+  ])
+
+  await findByText('Give it all · ₹5,000')
+  expect(getByText('Last month · ₹3,000')).toBeTruthy()
+  expect(queryByText('₹500')).toBeNull()
+  expect(queryByText('₹2,500')).toBeNull()
+})
