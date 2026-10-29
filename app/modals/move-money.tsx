@@ -118,20 +118,6 @@ function MoveMoneyModal() {
   const [error, setError] = useState('')
   const [moveSuccess, setMoveSuccess] = useState(false)
 
-  const amount = Number(amountStr) || 0
-  const allocated = Object.values(allocs).reduce((a, b) => a + b, 0)
-  const remaining = Math.max(0, amount - allocated)
-  // Exact match, not `remaining === 0`: `remaining` clamps at 0, which would
-  // hide an over-allocation. Compared in paise so float sums still match.
-  const ready = amount > 0 && Math.round(allocated * 100) === Math.round(amount * 100)
-  const saving = transferBudget.isPending
-
-  const [progressTrackWidth, setProgressTrackWidth] = useState(0)
-  const progressPct = amount > 0 ? Math.min(100, Math.round((allocated / amount) * 100)) : 0
-  // No `from` — only the first reveal gets useProgressWidth's delay, every
-  // allocation change after animates immediately.
-  const progressWidth = useProgressWidth(progressTrackWidth, progressPct)
-
   const sources = useMemo<SourceItem[]>(() => {
     const items: SourceItem[] = []
     if (readyToAssign > 0) {
@@ -150,6 +136,23 @@ function MoveMoneyModal() {
   }, [readyToAssign, envelopeSources, iconByName])
 
   const pickedRows = sources.filter((s) => s.key in allocs)
+  const amount = Number(amountStr) || 0
+  // Only sources still on screen count: a refresh can drop a picked one, and
+  // its stale amount shouldn't enable Move or ride along on submit.
+  const allocated = pickedRows.reduce((a, s) => a + allocs[s.key], 0)
+  const remaining = Math.max(0, amount - allocated)
+  // Anything up to the amount can move, so a partial top-up isn't blocked.
+  // Checked against `allocated`, not `remaining`: `remaining` clamps at 0,
+  // which would hide an over-allocation. Compared in paise so float sums still match.
+  const ready = allocated > 0 && Math.round(allocated * 100) <= Math.round(amount * 100)
+  const saving = transferBudget.isPending
+
+  const [progressTrackWidth, setProgressTrackWidth] = useState(0)
+  const progressPct = amount > 0 ? Math.min(100, Math.round((allocated / amount) * 100)) : 0
+  // No `from` — only the first reveal gets useProgressWidth's delay, every
+  // allocation change after animates immediately.
+  const progressWidth = useProgressWidth(progressTrackWidth, progressPct)
+
   const q = query.trim().toLowerCase()
   // Once the picked sources cover it all, more suggestions only invite second-guessing. Same rule as Web.
   const covered = amount > 0 && remaining === 0 && pickedRows.length > 0
@@ -216,8 +219,9 @@ function MoveMoneyModal() {
     if (!ready || !target) return
     setError('')
     try {
+      const listed = new Set(pickedRows.map((s) => s.key))
       const sources = Object.entries(allocs)
-        .filter(([, alloc]) => alloc > 0)
+        .filter(([category, alloc]) => alloc > 0 && listed.has(category))
         .map(([category, alloc]) => ({ category, amount: alloc }))
       await transferBudget.mutateAsync({ month, to: targetCategoryName, sources })
       setMoveSuccess(true)
@@ -496,10 +500,8 @@ function MoveMoneyModal() {
                   {saving
                     ? 'Moving…'
                     : ready
-                      ? `Move ${formatCurrency(amount, hideAmounts)}`
-                      : remaining === amount
-                        ? 'Choose where to pull from'
-                        : `${formatCurrency(remaining, hideAmounts)} more to allocate`}
+                      ? `Move ${formatCurrency(allocated, hideAmounts)}`
+                      : 'Choose where to pull from'}
                 </Text>
               )}
             </Pressable>
