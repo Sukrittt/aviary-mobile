@@ -510,9 +510,6 @@ const goalPicks = (currencyCode: string): { key: GoalTemplateKey | 'custom'; lab
   { key: 'custom', label: 'Custom' },
 ]
 
-/** Where a new goal lands unless you pick a group yourself. Made on first use. */
-const GOALS_GROUP = 'Goals'
-
 type SheetState =
   | { kind: 'addCategory' }
   | { kind: 'renameCategory'; name: string }
@@ -561,9 +558,6 @@ function EnvelopesScreen() {
   // A savings goal: a template or Custom on Add, Goal on Edit. Null: no goal (and clears one on save).
   const [goalPick, setGoalPick] = useState<GoalTemplateKey | 'custom' | null>(null)
   const [goalDraft, setGoalDraft] = useState<GoalDraft>(draftOf())
-  // A group tapped here wins; otherwise a new goal goes to Goals.
-  const [groupPicked, setGroupPicked] = useState(false)
-  const [addGroupFrom, setAddGroupFrom] = useState('')
   const GOAL_PICKS = goalPicks(useCurrency().currencyCode)
 
   const [deletingGroup, setDeletingGroup] = useState(false)
@@ -695,8 +689,6 @@ function EnvelopesScreen() {
   function openAddCategory(group = '') {
     setDraftName('')
     setDraftGroup(group)
-    setAddGroupFrom(group)
-    setGroupPicked(false)
     setGoalPick(null)
     setGoalDraft(draftOf())
     setPickedIcon(null)
@@ -739,17 +731,12 @@ function EnvelopesScreen() {
   }
   function pickGoal(key: GoalTemplateKey | 'custom' | null) {
     setGoalPick(key)
-    if (sheet?.kind !== 'addCategory') return
-    if (!groupPicked) setDraftGroup(key ? GOALS_GROUP : addGroupFrom)
-    if (!key || key === 'custom') return
+    // A goal stays in the section whose add button opened the sheet.
+    if (sheet?.kind !== 'addCategory' || !key || key === 'custom') return
     const t = goalTemplate(key, currentMonthKey())
     setGoalDraft((d) => ({ ...d, by: t.by, yearly: t.yearly }))
     // Names the category too, unless you've typed your own.
     if (!draftName.trim() || GOAL_PICKS.some((p) => p.label === draftName.trim())) setDraftName(t.name)
-  }
-  function pickGroup(g: string) {
-    setDraftGroup(g)
-    setGroupPicked(true)
   }
   function openAddGroup() {
     setDraftName('')
@@ -1130,7 +1117,7 @@ function EnvelopesScreen() {
             <Text style={[styles.sectionLabel, { color: tokens.text3 }]}>GROUP</Text>
             <View style={styles.chipRow}>
               <Pressable
-                onPress={() => pickGroup('')}
+                onPress={() => setDraftGroup('')}
                 style={[
                   styles.chip,
                   {
@@ -1152,7 +1139,7 @@ function EnvelopesScreen() {
               {groupChips.map((g) => (
                 <Pressable
                   key={g}
-                  onPress={() => pickGroup(g)}
+                  onPress={() => setDraftGroup(g)}
                   style={[
                     styles.chip,
                     {

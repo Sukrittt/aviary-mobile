@@ -350,7 +350,7 @@ it('in a read-only budget, shows the banner and offers no way to add or reorder'
   expect(queryByText('Add first category')).toBeNull()
 })
 
-it('a goal template names the category, sets its month, and files it under a new Goals group', async () => {
+it("a goal template names the category, sets its month, and stays in the group whose add button you tapped", async () => {
   mockAddGroup.mockReset().mockResolvedValue(undefined)
   mockAddCategory.mockReset().mockResolvedValue(undefined)
   const { currentMonthKey, shiftMonthKey } = jest.requireActual('@/src/lib/envelope')
@@ -360,10 +360,24 @@ it('a goal template names the category, sets its month, and files it under a new
   expect(screen.getByDisplayValue('Insurance')).toBeTruthy()
   fireEvent.changeText(screen.getByLabelText('Goal amount'), '24000')
   await act(async () => { fireEvent.press(screen.getAllByText('Add category').at(-1)!) })
-  expect(mockAddGroup).toHaveBeenCalledWith({ name: 'Goals' })
+  expect(mockAddGroup).not.toHaveBeenCalled()
   expect(mockAddCategory).toHaveBeenCalledWith(expect.objectContaining({
-    name: 'Insurance', group: 'Goals', goal: { amount: 24000, by: shiftMonthKey(currentMonthKey(), 12), repeat: 'yearly' },
+    name: 'Insurance', group: 'House', goal: { amount: 24000, by: shiftMonthKey(currentMonthKey(), 12), repeat: 'yearly' },
   }))
+})
+
+it('a goal added from the Other section stays ungrouped', async () => {
+  mockAddGroup.mockReset().mockResolvedValue(undefined)
+  mockAddCategory.mockReset().mockResolvedValue(undefined)
+  mockCategories.push({ name: 'Loose', group: '' })
+  const screen = render(<EnvelopesScreen />)
+  fireEvent.press(screen.getAllByText('Add category').at(-1)!)
+  fireEvent.press(screen.getByText('Insurance'))
+  fireEvent.changeText(screen.getByLabelText('Goal amount'), '24000')
+  await act(async () => { fireEvent.press(screen.getAllByText('Add category').at(-1)!) })
+  mockCategories.pop()
+  expect(mockAddGroup).not.toHaveBeenCalled()
+  expect(mockAddCategory).toHaveBeenCalledWith(expect.objectContaining({ name: 'Insurance', group: '' }))
 })
 
 it("turning a goal off from Edit sends it back to spending, and its alerts come back", async () => {
