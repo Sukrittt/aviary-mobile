@@ -220,6 +220,24 @@ it('never picks more than a source has available', async () => {
   )
 })
 
+it('moves what the picked sources have, even short of the full amount', async () => {
+  ;(transferBudget as jest.Mock).mockResolvedValue({})
+  const { getByText, getByLabelText } = setup({}, SPENDING)
+  await waitFor(() => expect(getByLabelText('1')).toBeTruthy())
+  await enterAmount(getByLabelText, '1000')
+  fireEvent.press(getByText('Pick sources →'))
+  await waitFor(() => expect(getByText('SUGGESTED SOURCES')).toBeTruthy())
+
+  // Shopping has only 100 of the 1000 asked for.
+  fireEvent.press(getByText('Shopping'))
+  await waitFor(() => expect(getByText('Move ₹100')).toBeTruthy())
+  fireEvent.press(getByText('Move ₹100'))
+
+  await waitFor(() =>
+    expect(transferBudget).toHaveBeenCalledWith(MONTH, 'Electricity', [{ category: 'Shopping', amount: 100 }]),
+  )
+})
+
 // Opened from "Added ₹50" (Set a budget / Cover it), which replaced Log expense,
 // which the app can launch straight into: there's nothing underneath to go back to.
 it('closes to Home when it was opened with nothing underneath', async () => {
