@@ -121,9 +121,10 @@ function MoveMoneyModal() {
   const amount = Number(amountStr) || 0
   const allocated = Object.values(allocs).reduce((a, b) => a + b, 0)
   const remaining = Math.max(0, amount - allocated)
-  // Exact match, not `remaining === 0`: `remaining` clamps at 0, which would
-  // hide an over-allocation. Compared in paise so float sums still match.
-  const ready = amount > 0 && Math.round(allocated * 100) === Math.round(amount * 100)
+  // Anything up to the amount can move, so a partial top-up isn't blocked.
+  // Checked against `allocated`, not `remaining`: `remaining` clamps at 0,
+  // which would hide an over-allocation. Compared in paise so float sums still match.
+  const ready = allocated > 0 && Math.round(allocated * 100) <= Math.round(amount * 100)
   const saving = transferBudget.isPending
 
   const [progressTrackWidth, setProgressTrackWidth] = useState(0)
@@ -496,10 +497,8 @@ function MoveMoneyModal() {
                   {saving
                     ? 'Moving…'
                     : ready
-                      ? `Move ${formatCurrency(amount, hideAmounts)}`
-                      : remaining === amount
-                        ? 'Choose where to pull from'
-                        : `${formatCurrency(remaining, hideAmounts)} more to allocate`}
+                      ? `Move ${formatCurrency(allocated, hideAmounts)}`
+                      : 'Choose where to pull from'}
                 </Text>
               )}
             </Pressable>
