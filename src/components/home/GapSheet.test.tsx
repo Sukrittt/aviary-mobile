@@ -34,7 +34,7 @@ it('offers three calm ways back after two days away, upload first', () => {
   expect(screen.getByText('Pick up where you left off')).toBeTruthy()
   const [hero, type, fresh] = screen.getAllByRole('button')
   expect(within(hero).getByText('Upload a screenshot or statement')).toBeTruthy()
-  expect(within(hero).getByText("You tick what's right")).toBeTruthy()
+  expect(within(hero).getByText('You check it')).toBeTruthy()
   expect(within(type).getByText('Type what you remember')).toBeTruthy()
   expect(within(fresh).getByText('Start fresh')).toBeTruthy()
 })

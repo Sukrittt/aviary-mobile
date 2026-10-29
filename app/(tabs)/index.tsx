@@ -4,10 +4,12 @@ import { currencyUnit } from '@/src/lib/currencies'
 import { useRecurringIncomes } from '@/src/hooks/useIncomes'
 import { useAccounts } from '@/src/hooks/useAccounts'
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { View, Text, Pressable, RefreshControl, StyleSheet, Linking, Platform } from 'react-native'
+import { View, Text, Pressable, RefreshControl, ScrollView, StyleSheet, Linking, Platform } from 'react-native'
 import { useQuery } from '@tanstack/react-query'
 import { useRouter, useNavigation, useFocusEffect } from 'expo-router'
-import { CaretRight, ChartLine, MoneyWavy, Plant } from '@/src/components/shared/icons'
+import { CaretRight, ChartLine, MoneyWavy, Note, Plant } from '@/src/components/shared/icons'
+import { Toast } from '@/src/components/ui/Toast'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Reanimated, { FadeIn, FadeInDown, FadeOut } from 'react-native-reanimated'
 import * as Haptics from 'expo-haptics'
 import { rippleHaptic, tap } from '@/src/lib/haptics'
@@ -21,7 +23,8 @@ import { GapSheet } from '@/src/components/home/GapSheet'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { usePrivacy } from '@/src/context/PrivacyContext'
 import { fontFamily } from '@/src/theme/fonts'
-import { useBudgets, useCarry } from '@/src/hooks/useBudgets'
+import { useBudgets, useCarry, useUpdateBudget } from '@/src/hooks/useBudgets'
+import { fundBehindGoals, goalProgress } from '@/src/lib/goal'
 import { rolloverCard } from '@/src/lib/rollover'
 import { splitEmoji } from '@/src/lib/emoji'
 import { useLastSpent, useRecentExpenses } from '@/src/hooks/useExpenses'
@@ -85,6 +88,7 @@ function HomeScreen() {
   const { tokens, space, type, radius } = useTheme()
   const { refreshing, onRefresh } = useRefresh()
   const router = useRouter()
+  const insets = useSafeAreaInsets()
   const navigation = useNavigation()
   const online = useOnline()
 
@@ -129,6 +133,9 @@ function HomeScreen() {
   // against overlap and avoids relying on that assumption.
   const [openSheetCount, setOpenSheetCount] = useState(0)
   const [incomeSheetOpen, setIncomeSheetOpen] = useState(false)
+  const [rtaSheetOpen, setRtaSheetOpen] = useState(false)
+  const [funding, setFunding] = useState(false)
+  const updateBudget = useUpdateBudget()
   const schedulesQ = useRecurringIncomes()
   // Warms the accounts cache, so Log expense has them on its first open and
   // doesn't send an expense without the account it would have defaulted to.
@@ -190,13 +197,20 @@ function HomeScreen() {
   const [displayedReadyToAssign, setDisplayedReadyToAssign] = useState(envelopeState.readyToAssign)
   const [, setFocusTick] = useState(0)
   const rtaPending = displayedReadyToAssign !== envelopeState.readyToAssign
+  // Same for a Left pill's rise (Set, Pull money): balances as last seen uncovered,
+  // so focus asks for a render only when one went up while Home was covered.
+  const seenAvailable = useRef<Map<string, number>>(new Map())
+  const risePending = envelopeState.envelopes.some((e) => e.available > (seenAvailable.current.get(e.category) ?? e.available))
+  useEffect(() => {
+    if (!covered) seenAvailable.current = new Map(envelopeState.envelopes.map((e) => [e.category, e.available]))
+  })
   // The month and days left are read off the clock on render, so a day that
   // turned over while Home sat behind another tab needs a render too.
   const renderedDay = todayLocal()
   useFocusEffect(
     useCallback(() => {
-      if (rtaPending || todayLocal() !== renderedDay) setFocusTick((n) => n + 1)
-    }, [rtaPending, renderedDay]),
+      if (rtaPending || risePending || todayLocal() !== renderedDay) setFocusTick((n) => n + 1)
+    }, [rtaPending, risePending, renderedDay]),
   )
   // Adjusting state during render (not in an effect) so the sync happens in
   // the same commit as the value that triggered it, with no extra render.
@@ -233,16 +247,18 @@ function HomeScreen() {
   // Weekly-tracked categories get this week's pace instead of the month's bar.
   const { weekly } = useWeeklyCategories()
   const today = Number(todayLocal().slice(8, 10))
+  const goalNames = useMemo(() => new Set(categories.filter((c) => c.goal).map((c) => c.name)), [categories])
   const paces = useMemo(() => {
     const map = new Map<string, WeekPace>()
     for (const e of envelopeState.envelopes) {
       // Nothing to pace with no money in it: the month's own bar says it better.
       const pot = e.assigned + e.rolledOver
-      if (!weekly?.has(e.category) || e.isCreditCardPayment || pot <= 0) continue
+      // A goal is saving, not spending: no pace for it (Web's EnvelopeGrid does the same).
+      if (!weekly?.has(e.category) || e.isCreditCardPayment || pot <= 0 || goalNames.has(e.category)) continue
       map.set(e.category, weekPace(pot, spendByDay(expenses, e.category, month), month, today))
     }
     return map
-  }, [envelopeState, weekly, expenses, month, today])
+  }, [envelopeState, weekly, expenses, month, today, goalNames])
   const weekFrom = paces.values().next().value?.current.from ?? 0
   // Only categories already tracked when last week began get judged on it.
   const lastWeekFrom = paces.values().next().value?.weeks.at(-2)?.from ?? 0
@@ -302,6 +318,41 @@ function HomeScreen() {
   const homeEnvelopes = groupedEnvelopes.flatMap((g) => g.envelopes)
   // The next empty envelope on screen, so each tap moves the job along.
   const nextToFund = (homeEnvelopes.find((e) => e.assigned === 0) ?? homeEnvelopes[0])?.category
+  const rta = envelopeState.readyToAssign
+  // Off zero, the hero's tap is about getting it back to zero, not income.
+  const rtaActionable = !readOnly && Math.abs(rta) >= 0.005
+  // What one tap on "Fund behind goals" hands out, nearest deadline first.
+  const goalFunding = useMemo(() => {
+    if (readOnly || rta <= 0) return []
+    const behind = homeEnvelopes.flatMap((e) => {
+      const row = categories.find((c) => c.name === e.category)
+      const p = row?.goal ? goalProgress({ goal: row.goal, month, available: e.available, assigned: e.assigned, spent: e.spent, since: row.since }) : null
+      return p?.status === 'behind' && p.by && p.behindBy ? [{ category: e.category, by: p.by, behindBy: p.behindBy }] : []
+    })
+    return fundBehindGoals(rta, behind)
+  }, [readOnly, rta, homeEnvelopes, categories, month])
+  const goalFundingTotal = goalFunding.reduce((n, g) => n + g.amount, 0)
+  // Rupee amounts, so a negative Ready to Assign only offers envelopes with money left
+  // to give, and takes back no more than that, so nothing tips into overspent.
+  const rtaCategories = rta < 0 ? homeEnvelopes.filter((e) => e.assigned > 0 && e.available > 0) : homeEnvelopes
+
+  async function fundGoals() {
+    setFunding(true)
+    try {
+      // One versioned write per envelope, in turn, so each starts from its own row.
+      for (const g of goalFunding) {
+        const e = homeEnvelopes.find((x) => x.category === g.category)
+        const version = budgets.find((b) => b.month === month && b.category === g.category)?.version ?? 0
+        await updateBudget.mutateAsync({ month, category: g.category, version, updates: { assigned: String(Math.round(((e?.assigned ?? 0) + g.amount) * 100) / 100) } })
+      }
+      track('rta_goals_funded', { goals: goalFunding.length })
+      setRtaSheetOpen(false)
+    } catch {
+      Alert.alert("Couldn't fund your goals", 'Check your connection and try again.')
+    } finally {
+      setFunding(false)
+    }
+  }
   const showGetStarted =
     getStartedSkipped === false &&
     !!user?.getStartedAt &&
@@ -333,13 +384,21 @@ function HomeScreen() {
     router.push({ pathname: '/modals/edit-assigned-amount', params: { category } })
   }
 
-  function handleMoveMoney(category: string) {
-    router.push({ pathname: '/modals/move-money', params: { fromCategory: category } })
+  function handleMoveMoney(category: string, amount?: number) {
+    // A goal's Set: open on the sources for what this month is behind by.
+    router.push({ pathname: '/modals/move-money', params: { fromCategory: category, ...(amount ? { amount: String(amount), quick: '1' } : {}) } })
+  }
+
+  function handleEditGoal(category: string) {
+    router.push({ pathname: '/modals/goal', params: { category } })
   }
 
   function handleViewTransactions(category: string) {
     router.push({ pathname: '/(tabs)/activity', params: { category } })
   }
+
+  const [toast, setToast] = useState({ message: '', n: 0 })
+  const showToast = useCallback((message: string) => setToast((t) => ({ message, n: t.n + 1 })), [])
 
   function handleSheetOpenChange(open: boolean) {
     setOpenSheetCount((c) => c + (open ? 1 : -1))
@@ -449,10 +508,11 @@ function HomeScreen() {
             <AnimatedPressable
               accessibilityRole="button"
               accessibilityLabel="Ready to Assign options"
-              accessibilityHint="Change or add income, or set Ready to Assign"
+              accessibilityHint={rtaActionable ? (rta > 0 ? 'Give it a job' : 'Take some back from an envelope') : 'Change or add income, or set Ready to Assign'}
               onPress={() => {
                 tap()
-                setIncomeSheetOpen(true)
+                if (rtaActionable) setRtaSheetOpen(true)
+                else setIncomeSheetOpen(true)
               }}
               onPressIn={heroPress.onPressIn}
               onPressOut={heroPress.onPressOut}
@@ -466,7 +526,19 @@ function HomeScreen() {
                 animate
                 settle
                 id="ready-to-assign"
+                sweep={displayedReadyToAssign > 0 && !readOnly && !covered}
               />
+              {/* Says what the shimmer is asking for. */}
+              {rtaActionable && (
+                <View style={styles.heroHint}>
+                  <Text style={{ color: rta < 0 ? tokens.coral : tokens.text, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>
+                    {rta > 0
+                      ? hideAmounts ? 'Give it a job' : `Give this ${formatCurrency(rta)} a job`
+                      : hideAmounts ? 'Take some back' : `Take ${formatCurrency(-rta)} back`}
+                  </Text>
+                  <Icon icon={CaretRight} size={14} color={rta < 0 ? tokens.coral : tokens.text2} />
+                </View>
+              )}
             </AnimatedPressable>
             {/* The hero tap is invisible, so this pill names where the number
                 comes from. With no income yet it goes straight to setting it. */}
@@ -683,12 +755,15 @@ function HomeScreen() {
                   onMoveMoney={handleMoveMoney}
                   onEditAmount={handleEditAmount}
                   onViewTransactions={handleViewTransactions}
+                  onEditGoal={handleEditGoal}
                   expanded={!collapsedGroups.has(group)}
                   onToggle={toggleGroup}
                   onSheetOpenChange={handleSheetOpenChange}
                   rollPlay={rollPlay}
                   rollOrder={rollOrder}
                   paces={paces}
+                  active={!covered}
+                  onToast={showToast}
                 />
               ))}
             </View>
@@ -726,7 +801,35 @@ function HomeScreen() {
         ))}
         <SheetOption label="Cancel" tone="cancel" onPress={() => setIncomeSheetOpen(false)} />
       </BottomSheet>
+      <BottomSheet visible={rtaSheetOpen} onClose={() => setRtaSheetOpen(false)}>
+        <SheetTitle>Ready to Assign {formatCurrency(rta, hideAmounts)}</SheetTitle>
+        {goalFunding.length > 0 && (
+          <SheetOption
+            label={funding ? 'Funding…' : `Fund behind goals · ${formatCurrency(goalFundingTotal, hideAmounts)}`}
+            disabled={funding}
+            onPress={fundGoals}
+          />
+        )}
+        <Text style={[styles.sheetLabel, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]}>
+          {rta > 0 ? (goalFunding.length > 0 ? 'Or pick a category' : 'Pick a category') : 'Take it back from'}
+        </Text>
+        {/* Capped, so a long list scrolls in place and Cancel stays in reach. A half row peeks to say there's more. */}
+        <ScrollView style={styles.rtaList} nestedScrollEnabled showsVerticalScrollIndicator={false}>
+          {rtaCategories.map((e) => (
+            <SheetOption
+              key={e.category}
+              label={splitEmoji(e.category).text}
+              onPress={() => {
+                setRtaSheetOpen(false)
+                router.push({ pathname: '/modals/edit-assigned-amount', params: { category: e.category, adjust: String(rta < 0 ? -Math.min(-rta, e.available) : rta) } })
+              }}
+            />
+          ))}
+        </ScrollView>
+        <SheetOption label="Cancel" tone="cancel" onPress={() => setRtaSheetOpen(false)} />
+      </BottomSheet>
       <GraceBanner status={billing} />
+      <Toast message={toast.message} trigger={toast.n} icon={Note} style={{ top: insets.top + 12 }} />
     </>
   )
 }
@@ -736,8 +839,11 @@ const styles = StyleSheet.create({
   hero: { alignItems: 'center', gap: 6 },
   incomePill: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 12, paddingVertical: 6, marginTop: 4 },
   heroLabel: { fontSize: 12, letterSpacing: 0.6 },
+  heroHint: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 2 },
+  rtaList: { maxHeight: 300 }, // ~5.5 rows
+  sheetLabel: { fontSize: 12, paddingTop: 14, paddingBottom: 6, textAlign: 'center' },
   slimRta: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 14 },
-  slimLabel: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  slimLabel: { flexDirection: 'row', alignItems: 'center', gap: 10, minHeight: 30 }, // minHeight = rtaIcon, so the row keeps its height while celebrating
   rtaIcon: { width: 30, height: 30, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
   slimAmount: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   headerMonth: { alignItems: 'center' },

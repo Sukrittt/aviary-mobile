@@ -35,12 +35,12 @@ it('shows the placeholder with no category', () => {
 it('says it is picking while thinking, then settles on the auto-picked category', () => {
   const { getByText, getByLabelText, queryByText, rerender } =
     renderPill({ ...base, selected: null, thinking: true, auto: false })
-  expect(getByText(PICKING_LABEL)).toBeTruthy()
+  expect(getByLabelText(PICKING_LABEL)).toBeTruthy()
   expect(getByLabelText('Picking a category')).toBeTruthy()
 
   rerender({ selected: groceries, thinking: false, auto: true })
   // Still rolling down onto the answer: the label hasn't changed yet.
-  expect(getByText(PICKING_LABEL)).toBeTruthy()
+  expect(getByLabelText(PICKING_LABEL)).toBeTruthy()
   expect(queryByText('Groceries')).toBeNull()
 
   act(() => { jest.advanceTimersByTime(SETTLE_MS) })
@@ -61,28 +61,28 @@ it('ticks as each icon rolls past, then lands with a light tap', () => {
 })
 
 it('eases the reel out even when the answer is the category already showing', () => {
-  const { getByText, queryByText, rerender } = renderPill({ ...base, selected: groceries, thinking: false, auto: true })
+  const { getByText, getByLabelText, queryByLabelText, rerender } = renderPill({ ...base, selected: groceries, thinking: false, auto: true })
   rerender({ thinking: true })
-  expect(getByText(PICKING_LABEL)).toBeTruthy()
+  expect(getByLabelText(PICKING_LABEL)).toBeTruthy()
   rerender({ thinking: false })
-  expect(getByText(PICKING_LABEL)).toBeTruthy()
+  expect(getByLabelText(PICKING_LABEL)).toBeTruthy()
   act(() => { jest.advanceTimersByTime(SETTLE_MS) })
-  expect(queryByText(PICKING_LABEL)).toBeNull()
+  expect(queryByLabelText(PICKING_LABEL)).toBeNull()
   expect(getByText('Groceries')).toBeTruthy()
 })
 
 it('lands a dictionary hit straight away, without the picking state', () => {
-  const { getByLabelText, queryByText, rerender } =
+  const { getByLabelText, queryByLabelText, rerender } =
     renderPill({ ...base, selected: null, thinking: false, auto: false })
   rerender({ selected: groceries, thinking: false, auto: true })
-  expect(queryByText(PICKING_LABEL)).toBeNull()
+  expect(queryByLabelText(PICKING_LABEL)).toBeNull()
   expect(getByLabelText('Category: Groceries, picked for you')).toBeTruthy()
 })
 
 it('goes back to what it showed when the AI finds nothing', () => {
-  const { getByText, queryByText, rerender } = renderPill({ ...base, selected: null, thinking: true, auto: false })
+  const { getByText, queryByLabelText, rerender } = renderPill({ ...base, selected: null, thinking: true, auto: false })
   rerender({ selected: null, thinking: false, auto: false })
-  expect(queryByText(PICKING_LABEL)).toBeNull()
+  expect(queryByLabelText(PICKING_LABEL)).toBeNull()
   expect(getByText('Pick a category')).toBeTruthy()
 })
 

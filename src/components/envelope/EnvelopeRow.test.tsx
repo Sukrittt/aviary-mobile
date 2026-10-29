@@ -1,3 +1,4 @@
+import * as reanimated from 'react-native-reanimated'
 import { act, fireEvent } from '@testing-library/react-native'
 import { availablePill, EnvelopeRow } from './EnvelopeRow'
 import { lightTokens as t } from '@/src/theme/tokens'
@@ -129,6 +130,13 @@ describe('weekly row', () => {
     expect(getByLabelText('Track Groceries weekly')).toBeTruthy()
   })
 
+  it("collapses the switch's caption instead of dropping it, so the sheet eases rather than jumps", () => {
+    const { getByText } = weeklyRow()
+    fireEvent.press(getByText('Groceries'))
+    // Still mounted when tracked: its Collapse shrinks it in step with the weeks growing.
+    expect(getByText(/Split the month into weeks/)).toBeTruthy()
+  })
+
   it('leaves out past weeks with no spending', () => {
     const quiet = new Array(31).fill(0)
     quiet[2] = 300
@@ -149,5 +157,72 @@ describe('weekly row', () => {
     expect(queryByText('Week 2')).toBeNull()
     expect(queryByText('Week 4')).toBeNull()
     expect(getByText('This week')).toBeTruthy()
+  })
+})
+
+describe('a goal row', () => {
+  const { createTestQueryClient } = jest.requireActual('@/src/test-utils/renderWithProviders')
+  const { currentMonthKey, shiftMonthKey } = jest.requireActual('@/src/lib/envelope')
+  const { shortMonth } = jest.requireActual('@/src/lib/goal')
+  const month = currentMonthKey()
+  const goalRow = (goal: object, e: Partial<Envelope>, onMoveMoney = jest.fn(), active = true) => {
+    const queryClient = createTestQueryClient()
+    queryClient.setQueryData(['categories'], [{ name: 'Trip', group: 'Goals', goal }])
+    return renderWithProviders(
+      <EnvelopeRow
+        envelope={{ category: 'Trip', group: 'Goals', assigned: 0, spent: 0, available: 0, rolledOver: 0, isOverspent: false, spentPct: 0, isCreditCardPayment: false, ...e }}
+        icon="SoccerBall" hideAmounts={false} onMoveMoney={onMoveMoney} onEditAmount={jest.fn()} onViewTransactions={jest.fn()} active={active}
+      />,
+      { queryClient },
+    )
+  }
+
+  it('shows saved of target, and Set pulls what this month is behind by', () => {
+    const onMoveMoney = jest.fn()
+    // 3,000 in, 9,000 to go over this month and the next three.
+    const { getByText, getByLabelText, queryByText } = goalRow({ amount: 12000, by: shiftMonthKey(month, 3) }, { available: 3000, rolledOver: 3000 }, onMoveMoney)
+    expect(getByText('₹3,000 of ₹12,000')).toBeTruthy()
+    expect(queryByText(/Last spent/)).toBeNull()
+    expect(getByText('Behind · ₹2,250/mo by ' + shortMonth(shiftMonthKey(month, 3)))).toBeTruthy()
+    // Set keeps shimmering until it's acted on: lit letters, still read as one word.
+    expect(getByLabelText('Set')).toBeTruthy()
+    expect(queryByText('Set')).toBeNull()
+    fireEvent.press(getByLabelText('Set Trip: pull ₹2,250'))
+    expect(onMoveMoney).toHaveBeenCalledWith('Trip', 2250)
+  })
+
+  it("rests a behind goal's Set as plain text while Home is covered", () => {
+    const { getByText } = goalRow({ amount: 12000, by: shiftMonthKey(month, 3) }, { available: 3000, rolledOver: 3000 }, jest.fn(), false)
+    expect(getByText('Set')).toBeTruthy()
+  })
+
+  it("shows a behind goal's Set as plain text under reduced motion", () => {
+    const spy = jest.spyOn(reanimated, 'useReducedMotion').mockReturnValue(true)
+    const { getByText } = goalRow({ amount: 12000, by: shiftMonthKey(month, 3) }, { available: 3000, rolledOver: 3000 })
+    expect(getByText('Set')).toBeTruthy()
+    spy.mockRestore()
+  })
+
+  it('offers a repeat or a remove once its month is done', () => {
+    const { getByText } = goalRow({ amount: 5000, by: month }, { assigned: 0, available: 1000, spent: 4000, rolledOver: 5000 })
+    expect(getByText('Repeat')).toBeTruthy()
+    expect(getByText('Remove goal')).toBeTruthy()
+  })
+
+  it('trades Track weekly for Edit goal, which opens the goal screen', () => {
+    const onEditGoal = jest.fn()
+    const queryClient = createTestQueryClient()
+    queryClient.setQueryData(['categories'], [{ name: 'Trip', group: 'Goals', goal: { amount: 5000 } }])
+    const { getByText, queryByText } = renderWithProviders(
+      <EnvelopeRow
+        envelope={{ category: 'Trip', group: 'Goals', assigned: 0, spent: 0, available: 1000, rolledOver: 1000, isOverspent: false, spentPct: 0, isCreditCardPayment: false }}
+        icon="SoccerBall" hideAmounts={false} onMoveMoney={jest.fn()} onEditAmount={jest.fn()} onViewTransactions={jest.fn()} onEditGoal={onEditGoal}
+      />,
+      { queryClient },
+    )
+    fireEvent.press(getByText('Trip'))
+    expect(queryByText('Track weekly')).toBeNull()
+    fireEvent.press(getByText('Edit goal'))
+    expect(onEditGoal).toHaveBeenCalledWith('Trip')
   })
 })

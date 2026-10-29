@@ -18,6 +18,7 @@ import { splitEmoji } from '@/src/lib/emoji'
 import { categoryIconKey, type CategoryIconKey } from '@/src/lib/categoryIcons'
 import { CATEGORY_ICON_COMPONENTS } from '@/src/components/shared/CategoryIcon'
 import { computeEnvelopeState,currentMonthKey,prevMonthKey } from '@/src/lib/envelope'
+import { goalProgress, shortMonth } from '@/src/lib/goal'
 import { BudgetWriteError } from '@/src/lib/budgetConflict'
 import { amountSeed } from '@/src/lib/calcAmount'
 import type { BudgetRow } from '@/src/types'
@@ -51,6 +52,10 @@ function EditAssignedAmountModal() {
   // Switchable in place from the envelope card, so assigning across several
   // envelopes doesn't mean closing and reopening this screen for each one.
   const [category, setCategory] = useState(() => str(params.category))
+  // Home's Ready to Assign tap: open already moved by what gets it to zero
+  // (raised by what's left, or lowered by what's over). Once only: switching
+  // away and back opens at what was saved, not adjusted again.
+  const [adjust, setAdjust] = useState(() => Number(str(params.adjust)) || 0)
 
   const budgetsQ = useBudgets()
   const carryQ = useCarry(currentMonthKey())
@@ -80,6 +85,8 @@ function EditAssignedAmountModal() {
 
   const envelope = envelopeState.envelopes.find((e) => e.category === category)
   const lastMonthAssigned = prevEnvelopeState.envelopes.find((e) => e.category === category)?.assigned
+  const row = categories.find((c) => c.name === category)
+  const goal = row?.goal && envelope ? goalProgress({ goal: row.goal, month, available: envelope.available, assigned: envelope.assigned, spent: envelope.spent, since: row.since }) : null
 
   // Mounted only once data has settled, so its initial amountText (below)
   // seeds correctly from the real envelope instead of a still-loading '0'.
@@ -91,6 +98,7 @@ function EditAssignedAmountModal() {
         // A save just invalidated budgets; wait for fresh rows so the next
         // envelope starts from the real Ready to Assign, not the old one.
         await budgetsQ.refetch()
+        setAdjust(0)
         setCategory(next)
       }}
       month={month}
@@ -102,7 +110,9 @@ function EditAssignedAmountModal() {
       group={envelope?.group ?? ''}
       icon={categories.find((c) => c.name === category)?.icon}
       lastMonthAssigned={lastMonthAssigned}
+      goalNeed={goal?.monthlyNeed !== undefined && goal.by ? { amount: goal.monthlyNeed, by: goal.by } : undefined}
       readyToAssign={envelopeState.readyToAssign}
+      adjust={adjust}
     />
   )
 }
@@ -118,7 +128,9 @@ function EditAmountBody({
   group,
   icon,
   lastMonthAssigned,
+  goalNeed,
   readyToAssign,
+  adjust,
   onSwitch,
 }: {
   category: string
@@ -132,7 +144,11 @@ function EditAmountBody({
   group: string
   icon: string | undefined
   lastMonthAssigned: number | undefined
+  /** A goal's monthly amount to make its deadline (src/lib/goal.ts), offered as a pick. */
+  goalNeed?: { amount: number; by: string }
   readyToAssign: number
+  /** Start this much off currentAssigned, either way (never below 0). */
+  adjust: number
   onSwitch: (category: string) => Promise<void>
 }) {
   const { formatCurrency, formatAmountInput, formatMoney } = useCurrency()
@@ -147,7 +163,7 @@ function EditAmountBody({
   const name = isCreditCardPayment ? 'Credit Card Payment' : splitEmoji(category).text
   const iconKey: CategoryIconKey = isCreditCardPayment ? 'CreditCard' : categoryIconKey(category, icon, group)
 
-  const { amount: amountText, setAmount: setAmountText, pushDigit, handleBackspace, shake } = useAmountEntry(amountSeed(currentAssigned))
+  const { amount: amountText, setAmount: setAmountText, pushDigit, handleBackspace, shake } = useAmountEntry(amountSeed(Math.max(0, Math.round((currentAssigned + adjust) * 100) / 100)))
   const [saving, setSaving] = useState(false)
   const [success, setSuccess] = useState(false)
   const [error, setError] = useState('')
@@ -158,6 +174,8 @@ function EditAmountBody({
   const [pickerOpen, setPickerOpen] = useState(false)
 
   const value = Number(amountText) || 0
+  const giveAll = Math.round((baseAssigned + baseReadyToAssign) * 100) / 100
+  const showLastMonth = !isCreditCardPayment && !!lastMonthAssigned
   const delta = value - baseAssigned
   const projectedRTA = baseReadyToAssign - delta
   // An untouched 0 has nothing to project, so it just shows what's left.
@@ -304,20 +322,28 @@ function EditAmountBody({
           )}
         </View>
 
+        {/* At most two chips, both from your own numbers: everything left (so you
+            don't do the sum), then the goal's amount or last month's. Round numbers
+            only when there's neither, so the row is never empty. */}
         <View style={styles.quickRow}>
-          {QUICK_PICKS.map((v) => (
+          {baseReadyToAssign > 0 && (
             <QuickChip
-              key={v}
-              label={formatMoney(v)}
-              active={value === v}
-              onPress={() => setAmountText(String(v))}
+              label={`Give it all · ${formatCurrency(baseReadyToAssign, hideAmounts)}`}
+              active={value === giveAll}
+              onPress={() => setAmountText(amountSeed(giveAll))}
               tokens={tokens}
               radius={radius}
             />
-          ))}
-        </View>
-        {!isCreditCardPayment && !!lastMonthAssigned && (
-          <View style={styles.quickRow}>
+          )}
+          {goalNeed ? (
+            <QuickChip
+              label={`${formatCurrency(goalNeed.amount, hideAmounts)} makes it by ${shortMonth(goalNeed.by)}`}
+              active={value === goalNeed.amount}
+              onPress={() => setAmountText(String(goalNeed.amount))}
+              tokens={tokens}
+              radius={radius}
+            />
+          ) : showLastMonth ? (
             <QuickChip
               label={`Last month · ${formatCurrency(lastMonthAssigned, hideAmounts)}`}
               active={value === lastMonthAssigned}
@@ -325,8 +351,20 @@ function EditAmountBody({
               tokens={tokens}
               radius={radius}
             />
-          </View>
-        )}
+          ) : (
+            baseReadyToAssign <= 0 &&
+            QUICK_PICKS.map((v) => (
+              <QuickChip
+                key={v}
+                label={formatMoney(v)}
+                active={value === v}
+                onPress={() => setAmountText(String(v))}
+                tokens={tokens}
+                radius={radius}
+              />
+            ))
+          )}
+        </View>
 
         {error !== '' && <Text style={{ color: tokens.coral, fontSize: 12 }}>{error}</Text>}
       </ScrollView>

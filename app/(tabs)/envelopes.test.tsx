@@ -12,17 +12,19 @@ const mockCategories = mockGroups.flatMap((group, i) =>
 const mockMove = jest.fn()
 const mockUpdateGroup = jest.fn()
 const mockUpdateCategory = jest.fn()
+const mockAddCategory = jest.fn()
+const mockAddGroup = jest.fn()
 const mockAnimations: ((finished: boolean) => void)[] = []
 const mockFrameCallbacks = new Set<() => void>()
 const mockSprings: unknown[] = []
 jest.mock('@/src/hooks/useGroups', () => ({
   useGroups: () => ({ data: mockGroups }), useGroupIcons: () => new Map(), useGroupColors: () => new Map(),
   useMoveGroup: () => ({ mutate: mockMove }),
-  useAddGroup: () => ({}), useUpdateGroup: () => ({ mutateAsync: mockUpdateGroup }), useDeleteGroup: () => ({}),
+  useAddGroup: () => ({ mutateAsync: mockAddGroup }), useUpdateGroup: () => ({ mutateAsync: mockUpdateGroup }), useDeleteGroup: () => ({}),
 }))
 jest.mock('@/src/hooks/useCategories', () => ({
   useCategories: () => ({ data: mockCategories }),
-  useMoveCategory: () => ({}), useAddCategory: () => ({}),
+  useMoveCategory: () => ({}), useAddCategory: () => ({ mutateAsync: mockAddCategory }),
   useUpdateCategory: () => ({ mutateAsync: mockUpdateCategory }), useDeleteCategory: () => ({}),
 }))
 let mockReadOnly = false
@@ -346,4 +348,47 @@ it('in a read-only budget, shows the banner and offers no way to add or reorder'
   expect(queryByText('New group')).toBeNull()
   expect(queryByText('Add category')).toBeNull()
   expect(queryByText('Add first category')).toBeNull()
+})
+
+it('a goal template names the category, sets its month, and files it under a new Goals group', async () => {
+  mockAddGroup.mockReset().mockResolvedValue(undefined)
+  mockAddCategory.mockReset().mockResolvedValue(undefined)
+  const { currentMonthKey, shiftMonthKey } = jest.requireActual('@/src/lib/envelope')
+  const screen = render(<EnvelopesScreen />)
+  fireEvent.press(screen.getAllByText('Add category')[0])
+  fireEvent.press(screen.getByText('Insurance'))
+  expect(screen.getByDisplayValue('Insurance')).toBeTruthy()
+  fireEvent.changeText(screen.getByLabelText('Goal amount'), '24000')
+  await act(async () => { fireEvent.press(screen.getAllByText('Add category').at(-1)!) })
+  expect(mockAddGroup).toHaveBeenCalledWith({ name: 'Goals' })
+  expect(mockAddCategory).toHaveBeenCalledWith(expect.objectContaining({
+    name: 'Insurance', group: 'Goals', goal: { amount: 24000, by: shiftMonthKey(currentMonthKey(), 12), repeat: 'yearly' },
+  }))
+})
+
+it("turning a goal off from Edit sends it back to spending, and its alerts come back", async () => {
+  mockUpdateCategory.mockReset().mockResolvedValue(undefined)
+  mockCategories[0] = { ...mockCategories[0], goal: { amount: 5000 } } as never
+  const screen = render(<EnvelopesScreen />)
+  fireEvent.press(screen.getByText('House category 0'))
+  fireEvent.press(screen.getByText('Edit'))
+  expect(screen.getByText("Spending alerts are off while it's a goal.")).toBeTruthy()
+  fireEvent.press(screen.getByText('No goal'))
+  expect(screen.getByText('50%')).toBeTruthy()
+  await act(async () => { fireEvent.press(screen.getByText('Save')) })
+  expect(mockUpdateCategory).toHaveBeenCalledWith({ name: 'House category 0', updates: { goal: null } })
+  delete (mockCategories[0] as { goal?: unknown }).goal
+})
+
+it('a finished one-off goal still lets Edit save a rename, and keeps the goal', async () => {
+  mockUpdateCategory.mockReset().mockResolvedValue(undefined)
+  const { currentMonthKey, shiftMonthKey } = jest.requireActual('@/src/lib/envelope')
+  mockCategories[0] = { ...mockCategories[0], goal: { amount: 5000, by: shiftMonthKey(currentMonthKey(), -1) } } as never
+  const screen = render(<EnvelopesScreen />)
+  fireEvent.press(screen.getByText('House category 0'))
+  fireEvent.press(screen.getByText('Edit'))
+  fireEvent.changeText(screen.getByLabelText('Name'), 'Trip')
+  await act(async () => { fireEvent.press(screen.getByText('Save')) })
+  expect(mockUpdateCategory).toHaveBeenCalledWith({ name: 'House category 0', updates: { newName: 'Trip' } })
+  delete (mockCategories[0] as { goal?: unknown }).goal
 })

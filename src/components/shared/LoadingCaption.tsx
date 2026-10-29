@@ -3,6 +3,7 @@ import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native'
 import Animated, { SlideInDown, SlideOutUp } from 'react-native-reanimated'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
+import { ShimmerText } from '@/src/components/shared/ShimmerText'
 
 const PHRASES = [
   'Balancing the categories…',
@@ -54,14 +55,9 @@ export function LoadingCaption({ style, phrases = PHRASES, ordered = false }: Pr
 
   return (
     <View style={[styles.wrap, style]}>
-      <Animated.Text
-        key={phraseIndex}
-        entering={SlideInDown.duration(450)}
-        exiting={SlideOutUp.duration(450)}
-        style={[styles.text, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}
-      >
-        {shuffledPhrases[phraseIndex]}
-      </Animated.Text>
+      <Animated.View key={phraseIndex} entering={SlideInDown.duration(450)} exiting={SlideOutUp.duration(450)} style={styles.phrase}>
+        <ShimmerText loop text={shuffledPhrases[phraseIndex]} style={[styles.text, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]} />
+      </Animated.View>
     </View>
   )
 }
@@ -73,11 +69,14 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     justifyContent: 'center',
   },
-  text: {
+  phrase: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
+    alignItems: 'center',
+  },
+  text: {
     fontSize: 13,
     textAlign: 'center',
   },

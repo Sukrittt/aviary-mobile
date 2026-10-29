@@ -117,6 +117,7 @@ export type AppEvent =
   | 'wrapped_shared'
   | 'wrapped_plan_tapped'
   | 'rta_zero_celebrated'
+  | 'rta_goals_funded'
   | 'week_recap_opened'
   | 'week_recap_finished'
   // Paying

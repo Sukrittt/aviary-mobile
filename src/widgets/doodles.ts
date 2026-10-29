@@ -55,8 +55,12 @@ export function doodlesSvg(
   height: number,
   tokens: ThemeTokens,
   scheme: "light" | "dark",
+  /** Glyphs to leave out, for a card with text where they'd land. */
+  omit: readonly (keyof typeof GLYPH)[] = [],
 ): string {
-  const spots = width > height * 3 ? STRIP : width > height * 1.4 ? WIDE : SQUARE;
+  const spots = (width > height * 3 ? STRIP : width > height * 1.4 ? WIDE : SQUARE).filter(
+    (spot) => !omit.includes(spot.glyph),
+  );
   // Dark surfaces swallow a hairline; light ones show it at half the strength.
   const opacity = scheme === "dark" ? 0.2 : 0.14;
   const glyphs = spots

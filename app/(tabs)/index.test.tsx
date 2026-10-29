@@ -1,6 +1,6 @@
 import { Profiler, useState } from 'react'
 import * as mockReact from 'react'
-import { Animated, Linking, Platform } from 'react-native'
+import { Animated, Linking, Platform, StyleSheet } from 'react-native'
 import { act, fireEvent, waitFor } from '@testing-library/react-native'
 import * as SecureStore from 'expo-secure-store'
 import { Path } from 'react-native-svg'
@@ -26,8 +26,9 @@ jest.mock('expo-secure-store', () => ({
 const mockRefetched = mockReact.createContext(0)
 let mockBudgets: { month: string; category: string; assigned: string; rolled_over: string }[] = []
 let mockBudgetsError: Error | null = null
+let mockCategories: { name: string; group: string; goal?: object }[] = [{ name: 'Food', group: 'Everyday' }]
 let mockUser: { onboardedAt?: string; getStartedAt?: string; manualTransactionCompletedAt?: string; guidedTourCompletedAt?: string; createdAt?: string; hiddenFeatures?: string[] } = {}
-let mockExpenses: { category: string; amountInr: number; date: string }[] = []
+let mockExpenses: { category: string; amountInr?: number; amount_inr?: string; date: string }[] = []
 let mockBilling: object | undefined
 let mockWrappedStatus: { available: boolean } | undefined
 let mockSuggestions: { suggestions: { kind: string }[] } | undefined
@@ -43,7 +44,9 @@ jest.mock('@/src/hooks/useBudgets', () => ({
     return { data: mockBudgets, isLoading: false, error: mockBudgetsError, refetch: mockRefetch }
   },
   useCarry: () => ({ data: mockCarry, isLoading: false, error: mockCarryError, refetch: mockCarryRefetch }),
+  useUpdateBudget: () => ({ mutateAsync: mockUpdateBudget }),
 }))
+const mockUpdateBudget = jest.fn(() => Promise.resolve({}))
 // The real hook, with an open budget to key the rollover card's dismissal by when a test sets one.
 let mockActiveSpace: { id: string; name: string; personal: boolean } | null = null
 jest.mock('@/src/hooks/useBudgetSpaces', () => {
@@ -64,8 +67,10 @@ let mockSchedules: { id: string; frequency: string; status: string; start_date: 
 jest.mock('@/src/hooks/useIncomes', () => ({ useRecurringIncomes: () => ({ data: mockSchedules }) }))
 jest.mock('@/src/hooks/useAccounts', () => ({ useAccounts: () => ({ data: [] }) }))
 jest.mock('@/src/hooks/useCategories', () => ({
-  useCategories: () => ({ data: [{ name: 'Food', group: 'Everyday' }], isLoading: false, error: null, refetch: jest.fn() }),
+  useCategories: () => ({ data: mockCategories, isLoading: false, error: null, refetch: jest.fn() }),
   useCategoryTint: () => () => ({ bg: '#eee', ink: '#333' }),
+  useSaveNote: () => jest.fn(),
+  useUpdateCategory: () => ({ mutateAsync: jest.fn() }),
 }))
 jest.mock('@/src/hooks/useGroups', () => ({
   useGroups: () => ({ data: ['Everyday'], isLoading: false, error: null, refetch: jest.fn() }),
@@ -155,37 +160,103 @@ describe('HomeScreen · Ready to Assign', () => {
     expect(getByLabelText('₹15,000')).toBeTruthy()
   })
 
-  it('opens income options from the Ready to Assign hero', () => {
-    const { getByLabelText, getByText } = renderHome()
+  it('opens income options from the income pill', () => {
+    const { getByText } = renderHome()
 
-    fireEvent.press(getByLabelText('Ready to Assign options'))
+    fireEvent.press(getByText('Income · ₹20,000'))
     expect(getByText('Income ₹20,000')).toBeTruthy()
 
     // No schedule yet: Change income starts one from today's monthly figure.
     fireEvent.press(getByText('Change income'))
     expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/modals/recurring-income', params: { label: 'Monthly income', frequency: 'monthly', amount: '20000' } })
-    fireEvent.press(getByLabelText('Ready to Assign options'))
+    fireEvent.press(getByText('Income · ₹20,000'))
     fireEvent.press(getByText('Add income'))
     expect(mockPush).toHaveBeenLastCalledWith('/modals/add-income')
-    fireEvent.press(getByLabelText('Ready to Assign options'))
+    fireEvent.press(getByText('Income · ₹20,000'))
     fireEvent.press(getByText('Manage income'))
     expect(mockPush).toHaveBeenLastCalledWith('/account/income')
-    fireEvent.press(getByLabelText('Ready to Assign options'))
+    fireEvent.press(getByText('Income · ₹20,000'))
     fireEvent.press(getByText('Set Ready to Assign'))
     expect(mockPush).toHaveBeenLastCalledWith('/modals/edit-ready-to-assign')
+  })
+
+  it("says what Ready to Assign needs, and tapping it picks a category to fund", () => {
+    const { getByText, getAllByText, getByLabelText } = renderHome()
+    expect(getByText('Give this ₹15,000 a job')).toBeTruthy()
+
+    fireEvent.press(getByLabelText('Ready to Assign options'))
+    expect(getByText('Pick a category')).toBeTruthy()
+    // The sheet's row, after the envelope list's.
+    fireEvent.press(getAllByText('Food').at(-1)!)
+    expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/modals/edit-assigned-amount', params: { category: 'Food', adjust: '15000' } })
+  })
+
+  it('funds behind goals in one tap', async () => {
+    mockCategories = [{ name: 'Food', group: 'Everyday', goal: { amount: 8000, by: MONTH } }]
+    try {
+      const { getByText, getByLabelText } = renderHome()
+      fireEvent.press(getByLabelText('Ready to Assign options'))
+      await act(async () => {
+        fireEvent.press(getByText('Fund behind goals · ₹3,000'))
+      })
+      expect(mockUpdateBudget).toHaveBeenCalledWith({ month: MONTH, category: 'Food', version: 0, updates: { assigned: '8000' } })
+    } finally {
+      mockCategories = [{ name: 'Food', group: 'Everyday' }]
+    }
+  })
+
+  it('offers to take money back when Ready to Assign is negative', () => {
+    mockBudgets = [
+      { month: MONTH, category: '__income__', assigned: '4000', rolled_over: '0' },
+      { month: MONTH, category: 'Food', assigned: '5000', rolled_over: '0' },
+    ]
+    const { getByText, getAllByText, getByLabelText } = renderHome()
+    expect(getByText('Take ₹1,000 back')).toBeTruthy()
+
+    fireEvent.press(getByLabelText('Ready to Assign options'))
+    expect(getByText('Take it back from')).toBeTruthy()
+    // The sheet's row, after the envelope list's.
+    fireEvent.press(getAllByText('Food').at(-1)!)
+    expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/modals/edit-assigned-amount', params: { category: 'Food', adjust: '-1000' } })
+  })
+
+  it("takes back only what's left, and skips envelopes that are fully spent", () => {
+    mockCategories = [{ name: 'Food', group: 'Everyday' }, { name: 'Rent', group: 'Everyday' }]
+    mockBudgets = [
+      { month: MONTH, category: '__income__', assigned: '9000', rolled_over: '0' },
+      { month: MONTH, category: 'Food', assigned: '5000', rolled_over: '0' },
+      { month: MONTH, category: 'Rent', assigned: '5000', rolled_over: '0' },
+    ]
+    mockExpenses = [
+      { category: 'Food', amount_inr: '5000', date: `${MONTH}-01` },
+      { category: 'Rent', amount_inr: '4500', date: `${MONTH}-01` },
+    ]
+    try {
+      const { getByText, getAllByText, getByLabelText } = renderHome()
+      const foodBefore = getAllByText('Food').length
+      fireEvent.press(getByLabelText('Ready to Assign options'))
+      expect(getByText('Take it back from')).toBeTruthy()
+      // Fully spent, so Food gets no row in the sheet.
+      expect(getAllByText('Food')).toHaveLength(foodBefore)
+      fireEvent.press(getAllByText('Rent').at(-1)!)
+      expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/modals/edit-assigned-amount', params: { category: 'Rent', adjust: '-500' } })
+    } finally {
+      mockCategories = [{ name: 'Food', group: 'Everyday' }]
+      mockExpenses = []
+    }
   })
 
   it('Change income edits the one monthly schedule, or sends you to pick among several', () => {
     mockSchedules = [{ id: 'r1', frequency: 'monthly', status: 'active', start_date: '2026-01-01' }, { id: 'r2', frequency: 'weekly', status: 'active', start_date: '2026-01-01' }]
     const first = renderHome()
-    fireEvent.press(first.getByLabelText('Ready to Assign options'))
+    fireEvent.press(first.getByText('Income · ₹20,000'))
     fireEvent.press(first.getByText('Change income'))
     expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/modals/recurring-income', params: { id: 'r1' } })
     first.unmount()
 
     mockSchedules = [{ id: 'r1', frequency: 'monthly', status: 'active', start_date: '2026-01-01' }, { id: 'r3', frequency: 'monthly', status: 'active', start_date: '2026-01-01' }]
     const second = renderHome()
-    fireEvent.press(second.getByLabelText('Ready to Assign options'))
+    fireEvent.press(second.getByText('Income · ₹20,000'))
     fireEvent.press(second.getByText('Change income'))
     expect(mockPush).toHaveBeenLastCalledWith('/account/income')
     second.unmount()
@@ -193,7 +264,7 @@ describe('HomeScreen · Ready to Assign', () => {
     // Not loaded yet: never a create form that could duplicate a schedule.
     mockSchedules = undefined
     const third = renderHome()
-    fireEvent.press(third.getByLabelText('Ready to Assign options'))
+    fireEvent.press(third.getByText('Income · ₹20,000'))
     fireEvent.press(third.getByText('Change income'))
     expect(mockPush).toHaveBeenLastCalledWith('/account/income')
     mockSchedules = []
@@ -309,6 +380,14 @@ describe('HomeScreen · Ready to Assign', () => {
     expect(second.queryByTestId('rta-slim')).toBeNull()
   })
 
+  it('keeps a streak running across the Ready to Assign amount, every digit at full strength off it', () => {
+    const hero = renderHome().getByTestId('rta-hero')
+    expect(hero.find((n) => n.props.id === 'ready-to-assign').props.sweep).toBe(true)
+    const lit = hero.findAll((n) => typeof n.type === 'string' && typeof StyleSheet.flatten(n.props.style)?.opacity === 'number')
+    expect(lit.length).toBeGreaterThan(1)
+    expect(lit.every((n) => StyleSheet.flatten(n.props.style).opacity === 1)).toBe(true)
+  })
+
   it('uses the app icon as the home header brand', () => {
     const { getByLabelText, queryByText, UNSAFE_getAllByType } = renderHome()
 
@@ -370,6 +449,8 @@ describe('HomeScreen · Ready to Assign', () => {
     const { findByTestId, queryByText } = renderWithProviders(<HomeScreen />, { queryClient })
     expect(await findByTestId('read-only-banner')).toBeTruthy()
     expect(queryByText('Get started')).toBeNull()
+    // A viewer can't give the money a job, so the hero doesn't nudge.
+    expect((await findByTestId('rta-hero')).find((n) => n.props.id === 'ready-to-assign').props.sweep).toBe(false)
   })
 
   it('hides Get Started when skipped, and remembers it on this device', async () => {

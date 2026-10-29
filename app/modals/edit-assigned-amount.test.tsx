@@ -5,7 +5,8 @@ import { getBudgets, updateBudget, getCarry } from '@/src/api/budgets'
 import { getCategories } from '@/src/api/categories'
 import { getGroups } from '@/src/api/groups'
 import EditAssignedAmountModal from './edit-assigned-amount'
-import { currentMonthKey, prevMonthKey } from '@/src/lib/envelope'
+import { currentMonthKey, prevMonthKey, shiftMonthKey } from '@/src/lib/envelope'
+import { shortMonth } from '@/src/lib/goal'
 import { BudgetWriteError } from '@/src/lib/budgetConflict'
 import * as Haptics from 'expo-haptics'
 
@@ -49,8 +50,8 @@ jest.mock('expo-router', () => ({
 const MONTH = currentMonthKey()
 const PREV_MONTH = prevMonthKey(MONTH)
 
-function setup(budgets: object[]) {
-  mockParams = { category: 'Food' }
+function setup(budgets: object[], params: Record<string, string> = { category: 'Food' }) {
+  mockParams = params
   ;(getExpenses as jest.Mock).mockResolvedValue([])
   ;(getBudgets as jest.Mock).mockResolvedValue(budgets)
   ;(getCategories as jest.Mock).mockResolvedValue([{ name: 'Food', group: 'Everyday' }])
@@ -197,12 +198,12 @@ it('gives selection haptics when a quick pick is tapped', async () => {
 })
 
 describe('switching envelopes in place', () => {
-  function setupTwo(budgets: object[]) {
+  function setupTwo(budgets: object[], params: Record<string, string> = { category: 'Food' }) {
     ;(getCategories as jest.Mock).mockResolvedValue([
       { name: 'Food', group: 'Everyday' },
       { name: 'Rent', group: 'Everyday' },
     ])
-    mockParams = { category: 'Food' }
+    mockParams = params
     ;(getExpenses as jest.Mock).mockResolvedValue([])
     ;(getBudgets as jest.Mock).mockResolvedValue(budgets)
     ;(getGroups as jest.Mock).mockResolvedValue(['Everyday'])
@@ -234,6 +235,31 @@ describe('switching envelopes in place', () => {
     expect(await findByLabelText('Editing Rent. Switch category')).toBeTruthy()
     expect(await findByText('₹6,000 already assigned this month')).toBeTruthy()
     expect(mockBack).not.toHaveBeenCalled()
+  })
+
+  it('applies adjust once, not again after switching away and back', async () => {
+    ;(updateBudget as jest.Mock).mockResolvedValue({})
+    const budgets = [
+      { month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0', version: 2 },
+      { month: MONTH, category: 'Food', assigned: '0', rolled_over: '0', version: 1 },
+      { month: MONTH, category: 'Rent', assigned: '6000', rolled_over: '0', version: 3 },
+    ]
+    const { getByLabelText, findByText, findByLabelText } = setupTwo(budgets, { category: 'Food', adjust: '14000' })
+    await findByLabelText('₹14,000')
+    ;(getBudgets as jest.Mock).mockResolvedValue(
+      budgets.map((b) => (b.category === 'Food' ? { ...b, assigned: '14000', version: 2 } : b)),
+    )
+
+    fireEvent.press(getByLabelText('Editing Food. Switch category'))
+    await act(async () => {
+      fireEvent.press(await findByText('Pick Rent'))
+    })
+    fireEvent.press(await findByLabelText('Editing Rent. Switch category'))
+    await act(async () => {
+      fireEvent.press(await findByText('Pick Food'))
+    })
+
+    expect(await findByText('₹14,000 already assigned this month')).toBeTruthy()
   })
 
   it('switches without saving when nothing changed', async () => {
@@ -272,4 +298,98 @@ it("won't act on balances without last month's carry", async () => {
   ;(getCarry as jest.Mock).mockRejectedValueOnce(new Error('503'))
   const { findByText } = renderWithProviders(<EditAssignedAmountModal />)
   expect(await findByText("Couldn't load your balances. Check your connection and try again.")).toBeTruthy()
+})
+
+it("a goal with a deadline gets its monthly amount as the only chip", async () => {
+  mockParams = { category: 'Food' }
+  ;(getExpenses as jest.Mock).mockResolvedValue([])
+  ;(getBudgets as jest.Mock).mockResolvedValue([
+    { month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0', version: 2 },
+    { month: MONTH, category: 'Food', assigned: '0', rolled_over: '0', version: 7 },
+    { month: PREV_MONTH, category: 'Food', assigned: '3000', rolled_over: '0', version: 1 },
+  ])
+  ;(getCategories as jest.Mock).mockResolvedValue([{ name: 'Food', group: 'Everyday', goal: { amount: 6000, by: shiftMonthKey(MONTH, 1) } }])
+  ;(getGroups as jest.Mock).mockResolvedValue(['Everyday'])
+  const { getByText, queryByText } = renderWithProviders(<EditAssignedAmountModal />)
+  // 6,000 over this month and next, with nothing in it yet.
+  await waitFor(() => expect(getByText(`₹3,000 makes it by ${shortMonth(shiftMonthKey(MONTH, 1))}`)).toBeTruthy())
+  expect(queryByText('₹500')).toBeNull()
+  expect(queryByText(/Last month/)).toBeNull()
+})
+
+it('opens lowered by a negative adjust, so a plain Save frees it to Ready to Assign', async () => {
+  ;(updateBudget as jest.Mock).mockResolvedValue({})
+  const { getByLabelText, getByText } = setup([
+    { month: MONTH, category: '__income__', assigned: '4000', rolled_over: '0', version: 2 },
+    { month: MONTH, category: 'Food', assigned: '5000', rolled_over: '0', version: 7 },
+  ], { category: 'Food', adjust: '-1000' })
+
+  await waitFor(() => expect(getByLabelText('₹4,000')).toBeTruthy())
+  expect(getByText('Frees ₹1,000 back to Ready to Assign')).toBeTruthy()
+
+  await act(async () => {
+    fireEvent.press(getByText('Save'))
+  })
+  await waitFor(() => expect(updateBudget).toHaveBeenCalledWith(MONTH, 'Food', { assigned: '4000' }, 7))
+})
+
+it('never opens a negative adjust below 0', async () => {
+  const { getByLabelText } = setup([
+    { month: MONTH, category: '__income__', assigned: '4000', rolled_over: '0', version: 2 },
+    { month: MONTH, category: 'Food', assigned: '500', rolled_over: '0', version: 7 },
+  ], { category: 'Food', adjust: '-1000' })
+
+  await waitFor(() => expect(getByLabelText('₹0')).toBeTruthy())
+})
+
+it('opens raised by a positive adjust, so a plain Save empties Ready to Assign', async () => {
+  ;(updateBudget as jest.Mock).mockResolvedValue({})
+  const { getByLabelText, getByText } = setup([
+    { month: MONTH, category: '__income__', assigned: '10000', rolled_over: '0', version: 2 },
+    { month: MONTH, category: 'Food', assigned: '5000', rolled_over: '0', version: 7 },
+  ], { category: 'Food', adjust: '5000' })
+
+  await waitFor(() => expect(getByLabelText('₹10,000')).toBeTruthy())
+  expect(getByText('Pulls ₹5,000 from Ready to Assign')).toBeTruthy()
+  expect(getByText('₹0 left to assign')).toBeTruthy()
+
+  await act(async () => {
+    fireEvent.press(getByText('Save'))
+  })
+  await waitFor(() => expect(updateBudget).toHaveBeenCalledWith(MONTH, 'Food', { assigned: '10000' }, 7))
+})
+
+it('Give it all adds everything left in Ready to Assign on top of what is assigned', async () => {
+  const { getByLabelText, getByText } = setup([
+    { month: MONTH, category: '__income__', assigned: '10000', rolled_over: '0', version: 2 },
+    { month: MONTH, category: 'Food', assigned: '5000', rolled_over: '0', version: 7 },
+  ])
+
+  await waitFor(() => expect(getByLabelText('₹5,000')).toBeTruthy())
+  fireEvent.press(getByText('Give it all · ₹5,000'))
+  expect(getByLabelText('₹10,000')).toBeTruthy()
+  expect(getByText('₹0 left to assign')).toBeTruthy()
+})
+
+it('hides Give it all when there is nothing left to assign', async () => {
+  const { getByLabelText, queryByText } = setup([
+    { month: MONTH, category: '__income__', assigned: '5000', rolled_over: '0', version: 2 },
+    { month: MONTH, category: 'Food', assigned: '5000', rolled_over: '0', version: 7 },
+  ])
+
+  await waitFor(() => expect(getByLabelText('₹5,000')).toBeTruthy())
+  expect(queryByText(/Give it all/)).toBeNull()
+})
+
+it('shows only Give it all and Last month when both apply, without round numbers', async () => {
+  const { findByText, getByText, queryByText } = setup([
+    { month: MONTH, category: '__income__', assigned: '10000', rolled_over: '0', version: 2 },
+    { month: MONTH, category: 'Food', assigned: '5000', rolled_over: '0', version: 7 },
+    { month: PREV_MONTH, category: 'Food', assigned: '3000', rolled_over: '0', version: 1 },
+  ])
+
+  await findByText('Give it all · ₹5,000')
+  expect(getByText('Last month · ₹3,000')).toBeTruthy()
+  expect(queryByText('₹500')).toBeNull()
+  expect(queryByText('₹2,500')).toBeNull()
 })

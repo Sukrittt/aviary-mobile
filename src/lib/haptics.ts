@@ -13,6 +13,17 @@ export function tap() {
   t.catch(() => {})
 }
 
+/**
+ * A picker wheel's per-row tick: light and crisp, Android's clock tick and
+ * iOS's own picker selection tick. Lighter than tap(), since it fires per row.
+ */
+export function wheelTick() {
+  const t = Platform.OS === 'android'
+    ? Haptics.performAndroidHapticsAsync(Haptics.AndroidHaptics.Clock_Tick)
+    : Haptics.selectionAsync()
+  t.catch(() => {})
+}
+
 const RIPPLE_MS = 250
 // The taptic engine smears ticks closer than ~20ms, so past this a longer
 // list feels the same anyway.
