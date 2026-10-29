@@ -332,8 +332,9 @@ function HomeScreen() {
     return fundBehindGoals(rta, behind)
   }, [readOnly, rta, homeEnvelopes, categories, month])
   const goalFundingTotal = goalFunding.reduce((n, g) => n + g.amount, 0)
-  // Rupee amounts, so a negative Ready to Assign only offers envelopes with something to give.
-  const rtaCategories = rta < 0 ? homeEnvelopes.filter((e) => e.assigned > 0) : homeEnvelopes
+  // Rupee amounts, so a negative Ready to Assign only offers envelopes with money left
+  // to give, and takes back no more than that, so nothing tips into overspent.
+  const rtaCategories = rta < 0 ? homeEnvelopes.filter((e) => e.assigned > 0 && e.available > 0) : homeEnvelopes
 
   async function fundGoals() {
     setFunding(true)
@@ -820,7 +821,7 @@ function HomeScreen() {
               label={splitEmoji(e.category).text}
               onPress={() => {
                 setRtaSheetOpen(false)
-                router.push({ pathname: '/modals/edit-assigned-amount', params: { category: e.category, adjust: String(rta) } })
+                router.push({ pathname: '/modals/edit-assigned-amount', params: { category: e.category, adjust: String(rta < 0 ? -Math.min(-rta, e.available) : rta) } })
               }}
             />
           ))}

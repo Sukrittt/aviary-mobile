@@ -28,7 +28,7 @@ let mockBudgets: { month: string; category: string; assigned: string; rolled_ove
 let mockBudgetsError: Error | null = null
 let mockCategories: { name: string; group: string; goal?: object }[] = [{ name: 'Food', group: 'Everyday' }]
 let mockUser: { onboardedAt?: string; getStartedAt?: string; manualTransactionCompletedAt?: string; guidedTourCompletedAt?: string; createdAt?: string; hiddenFeatures?: string[] } = {}
-let mockExpenses: { category: string; amountInr: number; date: string }[] = []
+let mockExpenses: { category: string; amountInr?: number; amount_inr?: string; date: string }[] = []
 let mockBilling: object | undefined
 let mockWrappedStatus: { available: boolean } | undefined
 let mockSuggestions: { suggestions: { kind: string }[] } | undefined
@@ -218,6 +218,32 @@ describe('HomeScreen · Ready to Assign', () => {
     // The sheet's row, after the envelope list's.
     fireEvent.press(getAllByText('Food').at(-1)!)
     expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/modals/edit-assigned-amount', params: { category: 'Food', adjust: '-1000' } })
+  })
+
+  it("takes back only what's left, and skips envelopes that are fully spent", () => {
+    mockCategories = [{ name: 'Food', group: 'Everyday' }, { name: 'Rent', group: 'Everyday' }]
+    mockBudgets = [
+      { month: MONTH, category: '__income__', assigned: '9000', rolled_over: '0' },
+      { month: MONTH, category: 'Food', assigned: '5000', rolled_over: '0' },
+      { month: MONTH, category: 'Rent', assigned: '5000', rolled_over: '0' },
+    ]
+    mockExpenses = [
+      { category: 'Food', amount_inr: '5000', date: `${MONTH}-01` },
+      { category: 'Rent', amount_inr: '4500', date: `${MONTH}-01` },
+    ]
+    try {
+      const { getByText, getAllByText, getByLabelText } = renderHome()
+      const foodBefore = getAllByText('Food').length
+      fireEvent.press(getByLabelText('Ready to Assign options'))
+      expect(getByText('Take it back from')).toBeTruthy()
+      // Fully spent, so Food gets no row in the sheet.
+      expect(getAllByText('Food')).toHaveLength(foodBefore)
+      fireEvent.press(getAllByText('Rent').at(-1)!)
+      expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/modals/edit-assigned-amount', params: { category: 'Rent', adjust: '-500' } })
+    } finally {
+      mockCategories = [{ name: 'Food', group: 'Everyday' }]
+      mockExpenses = []
+    }
   })
 
   it('Change income edits the one monthly schedule, or sends you to pick among several', () => {
