@@ -740,7 +740,8 @@ function EnvelopesScreen() {
   function pickGoal(key: GoalTemplateKey | 'custom' | null) {
     setGoalPick(key)
     if (sheet?.kind !== 'addCategory') return
-    if (!groupPicked) setDraftGroup(key ? GOALS_GROUP : addGroupFrom)
+    // The group whose add button opened this keeps the goal; only an ungrouped add files it under Goals.
+    if (!groupPicked && !addGroupFrom) setDraftGroup(key ? GOALS_GROUP : '')
     if (!key || key === 'custom') return
     const t = goalTemplate(key, currentMonthKey())
     setGoalDraft((d) => ({ ...d, by: t.by, yearly: t.yearly }))
