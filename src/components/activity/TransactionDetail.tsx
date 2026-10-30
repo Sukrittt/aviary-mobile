@@ -22,7 +22,7 @@ import { usePrivacy } from '@/src/context/PrivacyContext'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { fontFamily } from '@/src/theme/fonts'
 import { splitEmoji } from '@/src/lib/emoji'
-import { formatTime, parseLocalDate, toLocalDateString } from '@/src/lib/date'
+import { formatTime, nowLocal, parseLocalDate, toLocalDateString } from '@/src/lib/date'
 import type { ExpenseRow } from '@/src/types'
 import type { PhosphorIcon } from '@/src/components/shared/icons'
 
@@ -131,9 +131,12 @@ export function TransactionDetail({ txn, from, photoUri, addedBy, onClosed, onEd
   function pickDate(picked: Date) {
     const date = toLocalDateString(picked)
     if (date === row.date) return
-    // The server keeps the time of day when a date moves; show what it'll store.
-    const clock = row.timestamp.includes('T') ? row.timestamp.slice(row.timestamp.indexOf('T')) : ''
-    save({ new_date: date }, { date, timestamp: `${date}${clock}` })
+    if (Number.isNaN(logged.getTime())) return save({ new_date: date }, { date })
+    // Same time on the new day, at this device's offset: the old one can be wrong across a clock change.
+    const at = new Date(picked)
+    at.setHours(logged.getHours(), logged.getMinutes(), logged.getSeconds(), 0)
+    const timestamp = nowLocal(at).timestamp
+    save({ new_date: date, new_timestamp: timestamp }, { date, timestamp })
   }
 
   function pickAccount(id: string) {

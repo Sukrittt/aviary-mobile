@@ -1,6 +1,6 @@
 import { act, fireEvent, screen } from '@testing-library/react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
-import { nowLocal } from '@/src/lib/date'
+import { formatTime, nowLocal } from '@/src/lib/date'
 import { ExpenseWriteError } from '@/src/lib/expenseConflict'
 import type { AccountRow, ExpenseRow } from '@/src/types'
 import { TransactionDetail } from './TransactionDetail'
@@ -82,15 +82,27 @@ it('changes the category in place and hands Edit the latest row', () => {
 })
 
 it('moves the date, keeps the time of day, and sends the next version on the next change', () => {
-  const onEdit = renderDetail()
+  const onEdit = renderDetail(txn({ timestamp: nowLocal(new Date(2026, 9, 18, 0, 21, 59)).timestamp }))
+  const moved = nowLocal(new Date(2026, 9, 20, 0, 21, 59)).timestamp
   fireEvent.press(screen.getByLabelText(/^Change date/))
   fireEvent.press(screen.getByText('pick the 20th'))
-  expect(mockMutate.mock.calls[0][0]).toMatchObject({ version: 3, updates: { new_date: '2026-10-20' } })
+  expect(mockMutate.mock.calls[0][0]).toMatchObject({ version: 3, updates: { new_date: '2026-10-20', new_timestamp: moved } })
   fireEvent.press(screen.getByLabelText('Change category, Mini GT'))
   fireEvent.press(screen.getByText('pick Hobbies'))
-  expect(mockMutate.mock.calls[1][0]).toMatchObject({ version: 4, timestamp: '2026-10-20T00:21:59-06:00' })
+  expect(mockMutate.mock.calls[1][0]).toMatchObject({ version: 4, timestamp: moved })
   fireEvent.press(screen.getByText('Edit'))
-  expect(onEdit).toHaveBeenCalledWith(expect.objectContaining({ date: '2026-10-20', timestamp: '2026-10-20T00:21:59-06:00', version: 5 }))
+  expect(onEdit).toHaveBeenCalledWith(expect.objectContaining({ date: '2026-10-20', timestamp: moved, version: 5 }))
+})
+
+it('keeps the time you see when a date moves across a clock change', () => {
+  const timestamp = '2026-03-01T10:00:00-05:00'
+  renderDetail(txn({ timestamp, date: '2026-03-01' }))
+  fireEvent.press(screen.getByLabelText(/^Change date/))
+  fireEvent.press(screen.getByText('pick the 20th'))
+  const sent = mockMutate.mock.calls[0][0].updates.new_timestamp
+  expect(sent.slice(0, 10)).toBe('2026-10-20')
+  expect(formatTime(sent)).toBe(formatTime(timestamp))
+  expect(screen.getByLabelText(`Change time, ${formatTime(timestamp)}`)).toBeTruthy()
 })
 
 describe('time', () => {
