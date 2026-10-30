@@ -137,6 +137,7 @@ describe('ScanBillScreen', () => {
         category: 'Groceries',
         date: todayLocal(),
         payment_method: 'bank',
+        client_id: expect.any(String),
       }),
     )
     expect(mockReplace).toHaveBeenCalledWith(
