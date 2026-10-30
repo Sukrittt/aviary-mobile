@@ -9,6 +9,7 @@ import { useCachedUser } from '@/src/hooks/useUser'
 import { isHidden } from '@/src/lib/features'
 import { QUICK_INCOME_PATH } from './IncomeFloodButton'
 import { EMPTY_SUBMIT, LOG_EXPENSE_PATH, useLogExpenseSubmitState } from './SubmitContext'
+import { useAddHint } from './useAddHint'
 
 /**
  * The app's single nav instance, mounted once above the root Stack (see
@@ -27,9 +28,10 @@ export function LogExpenseNavigation() {
   const addDisabled = submitState.saving || submitState.success
   // Cache-only read: this nav mounts before sign-in, so it must never fetch the profile itself.
   const user = useCachedUser()
-  // First expense ever, form ready: point at + as the save button, which
-  // otherwise only reads as "go to log expense". Gone once the save lands.
-  const addHint = addActive && !addInvalid && !addDisabled && !!user && !user.manualTransactionCompletedAt
+  // First expense ever or back after a long gap, form ready: point at + as the
+  // save button, which otherwise only reads as "go to log expense". Gone once
+  // the save lands.
+  const addHint = useAddHint(user, addActive) && !addInvalid && !addDisabled
   const { tokens } = useTheme()
   // Remembers where it opened, so any navigation (back gesture, deep link) closes it.
   const [menuPath, setMenuPath] = useState<string | null>(null)

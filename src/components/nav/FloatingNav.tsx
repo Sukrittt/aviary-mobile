@@ -182,7 +182,7 @@ export function FloatingNav({
   addInvalid?: boolean
   /** Meaningful only when addActive: blocks the tap while saving or after success. */
   addDisabled?: boolean
-  /** Meaningful only when addActive: a first-timer's form is ready, so pulse the add disc and say it saves. */
+  /** Meaningful only when addActive: a first-timer's or returning user's form is ready, so pulse the add disc and say it saves. */
   addHint?: boolean
   children?: React.ReactNode
 }) {
