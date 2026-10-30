@@ -281,7 +281,8 @@ export function monthComparison(expenseRows: ExpenseRow[], month: string, today:
 
   const priorMonths = [1, 2, 3]
     .map((n) => shiftMonthKey(month, -n))
-    .filter((m) => expenseRows.some((e) => e.date.startsWith(m)))
+    // A month that only holds income or card payments isn't a zero (same as Web's priorMonthsWithData).
+    .filter((m) => expenseRows.some((e) => e.date.startsWith(m) && !isExcluded(e.category)))
 
   const baseline =
     priorMonths.length >= 2
