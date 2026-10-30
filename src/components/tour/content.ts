@@ -182,7 +182,7 @@ export const EXTRAS = [
   {
     name: 'Expense Wrapped',
     icon: 'Headphones',
-    desc: 'A monthly story of your spending: total, top category, biggest buy, streaks, badges and a spending archetype, with music and a card worth sharing. It unlocks on the 1st once you\'ve logged enough, and the You tab counts the dots for you.',
+    desc: 'A monthly story of your spending: total, top category, biggest buy, streaks, badges and a spending archetype, with music and a card worth sharing. It unlocks on the 1st once you\'ve logged enough, and the Account tab counts the dots for you.',
   },
   {
     name: 'Subscriptions',

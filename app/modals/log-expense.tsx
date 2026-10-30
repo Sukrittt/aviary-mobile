@@ -14,6 +14,7 @@ import { ExpenseWriteError, expenseChanges, expenseDraft, paymentMethodOf, rebas
 import type { CategoryRow, ExpenseRow } from '@/src/types'
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { suggestCategoryLLM } from "@/src/api/categoryMap";
+import { matchCategory } from "@/src/lib/matchCategory";
 import { AddCategoryForm } from "@/src/components/shared/AddCategoryForm";
 import { CategoryPickerSheet } from "@/src/components/shared/CategoryPickerSheet";
 import { DatePicker } from "@/src/components/shared/DatePicker";
@@ -90,33 +91,6 @@ import { withReadOnlyGate } from '@/src/components/budgets/ReadOnlyNotice'
 
 function str(v: string | string[] | undefined): string {
   return typeof v === "string" ? v : "";
-}
-
-// Subset of Web's autoCategory.ts::suggestCategory — matches item words against
-// the category-map dictionary. Skips the fuzzy old-category-name fallback since
-// that's for renamed-category migration, not relevant when logging a new expense.
-function suggestCategory(
-  item: string,
-  words: Record<string, string>,
-  categories: string[],
-): string {
-  if (!item.trim()) return "";
-  const matched = new Map<string, number>();
-  for (const word of item.toLowerCase().split(/\s+/)) {
-    if (word.length < 2) continue;
-    const cat = words[word];
-    if (cat && categories.includes(cat))
-      matched.set(cat, (matched.get(cat) ?? 0) + 1);
-  }
-  let best = "";
-  let bestScore = 0;
-  for (const [cat, score] of matched) {
-    if (score > bestScore) {
-      best = cat;
-      bestScore = score;
-    }
-  }
-  return best;
 }
 
 // How long a save may hold the screen before it's reported as stuck.
@@ -306,7 +280,7 @@ function LogExpenseScreen() {
     };
     const categoryNames = categories.map((c) => c.name);
     // The keyword map is local, so it answers on the keystroke. Only the AI waits for a pause.
-    const suggested = suggestCategory(item, categoryMapQ.data?.words ?? {}, categoryNames);
+    const suggested = matchCategory(item, categoryMapQ.data?.words ?? {}, categoryNames);
     if (suggested) {
       gate.finish(apply(suggested, "keyword"));
       return;

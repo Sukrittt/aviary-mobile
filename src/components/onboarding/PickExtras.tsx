@@ -57,7 +57,7 @@ export function PickExtras({ onDone }: { onDone: () => void }) {
     try {
       await updateUser.mutateAsync({ hiddenFeatures: [...coreHidden, ...OPT_IN_FEATURES.filter((k) => !on.has(k))] })
     } catch {
-      Alert.alert("Couldn't save your extras", 'Turn them on anytime from You, then Features.')
+      Alert.alert("Couldn't save your extras", 'Turn them on anytime from Account, then Features.')
     }
     onDone()
   }

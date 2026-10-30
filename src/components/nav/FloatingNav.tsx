@@ -42,7 +42,7 @@ export const NAV_ROUTES: { name: NavRoute; glyph: NavIconComponent; label: strin
   { name: 'index', glyph: HomeGlyph, label: 'Home' },
   { name: 'activity', glyph: ActivityGlyph, label: 'Activity' },
   { name: 'envelopes', glyph: EnvelopeGlyph, label: 'Categories' },
-  { name: 'more', glyph: ProfileGlyph, label: 'More' },
+  { name: 'more', glyph: ProfileGlyph, label: 'Account' },
 ]
 
 export const NAV_HREF: Record<NavRoute, '/' | '/activity' | '/envelopes' | '/more'> = {

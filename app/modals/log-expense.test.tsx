@@ -460,6 +460,15 @@ it('asks before saving an amount far above the category usual, then saves on the
   expect(postExpensePayload).toHaveBeenCalledTimes(1)
 })
 
+it('finds a renamed category from the word map, without asking the AI', async () => {
+  const utils = setup({}, [], [{ name: 'Food & Dining', group: 'Food' }, { name: 'Rent', group: 'Food' }], { words: { dinner: 'Food' } })
+  await act(async () => { await Promise.resolve(); await Promise.resolve() })
+  fireEvent.changeText(utils.getByPlaceholderText('What was it for?'), 'dinner')
+  await act(async () => { jest.advanceTimersByTime(300) })
+  expect(utils.getByLabelText('Category: Food & Dining, picked for you')).toBeTruthy()
+  expect(suggestCategoryLLM).not.toHaveBeenCalled()
+})
+
 it('predicts again when a new expense name changes after a manual category choice', async () => {
   let answer: (v: string) => void = () => {}
   const utils = setup({}, [], [{ name: 'Eating out', group: 'Food' }, { name: 'Rent', group: 'Food' }])
