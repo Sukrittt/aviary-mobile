@@ -496,6 +496,8 @@ function LogExpenseScreen() {
         },
       );
     } else {
+      // Read now: this closure can outlive a midnight with no render in between.
+      const date = pickedDate ?? todayLocal();
       // Kept (still auto-picked at save) or overridden (the user changed it).
       if (suggestedBy.current) track("ai_category_suggested", { accepted: autoPicked, source: suggestedBy.current, ms: pickMs.current });
       const row = {
@@ -588,7 +590,7 @@ function LogExpenseScreen() {
         },
       );
     }
-  }, [canSubmit, unusual, unusualWarnedFor, warnKey, base, expectedVersion, isEdit, origId, origTimestamp, origItem, origAmountInr, item, savedItem, parsedAmount, date, category, notes, paymentMethod, accountId, accounts, editedDraft, router, addMutate, updateMutate, autoPicked, syncPhoto, photo, failedClientId, qc, shared, memberBudgets]);
+  }, [canSubmit, unusual, unusualWarnedFor, warnKey, base, expectedVersion, isEdit, origId, origTimestamp, origItem, origAmountInr, item, savedItem, parsedAmount, pickedDate, category, notes, paymentMethod, accountId, accounts, editedDraft, router, addMutate, updateMutate, autoPicked, syncPhoto, photo, failedClientId, qc, shared, memberBudgets]);
 
   // Publish only when the action or its visible state changes, and only while
   // focused: a prefilled log-expense (habit nudge) stacks over the launch one,

@@ -194,6 +194,20 @@ it('a blank form left open over midnight logs to the new day', async () => {
   expect((postExpensePayload as jest.Mock).mock.calls[0][0].date).toBe('2026-11-01')
 })
 
+it('a form filled before midnight and saved after it, with no render between, logs to the new day', async () => {
+  jest.setSystemTime(new Date(2026, 9, 31, 23, 50))
+  ;(postExpensePayload as jest.Mock).mockResolvedValue({ id: 'srv1', timestamp: '2026-11-01T00:10:00' })
+  const utils = setup()
+  await fillValidForm(utils)
+  jest.setSystemTime(new Date(2026, 10, 1, 0, 10))
+  await act(async () => {
+    ;(globalThis as any).__submit()
+    await Promise.resolve()
+    await Promise.resolve()
+  })
+  expect((postExpensePayload as jest.Mock).mock.calls[0][0].date).toBe('2026-11-01')
+})
+
 it('a date the user picked stays picked, even across a remount', async () => {
   jest.setSystemTime(new Date(2026, 9, 31, 23, 50))
   ;(postExpensePayload as jest.Mock).mockResolvedValue({ id: 'srv1', timestamp: '2026-10-30T00:10:00' })
