@@ -1,8 +1,10 @@
 import { act, fireEvent } from '@testing-library/react-native'
 import { createTestQueryClient, renderWithProviders } from '@/src/test-utils/renderWithProviders'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { LogExpenseSubmitProvider, useLogExpenseSubmitPublisher, type LogExpenseSubmitSnapshot } from '@/src/features/log-expense/SubmitContext'
 import { LogExpenseNavigation } from '@/src/features/log-expense/LogExpenseNavigation'
+import { ADD_HINT_GAP_DAYS, noteHandLog } from '@/src/features/log-expense/useAddHint'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 let snapshot: LogExpenseSubmitSnapshot | undefined
 function NavigationHarness() {
  const publish = useLogExpenseSubmitPublisher()
@@ -75,9 +77,10 @@ describe('on the log-expense screen', () => {
   })
 })
 
-describe('first-expense hint', () => {
-  beforeEach(() => {
+describe('add hint', () => {
+  beforeEach(async () => {
     mockPathname = '/modals/log-expense'
+    await AsyncStorage.clear()
   })
 
   function renderWithUser(manualTransactionCompletedAt: string | null, canSubmit: boolean) {
@@ -100,9 +103,41 @@ describe('first-expense hint', () => {
     expect(queryByText('Tap + to save')).toBeNull()
   })
 
-  it('never shows after the first expense', async () => {
-    const { queryByText } = renderWithUser('2026-10-01T10:00:00Z', true)
+  it('stays away while you log regularly', async () => {
+    noteHandLog()
+    const { queryByText } = renderWithUser('2026-01-01T10:00:00Z', true)
     await act(async () => {})
+    expect(queryByText('Tap + to save')).toBeNull()
+  })
+
+  it('comes back after a long gap without logging', async () => {
+    noteHandLog(Date.now() - ADD_HINT_GAP_DAYS * 86_400_000)
+    const { getByText } = renderWithUser('2026-01-01T10:00:00Z', true)
+    await act(async () => {})
+    expect(getByText('Tap + to save')).toBeTruthy()
+  })
+
+  it('reads the clock afresh on each visit, so a save in between clears it', async () => {
+    noteHandLog(Date.now() - ADD_HINT_GAP_DAYS * 86_400_000)
+    // The nav stays mounted between visits, so this has to re-render, not remount.
+    let navigate = () => {}
+    function Mounted() {
+      const [, force] = useState(0)
+      useEffect(() => { navigate = () => force((n) => n + 1) }, [])
+      return <TabBar />
+    }
+    snapshot = { canSubmit: true, saving: false, success: false, submit: jest.fn(), onInvalid: jest.fn() }
+    const queryClient = createTestQueryClient()
+    queryClient.setQueryData(['user'], { email: 'a@b.com', manualTransactionCompletedAt: '2026-01-01T10:00:00Z' })
+    const { getByText, queryByText } = renderWithProviders(<Mounted />, { queryClient })
+    await act(async () => {})
+    expect(getByText('Tap + to save')).toBeTruthy()
+
+    mockPathname = '/'
+    await act(async () => navigate())
+    noteHandLog()
+    mockPathname = '/modals/log-expense'
+    await act(async () => navigate())
     expect(queryByText('Tap + to save')).toBeNull()
   })
 })

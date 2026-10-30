@@ -54,6 +54,7 @@ import { useCaptureTip } from "@/src/hooks/useCaptureTip";
 import { useFeedOn } from "@/src/hooks/useActivityView";
 import { noteManualLog, type CaptureTipReason } from "@/src/lib/captureTip";
 import { CaptureTipBubble } from "@/src/features/log-expense/CaptureTipBubble";
+import { noteHandLog } from "@/src/features/log-expense/useAddHint";
 import { IncomeFloodButton } from "@/src/features/log-expense/IncomeFloodButton";
 import { useCachedUser } from "@/src/hooks/useUser";
 import { isHidden } from "@/src/lib/features";
@@ -535,6 +536,7 @@ function LogExpenseScreen() {
           onSuccess: (res) => {
             clearLogExpenseDraft();
             noteManualLog();
+            noteHandLog();
             void syncPhoto(res.id, res.pending);
             pendingAddNavRef.current = {
               pathname: "/modals/expense-added",
