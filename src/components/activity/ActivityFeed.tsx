@@ -129,8 +129,6 @@ export function ActivityFeed({ params, incomes, onOpenIncome, header, empty, cat
           txn={detail.txn}
           from={detail.rect}
           photoUri={detail.uri}
-          category={categoryByName.get(detail.txn.category)}
-          account={accountNameOf(detail.txn.account_id)}
           onClosed={() => setDetail(null)}
           onEdit={(t) => {
             setDetail(null)

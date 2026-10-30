@@ -1162,8 +1162,6 @@ function ActivityScreen() {
             txn={detail.txn}
             from={detail.rect}
             photoUri={detail.txn.photo_url ? stablePhotoUrl(detail.txn.photo_url) : null}
-            category={categoryByName.get(detail.txn.category)}
-            account={accountName(accountsQ.data, detail.txn.account_id)}
             addedBy={shared ? addedByName(loggedBy(detail.txn, activeBudget)) : undefined}
             onClosed={() => setDetail(null)}
             onEdit={(t) => {
