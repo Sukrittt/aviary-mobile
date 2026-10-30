@@ -314,7 +314,7 @@ export default function BudgetMembersScreen() {
             <Text style={[styles.sheetTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>{`Delete ${name}?`}</Text>
             <Text style={[styles.sheetBody, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>{`Everyone in it loses access. You can restore it for 30 days. Type ${name} to confirm.`}</Text>
             <TextInput value={typed} onChangeText={setTyped} placeholder={name} placeholderTextColor={tokens.text3} accessibilityLabel="Budget name to confirm" autoCorrect={false} style={[styles.input, { backgroundColor: tokens.inputBg, borderColor: tokens.border, color: tokens.text, fontFamily: fontFamily.bodyMedium }]} />
-            <SheetButtons tokens={tokens} confirm="Delete budget" cancel="Keep it" busy={destroy.isPending} disabled={typed.trim() !== budget?.name} onConfirm={() => destroy.mutate()} onCancel={() => setConfirm(null)} />
+            <SheetButtons tokens={tokens} confirm="Delete budget" cancel="Keep it" busy={destroy.isPending} disabled={typed.trim().toLowerCase() !== budget?.name.trim().toLowerCase()} onConfirm={() => destroy.mutate()} onCancel={() => setConfirm(null)} />
           </>
         ) : confirm?.kind === 'pick-owner' ? (
           <>
