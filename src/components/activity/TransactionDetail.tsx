@@ -245,7 +245,7 @@ export function TransactionDetail({ txn, from, photoUri, addedBy, onClosed, onEd
         </ScrollView>
 
         <Animated.View style={[styles.actions, { paddingHorizontal: space.md, paddingBottom: insets.bottom + space.md, gap: space.sm, backgroundColor: tokens.bg }, details]}>
-          <Button label="Edit" variant="secondary" icon={PencilSimple} style={{ flex: 1 }} onPress={() => onEdit(row)} />
+          <Button label="Edit" variant="secondary" icon={PencilSimple} style={{ flex: 1 }} disabled={update.isPending} onPress={() => onEdit(row)} />
           <Pressable
             onPress={() => {
               Haptics.selectionAsync().catch(() => {})
@@ -253,6 +253,7 @@ export function TransactionDetail({ txn, from, photoUri, addedBy, onClosed, onEd
             }}
             accessibilityRole="button"
             accessibilityLabel="Delete"
+            disabled={update.isPending}
             style={({ pressed }) => [styles.delete, { borderColor: tokens.border, borderRadius: radius.full, gap: space.xs, opacity: pressed ? 0.7 : 1 }]}
           >
             <Trash size={18} color={tokens.coral} />

@@ -6,8 +6,9 @@ import type { AccountRow, ExpenseRow } from '@/src/types'
 import { TransactionDetail } from './TransactionDetail'
 
 const mockMutate = jest.fn()
+let mockPending = false
 jest.mock('@/src/hooks/useExpenses', () => ({
-  useUpdateExpense: () => ({ mutate: mockMutate, isPending: false }),
+  useUpdateExpense: () => ({ mutate: mockMutate, isPending: mockPending }),
 }))
 
 const mockAccounts: AccountRow[] = [
@@ -60,6 +61,7 @@ beforeEach(() => {
   mockMutate.mockReset()
   mockBlocked.mockClear()
   mockReadOnly = false
+  mockPending = false
 })
 
 it('shows the account without its emoji', () => {
@@ -184,6 +186,14 @@ it('takes the latest row on a conflict, so the retry sends the right version', (
   fireEvent.press(screen.getByLabelText('Change category, Cars'))
   fireEvent.press(screen.getByText('pick Hobbies'))
   expect(mockMutate.mock.calls[1][0]).toMatchObject({ version: 7, updates: { category: 'Hobbies' } })
+})
+
+it('holds Edit and Delete until a save finishes, so neither acts on an unconfirmed row', () => {
+  mockPending = true
+  const onEdit = renderDetail()
+  fireEvent.press(screen.getByText('Edit'))
+  expect(onEdit).not.toHaveBeenCalled()
+  expect(screen.getByLabelText('Delete').props.accessibilityState).toMatchObject({ disabled: true })
 })
 
 it("doesn't offer changes on a row that can't take them", () => {
