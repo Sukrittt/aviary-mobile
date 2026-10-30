@@ -1,3 +1,4 @@
+import * as Crypto from "expo-crypto";
 import { useBudgetSpaces } from "@/src/hooks/useBudgetSpaces";
 import { expenseSuccessParams } from '@/src/lib/expenseSuccessParams'
 import { ExpenseNoticeScreen } from '@/src/features/log-expense/ExpenseNoticeScreen'
@@ -196,7 +197,10 @@ function LogExpenseScreen() {
   const [categoryTouched, setCategoryTouched] = useState(
     draft?.categoryTouched ?? str(params.category) !== "",
   );
-  const [date, setDate] = useState(draft?.date ?? (str(params.date).slice(0, 10) || todayLocal()));
+  // null: today, whichever day that is by the time this saves. The form survives
+  // in the draft, so a date fixed at mount would log to yesterday after midnight.
+  const [pickedDate, setDate] = useState<string | null>(draft?.date || str(params.date).slice(0, 10) || null);
+  const date = pickedDate ?? todayLocal();
   const [notes, setNotes] = useState(draft?.notes ?? str(params.notes));
   // No picker for this without accounts (Web does the same): new expenses log
   // as bank, and an edit keeps the row's own method.
@@ -349,8 +353,8 @@ function LogExpenseScreen() {
 
   useEffect(() => {
     if (!plainVisit || logSuccess) return;
-    setLogExpenseDraft({ amount: expr, item, category, categoryTouched, autoPicked, date, notes, paymentMethod, accountId: accountPick });
-  }, [plainVisit, logSuccess, expr, item, category, categoryTouched, autoPicked, date, notes, paymentMethod, accountPick]);
+    setLogExpenseDraft({ amount: expr, item, category, categoryTouched, autoPicked, date: pickedDate ?? "", notes, paymentMethod, accountId: accountPick });
+  }, [plainVisit, logSuccess, expr, item, category, categoryTouched, autoPicked, pickedDate, notes, paymentMethod, accountPick]);
 
   function handleItemChange(value: string) {
     if (value === item) return;
@@ -520,9 +524,13 @@ function LogExpenseScreen() {
         setLogSuccess(true);
         return;
       }
+      // Named here so a retry from the failed screen is the same create: if this
+      // response is what got lost, the server keeps one row.
+      const clientId = Crypto.randomUUID();
       addMutate(
         {
           ...row,
+          client_id: clientId,
           // A slow save finishes in the background instead of holding this
           // screen. Not with a photo: its upload needs the server id.
           instant: !photo,
@@ -573,6 +581,8 @@ function LogExpenseScreen() {
                 notes: notes.trim(),
                 paymentMethod,
                 ...(accountId ? { accountId } : {}),
+                clientId,
+                source: row.source,
               },
             }),
         },

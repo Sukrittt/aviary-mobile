@@ -17,7 +17,8 @@ import { addCategory, getCategories } from '@/src/api/categories'
 import { getGroups } from '@/src/api/groups'
 import { getCategoryMap, suggestCategoryLLM } from '@/src/api/categoryMap'
 import LogExpenseScreen, { SAVE_STUCK_MS } from './log-expense'
-import { clearLogExpenseDraft, getLogExpenseDraft } from '@/src/features/log-expense/draft'
+import { clearLogExpenseDraft, getLogExpenseDraft, setLogExpenseDraft } from '@/src/features/log-expense/draft'
+import { HttpError } from '@/src/api/client'
 import { MIN_SPIN_MS, SETTLE_MS } from '@/src/features/log-expense/AutoCategoryPill'
 import { todayLocal } from '@/src/lib/date'
 import { useLogExpenseSubmitState, LogExpenseSubmitProvider } from '@/src/features/log-expense/SubmitContext'
@@ -177,6 +178,52 @@ it('plays the nav circle save animation before replacing the screen with the suc
       params: expect.objectContaining({ id: 'srv1', item: 'Milk', amount: '450', category: 'Groceries' }),
     }),
   )
+})
+
+it('a blank form left open over midnight logs to the new day', async () => {
+  jest.setSystemTime(new Date(2026, 9, 31, 23, 50))
+  ;(postExpensePayload as jest.Mock).mockResolvedValue({ id: 'srv1', timestamp: '2026-11-01T00:10:00' })
+  const utils = setup()
+  jest.setSystemTime(new Date(2026, 10, 1, 0, 10))
+  await fillValidForm(utils)
+  await act(async () => {
+    ;(globalThis as any).__submit()
+    await Promise.resolve()
+    await Promise.resolve()
+  })
+  expect((postExpensePayload as jest.Mock).mock.calls[0][0].date).toBe('2026-11-01')
+})
+
+it('a date the user picked stays picked, even across a remount', async () => {
+  jest.setSystemTime(new Date(2026, 9, 31, 23, 50))
+  ;(postExpensePayload as jest.Mock).mockResolvedValue({ id: 'srv1', timestamp: '2026-10-30T00:10:00' })
+  setLogExpenseDraft({ amount: '', item: '', category: '', categoryTouched: false, autoPicked: false, date: '2026-10-30', notes: '', paymentMethod: 'bank' })
+  const utils = setup()
+  jest.setSystemTime(new Date(2026, 10, 1, 0, 10))
+  await fillValidForm(utils)
+  await act(async () => {
+    ;(globalThis as any).__submit()
+    await Promise.resolve()
+    await Promise.resolve()
+  })
+  expect((postExpensePayload as jest.Mock).mock.calls[0][0].date).toBe('2026-10-30')
+})
+
+it('a failed save sends the retry screen its client_id, so a retry after a lost response keeps one row', async () => {
+  ;(postExpensePayload as jest.Mock).mockRejectedValue(new HttpError(503, 'bad gateway'))
+  const utils = setup()
+  await fillValidForm(utils)
+  await act(async () => {
+    ;(globalThis as any).__submit()
+    await Promise.resolve()
+    await Promise.resolve()
+  })
+  await act(async () => { jest.advanceTimersByTime(100) })
+  const sent = (postExpensePayload as jest.Mock).mock.calls[0][0]
+  expect(mockReplace).toHaveBeenCalledWith(expect.objectContaining({
+    pathname: '/modals/expense-failed',
+    params: expect.objectContaining({ clientId: sent.client_id, source: 'manual' }),
+  }))
 })
 
 it('restarts the add hint clock when a new expense saves', async () => {

@@ -96,6 +96,13 @@ it('names a blank expense after its category on retry, as the entry form does', 
   await waitFor(() => expect(mintExpensePayload).toHaveBeenCalledWith({ ...PAYLOAD, item: 'Groceries' }))
 })
 
+it('retries under the client_id of the failed save, so the server keeps one row', async () => {
+  ;(postExpensePayload as jest.Mock).mockResolvedValue({ id: 'abc123', timestamp: '2026-08-15T01:24:00' })
+  const { getByText } = setup({ clientId: 'first-attempt', source: 'manual' } as never)
+  fireEvent.press(getByText('Retry'))
+  await waitFor(() => expect(mintExpensePayload).toHaveBeenCalledWith({ ...PAYLOAD, client_id: 'first-attempt', source: 'manual' }))
+})
+
 it('lands on the success screen when the retry works', async () => {
   ;(postExpensePayload as jest.Mock).mockResolvedValue({ id: 'abc123', timestamp: '2026-08-15T01:24:00' })
   const { getByText } = setup()
