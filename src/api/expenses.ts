@@ -141,6 +141,8 @@ export async function updateExpense(
     new_item?: string
     new_amount_inr?: string
     new_date?: string
+    /** A new time of day, as a full timestamp on the row's own date. */
+    new_timestamp?: string
     new_payment_method?: string
     new_notes?: string
     /** '' clears the account. */

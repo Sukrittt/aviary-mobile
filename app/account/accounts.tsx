@@ -133,7 +133,7 @@ export default function AccountsScreen() {
                       <AccountIcon account={a} size={20} color={tokens.text2} />
                     </View>
                     <Text style={[styles.rowTitle, { flex: 1, color: tokens.text2, fontFamily: fontFamily.bodySemiBold }]} numberOfLines={1}>{accountLabel(a)}</Text>
-                    <Pressable onPress={() => restore(a)} disabled={update.isPending} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Restore ${a.name}`}>
+                    <Pressable onPress={() => restore(a)} disabled={update.isPending} hitSlop={8} accessibilityRole="button" accessibilityLabel={`Restore ${accountLabel(a)}`}>
                       <Text style={[styles.restore, { color: tokens.mint, fontFamily: fontFamily.bodyBold }]}>Restore</Text>
                     </Pressable>
                   </View>
@@ -145,7 +145,7 @@ export default function AccountsScreen() {
       </ScrollView>
 
       <BottomSheet visible={deleting !== null} onClose={() => !update.isPending && setDeleting(null)}>
-        <Text style={[styles.sheetTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Delete {deleting?.name ?? "account"}?</Text>
+        <Text style={[styles.sheetTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Delete {deleting ? accountLabel(deleting) : "account"}?</Text>
         <Text style={[styles.sheetBody, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
           Expenses on it keep the label. You can bring it back from Archived.{deleting?.type === "bank" ? " Your next balance check starts fresh." : ""}
         </Text>
@@ -166,9 +166,9 @@ function AccountItem({ account, index, onEdit, onTransactions, onDelete }: { acc
   const { tokens } = useTheme();
   const delay = MOUNT_DELAY + Math.min(index, STAGGER_CAP) * ITEM_STAGGER;
   const actions = [
-    { icon: Invoice, label: `View ${account.name} transactions`, onPress: onTransactions },
-    { icon: PencilSimple, label: `Edit ${account.name}`, onPress: onEdit },
-    { icon: Trash, label: `Delete ${account.name}`, onPress: onDelete },
+    { icon: Invoice, label: `View ${accountLabel(account)} transactions`, onPress: onTransactions },
+    { icon: PencilSimple, label: `Edit ${accountLabel(account)}`, onPress: onEdit },
+    { icon: Trash, label: `Delete ${accountLabel(account)}`, onPress: onDelete },
   ];
   return (
     <PopIn play delay={delay} style={[styles.rowCard, styles.rowInner, { backgroundColor: tokens.card, borderColor: tokens.border }]}>

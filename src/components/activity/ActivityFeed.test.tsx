@@ -10,6 +10,13 @@ import { ActivityFeed } from './ActivityFeed'
 const mockFeed = jest.fn()
 jest.mock('@/src/hooks/useExpenses', () => ({
   useExpensesFeed: () => mockFeed(),
+  useUpdateExpense: () => ({ mutate: jest.fn(), isPending: false }),
+  useRecentExpenses: () => ({ data: [] }),
+}))
+
+jest.mock('@/src/hooks/useAccounts', () => ({
+  useAccounts: () => ({ data: [{ id: 'acc1', name: 'HDFC Savings', type: 'bank', archived: false, created_at: '' }] }),
+  liveAccounts: (rows: unknown[]) => rows,
 }))
 
 const txn = (over: Partial<ExpenseRow>): ExpenseRow => ({
