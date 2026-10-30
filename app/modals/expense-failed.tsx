@@ -91,6 +91,10 @@ export default function ExpenseFailedScreen() {
   // i.e. every case except "item only, no category".
   const detailShowsIcon = category !== '' && detail !== ''
 
+  // Blank means the entry form's "What was it for?" was left empty: the server
+  // needs a name, so the row takes its category's, same as a first save.
+  const savedItem = item.trim() || categoryName
+
   function handleRetry() {
     if (addExpense.isPending) return
     // ponytail: a retry can double-post if the first request actually reached
@@ -99,7 +103,7 @@ export default function ExpenseFailedScreen() {
     // the two failure shapes apart.
     addExpense.mutate(
       {
-        item,
+        item: savedItem,
         amount_inr: String(amount),
         category,
         date,
@@ -114,7 +118,7 @@ export default function ExpenseFailedScreen() {
           router.replace({
             pathname: '/modals/expense-added',
             params: expenseSuccessParams(res, {
-              item,
+              item: savedItem,
               amount: String(amount),
               category,
               date,

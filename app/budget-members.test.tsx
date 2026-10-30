@@ -96,6 +96,14 @@ describe('as the owner', () => {
     fireEvent.press(utils.getAllByText('Delete budget').at(-1)!)
     await waitFor(() => expect(deleteBudget).toHaveBeenCalledWith('sp_home', 'Home'))
   })
+
+  it('takes the name in any case, as the server does', async () => {
+    const utils = setup('owner')
+    fireEvent.press(await utils.findByTestId('delete-budget'))
+    fireEvent.changeText(utils.getByLabelText('Budget name to confirm'), 'home')
+    fireEvent.press(utils.getAllByText('Delete budget').at(-1)!)
+    await waitFor(() => expect(deleteBudget).toHaveBeenCalledWith('sp_home', 'home'))
+  })
 })
 
 describe('handing over', () => {

@@ -164,6 +164,20 @@ describe('ScanBillScreen', () => {
     )
   })
 
+  it('saves the scan without a row left blank by Add item', async () => {
+    ;(scanBill as jest.Mock).mockResolvedValue(SCAN_RESULT)
+    ;(postExpensePayload as jest.Mock).mockResolvedValue({ id: 'e1', timestamp: '2026-08-29T10:00:00' })
+
+    const { findByText } = renderWithProviders(<ScanBillScreen />)
+    await flushCategories()
+    fireEvent.press(await findByText('Add item'))
+    fireEvent.press(await findByText('Review ₹880 →'))
+    fireEvent.press(await findByText('Log ₹880 to Groceries'))
+
+    await waitFor(() => expect(saveBillScan).toHaveBeenCalled())
+    expect((saveBillScan as jest.Mock).mock.calls[0][0].items.map((it: { name: string }) => it.name)).toEqual(['Milk', 'Pizza'])
+  })
+
   it('recomputes the share when the fee people-count changes', async () => {
     ;(scanBill as jest.Mock).mockResolvedValue(SCAN_RESULT)
     const { getByText, getByLabelText } = renderWithProviders(<ScanBillScreen />)
