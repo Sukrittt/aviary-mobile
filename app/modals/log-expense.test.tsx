@@ -1,6 +1,7 @@
 import { ExpenseWriteError } from '@/src/lib/expenseConflict'
 import { setSharedPhoto } from '@/src/lib/pendingShare'
 import type { ExpenseRow } from '@/src/types'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import { Alert, Modal } from 'react-native'
 import { act, fireEvent, waitFor, within } from '@testing-library/react-native'
 import * as pending from '@/src/lib/pendingExpenses'
@@ -176,6 +177,21 @@ it('plays the nav circle save animation before replacing the screen with the suc
       params: expect.objectContaining({ id: 'srv1', item: 'Milk', amount: '450', category: 'Groceries' }),
     }),
   )
+})
+
+it('restarts the add hint clock when a new expense saves', async () => {
+  ;(postExpensePayload as jest.Mock).mockResolvedValue({ id: 'srv1', timestamp: '2026-09-04T01:24:00' })
+  await AsyncStorage.removeItem('aviary-last-manual-log')
+  const utils = setup()
+  await fillValidForm(utils)
+
+  await act(async () => {
+    ;(globalThis as any).__submit()
+    await Promise.resolve()
+    await Promise.resolve()
+  })
+
+  expect(await AsyncStorage.getItem('aviary-last-manual-log')).not.toBeNull()
 })
 
 it('sends the success screen the category the server stored, not the stale one it asked for', async () => {
