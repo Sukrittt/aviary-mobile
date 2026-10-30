@@ -184,7 +184,7 @@ function MoreScreen() {
   return (
     <>
       <Screen
-        title="You"
+        title="Account"
         contentContainerStyle={styles.container}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={tokens.accent} colors={[tokens.accent]} />

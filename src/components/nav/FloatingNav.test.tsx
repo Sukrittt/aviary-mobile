@@ -163,7 +163,7 @@ describe('FloatingNav', () => {
       return <FloatingNav active={active} onSelect={setActive} onAdd={jest.fn()} />
     }
     const { getByLabelText } = renderWithProviders(<Nav />)
-    fireEvent(getByLabelText('More'), 'pressIn')
+    fireEvent(getByLabelText('Account'), 'pressIn')
     // 110ms at 60Hz, whatever each frame actually took.
     expect((Reanimated as unknown as { __lastFrameRun: { frames: number } }).__lastFrameRun.frames).toBe(Math.ceil(110 / (1000 / 60)))
   })

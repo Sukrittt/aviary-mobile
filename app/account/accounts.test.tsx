@@ -94,3 +94,14 @@ it('hides Add and says why instead of deleting or restoring in a read-only budge
   expect(queryByText('Delete HDFC?')).toBeNull()
   expect(updateAccount).not.toHaveBeenCalled()
 })
+
+it("leaves a legacy emoji out of the delete prompt and every action's label", async () => {
+  ;(getAccounts as jest.Mock).mockResolvedValue([{ id: 'a1', name: '💳Debit Card', type: 'bank', archived: false, created_at: '1' }])
+  const { findByText, getByLabelText, getByText, queryByText } = renderWithProviders(<AccountsScreen />)
+  await findByText('Bank account')
+  expect(getByLabelText('View Debit Card transactions')).toBeTruthy()
+  expect(getByLabelText('Edit Debit Card')).toBeTruthy()
+  fireEvent.press(getByLabelText('Delete Debit Card'))
+  expect(getByText('Delete Debit Card?')).toBeTruthy()
+  expect(queryByText(/💳/)).toBeNull()
+})

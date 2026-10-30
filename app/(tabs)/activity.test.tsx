@@ -22,6 +22,7 @@ let mockRecent: { has_photo?: boolean }[] = []
 jest.mock('@/src/hooks/useExpenses', () => ({
   useExpensesPage: (params: ExpensesPageParams) => mockUseExpensesPage(params),
   useDeleteExpense: () => ({ mutate: mockDelete, mutateAsync: mockDeleteAsync }),
+  useUpdateExpense: () => ({ mutate: jest.fn(), isPending: false }),
   prefetchExpensesPage: jest.fn(),
   prefetchExpensesFeed: (...args: unknown[]) => mockPrefetchFeed(...args),
   useDuplicates: () => ({ data: mockDuplicates }),

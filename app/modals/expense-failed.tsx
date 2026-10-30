@@ -62,6 +62,7 @@ export default function ExpenseFailedScreen() {
   const notes = str(params.notes)
   const paymentMethod = str(params.paymentMethod)
   const accountId = str(params.accountId)
+  const clientId = str(params.clientId)
   const amount = Number(str(params.amount)) || 0
 
   const addExpense = useAddExpense()
@@ -91,21 +92,25 @@ export default function ExpenseFailedScreen() {
   // i.e. every case except "item only, no category".
   const detailShowsIcon = category !== '' && detail !== ''
 
+  // Blank means the entry form's "What was it for?" was left empty: the server
+  // needs a name, so the row takes its category's, same as a first save.
+  const savedItem = item.trim() || categoryName
+
   function handleRetry() {
     if (addExpense.isPending) return
-    // ponytail: a retry can double-post if the first request actually reached
-    // the server and only its response was lost. The fix is an idempotency key
-    // on POST /api/expenses, not a client-side guard — a guard here cannot tell
-    // the two failure shapes apart.
+    // Same client_id as the failed save: if that request reached the server and
+    // only its response was lost, the server hands back the row it already has.
     addExpense.mutate(
       {
-        item,
+        item: savedItem,
         amount_inr: String(amount),
         category,
         date,
         notes,
         payment_method: paymentMethod,
         ...(accountId ? { account_id: accountId } : {}),
+        ...(clientId ? { client_id: clientId } : {}),
+        ...(str(params.source) === 'manual' ? { source: 'manual' as const } : {}),
       },
       {
         onSuccess: (res) => {
@@ -114,7 +119,7 @@ export default function ExpenseFailedScreen() {
           router.replace({
             pathname: '/modals/expense-added',
             params: expenseSuccessParams(res, {
-              item,
+              item: savedItem,
               amount: String(amount),
               category,
               date,

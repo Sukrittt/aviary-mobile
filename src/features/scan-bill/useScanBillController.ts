@@ -1,3 +1,4 @@
+import * as Crypto from "expo-crypto";
 import { expenseSuccessParams } from '@/src/lib/expenseSuccessParams';
 import { useBillSplit } from '@/src/features/scan-bill/useBillSplit';
 import { useCategories } from "@/src/hooks/useCategories";
@@ -114,6 +115,8 @@ export function useScanBillController() {
 
   function handleConfirm() {
     if (addExpense.isPending) return;
+    // Named here so a retry from the failed screen is the same create.
+    const clientId = Crypto.randomUUID();
     addExpense.mutate(
       {
         item: merchant.trim(),
@@ -121,6 +124,7 @@ export function useScanBillController() {
         category,
         date,
         payment_method: "bank",
+        client_id: clientId,
       },
       {
         onSuccess: (res) => {
@@ -139,7 +143,11 @@ export function useScanBillController() {
               my_share: myShare,
               people_count: peopleCount,
               expense_id: res.id,
-              items: items.map(({ name, price, qty, divisor }) => ({ name, price, qty: qty ?? 1, divisor })),
+              // The route rejects the whole scan over one nameless row, and
+              // "Add item" makes those.
+              items: items
+                .filter((it) => it.name.trim() !== "")
+                .map(({ name, price, qty, divisor }) => ({ name, price, qty: qty ?? 1, divisor })),
             });
           }
           router.replace({
@@ -164,6 +172,7 @@ export function useScanBillController() {
               date,
               notes: "",
               paymentMethod: "bank",
+              clientId,
             },
           }),
       },

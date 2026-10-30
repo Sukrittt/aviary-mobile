@@ -1,3 +1,4 @@
+import * as Crypto from "expo-crypto";
 import { useBudgetSpaces } from "@/src/hooks/useBudgetSpaces";
 import { expenseSuccessParams } from '@/src/lib/expenseSuccessParams'
 import { ExpenseNoticeScreen } from '@/src/features/log-expense/ExpenseNoticeScreen'
@@ -13,6 +14,7 @@ import { ExpenseWriteError, expenseChanges, expenseDraft, paymentMethodOf, rebas
 import type { CategoryRow, ExpenseRow } from '@/src/types'
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { suggestCategoryLLM } from "@/src/api/categoryMap";
+import { matchCategory } from "@/src/lib/matchCategory";
 import { AddCategoryForm } from "@/src/components/shared/AddCategoryForm";
 import { CategoryPickerSheet } from "@/src/components/shared/CategoryPickerSheet";
 import { DatePicker } from "@/src/components/shared/DatePicker";
@@ -54,6 +56,7 @@ import { useCaptureTip } from "@/src/hooks/useCaptureTip";
 import { useFeedOn } from "@/src/hooks/useActivityView";
 import { noteManualLog, type CaptureTipReason } from "@/src/lib/captureTip";
 import { CaptureTipBubble } from "@/src/features/log-expense/CaptureTipBubble";
+import { noteHandLog } from "@/src/features/log-expense/useAddHint";
 import { IncomeFloodButton } from "@/src/features/log-expense/IncomeFloodButton";
 import { useCachedUser } from "@/src/hooks/useUser";
 import { isHidden } from "@/src/lib/features";
@@ -88,33 +91,6 @@ import { withReadOnlyGate } from '@/src/components/budgets/ReadOnlyNotice'
 
 function str(v: string | string[] | undefined): string {
   return typeof v === "string" ? v : "";
-}
-
-// Subset of Web's autoCategory.ts::suggestCategory — matches item words against
-// the category-map dictionary. Skips the fuzzy old-category-name fallback since
-// that's for renamed-category migration, not relevant when logging a new expense.
-function suggestCategory(
-  item: string,
-  words: Record<string, string>,
-  categories: string[],
-): string {
-  if (!item.trim()) return "";
-  const matched = new Map<string, number>();
-  for (const word of item.toLowerCase().split(/\s+/)) {
-    if (word.length < 2) continue;
-    const cat = words[word];
-    if (cat && categories.includes(cat))
-      matched.set(cat, (matched.get(cat) ?? 0) + 1);
-  }
-  let best = "";
-  let bestScore = 0;
-  for (const [cat, score] of matched) {
-    if (score > bestScore) {
-      best = cat;
-      bestScore = score;
-    }
-  }
-  return best;
 }
 
 // How long a save may hold the screen before it's reported as stuck.
@@ -195,7 +171,10 @@ function LogExpenseScreen() {
   const [categoryTouched, setCategoryTouched] = useState(
     draft?.categoryTouched ?? str(params.category) !== "",
   );
-  const [date, setDate] = useState(draft?.date ?? (str(params.date).slice(0, 10) || todayLocal()));
+  // null: today, whichever day that is by the time this saves. The form survives
+  // in the draft, so a date fixed at mount would log to yesterday after midnight.
+  const [pickedDate, setDate] = useState<string | null>(draft?.date || str(params.date).slice(0, 10) || null);
+  const date = pickedDate ?? todayLocal();
   const [notes, setNotes] = useState(draft?.notes ?? str(params.notes));
   // No picker for this without accounts (Web does the same): new expenses log
   // as bank, and an edit keeps the row's own method.
@@ -301,7 +280,7 @@ function LogExpenseScreen() {
     };
     const categoryNames = categories.map((c) => c.name);
     // The keyword map is local, so it answers on the keystroke. Only the AI waits for a pause.
-    const suggested = suggestCategory(item, categoryMapQ.data?.words ?? {}, categoryNames);
+    const suggested = matchCategory(item, categoryMapQ.data?.words ?? {}, categoryNames);
     if (suggested) {
       gate.finish(apply(suggested, "keyword"));
       return;
@@ -348,8 +327,8 @@ function LogExpenseScreen() {
 
   useEffect(() => {
     if (!plainVisit || logSuccess) return;
-    setLogExpenseDraft({ amount: expr, item, category, categoryTouched, autoPicked, date, notes, paymentMethod, accountId: accountPick });
-  }, [plainVisit, logSuccess, expr, item, category, categoryTouched, autoPicked, date, notes, paymentMethod, accountPick]);
+    setLogExpenseDraft({ amount: expr, item, category, categoryTouched, autoPicked, date: pickedDate ?? "", notes, paymentMethod, accountId: accountPick });
+  }, [plainVisit, logSuccess, expr, item, category, categoryTouched, autoPicked, pickedDate, notes, paymentMethod, accountPick]);
 
   function handleItemChange(value: string) {
     if (value === item) return;
@@ -491,6 +470,8 @@ function LogExpenseScreen() {
         },
       );
     } else {
+      // Read now: this closure can outlive a midnight with no render in between.
+      const date = pickedDate ?? todayLocal();
       // Kept (still auto-picked at save) or overridden (the user changed it).
       if (suggestedBy.current) track("ai_category_suggested", { accepted: autoPicked, source: suggestedBy.current, ms: pickMs.current });
       const row = {
@@ -519,9 +500,13 @@ function LogExpenseScreen() {
         setLogSuccess(true);
         return;
       }
+      // Named here so a retry from the failed screen is the same create: if this
+      // response is what got lost, the server keeps one row.
+      const clientId = Crypto.randomUUID();
       addMutate(
         {
           ...row,
+          client_id: clientId,
           // A slow save finishes in the background instead of holding this
           // screen. Not with a photo: its upload needs the server id.
           instant: !photo,
@@ -535,6 +520,7 @@ function LogExpenseScreen() {
           onSuccess: (res) => {
             clearLogExpenseDraft();
             noteManualLog();
+            noteHandLog();
             void syncPhoto(res.id, res.pending);
             pendingAddNavRef.current = {
               pathname: "/modals/expense-added",
@@ -571,12 +557,14 @@ function LogExpenseScreen() {
                 notes: notes.trim(),
                 paymentMethod,
                 ...(accountId ? { accountId } : {}),
+                clientId,
+                source: row.source,
               },
             }),
         },
       );
     }
-  }, [canSubmit, unusual, unusualWarnedFor, warnKey, base, expectedVersion, isEdit, origId, origTimestamp, origItem, origAmountInr, item, savedItem, parsedAmount, date, category, notes, paymentMethod, accountId, accounts, editedDraft, router, addMutate, updateMutate, autoPicked, syncPhoto, photo, failedClientId, qc, shared, memberBudgets]);
+  }, [canSubmit, unusual, unusualWarnedFor, warnKey, base, expectedVersion, isEdit, origId, origTimestamp, origItem, origAmountInr, item, savedItem, parsedAmount, pickedDate, category, notes, paymentMethod, accountId, accounts, editedDraft, router, addMutate, updateMutate, autoPicked, syncPhoto, photo, failedClientId, qc, shared, memberBudgets]);
 
   // Publish only when the action or its visible state changes, and only while
   // focused: a prefilled log-expense (habit nudge) stacks over the launch one,

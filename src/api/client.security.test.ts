@@ -1,4 +1,4 @@
-import { apiFetch } from './client'
+import { apiFetch, metricPath } from './client'
 import { getValidToken, sessionGeneration } from './accessMode'
 import { track } from '@/src/lib/analytics'
 import { setOnline } from '@/src/lib/netStatus'
@@ -157,4 +157,9 @@ it('reports what the app and network were doing when a request died', async () =
     since_active_ms: expect.any(Number), since_launch_ms: expect.any(Number), since_network_change_ms: expect.any(Number),
   }))
   fetch.mockRestore()
+})
+it('keeps a budget invite code out of analytics', () => {
+  expect(metricPath('/api/join/ABC123')).toBe('/api/join/:code')
+  expect(metricPath('/api/join/ABC123/preview?x=1')).toBe('/api/join/:code/preview')
+  expect(metricPath('/api/ai/chat/sessions/6ac79f588f42153bdc36f9b8?x=1')).toBe('/api/ai/chat/sessions/:id')
 })

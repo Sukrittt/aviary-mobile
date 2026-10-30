@@ -1,6 +1,7 @@
 import { ExpenseWriteError } from '@/src/lib/expenseConflict'
 import { setSharedPhoto } from '@/src/lib/pendingShare'
 import type { ExpenseRow } from '@/src/types'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import { Alert, Modal } from 'react-native'
 import { act, fireEvent, waitFor, within } from '@testing-library/react-native'
 import * as pending from '@/src/lib/pendingExpenses'
@@ -16,7 +17,8 @@ import { addCategory, getCategories } from '@/src/api/categories'
 import { getGroups } from '@/src/api/groups'
 import { getCategoryMap, suggestCategoryLLM } from '@/src/api/categoryMap'
 import LogExpenseScreen, { SAVE_STUCK_MS } from './log-expense'
-import { clearLogExpenseDraft, getLogExpenseDraft } from '@/src/features/log-expense/draft'
+import { clearLogExpenseDraft, getLogExpenseDraft, setLogExpenseDraft } from '@/src/features/log-expense/draft'
+import { HttpError } from '@/src/api/client'
 import { MIN_SPIN_MS, SETTLE_MS } from '@/src/features/log-expense/AutoCategoryPill'
 import { todayLocal } from '@/src/lib/date'
 import { useLogExpenseSubmitState, LogExpenseSubmitProvider } from '@/src/features/log-expense/SubmitContext'
@@ -176,6 +178,81 @@ it('plays the nav circle save animation before replacing the screen with the suc
       params: expect.objectContaining({ id: 'srv1', item: 'Milk', amount: '450', category: 'Groceries' }),
     }),
   )
+})
+
+it('a blank form left open over midnight logs to the new day', async () => {
+  jest.setSystemTime(new Date(2026, 9, 31, 23, 50))
+  ;(postExpensePayload as jest.Mock).mockResolvedValue({ id: 'srv1', timestamp: '2026-11-01T00:10:00' })
+  const utils = setup()
+  jest.setSystemTime(new Date(2026, 10, 1, 0, 10))
+  await fillValidForm(utils)
+  await act(async () => {
+    ;(globalThis as any).__submit()
+    await Promise.resolve()
+    await Promise.resolve()
+  })
+  expect((postExpensePayload as jest.Mock).mock.calls[0][0].date).toBe('2026-11-01')
+})
+
+it('a form filled before midnight and saved after it, with no render between, logs to the new day', async () => {
+  jest.setSystemTime(new Date(2026, 9, 31, 23, 50))
+  ;(postExpensePayload as jest.Mock).mockResolvedValue({ id: 'srv1', timestamp: '2026-11-01T00:10:00' })
+  const utils = setup()
+  await fillValidForm(utils)
+  jest.setSystemTime(new Date(2026, 10, 1, 0, 10))
+  await act(async () => {
+    ;(globalThis as any).__submit()
+    await Promise.resolve()
+    await Promise.resolve()
+  })
+  expect((postExpensePayload as jest.Mock).mock.calls[0][0].date).toBe('2026-11-01')
+})
+
+it('a date the user picked stays picked, even across a remount', async () => {
+  jest.setSystemTime(new Date(2026, 9, 31, 23, 50))
+  ;(postExpensePayload as jest.Mock).mockResolvedValue({ id: 'srv1', timestamp: '2026-10-30T00:10:00' })
+  setLogExpenseDraft({ amount: '', item: '', category: '', categoryTouched: false, autoPicked: false, date: '2026-10-30', notes: '', paymentMethod: 'bank' })
+  const utils = setup()
+  jest.setSystemTime(new Date(2026, 10, 1, 0, 10))
+  await fillValidForm(utils)
+  await act(async () => {
+    ;(globalThis as any).__submit()
+    await Promise.resolve()
+    await Promise.resolve()
+  })
+  expect((postExpensePayload as jest.Mock).mock.calls[0][0].date).toBe('2026-10-30')
+})
+
+it('a failed save sends the retry screen its client_id, so a retry after a lost response keeps one row', async () => {
+  ;(postExpensePayload as jest.Mock).mockRejectedValue(new HttpError(503, 'bad gateway'))
+  const utils = setup()
+  await fillValidForm(utils)
+  await act(async () => {
+    ;(globalThis as any).__submit()
+    await Promise.resolve()
+    await Promise.resolve()
+  })
+  await act(async () => { jest.advanceTimersByTime(100) })
+  const sent = (postExpensePayload as jest.Mock).mock.calls[0][0]
+  expect(mockReplace).toHaveBeenCalledWith(expect.objectContaining({
+    pathname: '/modals/expense-failed',
+    params: expect.objectContaining({ clientId: sent.client_id, source: 'manual' }),
+  }))
+})
+
+it('restarts the add hint clock when a new expense saves', async () => {
+  ;(postExpensePayload as jest.Mock).mockResolvedValue({ id: 'srv1', timestamp: '2026-09-04T01:24:00' })
+  await AsyncStorage.removeItem('aviary-last-manual-log')
+  const utils = setup()
+  await fillValidForm(utils)
+
+  await act(async () => {
+    ;(globalThis as any).__submit()
+    await Promise.resolve()
+    await Promise.resolve()
+  })
+
+  expect(await AsyncStorage.getItem('aviary-last-manual-log')).not.toBeNull()
 })
 
 it('sends the success screen the category the server stored, not the stale one it asked for', async () => {
@@ -381,6 +458,15 @@ it('asks before saving an amount far above the category usual, then saves on the
 
   await act(async () => { (globalThis as any).__submit(); await Promise.resolve(); await Promise.resolve() })
   expect(postExpensePayload).toHaveBeenCalledTimes(1)
+})
+
+it('finds a renamed category from the word map, without asking the AI', async () => {
+  const utils = setup({}, [], [{ name: 'Food & Dining', group: 'Food' }, { name: 'Rent', group: 'Food' }], { words: { dinner: 'Food' } })
+  await act(async () => { await Promise.resolve(); await Promise.resolve() })
+  fireEvent.changeText(utils.getByPlaceholderText('What was it for?'), 'dinner')
+  await act(async () => { jest.advanceTimersByTime(300) })
+  expect(utils.getByLabelText('Category: Food & Dining, picked for you')).toBeTruthy()
+  expect(suggestCategoryLLM).not.toHaveBeenCalled()
 })
 
 it('predicts again when a new expense name changes after a manual category choice', async () => {

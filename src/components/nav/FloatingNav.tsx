@@ -42,7 +42,7 @@ export const NAV_ROUTES: { name: NavRoute; glyph: NavIconComponent; label: strin
   { name: 'index', glyph: HomeGlyph, label: 'Home' },
   { name: 'activity', glyph: ActivityGlyph, label: 'Activity' },
   { name: 'envelopes', glyph: EnvelopeGlyph, label: 'Categories' },
-  { name: 'more', glyph: ProfileGlyph, label: 'More' },
+  { name: 'more', glyph: ProfileGlyph, label: 'Account' },
 ]
 
 export const NAV_HREF: Record<NavRoute, '/' | '/activity' | '/envelopes' | '/more'> = {
@@ -182,7 +182,7 @@ export function FloatingNav({
   addInvalid?: boolean
   /** Meaningful only when addActive: blocks the tap while saving or after success. */
   addDisabled?: boolean
-  /** Meaningful only when addActive: a first-timer's form is ready, so pulse the add disc and say it saves. */
+  /** Meaningful only when addActive: a first-timer's or returning user's form is ready, so pulse the add disc and say it saves. */
   addHint?: boolean
   children?: React.ReactNode
 }) {

@@ -79,10 +79,10 @@ export function AccountChips({
   )
 }
 
-/** The account's name for a row, or '' for none or one that's gone. */
+/** The account's name for a row, without any legacy emoji, or '' for none or one that's gone. */
 export function accountName(accounts: AccountRow[] | undefined, id: string | undefined): string {
-  if (!id) return ''
-  return accounts?.find((a) => a.id === id)?.name ?? ''
+  const account = id ? accounts?.find((a) => a.id === id) : undefined
+  return account ? accountLabel(account) : ''
 }
 
 const styles = StyleSheet.create({
