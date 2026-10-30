@@ -115,7 +115,7 @@ it('lights the tapped tab and jumps straight to it in the same press', () => {
 it("falls back to the router when the tabs aren't mounted yet", () => {
   mockRootState = undefined
   const { getByRole } = renderNav()
-  fireEvent.press(getByRole('tab', { name: 'More' }))
+  fireEvent.press(getByRole('tab', { name: 'Account' }))
   expect(mockNavigate).toHaveBeenCalledWith('/more')
   expect(mockDispatch).not.toHaveBeenCalled()
 })

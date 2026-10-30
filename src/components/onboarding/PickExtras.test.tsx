@@ -58,7 +58,7 @@ it('says so when saving fails, and still finishes setup', async () => {
   const { getByText } = renderWithProviders(<PickExtras onDone={onDone} />)
   fireEvent.press(getByText('Skip for now'))
   await waitFor(() => expect(onDone).toHaveBeenCalled())
-  expect(Alert.alert).toHaveBeenCalledWith("Couldn't save your extras", 'Turn them on anytime from You, then Features.')
+  expect(Alert.alert).toHaveBeenCalledWith("Couldn't save your extras", 'Turn them on anytime from Account, then Features.')
 })
 
 it('turns an extra on from a tap anywhere on its row', () => {

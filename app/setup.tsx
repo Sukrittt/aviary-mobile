@@ -166,7 +166,7 @@ const STEP_NAMES = [
 const TITLES: Record<number, [string, string]> = {
   0: [
     "Choose your currency",
-    "The currency you use for your budget. You can change it later in More.",
+    "The currency you use for your budget. You can change it later in Account.",
   ],
   1: [
     "What lands each month?",
