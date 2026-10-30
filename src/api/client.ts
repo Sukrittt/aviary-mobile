@@ -176,9 +176,9 @@ async function serverUnreachable(): Promise<boolean> {
   }
 }
 
-/** Query string dropped and ids collapsed, so one endpoint groups as one path. */
-function metricPath(path: string): string {
-  return path.split('?')[0].replace(/[0-9a-f]{24}|[0-9a-f]{8}-[0-9a-f-]{27}/gi, ':id')
+/** Query string dropped and ids collapsed, so one endpoint groups as one path. An invite code gets anyone into a budget, so it never reaches analytics. */
+export function metricPath(path: string): string {
+  return path.split('?')[0].replace(/[0-9a-f]{24}|[0-9a-f]{8}-[0-9a-f-]{27}/gi, ':id').replace(/^\/api\/join\/[^/]+/, '/api/join/:code')
 }
 
 /** Thrown by an API wrapper on a non-ok response, carrying the HTTP status so

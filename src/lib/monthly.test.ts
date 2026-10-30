@@ -176,6 +176,16 @@ describe('monthTotals', () => {
 })
 
 describe('monthComparison', () => {
+  it('a month holding only a card payment is not a zero in the baseline, same as Web', () => {
+    const expenses = [
+      expense('2026-07-05', 'Food', '10000'),
+      expense('2026-08-05', CREDIT_CARD_CATEGORY, '500'),
+      expense('2026-09-05', 'Food', '10000'),
+      expense('2026-10-05', 'Food', '10000'),
+    ]
+    expect(monthComparison(expenses, '2026-10', '2026-11-01').deltaPct).toBe(0)
+  })
+
   function spread(month: string, amount: string): ExpenseRow {
     return expense(`${month}-15`, '🍔 Food', amount)
   }
