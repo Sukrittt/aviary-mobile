@@ -1,4 +1,4 @@
-import { computeEnvelopeState, currentMonthKey, prevMonthKey, extraForReadyToAssign, CREDIT_CARD_CATEGORY, INCOME_CATEGORY } from './envelope'
+import { computeEnvelopeState, currentMonthKey, prevMonthKey, extraForReadyToAssign, shiftMonthKey, CREDIT_CARD_CATEGORY, INCOME_CATEGORY } from './envelope'
 import type { BudgetRow, CategoryRow, ExpenseRow } from '@/src/types'
 
 function budget(month: string, category: string, assigned: string, rolled_over = '0'): BudgetRow {
@@ -306,5 +306,52 @@ describe('computeEnvelopeState with a carry', () => {
     expect(state.readyToAssign).toBe(600)
     expect(state.carriedReadyToAssign).toBe(0)
     expect(state.envelopes.every((e) => e.rolledOver === 0)).toBe(true)
+  })
+})
+
+describe('computeEnvelopeState, paise', () => {
+  const spend = (amount_inr: string): ExpenseRow => expense('2026-08-05', 'Food', amount_inr)
+  const food = (assigned: string, expenses: ExpenseRow[], carry?: { ready_to_assign: number; rolled_over: Record<string, number> }) =>
+    computeEnvelopeState([budget('2026-08', 'Food', assigned)], expenses, '2026-08', [{ name: 'Food', group: '' }], [], undefined, carry).envelopes[0]
+
+  it('spending an envelope to the paisa leaves it empty, not overspent', () => {
+    // 1.1 + 2.2 is 3.3000000000000003 in floats.
+    expect(food('3.3', [spend('1.1'), spend('2.2')])).toMatchObject({ available: 0, isOverspent: false })
+    expect(food('0.3', [spend('0.1'), spend('0.2')])).toMatchObject({ available: 0, isOverspent: false })
+  })
+
+  it('a carry that spends down exactly is empty too', () => {
+    expect(food('0', [spend('1.1'), spend('2.2')], { ready_to_assign: 0, rolled_over: { Food: 3.3 } })).toMatchObject({ available: 0, isOverspent: false })
+  })
+
+  it('one paisa over is still overspent', () => {
+    expect(food('3.3', [spend('1.1'), spend('2.21')])).toMatchObject({ available: -0.01, isOverspent: true })
+  })
+
+  it('keeps available to paise', () => {
+    expect(food('100.1', [spend('33.37')]).available).toBe(66.73)
+  })
+
+  it('a refund (a negative spend) adds back to the envelope', () => {
+    expect(food('100', [spend('30'), spend('-10')])).toMatchObject({ spent: 20, available: 80, isOverspent: false })
+  })
+})
+
+describe('shiftMonthKey', () => {
+  it.each([
+    ['2026-12', 1, '2027-01'],
+    ['2027-01', -1, '2026-12'],
+    ['2026-01', 12, '2027-01'],
+    ['2026-03', -15, '2024-12'],
+    ['2026-03', 0, '2026-03'],
+  ])('%s by %d is %s', (key, delta, expected) => {
+    expect(shiftMonthKey(key, delta)).toBe(expected)
+  })
+})
+
+describe('extraForReadyToAssign, with a carry', () => {
+  it('nets out what Ready to assign already carried in', () => {
+    expect(extraForReadyToAssign(1000, 400, 700, 200)).toBe(-100)
+    expect(extraForReadyToAssign(1000, 400, 700, -200)).toBe(300)
   })
 })
