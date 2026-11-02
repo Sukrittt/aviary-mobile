@@ -136,3 +136,10 @@ it('edits a recorded income in place, keeping its name when the field is cleared
   expect(updateIncome).toHaveBeenCalledWith('r1', 4, { amount: 10005, label: 'Bonus' })
   expect(addIncome).not.toHaveBeenCalled()
 })
+
+it("before payday, says the pay hasn't landed rather than ₹0 monthly", async () => {
+  ;(getBudgets as jest.Mock).mockResolvedValue([{ month: MONTH, category: '__income__', assigned: '50000', rolled_over: '0', version: 1 }])
+  const { findByText, queryByText } = renderWithProviders(<AddIncomeModal />)
+  await findByText("Your pay hasn't landed yet")
+  expect(queryByText(/monthly/)).toBeNull()
+})

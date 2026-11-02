@@ -310,7 +310,8 @@ function HomeScreen() {
   // At zero, Ready to Assign has nothing to ask of you, so it shrinks to a
   // slim row and the envelopes (what you open Home for) move up. Off zero
   // either way, it's back to the full hero since there's a job to do.
-  const rtaSettled = incomeDone && Math.abs(displayedReadyToAssign) < 0.005
+  // Before payday a ₹0 isn't every rupee given a job: Home keeps saying when the plan fills up.
+  const rtaSettled = incomeDone && envelopeState.funded && Math.abs(displayedReadyToAssign) < 0.005
   const daysLeftLabel = daysLeftInMonth() === 0 ? 'Less than 24 hrs' : `${daysLeftInMonth()} days left`
   // Every rupee has a job once Ready to Assign is spent down, the whole point
   // of the method, so Get started holds out for that, not one funded envelope.

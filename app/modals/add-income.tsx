@@ -101,10 +101,9 @@ export function IncomeForm({ existing, flood = false, defaultLabel, intro }: { e
   // category list owns envelope membership, so without it nothing counts as
   // assigned and Ready to Assign collapses to income.
   const state = computeEnvelopeState(budgets, EMPTY, month, categories, EMPTY, undefined, carryQ.data);
-  const detail =
-    state.incomeExtra === 0
-      ? `${formatCurrency(state.incomeBase, hideAmounts)} monthly`
-      : `${formatCurrency(state.incomeBase, hideAmounts)} monthly · ${formatCurrency(state.incomeExtra, hideAmounts)} extra`;
+  // Before payday the monthly figure would read ₹0, which isn't what they earn.
+  const pay = state.funded ? `${formatCurrency(state.incomeBase, hideAmounts)} monthly` : "Your pay hasn't landed yet";
+  const detail = state.incomeExtra === 0 ? pay : `${pay} · ${formatCurrency(state.incomeExtra, hideAmounts)} extra`;
 
   // A payday from before paycheck months was already counted by the monthly income, so editing it moves nothing.
   const countsAsExtra = !existing || countsInBudget(existing);

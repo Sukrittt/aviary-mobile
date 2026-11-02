@@ -11,7 +11,7 @@ import { lightTokens } from '@/src/theme/tokens'
 import appJson from '@/app.json'
 import HomeScreen from './index'
 
-import { startingBalanceHref } from '@/src/lib/upcomingPay'
+import { paydayLabel, startingBalanceHref } from '@/src/lib/upcomingPay'
 
 const MONTH = currentMonthKey()
 
@@ -24,7 +24,7 @@ jest.mock('expo-secure-store', () => ({
 // Home is memoized, so a refetch reaches it the way react-query's does: through
 // a subscription the hook reads, not a parent re-render.
 const mockRefetched = mockReact.createContext(0)
-let mockBudgets: { month: string; category: string; assigned: string; landed?: string; rolled_over: string }[] = []
+let mockBudgets: { month: string; category: string; assigned: string; landed?: string; extra?: string; rolled_over: string }[] = []
 const mockTransferBudget = jest.fn(async (_params: unknown) => undefined)
 let mockBudgetsError: Error | null = null
 let mockCategories: { name: string; group: string; goal?: object }[] = [{ name: 'Food', group: 'Everyday' }]
@@ -204,6 +204,23 @@ describe('HomeScreen · Ready to Assign', () => {
       expect(mockTransferBudget).toHaveBeenCalledWith({ month: MONTH, to: 'Food', sources: [{ category: '__ready_to_assign__', amount: 3000 }] })
     } finally {
       mockCategories = [{ name: 'Food', group: 'Everyday' }]
+    }
+  })
+
+  it("before payday, a ₹0 Ready to Assign keeps saying when the plan fills up", async () => {
+    mockCarry = { ready_to_assign: -800, rolled_over: { Food: 800 } }
+    mockBudgets = [
+      { month: MONTH, category: '__income__', assigned: '20000', extra: '800', rolled_over: '0' },
+      { month: MONTH, category: 'Food', assigned: '5000', rolled_over: '800' },
+    ]
+    const payday = `${MONTH}-28`
+    mockSchedules = [{ id: 'r1', frequency: 'monthly', status: 'active', start_date: payday, next_run_date: payday }]
+    try {
+      const { findByText } = renderHome()
+      expect(await findByText(`Your plan fills up ${paydayLabel(payday)}`)).toBeTruthy()
+    } finally {
+      mockCarry = undefined
+      mockSchedules = []
     }
   })
 

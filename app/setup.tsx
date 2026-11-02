@@ -1387,9 +1387,11 @@ function CurrencyWizard({
                 accessibilityRole="button"
                 accessibilityLabel={`The ${ordinal(d)}`}
                 accessibilityState={{ selected: d === payday }}
-                style={[styles.dayCell, d === payday && { backgroundColor: tokens.accentSoft, borderRadius: 100 }]}
+                style={styles.dayCell}
               >
-                <Text style={{ color: d === payday ? tokens.accentInk : tokens.text, fontSize: 15, fontFamily: fontFamily.bodySemiBold }}>{d}</Text>
+                <View style={[styles.dayDot, d === payday && { backgroundColor: tokens.accentSoft }]}>
+                  <Text style={{ color: d === payday ? tokens.accentInk : tokens.text, fontSize: 15, fontFamily: fontFamily.bodySemiBold }}>{d}</Text>
+                </View>
               </Pressable>
             ))}
           </View>
@@ -1625,7 +1627,8 @@ const styles = StyleSheet.create({
   paydayLine: { flexDirection: "row", alignItems: "center", gap: 8, minHeight: 44 },
   paydayPill: { flexDirection: "row", alignItems: "center", gap: 4, paddingVertical: 6, paddingHorizontal: 12, borderRadius: 100, borderWidth: 1 },
   dayGrid: { flexDirection: "row", flexWrap: "wrap" },
-  dayCell: { width: `${100 / 7}%`, aspectRatio: 1, alignItems: "center", justifyContent: "center" },
+  dayCell: { width: `${100 / 7}%`, height: 48, alignItems: "center", justifyContent: "center" },
+  dayDot: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
   quickRow: {
     flexDirection: "row",
     gap: 8,
