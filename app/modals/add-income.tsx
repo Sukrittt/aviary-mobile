@@ -13,7 +13,7 @@ import { BottomSheet } from "@/src/components/shared/Modal";
 import * as Crypto from "expo-crypto";
 import * as Haptics from "expo-haptics";
 import { EMPTY } from "@/src/lib/constants";
-import { computeEnvelopeState, currentMonthKey, monthLabel } from "@/src/lib/envelope";
+import { computeEnvelopeState, countsInBudget, currentMonthKey, monthLabel } from "@/src/lib/envelope";
 import { usePrivacy } from "@/src/context/PrivacyContext";
 
 import { fontFamily } from "@/src/theme/fonts";
@@ -101,19 +101,18 @@ export function IncomeForm({ existing, flood = false, defaultLabel, intro }: { e
   // category list owns envelope membership, so without it nothing counts as
   // assigned and Ready to Assign collapses to income.
   const state = computeEnvelopeState(budgets, EMPTY, month, categories, EMPTY, undefined, carryQ.data);
-  const detail =
-    state.incomeExtra === 0
-      ? `${formatCurrency(state.incomeBase, hideAmounts)} monthly`
-      : `${formatCurrency(state.incomeBase, hideAmounts)} monthly · ${formatCurrency(state.incomeExtra, hideAmounts)} extra`;
+  // Before payday the monthly figure would read ₹0, which isn't what they earn.
+  const pay = state.funded ? `${formatCurrency(state.incomeBase, hideAmounts)} monthly` : "Your pay hasn't landed yet";
+  const detail = state.incomeExtra === 0 ? pay : `${pay} · ${formatCurrency(state.incomeExtra, hideAmounts)} extra`;
 
-  // A payday on the monthly schedule is already counted by the monthly income, so editing it moves nothing.
-  const countsAsExtra = !existing || existing.counted === "extra";
+  // A payday from before paycheck months was already counted by the monthly income, so editing it moves nothing.
+  const countsAsExtra = !existing || countsInBudget(existing);
   const change = value - (existing ? Number(existing.amount) || 0 : 0);
   const hint = !countsAsExtra
-    ? "This only changes the record. Your monthly income still counts."
+    ? "This only changes the record. That month's income still counts."
     : value > 0 && canPreview
       ? `Ready to Assign ${formatCurrency(state.readyToAssign + change, hideAmounts)} · This month only`
-      : intro ?? "What came in on top of your monthly income";
+      : intro ?? "What came in on top of your pay";
 
   async function submit() {
     if (value <= 0 || saving) return;

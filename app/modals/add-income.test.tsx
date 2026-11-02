@@ -38,7 +38,7 @@ beforeEach(() => {
   ;(getCategories as jest.Mock).mockResolvedValue([])
   ;(getCarry as jest.Mock).mockResolvedValue({ ready_to_assign: 0, rolled_over: {} })
   ;(getBudgets as jest.Mock).mockResolvedValue([
-    { month: MONTH, category: '__income__', assigned: '100000', rolled_over: '0', extra: '500', version: 3 },
+    { month: MONTH, category: '__income__', assigned: '100000', landed: '100000', rolled_over: '0', extra: '500', version: 3 },
   ])
 })
 
@@ -85,7 +85,7 @@ it('keeps the screen open with a written error when saving fails', async () => {
 
 it('previews Ready to Assign plus the typed amount, not income plus it', async () => {
   ;(getBudgets as jest.Mock).mockResolvedValue([
-    { month: MONTH, category: '__income__', assigned: '50000', rolled_over: '0', extra: '0', version: 1 },
+    { month: MONTH, category: '__income__', assigned: '50000', landed: '50000', rolled_over: '0', extra: '0', version: 1 },
     { month: MONTH, category: 'Food', assigned: '40000', rolled_over: '0', extra: '0', version: 1 },
   ])
   ;(getCategories as jest.Mock).mockResolvedValue([{ name: 'Food', group: 'Everyday' }])
@@ -97,7 +97,7 @@ it('previews Ready to Assign plus the typed amount, not income plus it', async (
 
 it('counts what rolled into Ready to Assign in the preview', async () => {
   ;(getBudgets as jest.Mock).mockResolvedValue([
-    { month: MONTH, category: '__income__', assigned: '50000', rolled_over: '0', extra: '0', version: 1 },
+    { month: MONTH, category: '__income__', assigned: '50000', landed: '50000', rolled_over: '0', extra: '0', version: 1 },
     { month: MONTH, category: 'Food', assigned: '40000', rolled_over: '0', extra: '0', version: 1 },
   ])
   ;(getCategories as jest.Mock).mockResolvedValue([{ name: 'Food', group: 'Everyday' }])
@@ -110,7 +110,7 @@ it('counts what rolled into Ready to Assign in the preview', async () => {
 
 it('holds the Ready to Assign preview until categories load', async () => {
   ;(getBudgets as jest.Mock).mockResolvedValue([
-    { month: MONTH, category: '__income__', assigned: '50000', rolled_over: '0', extra: '0', version: 1 },
+    { month: MONTH, category: '__income__', assigned: '50000', landed: '50000', rolled_over: '0', extra: '0', version: 1 },
     { month: MONTH, category: 'Food', assigned: '40000', rolled_over: '0', extra: '0', version: 1 },
   ])
   ;(getCategories as jest.Mock).mockReturnValue(new Promise(() => {}))
@@ -135,4 +135,11 @@ it('edits a recorded income in place, keeping its name when the field is cleared
   })
   expect(updateIncome).toHaveBeenCalledWith('r1', 4, { amount: 10005, label: 'Bonus' })
   expect(addIncome).not.toHaveBeenCalled()
+})
+
+it("before payday, says the pay hasn't landed rather than ₹0 monthly", async () => {
+  ;(getBudgets as jest.Mock).mockResolvedValue([{ month: MONTH, category: '__income__', assigned: '50000', rolled_over: '0', version: 1 }])
+  const { findByText, queryByText } = renderWithProviders(<AddIncomeModal />)
+  await findByText("Your pay hasn't landed yet")
+  expect(queryByText(/monthly/)).toBeNull()
 })

@@ -1,7 +1,7 @@
 import { CurrencyPicker } from "@/src/components/CurrencyPicker";
 import { CurrencyScope, useCurrency } from "@/src/context/CurrencyContext";
 import { deviceCurrency } from "@/src/lib/currencyPreference";
-import { deviceTimezone } from "@/src/lib/date";
+import { deviceTimezone, toLocalDateString } from "@/src/lib/date";
 import { getLocales } from "expo-localization";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -16,7 +16,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQueryClient } from "@tanstack/react-query";
 import * as Haptics from "expo-haptics";
-import { ArrowLeft, Copy, EnvelopeSimple, SquaresFour, PencilSimple, Plus } from "@/src/components/shared/icons";
+import { ArrowLeft, CaretDown, Copy, EnvelopeSimple, SquaresFour, PencilSimple, Plus } from "@/src/components/shared/icons";
 import { Toast } from "@/src/components/ui/Toast";
 import Animated, {
   useSharedValue,
@@ -47,6 +47,8 @@ import { categoryIconKey, groupIconKey, type CategoryIconKey } from "@/src/lib/c
 
 import { currentMonthKey, INCOME_CATEGORY } from "@/src/lib/envelope";
 import { getBudgets, updateBudget } from "@/src/api/budgets";
+import { addRecurringIncome } from "@/src/api/incomes";
+import { ordinal, paydayHint, paydayInMonth } from "@/src/lib/upcomingPay";
 import { addGroup, updateGroup } from "@/src/api/groups";
 import { addCategory, getSplitBuckets } from "@/src/api/categories";
 import {
@@ -170,7 +172,7 @@ const TITLES: Record<number, [string, string]> = {
   ],
   1: [
     "What lands each month?",
-    "Your take-home income. This becomes the pot you assign from. Not sure yet? Skip it and add it from Home later.",
+    "Your take-home income. Your plan fills up the day it lands. Not sure yet? Skip it and add it from Home later.",
   ],
   2: [
     "Group your money",
@@ -237,6 +239,9 @@ function CurrencyWizard({
   // it, setup finishes from the income step on the starter budget.
   const [custom, setCustom] = useState(false);
   const [income, setIncome] = useState("");
+  // The day of the month pay lands. Today unless they say otherwise, so a pay already in counts.
+  const [payday, setPayday] = useState(() => Number(toLocalDateString().slice(8, 10)));
+  const [paydayOpen, setPaydayOpen] = useState(false);
   // Drive AmountTicker's roll/flash/delta animation — mirrors SetupWizard.dc.html's
   // tick/dir/delta: `tick` forces a remount (replays the per-character entrance),
   // `dir` picks the roll direction, `delta` (quick-pick jumps only) floats a badge.
@@ -668,6 +673,18 @@ function CurrencyWizard({
         return;
       }
       const month = currentMonthKey();
+      // Before the budget rows, or the server would mint a second schedule from
+      // the income row, and because a pay already in moves that row's version.
+      if (incomeValue > 0) {
+        await addRecurringIncome({
+          label: "Monthly income",
+          amount: String(incomeValue),
+          frequency: "monthly",
+          start_date: paydayInMonth(payday, toLocalDateString()),
+          anchor_day: payday,
+          client_id: "onboarding-income",
+        });
+      }
       const budgetVersions = new Map(
         (await getBudgets()).map((row) => [
           `${row.month}\u0000${row.category}`,
@@ -1040,6 +1057,25 @@ function CurrencyWizard({
               />
             ))}
           </View>
+          {!!income && (
+            <View style={styles.payday}>
+              <Pressable
+                onPress={() => setPaydayOpen(true)}
+                accessibilityRole="button"
+                accessibilityLabel={`Lands on the ${ordinal(payday)}. Change payday`}
+                style={styles.paydayLine}
+              >
+                <Text style={{ color: tokens.text2, fontSize: 14, fontFamily: fontFamily.bodySemiBold }}>Lands on the</Text>
+                <View style={[styles.paydayPill, { borderColor: tokens.borderStrong, backgroundColor: tokens.inputBg }]}>
+                  <Text style={{ color: tokens.accentInk, fontSize: 14, fontFamily: fontFamily.bodyBold }}>{ordinal(payday)}</Text>
+                  <CaretDown size={12} color={tokens.accentInk} />
+                </View>
+              </Pressable>
+              <Text style={{ color: tokens.text3, fontSize: 12, fontFamily: fontFamily.bodyMedium, textAlign: "center" }}>
+                {paydayHint(payday, toLocalDateString())}
+              </Text>
+            </View>
+          )}
           {!custom && (
             <Pressable
               onPress={pickOwn}
@@ -1337,6 +1373,30 @@ function CurrencyWizard({
         <Text style={[styles.ctaHint, { color: tokens.text3 }]}>{hint}</Text>
       )}
 
+      <BottomSheet visible={paydayOpen} onClose={() => setPaydayOpen(false)}>
+        <View style={{ gap: 14 }}>
+          <Text style={{ color: tokens.text, fontSize: 18, fontFamily: fontFamily.displaySemiBold }}>Which day does it land?</Text>
+          <View style={styles.dayGrid}>
+            {Array.from({ length: 31 }, (_, i) => i + 1).map((d) => (
+              <Pressable
+                key={d}
+                onPress={() => {
+                  setPayday(d);
+                  setPaydayOpen(false);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel={`The ${ordinal(d)}`}
+                accessibilityState={{ selected: d === payday }}
+                style={styles.dayCell}
+              >
+                <View style={[styles.dayDot, d === payday && { backgroundColor: tokens.accentSoft }]}>
+                  <Text style={{ color: d === payday ? tokens.accentInk : tokens.text, fontSize: 15, fontFamily: fontFamily.bodySemiBold }}>{d}</Text>
+                </View>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+      </BottomSheet>
       <BottomSheet visible={!!activeKey} onClose={closeRow}>
         {activeCat && (
           <View style={{ gap: 12 }}>
@@ -1563,6 +1623,12 @@ const styles = StyleSheet.create({
   blurb: { fontSize: 14, lineHeight: 21, marginTop: 7, maxWidth: 310 },
   stepBody: { flex: 1, marginTop: 4 },
   amountWrap: { paddingTop: 28, paddingBottom: 20 },
+  payday: { alignItems: "center", gap: 4, marginTop: 12 },
+  paydayLine: { flexDirection: "row", alignItems: "center", gap: 8, minHeight: 44 },
+  paydayPill: { flexDirection: "row", alignItems: "center", gap: 4, paddingVertical: 6, paddingHorizontal: 12, borderRadius: 100, borderWidth: 1 },
+  dayGrid: { flexDirection: "row", flexWrap: "wrap" },
+  dayCell: { width: `${100 / 7}%`, height: 48, alignItems: "center", justifyContent: "center" },
+  dayDot: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
   quickRow: {
     flexDirection: "row",
     gap: 8,

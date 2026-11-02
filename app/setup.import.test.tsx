@@ -6,6 +6,7 @@ import { track } from '@/src/lib/analytics'
 
 const mockPreview = jest.fn()
 const mockCommit = jest.fn()
+jest.mock('@/src/api/incomes', () => ({ addRecurringIncome: jest.fn(async () => undefined) }))
 jest.mock('@/src/api/imports', () => ({
   ...jest.requireActual('@/src/api/imports'),
   previewImport: (...a: unknown[]) => mockPreview(...a),

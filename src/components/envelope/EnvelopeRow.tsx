@@ -133,7 +133,7 @@ export function EnvelopeRow({
   const month = currentMonthKey()
   const categories = useCategories().data
   const row = envelope.isCreditCardPayment ? undefined : categories?.find((c) => c.name === envelope.category)
-  const goal = row?.goal ? goalProgress({ goal: row.goal, month, available: envelope.available, assigned: envelope.assigned, spent: envelope.spent, since: row.since }) : null
+  const goal = row?.goal ? goalProgress({ goal: row.goal, month, available: envelope.available, assigned: envelope.assigned, spent: envelope.spent, since: row.since, planPending: envelope.planPending }) : null
   // A goal's bar grows from where it was when money lands (Set, Pull money, Edit amount), alongside the pill's roll.
   const [seenPct, setSeenPct] = useState(goal?.pct)
   const [grow, setGrow] = useState<{ from: number; n: number } | null>(null)
@@ -468,7 +468,7 @@ function WeekBreakdown({ pace, envelope, money }: { pace: WeekPace; envelope: En
   return (
     <View style={styles.weeks}>
       <Text style={[styles.metaLine, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold, marginBottom: 4 }]}>
-        {money(envelope.spent)} of {money(envelope.assigned + envelope.rolledOver)} this month
+        {money(envelope.spent)} of {money(envelope.available + envelope.spent)} this month
       </Text>
       {/* Weeks you spent in, and this one. Empty past weeks are just noise. */}
       {pace.weeks.map((w, i) => ({ w, i })).filter(({ w, i }) => w.spent !== 0 || i === pace.weeks.length - 1).map(({ w, i }) => {

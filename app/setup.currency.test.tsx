@@ -9,6 +9,7 @@ import { completeOnboarding } from '@/src/api/billing'
 import { slide } from '@/src/test-utils/slide'
 
 // The usual setup steps, as on a binary without the file picker; setup.import.test.tsx covers the import.
+jest.mock('@/src/api/incomes', () => ({ addRecurringIncome: jest.fn(async () => undefined) }))
 jest.mock('@/src/lib/filePicker', () => ({ canPickFiles: false, pickFile: jest.fn() }))
 
 jest.mock('@/src/api/account', () => ({ updateUser: jest.fn(async patch => patch), getUser: jest.fn(async () => ({ email: 'a@b.com', emailVerified: true })) }))

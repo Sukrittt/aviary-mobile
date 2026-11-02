@@ -3,6 +3,7 @@ import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import SetupScreen from './setup'
 
 // The usual setup steps, as on a binary without the file picker; setup.import.test.tsx covers the import.
+jest.mock('@/src/api/incomes', () => ({ addRecurringIncome: jest.fn(async () => undefined) }))
 jest.mock('@/src/lib/filePicker', () => ({ canPickFiles: false, pickFile: jest.fn() }))
 
 jest.mock('@/src/api/account', () => ({

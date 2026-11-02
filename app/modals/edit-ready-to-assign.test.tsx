@@ -33,7 +33,7 @@ const PREV_MONTH = prevMonthKey(MONTH)
 function setup() {
   ;(getExpenses as jest.Mock).mockResolvedValue([])
   ;(getBudgets as jest.Mock).mockResolvedValue([
-    { month: PREV_MONTH, category: '__income__', assigned: '20000', rolled_over: '0', version: 1 },
+    { month: MONTH, category: '__income__', assigned: '20000', landed: '20000', rolled_over: '0', version: 0 },
     { month: PREV_MONTH, category: 'Food', assigned: '5000', rolled_over: '0', version: 1 },
   ])
   ;(getCategories as jest.Mock).mockResolvedValue([{ name: 'Food', group: 'Everyday' }])
@@ -88,7 +88,7 @@ it('shows a friendly error when the save fails', async () => {
 it('reviews a stale Ready to Assign draft on the shared full-screen conflict screen', async () => {
   ;(updateBudget as jest.Mock)
     .mockRejectedValueOnce(new BudgetWriteError(409, 'changed', {
-      month: MONTH, category: '__income__', assigned: '25000', rolled_over: '0', version: 2,
+      month: MONTH, category: '__income__', assigned: '25000', landed: '25000', rolled_over: '0', version: 2,
     }))
     .mockResolvedValueOnce({})
   const { getByLabelText, getByRole, getByTestId, getByText } = setup()
@@ -109,7 +109,7 @@ it('reviews a stale Ready to Assign draft on the shared full-screen conflict scr
 describe('using the latest Ready to Assign after a conflict', () => {
   async function useLatest(assigned: string) {
     ;(updateBudget as jest.Mock).mockRejectedValueOnce(new BudgetWriteError(409, 'changed', {
-      month: MONTH, category: '__income__', assigned, rolled_over: '0', version: 2,
+      month: MONTH, category: '__income__', assigned, landed: assigned, rolled_over: '0', version: 2,
     }))
     const utils = setup()
     await waitFor(() => expect(utils.getByLabelText('₹15,000')).toBeTruthy())
@@ -140,7 +140,7 @@ it("won't act on balances without last month's carry", async () => {
 it('counts last month\'s carry in the latest Ready to Assign after a conflict', async () => {
   ;(getCarry as jest.Mock).mockResolvedValueOnce({ ready_to_assign: 1000, rolled_over: {} })
   ;(updateBudget as jest.Mock).mockRejectedValueOnce(new BudgetWriteError(409, 'changed', {
-    month: MONTH, category: '__income__', assigned: '25000', rolled_over: '0', version: 2,
+    month: MONTH, category: '__income__', assigned: '25000', landed: '25000', rolled_over: '0', version: 2,
   }))
   const utils = setup()
   await waitFor(() => expect(utils.getByLabelText('₹16,000')).toBeTruthy())
