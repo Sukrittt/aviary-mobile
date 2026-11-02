@@ -12,6 +12,7 @@ import { AccountChips } from "@/src/components/shared/AccountChips";
 import { BottomSheet } from "@/src/components/shared/Modal";
 import * as Crypto from "expo-crypto";
 import * as Haptics from "expo-haptics";
+import { evaluateAmount, formatExpression, hasOperator } from "@/src/lib/calcAmount";
 import { EMPTY } from "@/src/lib/constants";
 import { computeEnvelopeState, countsInBudget, currentMonthKey, monthLabel } from "@/src/lib/envelope";
 import { usePrivacy } from "@/src/context/PrivacyContext";
@@ -86,12 +87,13 @@ export function IncomeForm({ existing, flood = false, defaultLabel, intro }: { e
   const [showMore, setShowMore] = useState(false);
 
   const {
-    amount: amountText,
+    amount: expr,
     setAmount: setAmountText,
     pushDigit,
     handleBackspace,
     shake,
   } = useAmountEntry(existing ? String(Number(existing.amount) || "") : "");
+  const amountText = hasOperator(expr) ? String(evaluateAmount(expr)) : expr;
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
@@ -257,6 +259,17 @@ export function IncomeForm({ existing, flood = false, defaultLabel, intro }: { e
               color={flood ? "#ffffff" : undefined}
             />
           </Animated.View>
+          {hasOperator(expr) && (
+            <Text
+              style={{
+                color: tokens.text2,
+                fontFamily: fontFamily.bodySemiBold,
+                fontSize: type.caption,
+              }}
+            >
+              {formatExpression(expr)}
+            </Text>
+          )}
           <Reanimated.Text
             entering={FadeIn.duration(150)}
             style={{
@@ -305,7 +318,8 @@ export function IncomeForm({ existing, flood = false, defaultLabel, intro }: { e
       >
         <Numpad
           onAccent={flood}
-          extraKey="."
+          calculator
+          calcOverhang={0}
           onDigit={pushDigit}
           onBackspace={handleBackspace}
           onClear={() => setAmountText("")}
