@@ -40,19 +40,19 @@ it('adds a weekly income, saying it lands on each payday', async () => {
   fireEvent.changeText(getByPlaceholderText('e.g. Salary'), 'Tutoring')
   fireEvent.changeText(getByLabelText('Amount'), '1500')
   fireEvent.press(getByText('weekly'))
-  expect(getByText('Lands in Ready to Assign on every payday.')).toBeTruthy()
+  expect(getByText('Lands on every payday. The first one each month fills up your plan.')).toBeTruthy()
   await act(async () => {
     fireEvent.press(getByText('Add income'))
   })
   expect(addRecurringIncome).toHaveBeenCalledWith(expect.objectContaining({ label: 'Tutoring', amount: '1500', frequency: 'weekly' }))
 })
 
-it("prefills Home's Change income as a monthly income counted from the 1st", () => {
+it("prefills Home's Change income as a monthly income that lands on payday", () => {
   mockParams = { label: 'Monthly income', amount: '40000', frequency: 'monthly' }
   const { getByDisplayValue, getByText } = renderWithProviders(<RecurringIncomeModal />)
   expect(getByDisplayValue('Monthly income')).toBeTruthy()
   expect(getByDisplayValue('40000')).toBeTruthy()
-  expect(getByText(/from the 1st of every month/)).toBeTruthy()
+  expect(getByText('Lands on payday, and your plan fills up right then.')).toBeTruthy()
 })
 
 it('edits an existing schedule and its account', async () => {

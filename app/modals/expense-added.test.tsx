@@ -114,7 +114,7 @@ function setup(
 ) {
   mockParams = { ...BASE_PARAMS, ...overrides }
   ;(getRecentExpenses as jest.Mock).mockResolvedValue({ rows: expenses, lastSpent: {} })
-  ;(getBudgets as jest.Mock).mockResolvedValue(budgets)
+  ;(getBudgets as jest.Mock).mockResolvedValue([...budgets, { month: MONTH, category: '__income__', assigned: '50000', landed: '50000', rolled_over: '0' }])
   ;(getCategories as jest.Mock).mockResolvedValue([{ name: '🛒 Groceries', group: 'Food' }])
   ;(getGroups as jest.Mock).mockResolvedValue(['Food'])
   return renderWithProviders(<ExpenseAddedScreen />)

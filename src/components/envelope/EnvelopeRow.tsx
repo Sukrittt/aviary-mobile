@@ -468,7 +468,7 @@ function WeekBreakdown({ pace, envelope, money }: { pace: WeekPace; envelope: En
   return (
     <View style={styles.weeks}>
       <Text style={[styles.metaLine, { color: tokens.text2, fontFamily: fontFamily.bodySemiBold, marginBottom: 4 }]}>
-        {money(envelope.spent)} of {money(envelope.assigned + envelope.rolledOver)} this month
+        {money(envelope.spent)} of {money(envelope.available + envelope.spent)} this month
       </Text>
       {/* Weeks you spent in, and this one. Empty past weeks are just noise. */}
       {pace.weeks.map((w, i) => ({ w, i })).filter(({ w, i }) => w.spent !== 0 || i === pace.weeks.length - 1).map(({ w, i }) => {

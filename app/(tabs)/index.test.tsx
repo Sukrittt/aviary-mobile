@@ -24,7 +24,8 @@ jest.mock('expo-secure-store', () => ({
 // Home is memoized, so a refetch reaches it the way react-query's does: through
 // a subscription the hook reads, not a parent re-render.
 const mockRefetched = mockReact.createContext(0)
-let mockBudgets: { month: string; category: string; assigned: string; rolled_over: string }[] = []
+let mockBudgets: { month: string; category: string; assigned: string; landed?: string; rolled_over: string }[] = []
+const mockTransferBudget = jest.fn(async (_params: unknown) => undefined)
 let mockBudgetsError: Error | null = null
 let mockCategories: { name: string; group: string; goal?: object }[] = [{ name: 'Food', group: 'Everyday' }]
 let mockUser: { onboardedAt?: string; getStartedAt?: string; manualTransactionCompletedAt?: string; guidedTourCompletedAt?: string; createdAt?: string; hiddenFeatures?: string[] } = {}
@@ -45,6 +46,7 @@ jest.mock('@/src/hooks/useBudgets', () => ({
   },
   useCarry: () => ({ data: mockCarry, isLoading: false, error: mockCarryError, refetch: mockCarryRefetch }),
   useUpdateBudget: () => ({ mutateAsync: mockUpdateBudget }),
+  useTransferBudget: () => ({ mutateAsync: mockTransferBudget }),
 }))
 const mockUpdateBudget = jest.fn(() => Promise.resolve({}))
 // The real hook, with an open budget to key the rollover card's dismissal by when a test sets one.
@@ -63,7 +65,7 @@ jest.mock('@/src/hooks/useExpenses', () => ({
   useRecentExpenses: () => ({ data: mockExpenses, isLoading: false, error: null, refetch: jest.fn() }),
   useLastSpent: () => ({ data: {} }),
 }))
-let mockSchedules: { id: string; frequency: string; status: string; start_date: string }[] | undefined = []
+let mockSchedules: { id: string; frequency: string; status: string; start_date: string; next_run_date?: string }[] | undefined = []
 jest.mock('@/src/hooks/useIncomes', () => ({ useRecurringIncomes: () => ({ data: mockSchedules }) }))
 jest.mock('@/src/hooks/useAccounts', () => ({ useAccounts: () => ({ data: [] }) }))
 jest.mock('@/src/hooks/useCategories', () => ({
@@ -149,7 +151,7 @@ describe('HomeScreen · Ready to Assign', () => {
     mockUser = { onboardedAt: '2026-10-01T00:00:00.000Z', getStartedAt: '2026-10-01T00:00:00.000Z' }
     mockRefetch.mockClear()
     mockBudgets = [
-      { month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' },
+      { month: MONTH, category: '__income__', assigned: '20000', landed: '20000', rolled_over: '0' },
       { month: MONTH, category: 'Food', assigned: '5000', rolled_over: '0' },
     ]
   })
@@ -199,7 +201,7 @@ describe('HomeScreen · Ready to Assign', () => {
       await act(async () => {
         fireEvent.press(getByText('Fund behind goals · ₹3,000'))
       })
-      expect(mockUpdateBudget).toHaveBeenCalledWith({ month: MONTH, category: 'Food', version: 0, updates: { assigned: '8000' } })
+      expect(mockTransferBudget).toHaveBeenCalledWith({ month: MONTH, to: 'Food', sources: [{ category: '__ready_to_assign__', amount: 3000 }] })
     } finally {
       mockCategories = [{ name: 'Food', group: 'Everyday' }]
     }
@@ -207,7 +209,7 @@ describe('HomeScreen · Ready to Assign', () => {
 
   it('offers to take money back when Ready to Assign is negative', () => {
     mockBudgets = [
-      { month: MONTH, category: '__income__', assigned: '4000', rolled_over: '0' },
+      { month: MONTH, category: '__income__', assigned: '4000', landed: '4000', rolled_over: '0' },
       { month: MONTH, category: 'Food', assigned: '5000', rolled_over: '0' },
     ]
     const { getByText, getAllByText, getByLabelText } = renderHome()
@@ -223,7 +225,7 @@ describe('HomeScreen · Ready to Assign', () => {
   it("takes back only what's left, and skips envelopes that are fully spent", () => {
     mockCategories = [{ name: 'Food', group: 'Everyday' }, { name: 'Rent', group: 'Everyday' }]
     mockBudgets = [
-      { month: MONTH, category: '__income__', assigned: '9000', rolled_over: '0' },
+      { month: MONTH, category: '__income__', assigned: '9000', landed: '9000', rolled_over: '0' },
       { month: MONTH, category: 'Food', assigned: '5000', rolled_over: '0' },
       { month: MONTH, category: 'Rent', assigned: '5000', rolled_over: '0' },
     ]
@@ -287,7 +289,7 @@ describe('HomeScreen · Ready to Assign', () => {
 
   it('shrinks Ready to Assign to a slim row once every rupee is assigned', () => {
     mockBudgets = [
-      { month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' },
+      { month: MONTH, category: '__income__', assigned: '20000', landed: '20000', rolled_over: '0' },
       { month: MONTH, category: 'Food', assigned: '20000', rolled_over: '0' },
     ]
     const { getByTestId, queryByTestId, getByLabelText, getByText } = renderHome()
@@ -310,7 +312,7 @@ describe('HomeScreen · Ready to Assign', () => {
     const view = renderWithProviders(<Harness />)
     expect(view.queryByText('Every rupee has a job.')).toBeNull()
     mockBudgets = [
-      { month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' },
+      { month: MONTH, category: '__income__', assigned: '20000', landed: '20000', rolled_over: '0' },
       { month: MONTH, category: 'Food', assigned: '20000', rolled_over: '0' },
     ]
     act(() => refetched())
@@ -343,7 +345,7 @@ describe('HomeScreen · Ready to Assign', () => {
     const view = renderWithProviders(<Harness />)
     act(() => mockNav.emit('blur'))
     mockBudgets = [
-      { month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' },
+      { month: MONTH, category: '__income__', assigned: '20000', landed: '20000', rolled_over: '0' },
       { month: MONTH, category: 'Food', assigned: '8000', rolled_over: '0' },
     ]
     act(() => refetched())
@@ -475,7 +477,7 @@ describe('HomeScreen · Ready to Assign', () => {
 
   it('removes Get Started once every step is complete', () => {
     mockBudgets = [
-      { month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' },
+      { month: MONTH, category: '__income__', assigned: '20000', landed: '20000', rolled_over: '0' },
       { month: MONTH, category: 'Food', assigned: '20000', rolled_over: '0' },
     ]
     mockUser = {
@@ -504,7 +506,7 @@ describe('HomeScreen · Ready to Assign', () => {
     mockBudgets = [{ month: MONTH, category: 'Food', assigned: '0', rolled_over: '0' }]
     const [y, m] = MONTH.split('-').map(Number)
     const payday = m === 12 ? `${y + 1}-01-04` : `${y}-${String(m + 1).padStart(2, '0')}-04`
-    mockSchedules = [{ id: 'r1', frequency: 'monthly', status: 'active', start_date: payday }]
+    mockSchedules = [{ id: 'r1', frequency: 'monthly', status: 'active', start_date: payday, next_run_date: payday }]
     const { findByText } = renderHome()
 
     fireEvent.press(await findByText('Add what you have now'))
@@ -528,7 +530,7 @@ describe('HomeScreen · Ready to Assign', () => {
   // Income alone leaves every envelope at zero, so the next step is assigning it.
   it('asks to assign all of the income, opening the next empty envelope', async () => {
     mockBudgets = [
-      { month: MONTH, category: '__income__', assigned: '50000', rolled_over: '0' },
+      { month: MONTH, category: '__income__', assigned: '50000', landed: '50000', rolled_over: '0' },
       { month: MONTH, category: 'Food', assigned: '0', rolled_over: '0' },
     ]
     const { findByText, getByText } = renderHome()
@@ -541,7 +543,7 @@ describe('HomeScreen · Ready to Assign', () => {
 
   it('ticks the assign step once Ready to Assign hits zero', async () => {
     mockBudgets = [
-      { month: MONTH, category: '__income__', assigned: '50000', rolled_over: '0' },
+      { month: MONTH, category: '__income__', assigned: '50000', landed: '50000', rolled_over: '0' },
       { month: MONTH, category: 'Food', assigned: '50000', rolled_over: '0' },
     ]
     const { findByText } = renderHome()
@@ -590,7 +592,7 @@ describe('HomeScreen · minimum version banner', () => {
     mockCarry = undefined
     mockCarryError = null
     mockActiveSpace = null
-    mockBudgets = [{ month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' }]
+    mockBudgets = [{ month: MONTH, category: '__income__', assigned: '20000', landed: '20000', rolled_over: '0' }]
   })
 
   it('links to the store when the installed app is below the minimum', async () => {
@@ -641,7 +643,7 @@ describe('HomeScreen · one banner at a time', () => {
     mockSuggestionsLoading = false
     mockWrappedLoading = false
     mockBudgets = [
-      { month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' },
+      { month: MONTH, category: '__income__', assigned: '20000', landed: '20000', rolled_over: '0' },
       { month: PREV, category: '__income__', assigned: '5000', rolled_over: '0' },
     ]
   })
@@ -693,7 +695,7 @@ describe('HomeScreen · one banner at a time', () => {
   })
 
   it('offers Insights once 30 expenses are logged, with nothing above it', async () => {
-    mockBudgets = [{ month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' }]
+    mockBudgets = [{ month: MONTH, category: '__income__', assigned: '20000', landed: '20000', rolled_over: '0' }]
     mockExpenses = expenses(30)
     const { findByText } = renderHome()
     expect(await findByText(/Insights can show you where it all goes/)).toBeTruthy()
@@ -703,7 +705,7 @@ describe('HomeScreen · one banner at a time', () => {
   })
 
   it('offers Subscriptions first when a scan found one', async () => {
-    mockBudgets = [{ month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' }]
+    mockBudgets = [{ month: MONTH, category: '__income__', assigned: '20000', landed: '20000', rolled_over: '0' }]
     mockExpenses = expenses(30)
     mockSuggestions = { suggestions: [{ kind: 'subscription' }] }
     const { findByText, queryByText } = renderHome()
@@ -712,7 +714,7 @@ describe('HomeScreen · one banner at a time', () => {
   })
 
   it('holds the slot while the subscription check is still loading', async () => {
-    mockBudgets = [{ month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' }]
+    mockBudgets = [{ month: MONTH, category: '__income__', assigned: '20000', landed: '20000', rolled_over: '0' }]
     mockExpenses = expenses(30)
     mockSuggestionsLoading = true
     const { queryByText } = renderHome()
@@ -721,7 +723,7 @@ describe('HomeScreen · one banner at a time', () => {
   })
 
   it('holds the slot while Wrapped status is still loading', async () => {
-    mockBudgets = [{ month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' }]
+    mockBudgets = [{ month: MONTH, category: '__income__', assigned: '20000', landed: '20000', rolled_over: '0' }]
     mockExpenses = expenses(30)
     mockWrappedLoading = true
     const { queryByText } = renderHome()
@@ -730,7 +732,7 @@ describe('HomeScreen · one banner at a time', () => {
   })
 
   it('says so when turning a feature on fails', async () => {
-    mockBudgets = [{ month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' }]
+    mockBudgets = [{ month: MONTH, category: '__income__', assigned: '20000', landed: '20000', rolled_over: '0' }]
     mockExpenses = expenses(30)
     const { findByText } = renderHome()
     fireEvent.press(await findByText('Turn on'))
@@ -739,7 +741,7 @@ describe('HomeScreen · one banner at a time', () => {
   })
 
   it('offers Wrapped when last month unlocks, and remembers Not now', async () => {
-    mockBudgets = [{ month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' }]
+    mockBudgets = [{ month: MONTH, category: '__income__', assigned: '20000', landed: '20000', rolled_over: '0' }]
     mockWrappedStatus = { available: true }
     const { findByText, queryByText } = renderHome()
     fireEvent.press(await findByText('Not now'))
@@ -748,7 +750,7 @@ describe('HomeScreen · one banner at a time', () => {
   })
 
   it('offers Scan a bill after 10 expenses, opening the scan sheet', async () => {
-    mockBudgets = [{ month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' }]
+    mockBudgets = [{ month: MONTH, category: '__income__', assigned: '20000', landed: '20000', rolled_over: '0' }]
     mockExpenses = expenses(10)
     const { findByText } = renderHome()
     expect(await findByText(/Got a receipt/)).toBeTruthy()
@@ -757,14 +759,14 @@ describe('HomeScreen · one banner at a time', () => {
   })
 
   it('offers Ask Aviary after a week of logging days', async () => {
-    mockBudgets = [{ month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' }]
+    mockBudgets = [{ month: MONTH, category: '__income__', assigned: '20000', landed: '20000', rolled_over: '0' }]
     mockExpenses = Array.from({ length: 7 }, (_, i) => ({ category: 'Food', amountInr: 10, date: `${MONTH}-0${i + 1}` }))
     const { findByText } = renderHome()
     expect(await findByText(/Ask Aviary can answer questions/)).toBeTruthy()
   })
 
   it('never offers a feature that is already on', async () => {
-    mockBudgets = [{ month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' }]
+    mockBudgets = [{ month: MONTH, category: '__income__', assigned: '20000', landed: '20000', rolled_over: '0' }]
     mockUser = { createdAt: '2026-01-01T00:00:00.000Z' }
     mockExpenses = expenses(40)
     mockWrappedStatus = { available: true }
@@ -782,7 +784,7 @@ describe('HomeScreen · one banner at a time', () => {
 
   it('leaves the credit card payoff off Home', async () => {
     mockBudgets = [
-      { month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' },
+      { month: MONTH, category: '__income__', assigned: '20000', landed: '20000', rolled_over: '0' },
       { month: MONTH, category: '__credit_card__', assigned: '0', rolled_over: '0' },
     ]
     const { queryByText } = renderHome()

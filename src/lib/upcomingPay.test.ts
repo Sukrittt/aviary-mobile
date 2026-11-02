@@ -1,4 +1,4 @@
-import { startingBalanceHref, upcomingMonthlyPay } from './upcomingPay'
+import { startingBalanceHref, upcomingPayday } from './upcomingPay'
 import type { RecurringIncomeRow } from '@/src/types'
 
 const sched = (start_date: string, over: Partial<RecurringIncomeRow> = {}): RecurringIncomeRow => ({
@@ -6,26 +6,13 @@ const sched = (start_date: string, over: Partial<RecurringIncomeRow> = {}): Recu
   next_run_date: start_date, account_id: '', status: 'active', created_at: '', ...over,
 })
 
-describe('upcomingMonthlyPay', () => {
-  it('finds a monthly pay whose first payday is in a later month', () => {
-    expect(upcomingMonthlyPay([sched('2026-11-04')], '2026-10')?.start_date).toBe('2026-11-04')
+describe('upcomingPayday', () => {
+  it('picks the soonest payday of the running schedules', () => {
+    expect(upcomingPayday([sched('2026-11-25'), sched('2026-11-05', { status: 'paused' }), sched('2026-11-20')])?.next_run_date).toBe('2026-11-20')
   })
 
-  it('ignores a pay that already counts this month', () => {
-    expect(upcomingMonthlyPay([sched('2026-10-25')], '2026-10')).toBeUndefined()
-    expect(upcomingMonthlyPay([sched('2026-09-01')], '2026-10')).toBeUndefined()
-  })
-
-  it('ignores paused, deleted-and-ended, and non-monthly schedules', () => {
-    expect(upcomingMonthlyPay([
-      sched('2026-11-04', { status: 'paused' }),
-      sched('2026-11-05', { status: 'ended' }),
-      sched('2026-11-06', { frequency: 'weekly' }),
-    ], '2026-10')).toBeUndefined()
-  })
-
-  it('picks the earliest when there are several', () => {
-    expect(upcomingMonthlyPay([sched('2026-12-01'), sched('2026-11-04')], '2026-10')?.start_date).toBe('2026-11-04')
+  it('has nothing to say without a schedule', () => {
+    expect(upcomingPayday([])).toBeUndefined()
   })
 })
 

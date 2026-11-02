@@ -281,7 +281,7 @@ export default function ExpenseAddedScreen() {
   const counted = (expensesQ.data ?? []).some((e) => e.timestamp === timestamp);
   const spent = (envelope?.spent ?? 0) + (counted ? 0 : amount);
   const left = (envelope?.available ?? 0) - (counted ? 0 : amount);
-  const funded = (envelope?.assigned ?? 0) + (envelope?.rolledOver ?? 0);
+  const funded = (envelope?.available ?? 0) + (envelope?.spent ?? 0);
   // A logged-for-a-past-month expense doesn't touch *this* month's envelope
   // (the server already scoped the deduction to its own month) — showing the
   // current month's bar here would read as if this add just moved it.

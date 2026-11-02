@@ -29,7 +29,7 @@ beforeEach(() => {
   ;(getAccounts as jest.Mock).mockResolvedValue([])
   ;(getCategories as jest.Mock).mockResolvedValue([])
   ;(getBudgets as jest.Mock).mockResolvedValue([
-    { month: currentMonthKey(), category: '__income__', assigned: '100000', rolled_over: '0', extra: '0', version: 1 },
+    { month: currentMonthKey(), category: '__income__', assigned: '100000', landed: '100000', rolled_over: '0', extra: '0', version: 1 },
   ])
 })
 

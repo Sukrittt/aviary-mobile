@@ -112,6 +112,7 @@ function EditAssignedAmountModal() {
       lastMonthAssigned={lastMonthAssigned}
       goalNeed={goal?.monthlyNeed !== undefined && goal.by ? { amount: goal.monthlyNeed, by: goal.by } : undefined}
       readyToAssign={envelopeState.readyToAssign}
+      moneyNow={envelopeState.funded || !!envelope?.isCreditCardPayment}
       adjust={adjust}
     />
   )
@@ -130,6 +131,7 @@ function EditAmountBody({
   lastMonthAssigned,
   goalNeed,
   readyToAssign,
+  moneyNow,
   adjust,
   onSwitch,
 }: {
@@ -147,6 +149,8 @@ function EditAmountBody({
   /** A goal's monthly amount to make its deadline (src/lib/goal.ts), offered as a pick. */
   goalNeed?: { amount: number; by: string }
   readyToAssign: number
+  /** False before payday: a new amount is the plan for when pay lands, so no money moves today. */
+  moneyNow: boolean
   /** Start this much off currentAssigned, either way (never below 0). */
   adjust: number
   onSwitch: (category: string) => Promise<void>
@@ -177,12 +181,14 @@ function EditAmountBody({
   const giveAll = Math.round((baseAssigned + baseReadyToAssign) * 100) / 100
   const showLastMonth = !isCreditCardPayment && !!lastMonthAssigned
   const delta = value - baseAssigned
-  const projectedRTA = baseReadyToAssign - delta
+  const projectedRTA = moneyNow ? baseReadyToAssign - delta : baseReadyToAssign
   // An untouched 0 has nothing to project, so it just shows what's left.
   const untouchedZero = value === 0 && delta === 0
   const impactText =
     untouchedZero
       ? `${formatCurrency(baseReadyToAssign, hideAmounts)} left in Ready to Assign`
+      : delta !== 0 && !moneyNow
+        ? 'Goes in when your pay lands'
       : delta === 0
         ? `${formatCurrency(baseAssigned, hideAmounts)} already assigned this month`
         : delta > 0
@@ -229,7 +235,7 @@ function EditAmountBody({
   function reviewLatest(keepDraft: boolean) {
     if (!conflict) return
     const latest = Number(conflict.assigned) || 0
-    setBaseReadyToAssign(baseReadyToAssign - (latest - baseAssigned))
+    if (moneyNow) setBaseReadyToAssign(baseReadyToAssign - (latest - baseAssigned))
     setBaseAssigned(latest)
     setExpectedVersion(conflict.version)
     if (!keepDraft) setAmountText(amountSeed(latest))
@@ -283,6 +289,7 @@ function EditAmountBody({
           tint={tintOf(isCreditCardPayment ? name : category)}
           spent={spent}
           rolledOver={rolledOver}
+          moneyNow={moneyNow}
           currentAssigned={baseAssigned}
           hideAmounts={hideAmounts}
           tokens={tokens}
@@ -416,6 +423,7 @@ function EnvelopeCard({
   tint,
   spent,
   rolledOver,
+  moneyNow,
   currentAssigned,
   hideAmounts,
   tokens,
@@ -430,6 +438,7 @@ function EnvelopeCard({
   tint: { bg: string; ink: string }
   spent: number
   rolledOver: number
+  moneyNow: boolean
   currentAssigned: number
   hideAmounts: boolean
   tokens: ThemeTokens
@@ -468,7 +477,7 @@ function EnvelopeCard({
           {rolledOver === 0
             ? `${formatCurrency(spent, hideAmounts)} spent · ${formatCurrency(currentAssigned, hideAmounts)} assigned`
             // With money carried in, what's available is the number that matters, and the carry says why.
-            : `${formatCurrency(Math.round((currentAssigned + rolledOver - spent) * 100) / 100, hideAmounts)} available · ${rolledOverLine(rolledOver, currentMonthKey(), (n) => formatCurrency(n, hideAmounts))}`}
+            : `${formatCurrency(Math.round(((moneyNow ? currentAssigned : 0) + rolledOver - spent) * 100) / 100, hideAmounts)} available · ${rolledOverLine(rolledOver, currentMonthKey(), (n) => formatCurrency(n, hideAmounts))}`}
         </Text>
       </View>
       <CaretDown size={18} color={tokens.text3} style={{ marginRight: space.sm }} />

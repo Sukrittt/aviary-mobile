@@ -48,6 +48,7 @@ function setup(overrides: Partial<typeof BASE_PARAMS> = {}, expenses: object[] =
   mockParams = { ...BASE_PARAMS, ...overrides }
   ;(getRecentExpenses as jest.Mock).mockResolvedValue({ rows: expenses, lastSpent: {} })
   ;(getBudgets as jest.Mock).mockResolvedValue([
+    { month: MONTH, category: '__income__', assigned: '3000', landed: '3000', rolled_over: '0' },
     { month: MONTH, category: 'Electricity', assigned: '0', rolled_over: '0' },
     { month: MONTH, category: 'Travel', assigned: '1000', rolled_over: '0' },
     { month: MONTH, category: 'Cook', assigned: '1000', rolled_over: '0' },

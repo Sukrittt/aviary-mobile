@@ -6,7 +6,7 @@ import { Numpad } from "@/src/components/ui/Numpad";
 import { useAmountEntry } from "@/src/components/ui/useAmountEntry";
 import { useBudgets, useUpdateBudget } from "@/src/hooks/useBudgets";
 import { EMPTY } from "@/src/lib/constants";
-import { currentMonthKey, INCOME_CATEGORY, monthLabel } from "@/src/lib/envelope";
+import { INCOME_CATEGORY, monthLabel, PAYCHECK_START } from "@/src/lib/envelope";
 
 import { fontFamily } from "@/src/theme/fonts";
 import { useTheme } from "@/src/theme/ThemeProvider";
@@ -28,13 +28,11 @@ import { withReadOnlyGate } from "@/src/components/budgets/ReadOnlyNotice";
 import { Icon } from "@/src/components/shared/Icon";
 
 /** Opened from Insights' Saved view on a month with spending but no income, so
- * that month can be counted, and from Home's Ready to Assign sheet ("Change
- * income") for the current month's monthly income. Later months carry it
- * forward until one has its own income. Same layout as
+ * that month can be counted. Before PAYCHECK_START later months carry it
+ * forward; from then on it's one month's money, like a one-off. Same layout as
  * edit-ready-to-assign.tsx. */
 function EditMonthIncomeModal() {
   const { month, initial } = useLocalSearchParams<{ month: string; initial?: string }>();
-  const isCurrent = month === currentMonthKey();
   const { formatAmountInput } = useCurrency()
 
   const { tokens, space, radius, type } = useTheme();
@@ -68,7 +66,7 @@ function EditMonthIncomeModal() {
         month,
         category: INCOME_CATEGORY,
         version,
-        updates: { assigned: String(value) },
+        updates: month < PAYCHECK_START ? { assigned: String(value) } : { extra: String(value) },
       });
       setSuccess(true);
     } catch {
@@ -89,7 +87,7 @@ function EditMonthIncomeModal() {
 
   return (
     <View style={[styles.container, { backgroundColor: tokens.bg }]}>
-      <ScreenHeader title={isCurrent ? "Monthly income" : "Add income"} onBack={() => router.back()} close />
+      <ScreenHeader title="Add income" onBack={() => router.back()} close />
 
       <ScrollView
         style={{ flex: 1 }}
@@ -144,7 +142,7 @@ function EditMonthIncomeModal() {
                 },
               ]}
             >
-              {isCurrent ? "EDITING" : "ADDING"}
+              ADDING
             </Text>
             <Text
               style={{
@@ -153,7 +151,7 @@ function EditMonthIncomeModal() {
                 fontSize: type.body,
               }}
             >
-              {isCurrent ? "Monthly income" : "Income"}
+              Income
             </Text>
             <Text
               style={{
@@ -162,7 +160,7 @@ function EditMonthIncomeModal() {
                 fontSize: type.caption,
               }}
             >
-              {isCurrent ? "What comes in every month, like your salary" : `What came in during ${monthLabel(month)}`}
+              {`What came in during ${monthLabel(month)}`}
             </Text>
           </View>
         </View>
@@ -199,7 +197,7 @@ function EditMonthIncomeModal() {
               textAlign: "center",
             }}
           >
-            {isCurrent ? "Carries into next month until you change it" : "Counts toward what you saved that month"}
+            Counts toward what you saved that month
           </Reanimated.Text>
         </View>
 

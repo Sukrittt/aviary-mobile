@@ -23,7 +23,7 @@ import { GapSheet } from '@/src/components/home/GapSheet'
 import { useTheme } from '@/src/theme/ThemeProvider'
 import { usePrivacy } from '@/src/context/PrivacyContext'
 import { fontFamily } from '@/src/theme/fonts'
-import { useBudgets, useCarry, useUpdateBudget } from '@/src/hooks/useBudgets'
+import { useBudgets, useCarry, useTransferBudget } from '@/src/hooks/useBudgets'
 import { fundBehindGoals, goalProgress } from '@/src/lib/goal'
 import { rolloverCard } from '@/src/lib/rollover'
 import { splitEmoji } from '@/src/lib/emoji'
@@ -73,7 +73,7 @@ import { isHidden } from '@/src/lib/features'
 import { ForecastLine } from '@/src/components/home/ForecastLine'
 import { GetStartedCard } from '@/src/components/home/GetStartedCard'
 import { ImportBanner } from '@/src/components/home/ImportBanner'
-import { paydayLabel, startingBalanceHref, upcomingMonthlyPay } from '@/src/lib/upcomingPay'
+import { paydayLabel, startingBalanceHref, upcomingPayday } from '@/src/lib/upcomingPay'
 import { EmptyState } from '@/src/components/shared/EmptyState'
 import { FORCE_EMPTY_STATE_PREVIEW, emptyForPreview } from '@/src/lib/emptyStatePreview'
 
@@ -135,7 +135,7 @@ function HomeScreen() {
   const [incomeSheetOpen, setIncomeSheetOpen] = useState(false)
   const [rtaSheetOpen, setRtaSheetOpen] = useState(false)
   const [funding, setFunding] = useState(false)
-  const updateBudget = useUpdateBudget()
+  const transferBudget = useTransferBudget()
   const schedulesQ = useRecurringIncomes()
   // Warms the accounts cache, so Log expense has them on its first open and
   // doesn't send an expense without the account it would have defaulted to.
@@ -173,8 +173,8 @@ function HomeScreen() {
       ? { pathname: '/modals/recurring-income' as const, params: { id: monthlySchedules[0].id } }
       : { pathname: '/modals/recurring-income' as const, params: { label: 'Monthly income', frequency: 'monthly', amount: envelopeState.incomeBase > 0 ? String(envelopeState.incomeBase) : '' } }
 
-  // A first pay next month leaves nothing to budget this month until they add what they have now.
-  const upcomingPay = upcomingMonthlyPay(schedulesQ.data ?? [], month)
+  // Until pay lands this month, envelopes hold only what carried in, so Home says when the plan fills up.
+  const upcomingPay = envelopeState.funded ? undefined : upcomingPayday(schedulesQ.data ?? [])
 
   // What last month left behind, said once at the start of the month.
   const rollover = rolloverCard(carryQ.data, month, (n) => formatCurrency(n, hideAmounts))
@@ -252,7 +252,7 @@ function HomeScreen() {
     const map = new Map<string, WeekPace>()
     for (const e of envelopeState.envelopes) {
       // Nothing to pace with no money in it: the month's own bar says it better.
-      const pot = e.assigned + e.rolledOver
+      const pot = e.available + e.spent
       // A goal is saving, not spending: no pace for it (Web's EnvelopeGrid does the same).
       if (!weekly?.has(e.category) || e.isCreditCardPayment || pot <= 0 || goalNames.has(e.category)) continue
       map.set(e.category, weekPace(pot, spendByDay(expenses, e.category, month), month, today))
@@ -334,16 +334,14 @@ function HomeScreen() {
   const goalFundingTotal = goalFunding.reduce((n, g) => n + g.amount, 0)
   // Rupee amounts, so a negative Ready to Assign only offers envelopes with money left
   // to give, and takes back no more than that, so nothing tips into overspent.
-  const rtaCategories = rta < 0 ? homeEnvelopes.filter((e) => e.assigned > 0 && e.available > 0) : homeEnvelopes
+  const rtaCategories = rta < 0 ? homeEnvelopes.filter((e) => e.assigned > 0 && e.available > 0 && envelopeState.funded) : homeEnvelopes
 
   async function fundGoals() {
     setFunding(true)
     try {
-      // One versioned write per envelope, in turn, so each starts from its own row.
+      // Same move as Assign money, which puts the money in today even before payday.
       for (const g of goalFunding) {
-        const e = homeEnvelopes.find((x) => x.category === g.category)
-        const version = budgets.find((b) => b.month === month && b.category === g.category)?.version ?? 0
-        await updateBudget.mutateAsync({ month, category: g.category, version, updates: { assigned: String(Math.round(((e?.assigned ?? 0) + g.amount) * 100) / 100) } })
+        await transferBudget.mutateAsync({ month, to: g.category, sources: [{ category: '__ready_to_assign__', amount: g.amount }] })
       }
       track('rta_goals_funded', { goals: goalFunding.length })
       setRtaSheetOpen(false)
@@ -546,19 +544,19 @@ function HomeScreen() {
               accessibilityRole="button"
               onPress={() => {
                 tap()
-                if (envelopeState.income === 0) {
+                if (envelopeState.income === 0 && !upcomingPay) {
                   router.push(changeIncomeHref)
                 } else setIncomeSheetOpen(true)
               }}
               onPressIn={pillPress.onPressIn}
               onPressOut={pillPress.onPressOut}
               hitSlop={8}
-              style={[styles.incomePill, { backgroundColor: envelopeState.income === 0 ? tokens.accentSoft : tokens.inputBg, borderRadius: radius.full }, pillPress.style]}
+              style={[styles.incomePill, { backgroundColor: envelopeState.income === 0 && !upcomingPay ? tokens.accentSoft : tokens.inputBg, borderRadius: radius.full }, pillPress.style]}
             >
-              <Text style={{ color: envelopeState.income === 0 ? tokens.accentInk : tokens.text, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>
-                {envelopeState.income === 0 ? 'Set your income' : `Income · ${formatCurrency(envelopeState.income, hideAmounts)}`}
+              <Text style={{ color: envelopeState.income === 0 && !upcomingPay ? tokens.accentInk : tokens.text, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>
+                {upcomingPay ? `Your plan fills up ${paydayLabel(upcomingPay.next_run_date)}` : envelopeState.income === 0 ? 'Set your income' : `Income · ${formatCurrency(envelopeState.income, hideAmounts)}`}
               </Text>
-              <Icon icon={CaretRight} size={14} color={envelopeState.income === 0 ? tokens.accentInk : tokens.text2} />
+              <Icon icon={CaretRight} size={14} color={envelopeState.income === 0 && !upcomingPay ? tokens.accentInk : tokens.text2} />
             </AnimatedPressable>
           </View>
         )}
@@ -695,9 +693,9 @@ function HomeScreen() {
               fundDone={fundDone}
               manualTransactionDone={!!user.manualTransactionCompletedAt}
               guidedTourDone={!!user.guidedTourCompletedAt}
-              upcomingPayHint={upcomingPay ? `Your pay lands ${paydayLabel(upcomingPay.start_date)}. Budget what you have till then.` : undefined}
+              upcomingPayHint={upcomingPay ? `Your pay lands ${paydayLabel(upcomingPay.next_run_date)}. Budget what you have till then.` : undefined}
               onAddIncome={() =>
-                router.push(upcomingPay ? startingBalanceHref(upcomingPay.start_date) : changeIncomeHref)
+                router.push(upcomingPay ? startingBalanceHref(upcomingPay.next_run_date) : changeIncomeHref)
               }
               fundHint={incomeDone ? `${formatCurrency(envelopeState.readyToAssign, hideAmounts)} still to assign` : undefined}
               onFund={() => (nextToFund ? handleEditAmount(nextToFund) : router.navigate('/(tabs)/envelopes'))}

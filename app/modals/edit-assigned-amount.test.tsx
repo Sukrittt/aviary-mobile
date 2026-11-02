@@ -72,7 +72,7 @@ beforeEach(() => {
 it('prefills with this month\'s assigned amount and saves an edit', async () => {
   ;(updateBudget as jest.Mock).mockResolvedValue({})
   const { getByLabelText, getByText } = setup([
-    { month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0', version: 2 },
+    { month: MONTH, category: '__income__', assigned: '20000', landed: '20000', rolled_over: '0', version: 2 },
     { month: MONTH, category: 'Food', assigned: '5000', rolled_over: '0', version: 7 },
   ])
 
@@ -96,7 +96,7 @@ it('prefills with this month\'s assigned amount and saves an edit', async () => 
 
 it('shows a "Last month" chip only when a different prior amount exists', async () => {
   const { getByText, queryByText } = setup([
-    { month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0', version: 2 },
+    { month: MONTH, category: '__income__', assigned: '20000', landed: '20000', rolled_over: '0', version: 2 },
     { month: MONTH, category: 'Food', assigned: '5000', rolled_over: '0', version: 7 },
     { month: PREV_MONTH, category: '__income__', assigned: '20000', rolled_over: '0', version: 1 },
     { month: PREV_MONTH, category: 'Food', assigned: '3000', rolled_over: '0', version: 1 },
@@ -110,7 +110,7 @@ it('closes ~1100ms after a successful save', async () => {
   jest.useFakeTimers()
   ;(updateBudget as jest.Mock).mockResolvedValue({})
   const { getByLabelText, getByText } = setup([
-    { month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0', version: 2 },
+    { month: MONTH, category: '__income__', assigned: '20000', landed: '20000', rolled_over: '0', version: 2 },
     { month: MONTH, category: 'Food', assigned: '5000', rolled_over: '0', version: 7 },
   ])
 
@@ -136,7 +136,7 @@ it('shows the shared full-screen conflict review, preserves the draft, and requi
     }))
     .mockResolvedValueOnce({})
   const { getByLabelText, getByRole, getByTestId, getByText } = setup([
-    { month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0', version: 2 },
+    { month: MONTH, category: '__income__', assigned: '20000', landed: '20000', rolled_over: '0', version: 2 },
     { month: MONTH, category: 'Food', assigned: '5000', rolled_over: '0', version: 7 },
   ])
   await waitFor(() => expect(getByLabelText('₹5,000')).toBeTruthy())
@@ -157,7 +157,7 @@ it('shows the shared full-screen conflict review, preserves the draft, and requi
 
 it('shows the projected Ready to Assign when the amount is cleared to 0', async () => {
   const { getByLabelText, getByText, queryByText } = setup([
-    { month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0', version: 2 },
+    { month: MONTH, category: '__income__', assigned: '20000', landed: '20000', rolled_over: '0', version: 2 },
     { month: MONTH, category: 'Food', assigned: '5000', rolled_over: '0', version: 7 },
   ])
   await waitFor(() => expect(getByLabelText('₹5,000')).toBeTruthy())
@@ -174,7 +174,7 @@ it('seeds the latest amount rounded to cents after a conflict review', async () 
     month: MONTH, category: 'Food', assigned: '29999.899999999998', rolled_over: '0', version: 8,
   }))
   const { getByLabelText, getByRole, getByText } = setup([
-    { month: MONTH, category: '__income__', assigned: '50000', rolled_over: '0', version: 2 },
+    { month: MONTH, category: '__income__', assigned: '50000', landed: '50000', rolled_over: '0', version: 2 },
     { month: MONTH, category: 'Food', assigned: '5000', rolled_over: '0', version: 7 },
   ])
   await waitFor(() => expect(getByLabelText('₹5,000')).toBeTruthy())
@@ -213,7 +213,7 @@ describe('switching envelopes in place', () => {
   it('saves the unsaved draft, then loads the picked envelope', async () => {
     ;(updateBudget as jest.Mock).mockResolvedValue({})
     const budgets = [
-      { month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0', version: 2 },
+      { month: MONTH, category: '__income__', assigned: '20000', landed: '20000', rolled_over: '0', version: 2 },
       { month: MONTH, category: 'Food', assigned: '0', rolled_over: '0', version: 1 },
       { month: MONTH, category: 'Rent', assigned: '6000', rolled_over: '0', version: 3 },
     ]
@@ -240,7 +240,7 @@ describe('switching envelopes in place', () => {
   it('applies adjust once, not again after switching away and back', async () => {
     ;(updateBudget as jest.Mock).mockResolvedValue({})
     const budgets = [
-      { month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0', version: 2 },
+      { month: MONTH, category: '__income__', assigned: '20000', landed: '20000', rolled_over: '0', version: 2 },
       { month: MONTH, category: 'Food', assigned: '0', rolled_over: '0', version: 1 },
       { month: MONTH, category: 'Rent', assigned: '6000', rolled_over: '0', version: 3 },
     ]
@@ -264,7 +264,7 @@ describe('switching envelopes in place', () => {
 
   it('switches without saving when nothing changed', async () => {
     const { getByLabelText, findByText, findByLabelText } = setupTwo([
-      { month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0', version: 2 },
+      { month: MONTH, category: '__income__', assigned: '20000', landed: '20000', rolled_over: '0', version: 2 },
       { month: MONTH, category: 'Food', assigned: '5000', rolled_over: '0', version: 1 },
     ])
     await findByText('₹5,000 already assigned this month')
@@ -304,7 +304,7 @@ it("a goal with a deadline gets its monthly amount as the only chip", async () =
   mockParams = { category: 'Food' }
   ;(getExpenses as jest.Mock).mockResolvedValue([])
   ;(getBudgets as jest.Mock).mockResolvedValue([
-    { month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0', version: 2 },
+    { month: MONTH, category: '__income__', assigned: '20000', landed: '20000', rolled_over: '0', version: 2 },
     { month: MONTH, category: 'Food', assigned: '0', rolled_over: '0', version: 7 },
     { month: PREV_MONTH, category: 'Food', assigned: '3000', rolled_over: '0', version: 1 },
   ])
@@ -320,7 +320,7 @@ it("a goal with a deadline gets its monthly amount as the only chip", async () =
 it('opens lowered by a negative adjust, so a plain Save frees it to Ready to Assign', async () => {
   ;(updateBudget as jest.Mock).mockResolvedValue({})
   const { getByLabelText, getByText } = setup([
-    { month: MONTH, category: '__income__', assigned: '4000', rolled_over: '0', version: 2 },
+    { month: MONTH, category: '__income__', assigned: '4000', landed: '4000', rolled_over: '0', version: 2 },
     { month: MONTH, category: 'Food', assigned: '5000', rolled_over: '0', version: 7 },
   ], { category: 'Food', adjust: '-1000' })
 
@@ -335,7 +335,7 @@ it('opens lowered by a negative adjust, so a plain Save frees it to Ready to Ass
 
 it('never opens a negative adjust below 0', async () => {
   const { getByLabelText } = setup([
-    { month: MONTH, category: '__income__', assigned: '4000', rolled_over: '0', version: 2 },
+    { month: MONTH, category: '__income__', assigned: '4000', landed: '4000', rolled_over: '0', version: 2 },
     { month: MONTH, category: 'Food', assigned: '500', rolled_over: '0', version: 7 },
   ], { category: 'Food', adjust: '-1000' })
 
@@ -345,7 +345,7 @@ it('never opens a negative adjust below 0', async () => {
 it('opens raised by a positive adjust, so a plain Save empties Ready to Assign', async () => {
   ;(updateBudget as jest.Mock).mockResolvedValue({})
   const { getByLabelText, getByText } = setup([
-    { month: MONTH, category: '__income__', assigned: '10000', rolled_over: '0', version: 2 },
+    { month: MONTH, category: '__income__', assigned: '10000', landed: '10000', rolled_over: '0', version: 2 },
     { month: MONTH, category: 'Food', assigned: '5000', rolled_over: '0', version: 7 },
   ], { category: 'Food', adjust: '5000' })
 
@@ -361,7 +361,7 @@ it('opens raised by a positive adjust, so a plain Save empties Ready to Assign',
 
 it('Give it all adds everything left in Ready to Assign on top of what is assigned', async () => {
   const { getByLabelText, getByText } = setup([
-    { month: MONTH, category: '__income__', assigned: '10000', rolled_over: '0', version: 2 },
+    { month: MONTH, category: '__income__', assigned: '10000', landed: '10000', rolled_over: '0', version: 2 },
     { month: MONTH, category: 'Food', assigned: '5000', rolled_over: '0', version: 7 },
   ])
 
@@ -373,7 +373,7 @@ it('Give it all adds everything left in Ready to Assign on top of what is assign
 
 it('hides Give it all when there is nothing left to assign', async () => {
   const { getByLabelText, queryByText } = setup([
-    { month: MONTH, category: '__income__', assigned: '5000', rolled_over: '0', version: 2 },
+    { month: MONTH, category: '__income__', assigned: '5000', landed: '5000', rolled_over: '0', version: 2 },
     { month: MONTH, category: 'Food', assigned: '5000', rolled_over: '0', version: 7 },
   ])
 
@@ -383,7 +383,7 @@ it('hides Give it all when there is nothing left to assign', async () => {
 
 it('shows only Give it all and Last month when both apply, without round numbers', async () => {
   const { findByText, getByText, queryByText } = setup([
-    { month: MONTH, category: '__income__', assigned: '10000', rolled_over: '0', version: 2 },
+    { month: MONTH, category: '__income__', assigned: '10000', landed: '10000', rolled_over: '0', version: 2 },
     { month: MONTH, category: 'Food', assigned: '5000', rolled_over: '0', version: 7 },
     { month: PREV_MONTH, category: 'Food', assigned: '3000', rolled_over: '0', version: 1 },
   ])
