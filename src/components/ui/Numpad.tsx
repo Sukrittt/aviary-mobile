@@ -34,6 +34,7 @@ export function Numpad({
   extraKey,
   onAccent = false,
   calculator = false,
+  calcOverhang = 20,
 }: {
   onDigit: (digit: string) => void
   onBackspace: () => void
@@ -44,6 +45,8 @@ export function Numpad({
   extraKey?: string
   onAccent?: boolean
   calculator?: boolean
+  /** How far the operator column runs past the keys. Use 0 when something sits right under the pad. */
+  calcOverhang?: number
 }) {
   const { tokens, radius, space } = useTheme()
   const [calcOpen, setCalcOpen] = useState(false)
@@ -130,7 +133,7 @@ export function Numpad({
         importantForAccessibility={calcOpen ? 'auto' : 'no-hide-descendants'}
         style={[
           styles.calcColumn,
-          { right: -bleed, backgroundColor: fill, borderTopLeftRadius: radius.xl, borderBottomLeftRadius: radius.xl },
+          { right: -bleed, bottom: -calcOverhang, backgroundColor: fill, borderTopLeftRadius: radius.xl, borderBottomLeftRadius: radius.xl },
           columnStyle,
         ]}
       >
@@ -158,6 +161,6 @@ const styles = StyleSheet.create({
   key: { flex: 1, minHeight: 56, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
   label: { fontSize: 22 },
   toggleFill: { position: 'absolute', width: 56, height: 56, borderRadius: 28 },
-  calcColumn: { position: 'absolute', top: 4, bottom: -20, width: CALC_WIDTH, justifyContent: 'space-evenly' },
+  calcColumn: { position: 'absolute', top: 4, width: CALC_WIDTH, justifyContent: 'space-evenly' },
   calcKey: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 })

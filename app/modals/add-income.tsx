@@ -319,6 +319,7 @@ export function IncomeForm({ existing, flood = false, defaultLabel, intro }: { e
         <Numpad
           onAccent={flood}
           calculator
+          calcOverhang={0}
           onDigit={pushDigit}
           onBackspace={handleBackspace}
           onClear={() => setAmountText("")}
