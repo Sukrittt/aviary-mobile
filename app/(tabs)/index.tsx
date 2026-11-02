@@ -326,7 +326,7 @@ function HomeScreen() {
     if (readOnly || rta <= 0) return []
     const behind = homeEnvelopes.flatMap((e) => {
       const row = categories.find((c) => c.name === e.category)
-      const p = row?.goal ? goalProgress({ goal: row.goal, month, available: e.available, assigned: e.assigned, spent: e.spent, since: row.since }) : null
+      const p = row?.goal ? goalProgress({ goal: row.goal, month, available: e.available, assigned: e.assigned, spent: e.spent, since: row.since, planPending: e.planPending }) : null
       return p?.status === 'behind' && p.by && p.behindBy ? [{ category: e.category, by: p.by, behindBy: p.behindBy }] : []
     })
     return fundBehindGoals(rta, behind)
@@ -819,7 +819,9 @@ function HomeScreen() {
               label={splitEmoji(e.category).text}
               onPress={() => {
                 setRtaSheetOpen(false)
-                router.push({ pathname: '/modals/edit-assigned-amount', params: { category: e.category, adjust: String(rta < 0 ? -Math.min(-rta, e.available) : rta) } })
+                // Before payday the amount screen edits the plan, so giving money a job today is a move.
+                if (!envelopeState.funded && rta > 0) router.push({ pathname: '/modals/move-money', params: { fromCategory: e.category, amount: String(rta), quick: '1' } })
+                else router.push({ pathname: '/modals/edit-assigned-amount', params: { category: e.category, adjust: String(rta < 0 ? -Math.min(-rta, e.available) : rta) } })
               }}
             />
           ))}

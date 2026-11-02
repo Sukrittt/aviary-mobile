@@ -86,7 +86,7 @@ function EditAssignedAmountModal() {
   const envelope = envelopeState.envelopes.find((e) => e.category === category)
   const lastMonthAssigned = prevEnvelopeState.envelopes.find((e) => e.category === category)?.assigned
   const row = categories.find((c) => c.name === category)
-  const goal = row?.goal && envelope ? goalProgress({ goal: row.goal, month, available: envelope.available, assigned: envelope.assigned, spent: envelope.spent, since: row.since }) : null
+  const goal = row?.goal && envelope ? goalProgress({ goal: row.goal, month, available: envelope.available, assigned: envelope.assigned, spent: envelope.spent, since: row.since, planPending: envelope.planPending }) : null
 
   // Mounted only once data has settled, so its initial amountText (below)
   // seeds correctly from the real envelope instead of a still-loading '0'.
@@ -333,7 +333,7 @@ function EditAmountBody({
             don't do the sum), then the goal's amount or last month's. Round numbers
             only when there's neither, so the row is never empty. */}
         <View style={styles.quickRow}>
-          {baseReadyToAssign > 0 && (
+          {moneyNow && baseReadyToAssign > 0 && (
             <QuickChip
               label={`Give it all · ${formatCurrency(baseReadyToAssign, hideAmounts)}`}
               active={value === giveAll}

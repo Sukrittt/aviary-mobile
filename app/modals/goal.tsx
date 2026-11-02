@@ -61,11 +61,12 @@ function GoalModal() {
       available={envelope?.available ?? 0}
       assigned={envelope?.assigned ?? 0}
       spent={envelope?.spent ?? 0}
+      planPending={envelope?.planPending}
     />
   )
 }
 
-function GoalBody({ category, icon, goal, month, available, assigned, spent }: {
+function GoalBody({ category, icon, goal, month, available, assigned, spent, planPending }: {
   category: string
   icon: string | undefined
   goal?: CategoryGoal
@@ -73,6 +74,7 @@ function GoalBody({ category, icon, goal, month, available, assigned, spent }: {
   available: number
   assigned: number
   spent: number
+  planPending?: boolean
 }) {
   const { tokens, space, radius, type } = useTheme()
   const { formatAmountInput, formatCurrency } = useCurrency()
@@ -95,7 +97,7 @@ function GoalBody({ category, icon, goal, month, available, assigned, spent }: {
   const busy = !!pending || !!success
 
   // What the draft means, in the row's own math: the line under the amount, like Pull money's.
-  const progress = next ? goalProgress({ goal: next, month, available, assigned, spent }) : null
+  const progress = next ? goalProgress({ goal: next, month, available, assigned, spent, planPending }) : null
   const caption = !(Number(amount) > 0)
     ? 'Type a target to get started'
     : !progress

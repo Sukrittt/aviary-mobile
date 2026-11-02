@@ -133,7 +133,7 @@ export function EnvelopeRow({
   const month = currentMonthKey()
   const categories = useCategories().data
   const row = envelope.isCreditCardPayment ? undefined : categories?.find((c) => c.name === envelope.category)
-  const goal = row?.goal ? goalProgress({ goal: row.goal, month, available: envelope.available, assigned: envelope.assigned, spent: envelope.spent, since: row.since }) : null
+  const goal = row?.goal ? goalProgress({ goal: row.goal, month, available: envelope.available, assigned: envelope.assigned, spent: envelope.spent, since: row.since, planPending: envelope.planPending }) : null
   // A goal's bar grows from where it was when money lands (Set, Pull money, Edit amount), alongside the pill's roll.
   const [seenPct, setSeenPct] = useState(goal?.pct)
   const [grow, setGrow] = useState<{ from: number; n: number } | null>(null)

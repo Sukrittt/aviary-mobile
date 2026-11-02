@@ -207,6 +207,19 @@ describe('HomeScreen · Ready to Assign', () => {
     }
   })
 
+  it('before payday, giving Ready to Assign a job moves the money today', () => {
+    mockCarry = { ready_to_assign: 800, rolled_over: {} }
+    mockBudgets = [{ month: MONTH, category: 'Food', assigned: '5000', rolled_over: '0' }]
+    try {
+      const { getByLabelText, getAllByText } = renderHome()
+      fireEvent.press(getByLabelText('Ready to Assign options'))
+      fireEvent.press(getAllByText('Food').at(-1)!)
+      expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/modals/move-money', params: { fromCategory: 'Food', amount: '800', quick: '1' } })
+    } finally {
+      mockCarry = undefined
+    }
+  })
+
   it('offers to take money back when Ready to Assign is negative', () => {
     mockBudgets = [
       { month: MONTH, category: '__income__', assigned: '4000', landed: '4000', rolled_over: '0' },
