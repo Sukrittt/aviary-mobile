@@ -23,7 +23,7 @@ const MONTH = currentMonthKey()
 // Trip has 1,500 in it this month, all assigned now.
 beforeEach(() => {
   jest.clearAllMocks()
-  ;(getBudgets as jest.Mock).mockResolvedValue([{ month: MONTH, category: 'Trip', assigned: '1500', rolled_over: '0', version: 1 }])
+  ;(getBudgets as jest.Mock).mockResolvedValue([{ month: MONTH, category: 'Trip', assigned: '1500', rolled_over: '0', version: 1 }, { month: MONTH, category: '__income__', assigned: '50000', landed: '50000', rolled_over: '0' }])
 })
 
 it('types the target on the numpad and saves it with its month', async () => {

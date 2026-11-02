@@ -13,6 +13,8 @@ export interface BudgetRow {
   rolled_over: string
   /** Only on the income row: one-off income for that month. See EnvelopeState.incomeExtra. */
   extra?: string
+  /** Only on the income row, from PAYCHECK_START (src/lib/envelope.ts): the paydays that have landed that month. */
+  landed?: string
   version: number
 }
 

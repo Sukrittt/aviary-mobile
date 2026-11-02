@@ -159,8 +159,8 @@ function RecurringIncomeModal() {
 
   const hint =
     frequency === 'monthly'
-      ? "Counts toward Ready to Assign from the 1st of every month. We'll record it on payday."
-      : 'Lands in Ready to Assign on every payday.'
+      ? 'Lands on payday, and your plan fills up right then.'
+      : 'Lands on every payday. The first one each month fills up your plan.'
 
   return (
     <KeyboardAvoidingView style={[styles.container, { backgroundColor: tokens.bg }]} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -293,7 +293,7 @@ function RecurringIncomeModal() {
       <BottomSheet visible={confirmDelete} onClose={() => !remove.isPending && setConfirmDelete(false)}>
         <Text style={[styles.sheetTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Delete income</Text>
         <Text style={[styles.sheetBody, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
-          {`Remove "${existing?.label ?? ''}"? It still counts this month and stops from next month.`}
+          {`Remove "${existing?.label ?? ''}"? Pay that already landed stays, and nothing new lands.`}
         </Text>
         <View style={styles.sheetButtonRow}>
           <Pressable onPress={() => setConfirmDelete(false)} disabled={remove.isPending} style={[styles.sheetCancelButton, { backgroundColor: tokens.pillBg, opacity: remove.isPending ? 0.5 : 1 }]}>

@@ -25,7 +25,7 @@ import { useAccounts } from "@/src/hooks/useAccounts";
 import { useRefresh } from "@/src/hooks/useRefresh";
 import { formatDateShort } from "@/src/lib/format";
 import { toLocalDateString } from "@/src/lib/date";
-import { currentMonthKey, monthLabel } from "@/src/lib/envelope";
+import { countsInBudget, currentMonthKey, monthLabel } from "@/src/lib/envelope";
 import type { AccountRow, IncomeRow, RecurringIncomeRow } from "@/src/types";
 import { tap } from "@/src/lib/haptics";
 
@@ -256,8 +256,8 @@ export default function IncomeScreen() {
       <BottomSheet visible={deleting !== null} onClose={() => !removeIncome.isPending && setDeleting(null)}>
         <Text style={[styles.sheetTitle, { color: tokens.text, fontFamily: fontFamily.displaySemiBold }]}>Delete income</Text>
         <Text style={[styles.sheetBody, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
-          {deleting?.counted === "monthly"
-            ? `Remove this record of "${deleting.label}"? Your monthly income still counts.`
+          {deleting && !countsInBudget(deleting)
+            ? `Remove this record of "${deleting.label}"? That month's income still counts.`
             : `Remove "${deleting?.label ?? ""}"? It comes back out of Ready to Assign.`}
         </Text>
         <View style={styles.sheetButtonRow}>

@@ -20,6 +20,7 @@ import {
   extraForReadyToAssign,
   INCOME_CATEGORY,
   monthLabel,
+  incomeBaseOf,
 } from "@/src/lib/envelope";
 
 import { fontFamily } from "@/src/theme/fonts";
@@ -175,7 +176,7 @@ function EditReadyToAssignBody({
 
   function reviewLatest(keepDraft: boolean) {
     if (!conflict) return;
-    const latestBase = Number(conflict.assigned) || 0;
+    const latestBase = incomeBaseOf(month, conflict);
     const latestIncome = Math.round((latestBase + (Number(conflict.extra) || 0)) * 100) / 100;
     setIncomeBase(latestBase);
     setBaseIncome(latestIncome);
@@ -200,7 +201,7 @@ function EditReadyToAssignBody({
           title="Edit Ready to Assign"
           heading="Ready to Assign was updated"
           label="Ready to Assign"
-          latestAmount={(Number(conflict.assigned) || 0) + (Number(conflict.extra) || 0) + carried - totalAssigned}
+          latestAmount={incomeBaseOf(month, conflict) + (Number(conflict.extra) || 0) + carried - totalAssigned}
           draftAmount={value}
           onChoose={reviewLatest}
           onClose={() => {
