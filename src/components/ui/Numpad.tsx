@@ -109,7 +109,10 @@ export function Numpad({
                   },
                 ]}
               >
-                {k === CALC_TOGGLE && calcOpen && <View style={[styles.toggleFill, { backgroundColor: fill }]} />}
+                {k === CALC_TOGGLE && calcOpen && (
+                  // A circle only reads on the borderless accent keys; a bordered key fills edge to edge.
+                  <View style={[onAccent ? styles.toggleFill : [StyleSheet.absoluteFill, { borderRadius: radius.lg }], { backgroundColor: fill }]} />
+                )}
                 {k === 'del' ? (
                   <CaretLeft size={22} color={keyColor} />
                 ) : (
