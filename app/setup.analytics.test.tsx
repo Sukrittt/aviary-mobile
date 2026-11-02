@@ -7,6 +7,7 @@ import { getUser } from '@/src/api/account'
 import { slide } from '@/src/test-utils/slide'
 
 // The usual setup steps, as on a binary without the file picker; setup.import.test.tsx covers the import.
+jest.mock('@/src/api/incomes', () => ({ addRecurringIncome: jest.fn(async () => undefined) }))
 jest.mock('@/src/lib/filePicker', () => ({ canPickFiles: false, pickFile: jest.fn() }))
 
 jest.mock('@/src/lib/analytics', () => ({ track: jest.fn(), startTimer: () => () => 7 }))

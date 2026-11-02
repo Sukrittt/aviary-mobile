@@ -9,6 +9,11 @@ import { INCOME_CATEGORY } from '@/src/lib/envelope'
 import { slide } from '@/src/test-utils/slide'
 
 // The usual setup steps, as on a binary without the file picker; setup.import.test.tsx covers the import.
+import { addRecurringIncome } from '@/src/api/incomes'
+import { toLocalDateString } from '@/src/lib/date'
+import { paydayHint, paydayInMonth } from '@/src/lib/upcomingPay'
+
+jest.mock('@/src/api/incomes', () => ({ addRecurringIncome: jest.fn(async () => undefined) }))
 jest.mock('@/src/lib/filePicker', () => ({ canPickFiles: false, pickFile: jest.fn() }))
 
 jest.mock('@/src/lib/analytics', () => ({ track: jest.fn(), startTimer: () => () => 7 }))
@@ -74,6 +79,26 @@ it('finishes from the income step on the starter budget, income split the sugges
   ])
   // Never reached the groups step.
   expect(queryByText('Group your money')).toBeNull()
+  unmount()
+})
+
+it('asks which day pay lands, and sets the schedule up first from it', async () => {
+  const today = toLocalDateString()
+  const { getByText, queryByLabelText, getByLabelText, unmount } = renderWithProviders(<SetupScreen />)
+  fireEvent.press(getByText('Continue')) // currency
+  expect(queryByLabelText(/Change payday/)).toBeNull()
+  fireEvent.press(getByText('₹50,000'))
+  expect(getByText(paydayHint(Number(today.slice(8, 10)), today))).toBeTruthy()
+  fireEvent.press(getByLabelText(/Change payday/))
+  fireEvent.press(getByLabelText('The 31st'))
+  expect(getByLabelText('Lands on the 31st. Change payday')).toBeTruthy()
+  expect(getByText(paydayHint(31, today))).toBeTruthy()
+  slide(getByLabelText('Slide to finish setup'))
+  await waitFor(() => expect(completed()).toHaveLength(1), { timeout: 3000 })
+  expect(addRecurringIncome).toHaveBeenCalledWith({
+    label: 'Monthly income', amount: '50000', frequency: 'monthly', start_date: paydayInMonth(31, today), anchor_day: 31, client_id: 'onboarding-income',
+  })
+  expect((addRecurringIncome as jest.Mock).mock.invocationCallOrder[0]).toBeLessThan((updateBudget as jest.Mock).mock.invocationCallOrder[0])
   unmount()
 })
 
