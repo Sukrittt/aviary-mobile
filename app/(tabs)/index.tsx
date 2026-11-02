@@ -177,7 +177,7 @@ function HomeScreen() {
   const upcomingPay = envelopeState.funded ? undefined : upcomingPayday(schedulesQ.data ?? [])
 
   // What last month left behind, said once at the start of the month.
-  const rollover = rolloverCard(carryQ.data, month, (n) => formatCurrency(n, hideAmounts))
+  const rollover = rolloverCard(carryQ.data, month, (n) => formatCurrency(n, hideAmounts), budgets)
 
   // An edit that changes Ready to Assign (Move Money, or an envelope's action
   // sheet here) resolves and refetches while the screen that made the change
