@@ -289,14 +289,16 @@ export default function ExpenseAddedScreen() {
   // Nothing to show for a category with no money in it this month — and
   // nothing to show at all offline, since the envelope balance is computed
   // from server data this screen doesn't have yet.
-  const showEnvelope = !pending && isCurrentMonth && envelope != null && funded > 0;
+  // Before payday the plan isn't money yet, so an envelope can run out with a plan
+  // in place: that's an overspend to cover, not a missing budget.
+  const showEnvelope = !pending && isCurrentMonth && envelope != null && (funded > 0 || (!!envelope.planPending && left < 0));
   // An unfunded envelope has no card to show, so the screen offers the next
   // step instead of ending on the tick alone.
-  const showFundNudge = !pending && isCurrentMonth && envelope != null && funded === 0;
+  const showFundNudge = !pending && isCurrentMonth && envelope != null && !showEnvelope && funded === 0;
   // A negative "left" and a negative per-day pace read as a broken number.
   // Say what happened and offer the fix instead.
   const over = left < 0;
-  const spentPct = funded > 0 ? Math.min(100, (spent / funded) * 100) : 0;
+  const spentPct = funded > 0 ? Math.min(100, (spent / funded) * 100) : 100;
   // Where the bar stood before this expense — the DeltaBar tweens its base
   // fill to here, then eases in the delta on top.
   const prevPct =

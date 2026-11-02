@@ -111,10 +111,11 @@ function setup(
   overrides: Partial<typeof BASE_PARAMS> = {},
   expenses: object[] = [],
   budgets: object[] = [{ month: MONTH, category: '🛒 Groceries', assigned: '8000', rolled_over: '0' }],
+  landed = '50000',
 ) {
   mockParams = { ...BASE_PARAMS, ...overrides }
   ;(getRecentExpenses as jest.Mock).mockResolvedValue({ rows: expenses, lastSpent: {} })
-  ;(getBudgets as jest.Mock).mockResolvedValue([...budgets, { month: MONTH, category: '__income__', assigned: '50000', landed: '50000', rolled_over: '0' }])
+  ;(getBudgets as jest.Mock).mockResolvedValue([...budgets, { month: MONTH, category: '__income__', assigned: '50000', landed, rolled_over: '0' }])
   ;(getCategories as jest.Mock).mockResolvedValue([{ name: '🛒 Groceries', group: 'Food' }])
   ;(getGroups as jest.Mock).mockResolvedValue(['Food'])
   return renderWithProviders(<ExpenseAddedScreen />)
@@ -276,6 +277,13 @@ it('names an overspend and offers to cover it instead of a negative balance', as
   await findByText('Cover it from another category?', {}, COUNTDOWN_SLOW)
   fireEvent.press(getByText('Cover it'))
   expect(mockReplace).toHaveBeenCalledWith({ pathname: '/modals/move-money', params: { fromCategory: '🛒 Groceries' } })
+})
+
+it('before payday, spending past what an envelope holds offers to cover it, not to set a budget', async () => {
+  const { findByText, queryByText } = setup({}, [], undefined, '0')
+  await findByText('Over by')
+  expect(queryByText(/a budget\?/)).toBeNull()
+  await findByText('Cover it from another category?', {}, COUNTDOWN_SLOW)
 })
 
 // Logging an expense against a past month doesn't move this month's
