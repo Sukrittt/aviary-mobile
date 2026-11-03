@@ -194,11 +194,11 @@ function AnimatedUsedPercentage({
  * of the card's first paint.
  */
 /** Nothing after a first log, so a one-off never promises a nudge. */
-function progressLine(progress: HabitProgress | null, item: string): string | null {
+function progressLine(progress: HabitProgress | null): string | null {
   if (!progress) return null;
   if (progress.habit) return "Noted. You'll get a nudge next time.";
   if (progress.seen < 2) return null;
-  return `Seen your ${item.trim().toLowerCase()} ${progress.seen} times. Nudges start after ${progress.left === 1 ? "one more" : `${progress.left} more`}.`;
+  return `Seen ${progress.seen} times. Nudges start after ${progress.left === 1 ? "one more" : `${progress.left} more`}.`;
 }
 
 export default function ExpenseAddedScreen() {
@@ -357,7 +357,7 @@ export default function ExpenseAddedScreen() {
           toLocalDateString(),
         )
       : null;
-    return progressLine(progress, item) ?? noticedLine(weeklyRepeat(expensesQ.data ?? [], { id: id || undefined, timestamp: timestamp || undefined, item, date, amount }).count);
+    return progressLine(progress) ?? noticedLine(weeklyRepeat(expensesQ.data ?? [], { id: id || undefined, timestamp: timestamp || undefined, item, date, amount }).count);
   }, [nudgesReady, ownRows, expensesQ.data, id, timestamp, item, category, date, notes, paymentMethod, amount]);
 
   // Once, after a first bank (likely UPI) log: logging the next one can start from the payment app.
@@ -486,7 +486,7 @@ export default function ExpenseAddedScreen() {
               entering={FadeInDown.delay(STAGGER.detail + 120).duration(420)}
               style={[styles.noticed, { backgroundColor: tokens.successBg }]}
             >
-              <Text style={{ color: tokens.onSuccess, fontFamily: fontFamily.bodyBold, fontSize: type.body, textAlign: "center" }}>
+              <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8} style={{ color: tokens.onSuccess, fontFamily: fontFamily.bodyBold, fontSize: type.body, textAlign: "center" }}>
                 {noticed}
               </Text>
             </Reanimated.View>
