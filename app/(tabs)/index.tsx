@@ -7,7 +7,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { View, Text, Pressable, RefreshControl, ScrollView, StyleSheet, Linking, Platform } from 'react-native'
 import { useQuery } from '@tanstack/react-query'
 import { useRouter, useNavigation, useFocusEffect } from 'expo-router'
-import { CaretRight, ChartLine, MoneyWavy, Note, Plant } from '@/src/components/shared/icons'
+import { CalendarBlank, CaretRight, ChartLine, MoneyWavy, Note, Plant } from '@/src/components/shared/icons'
 import { Toast } from '@/src/components/ui/Toast'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import Reanimated, { FadeIn, FadeInDown, FadeOut } from 'react-native-reanimated'
@@ -175,6 +175,9 @@ function HomeScreen() {
 
   // Until pay lands this month, envelopes hold only what carried in, so Home says when the plan fills up.
   const upcomingPay = envelopeState.funded ? undefined : upcomingPayday(schedulesQ.data ?? [])
+  // Once per budget and payday, so next month's strip starts undismissed on its own.
+  const [planFillsDismissed, setPlanFillsDismissed] = useDismissedRolloverBanner(`plan-fills-${activeBudget?.id ?? ''}-${upcomingPay?.next_run_date ?? ''}`)
+  const [planFillsLeaving, setPlanFillsLeaving] = useState(false)
 
   // What last month left behind, said once at the start of the month.
   const rollover = rolloverCard(carryQ.data, month, (n) => formatCurrency(n, hideAmounts), budgets)
@@ -310,8 +313,8 @@ function HomeScreen() {
   // At zero, Ready to Assign has nothing to ask of you, so it shrinks to a
   // slim row and the envelopes (what you open Home for) move up. Off zero
   // either way, it's back to the full hero since there's a job to do.
-  // Before payday a ₹0 isn't every rupee given a job: Home keeps saying when the plan fills up.
-  const rtaSettled = incomeDone && envelopeState.funded && Math.abs(displayedReadyToAssign) < 0.005
+  // Before payday income can still read 0, but a coming pay means it's set: the plan-fills strip says when.
+  const rtaSettled = (incomeDone || !!upcomingPay) && Math.abs(displayedReadyToAssign) < 0.005
   const daysLeftLabel = daysLeftInMonth() === 0 ? 'Less than 24 hrs' : `${daysLeftInMonth()} days left`
   // Every rupee has a job once Ready to Assign is spent down, the whole point
   // of the method, so Get started holds out for that, not one funded envelope.
@@ -364,6 +367,7 @@ function HomeScreen() {
     ['update', showUpdateBanner && !!androidUpdate, false],
     ['trial', trialBucket !== null && trialBucket <= 3 && !!billing, trialDismissed],
     ['rollover', !!rollover && !!activeBudget && !readOnly, rolloverDismissed],
+    ['planFills', !!upcomingPay, planFillsDismissed],
     ['weekly', !!recap, recapDismissed],
     ['nudge', !!featureNudge.nudge && !showGetStarted, false],
   ])
@@ -555,7 +559,7 @@ function HomeScreen() {
               style={[styles.incomePill, { backgroundColor: envelopeState.income === 0 && !upcomingPay ? tokens.accentSoft : tokens.inputBg, borderRadius: radius.full }, pillPress.style]}
             >
               <Text style={{ color: envelopeState.income === 0 && !upcomingPay ? tokens.accentInk : tokens.text, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>
-                {upcomingPay ? `Your plan fills up ${paydayLabel(upcomingPay.next_run_date)}` : envelopeState.income === 0 ? 'Set your income' : `Income · ${formatCurrency(envelopeState.income, hideAmounts)}`}
+                {envelopeState.income === 0 ? (upcomingPay ? 'Manage income' : 'Set your income') : `Income · ${formatCurrency(envelopeState.income, hideAmounts)}`}
               </Text>
               <Icon icon={CaretRight} size={14} color={envelopeState.income === 0 && !upcomingPay ? tokens.accentInk : tokens.text2} />
             </AnimatedPressable>
@@ -589,6 +593,32 @@ function HomeScreen() {
               <Text style={{ color: tokens.accentInk, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>Okay</Text>
             </Pressable>
           </Card>
+        )}
+
+        {/* Same shape and Okay as the forecast strip. */}
+        {banner === 'planFills' && upcomingPay && (
+          <SlideStrip
+            leaving={planFillsLeaving}
+            gap={space.lg}
+            onGone={() => {
+              setPlanFillsDismissed(true)
+              setPlanFillsLeaving(false)
+            }}
+          >
+            <Card style={[styles.rolloverCard, styles.slimRta]} elevated={false}>
+              <View style={[styles.slimLabel, { flexShrink: 1 }]}>
+                <View style={[styles.rtaIcon, { backgroundColor: tokens.accentSoft }]}>
+                  <Icon icon={CalendarBlank} size={18} color={tokens.accentInk} />
+                </View>
+                <Text style={{ flexShrink: 1, color: tokens.text, fontSize: type.body, fontFamily: fontFamily.bodySemiBold }}>
+                  {`Your plan fills up ${paydayLabel(upcomingPay.next_run_date)}.`}
+                </Text>
+              </View>
+              <Pressable accessibilityRole="button" onPress={() => setPlanFillsLeaving(true)} disabled={planFillsLeaving} hitSlop={12}>
+                <Text style={{ color: tokens.accentInk, fontSize: type.caption, fontFamily: fontFamily.bodySemiBold }}>Okay</Text>
+              </Pressable>
+            </Card>
+          </SlideStrip>
         )}
 
         {/* Same size and green as the settled Ready to Assign row. */}

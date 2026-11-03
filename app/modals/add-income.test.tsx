@@ -143,3 +143,15 @@ it("before payday, says the pay hasn't landed rather than ₹0 monthly", async (
   await findByText("Your pay hasn't landed yet")
   expect(queryByText(/monthly/)).toBeNull()
 })
+
+it('adds up a calculation on the amount and saves the total', async () => {
+  const { getByLabelText, getByText, findByText } = renderWithProviders(<AddIncomeModal />)
+  await waitFor(() => expect(getBudgets).toHaveBeenCalled())
+  fireEvent.press(getByLabelText('Calculator'))
+  typeAmount(getByLabelText, '500+250.5')
+  expect(await findByText('500 + 250.5')).toBeTruthy()
+  await act(async () => {
+    fireEvent.press(getByText('Add'))
+  })
+  expect(addIncome).toHaveBeenCalledWith(expect.objectContaining({ amount: 750.5 }))
+})

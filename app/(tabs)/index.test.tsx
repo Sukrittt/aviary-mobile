@@ -207,17 +207,45 @@ describe('HomeScreen · Ready to Assign', () => {
     }
   })
 
-  it("before payday, a ₹0 Ready to Assign keeps saying when the plan fills up", async () => {
-    mockCarry = { ready_to_assign: -800, rolled_over: { Food: 800 } }
+  it("before payday, a ₹0 Ready to Assign is still the slim row, and an Okay puts the payday strip away", async () => {
+    // Nothing has landed, so income reads 0 too: the screenshot's case.
+    mockCarry = { ready_to_assign: 0, rolled_over: {} }
     mockBudgets = [
-      { month: MONTH, category: '__income__', assigned: '20000', extra: '800', rolled_over: '0' },
-      { month: MONTH, category: 'Food', assigned: '5000', rolled_over: '800' },
+      { month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' },
+      { month: MONTH, category: 'Food', assigned: '5000', rolled_over: '0' },
     ]
     const payday = `${MONTH}-28`
     mockSchedules = [{ id: 'r1', frequency: 'monthly', status: 'active', start_date: payday, next_run_date: payday }]
     try {
-      const { findByText } = renderHome()
-      expect(await findByText(`Your plan fills up ${paydayLabel(payday)}`)).toBeTruthy()
+      const { findByText, getByText, getByTestId, queryByTestId, queryByText } = renderHome()
+      const strip = `Your plan fills up ${paydayLabel(payday)}.`
+      expect(await findByText(strip)).toBeTruthy()
+      expect(getByTestId('rta-slim')).toBeTruthy()
+      expect(queryByTestId('rta-hero')).toBeNull()
+
+      fireEvent.press(getByText('Okay'))
+      await waitFor(() => expect(queryByText(strip)).toBeNull(), { timeout: 4000 })
+      expect(getByTestId('rta-slim')).toBeTruthy()
+      // Per budget and payday, so the next payday's strip starts undismissed.
+      await waitFor(() => expect(SecureStore.setItemAsync).toHaveBeenCalledWith(expect.stringMatching(new RegExp(`^mc-rollover-dismissed-plan-fills-.*-${payday}$`)), '1'))
+    } finally {
+      mockCarry = undefined
+      mockSchedules = []
+    }
+  })
+
+  it('before payday, the income pill leaves the payday to the strip', async () => {
+    mockCarry = { ready_to_assign: 800, rolled_over: {} }
+    mockBudgets = [{ month: MONTH, category: '__income__', assigned: '20000', rolled_over: '0' }]
+    const payday = `${MONTH}-28`
+    mockSchedules = [{ id: 'r1', frequency: 'monthly', status: 'active', start_date: payday, next_run_date: payday }]
+    try {
+      const { findByText, getByText, getAllByText } = renderHome()
+      expect(await findByText(`Your plan fills up ${paydayLabel(payday)}.`)).toBeTruthy()
+      expect(getAllByText(/plan fills up/)).toHaveLength(1)
+      // A schedule's set, so nothing to set: the pill opens the income options.
+      fireEvent.press(getByText('Manage income'))
+      expect(getByText('Change income')).toBeTruthy()
     } finally {
       mockCarry = undefined
       mockSchedules = []

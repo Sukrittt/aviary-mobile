@@ -429,13 +429,14 @@ describe('habit progress', () => {
 
   it('counts toward a nudge from the second day', async () => {
     const { findByText } = setup(logNow, [milk('e1', daysAgo(1))])
-    expect(await findByText('Seen your milk 2 times. Nudges start after one more.')).toBeTruthy()
+    expect(await findByText('Seen 2 times. Nudges start after one more.')).toBeTruthy()
   })
 
   it('sits on the mint pill, like the UPI tip', async () => {
     const { findByText } = setup(logNow, [milk('e1', daysAgo(1))])
-    const line = await findByText('Seen your milk 2 times. Nudges start after one more.')
+    const line = await findByText('Seen 2 times. Nudges start after one more.')
     expect(StyleSheet.flatten(line.props.style).color).toBe(lightTokens.onSuccess)
+    expect(line.props.numberOfLines).toBe(1)
     expect(StyleSheet.flatten(line.parent?.parent?.props.style).backgroundColor).toBe(lightTokens.successBg)
   })
 
