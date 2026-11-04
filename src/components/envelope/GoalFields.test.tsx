@@ -11,5 +11,7 @@ describe('shortGoalLine', () => {
     expect(line({ amount: 4000, by: '2027-10' }, 308, 308)).toBe('On track · ₹308/mo from Nov')
     expect(line({ amount: 1000, by: '2026-11' }, 800, 800)).toBe('On track · ₹200 more in Nov')
     expect(line({ amount: 1000 }, 0, 0)).toBe('Assign monthly to see when')
+    // The deadline month has no "/mo": just what's still missing.
+    expect(line({ amount: 1000, by: '2026-10' }, 800, 300)).toBe('Behind · ₹200 more by Oct 2026')
   })
 })
