@@ -175,7 +175,9 @@ export function shortGoalLine(p: GoalProgress, money: (n: number) => string): st
     case 'onTrack':
       if (p.nextNeed === undefined || !p.nextMonth || !p.by) return 'On track'
       return p.nextMonth === p.by ? `On track · ${money(p.nextNeed)} more in ${monthAbbrev(p.by)}` : `On track · ${money(p.nextNeed)}/mo from ${monthAbbrev(p.nextMonth)}`
-    case 'behind': return p.by && p.monthlyNeed !== undefined ? `Behind · ${money(p.monthlyNeed)}/mo by ${shortMonth(p.by)}` : 'Behind'
+    case 'behind':
+      if (p.by && p.lastMonth) return `Behind · ${money(p.behindBy ?? 0)} more by ${shortMonth(p.by)}`
+      return p.by && p.monthlyNeed !== undefined ? `Behind · ${money(p.monthlyNeed)}/mo by ${shortMonth(p.by)}` : 'Behind'
     case 'saving': return p.paceMonth ? `At this pace, by ${shortMonth(p.paceMonth)}` : 'Assign monthly to see when'
   }
 }
