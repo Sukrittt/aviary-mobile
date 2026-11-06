@@ -131,6 +131,14 @@ function chargeLabel(days: number): string {
   return `in ${days}d`;
 }
 
+/** Soonest effective due date first; one-time and undated subs last. Stable,
+ *  so ties keep the incoming (spend) order. */
+export function sortByDue(subs: SubscriptionRow[]): SubscriptionRow[] {
+  const key = (s: SubscriptionRow) =>
+    (/one-time/i.test(s.billing_cycle) ? "" : effectiveDueDate(s)) || "9999";
+  return [...subs].sort((a, b) => key(a).localeCompare(key(b)));
+}
+
 /** Soonest upcoming charge across the active list, for the hero caption. */
 function nextCharge(
   active: SubscriptionRow[],
@@ -325,6 +333,8 @@ export function SubscriptionsPanel({ subscriptions, loading }: Props) {
   const totalMonthly = Math.round(totalMonthlyRaw);
   const totalYearly = Math.round(totalMonthly * 12);
   const next = useMemo(() => nextCharge(active), [active]);
+  // List reads soonest-due first (matches web); bar and colors keep spend order.
+  const byDue = sortByDue(active);
 
   const segments: AllocationSegment[] = useMemo(
     () =>
@@ -460,7 +470,8 @@ export function SubscriptionsPanel({ subscriptions, loading }: Props) {
             No active subscriptions.
           </Text>
         ) : (
-          active.map((sub, i) => {
+          byDue.map((sub) => {
+            const i = active.indexOf(sub);
             const brand = brandColor(sub.service);
             return (
               <SubscriptionRowItem

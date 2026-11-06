@@ -1,6 +1,6 @@
 import { fireEvent } from '@testing-library/react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
-import { SubscriptionsPanel } from './SubscriptionsPanel'
+import { SubscriptionsPanel, sortByDue } from './SubscriptionsPanel'
 import type { SubscriptionRow } from '@/src/types'
 
 const mockPush = jest.fn()
@@ -150,4 +150,38 @@ describe('next due date', () => {
     const { getByText } = metaAt('2026-10-11T18:00:00Z', { next_due_date: '2026-10-12' })
     expect(getByText(/Next: Netflix tomorrow/)).toBeTruthy()
   })
+})
+
+describe('list order', () => {
+  afterEach(() => jest.useRealTimers())
+
+  it('lists soonest-due first, like web; one-time and undated last', () => {
+    jest.useFakeTimers({ now: new Date('2026-11-07T09:00:00Z') })
+    const subs = [
+      sub({ service: 'Claude', amount_inr: '12000', next_due_date: '2026-11-07' }),
+      sub({ service: 'Whisper', amount_inr: '3840', billing_cycle: 'yearly', next_due_date: '2027-03-05' }),
+      sub({ service: 'Undated', amount_inr: '500' }),
+      sub({ service: 'Setup', amount_inr: '900', billing_cycle: 'one-time', next_due_date: '2026-11-08' }),
+      sub({ service: 'Netflix', amount_inr: '199', next_due_date: '2026-12-05' }),
+      // Past monthly date rolls forward to 3 Dec.
+      sub({ service: 'Fancode', amount_inr: '199', next_due_date: '2026-10-03' }),
+    ]
+    expect(sortByDue(subs).map((s) => s.service)).toEqual([
+      'Claude', 'Fancode', 'Netflix', 'Whisper', 'Undated', 'Setup',
+    ])
+  })
+})
+
+it('renders rows in due order while the hero stays on spend', () => {
+  jest.useFakeTimers({ now: new Date('2026-11-07T09:00:00Z') })
+  const subs = [
+    sub({ service: 'Big', amount_inr: '12000', next_due_date: '2026-12-20' }),
+    sub({ service: 'Small', amount_inr: '199', next_due_date: '2026-11-09' }),
+  ]
+  const { getAllByText } = renderWithProviders(<SubscriptionsPanel subscriptions={subs} />)
+  expect(getAllByText(/Monthly · Next/).map((n) => n.props.children)).toEqual([
+    'Monthly · Next 9 Nov',
+    'Monthly · Next 20 Dec',
+  ])
+  jest.useRealTimers()
 })
