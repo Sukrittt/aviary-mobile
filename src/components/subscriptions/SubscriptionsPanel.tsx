@@ -334,7 +334,7 @@ export function SubscriptionsPanel({ subscriptions, loading }: Props) {
   const totalYearly = Math.round(totalMonthly * 12);
   const next = useMemo(() => nextCharge(active), [active]);
   // List reads soonest-due first (matches web); bar and colors keep spend order.
-  const byDue = useMemo(() => sortByDue(active), [active]);
+  const byDue = sortByDue(active);
 
   const segments: AllocationSegment[] = useMemo(
     () =>
