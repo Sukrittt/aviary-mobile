@@ -117,6 +117,26 @@ it('fires on a return from a background long enough for the data to go stale', a
   stop()
 })
 
+it('a write while a read waits on the bundle sends that read for real', async () => {
+  let land: (r: Response) => void = () => {}
+  fetchMock.mockImplementation((url) =>
+    String(url).includes('/api/app-open') ? new Promise((r) => { land = r }) : Promise.resolve(json({ rows: ['new'] })))
+  startAppOpen()
+  while (fetchMock.mock.calls.length === 0) await new Promise((r) => setTimeout(r, 0))
+  const waiting = apiFetch('/api/budgets')
+  // A read that writes (a schedule posting a pay) ends it mid-flight.
+  forgetAppOpen()
+  land(bundle({ '/api/budgets': { status: 200, body: { rows: ['old'] } } }))
+  expect(await (await waiting).json()).toEqual({ rows: ['new'] })
+})
+
+it('a bundle whose answer is not JSON lets every read fall through', async () => {
+  fetchMock.mockImplementation(async (url) =>
+    String(url).includes('/api/app-open') ? new Response('<html>oops</html>', { status: 200 }) : json({ id: 'u' }))
+  startAppOpen()
+  expect(await (await apiFetch('/api/user')).json()).toEqual({ id: 'u' })
+})
+
 it('falls through when the bundle fails, and never asks an older server again', async () => {
   fetchMock.mockResolvedValueOnce(json({ error: 'not found' }, 404))
   startAppOpen()

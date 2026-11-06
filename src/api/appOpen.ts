@@ -65,9 +65,13 @@ export function holdAppOpen(slices: Promise<AppOpenSlices | null>): void {
 // correctness.
 const UNRELATED_WRITES = ['/api/notifications/register', '/api/habit-nudges/copy']
 
-/** A write to `path` landed after the bundle was read, so nothing may be answered from it any more. */
-export function forgetAppOpen(path: string): void {
-  if (!UNRELATED_WRITES.includes(path.split('?')[0])) current = null
+/**
+ * Something changed on the server after the bundle was read (a write to
+ * `path`, or with no path a read that writes), so nothing may be answered from
+ * it any more.
+ */
+export function forgetAppOpen(path?: string): void {
+  if (path === undefined || !UNRELATED_WRITES.includes(path.split('?')[0])) current = null
 }
 
 /** The bundled answer for `path`, or null to fetch it for real. */
@@ -75,8 +79,8 @@ export async function appOpenAnswer(path: string): Promise<Response | null> {
   const bundle = current
   if (!bundle || (bundle.landedAt !== null && Date.now() - bundle.landedAt > WINDOW_MS) || !sameScope(bundle)) return null
   const slices = await bundle.slices
-  // A sign-out or a budget switch while it was in flight.
-  if (!sameScope(bundle)) return null
+  // A write, a sign-out or a budget switch while it was in flight.
+  if (current !== bundle || !sameScope(bundle)) return null
   const slice = slices?.[path]
   if (slice?.status !== 200) return null
   return new Response(JSON.stringify(slice.body), { status: 200, headers: { 'Content-Type': 'application/json' } })

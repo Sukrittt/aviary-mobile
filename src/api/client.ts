@@ -226,13 +226,13 @@ let appOpenUnsupported = false
 export function startAppOpen(): void {
   if (appOpenUnsupported || !currentUserId()) return
   const query = appOpenPaths().map((p) => `p=${encodeURIComponent(p)}`).join('&')
-  holdAppOpen(apiFetch(`/api/app-open?${query}`).then(
-    async (resp) => {
+  // Any failure, unreadable JSON included, is null: the reads fall through to their own routes.
+  holdAppOpen(apiFetch(`/api/app-open?${query}`)
+    .then(async (resp) => {
       if (resp.status === 404) appOpenUnsupported = true
       return resp.ok ? ((await resp.json()) as AppOpenSlices) : null
-    },
-    () => null,
-  ))
+    })
+    .catch(() => null))
 }
 
 /** A shorter trip to the background leaves the bundled queries fresh (30s staleTime), so nothing would ask. */
