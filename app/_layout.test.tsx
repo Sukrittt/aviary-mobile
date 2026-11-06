@@ -110,6 +110,11 @@ jest.mock('@/src/api/accessMode', () => ({
   currentUserId: jest.fn(() => 'user_test'),
 }))
 jest.mock('@/src/api/account', () => ({ getUser: jest.fn(), syncTimezone: jest.fn() }))
+jest.mock('@/src/api/client', () => ({
+  ...jest.requireActual('@/src/api/client'),
+  startAppOpen: jest.fn(),
+  startAppOpenOnForeground: jest.fn(() => () => {}),
+}))
 jest.mock('react-native-android-widget', () => ({ requestWidgetUpdate: jest.fn(() => Promise.resolve()) }))
 // Pending by default: an unknown billing status lets the user in.
 jest.mock('@/src/api/billing', () => ({
@@ -158,6 +163,8 @@ describe('RootLayout', () => {
     expect(await findByTestId('screen:modals/log-expense')).toBeTruthy()
     // CurrencyProvider's ['user'] query and the onboarding check share one request.
     expect(mockGetUser).toHaveBeenCalledTimes(1)
+    // The restored session's app-open bundle went out before Home mounted.
+    expect(jest.requireMock('@/src/api/client').startAppOpen).toHaveBeenCalledTimes(1)
   })
 
   it('keeps the cache restored from disk when the saved session is restored, and clears it on a new sign-in', async () => {
