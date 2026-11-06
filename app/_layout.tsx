@@ -39,7 +39,7 @@ import { QueryClient, focusManager, useIsRestoring } from '@tanstack/react-query
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client'
 import { PERSIST_MAX_AGE, persistOptions, queryPersister, removeAllQuerySnapshots } from '@/src/lib/queryPersist'
 import { clearActiveBudget, forgetActiveBudgetUnlessOwnedBy, restoreActiveBudget } from '@/src/lib/activeBudget'
-import { startConnectionWarmer } from '@/src/api/client'
+import { startAppOpen, startAppOpenOnForeground, startConnectionWarmer } from '@/src/api/client'
 import { setAudioModeAsync } from 'expo-audio'
 import { Stack,useGlobalSearchParams,usePathname,useRouter,useSegments,type ErrorBoundaryProps,type Href } from 'expo-router'
 import * as SplashScreen from 'expo-splash-screen'
@@ -63,6 +63,9 @@ setAudioModeAsync({ playsInSilentMode: true }).catch(() => {})
 startAutoFlush()
 // First, before any request is queued: opens the connection the app-open burst will use.
 startConnectionWarmer()
+// Before focusManager's listener below, so a return to the app starts the
+// bundle before any refetch asks for what it covers.
+startAppOpenOnForeground()
 
 function isAuthError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : ''
@@ -135,6 +138,8 @@ function RootNavigator({ fontsLoaded }: { fontsLoaded: boolean }) {
     Promise.all([initAccessMode(), restoreActiveBudget()]).then(([restored]) => {
       restoringSession = false
       forgetActiveBudgetUnlessOwnedBy(currentUserId())
+      // Before setHasSession mounts Home, whose reads it answers.
+      if (restored) startAppOpen()
       setHasSession(restored !== null)
       setAuthReady(true)
       // Hydrate the offline category picker instantly from disk. React Query revalidates in the background once online (staleTime

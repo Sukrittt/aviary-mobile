@@ -1,3 +1,4 @@
+import { forgetAppOpen } from '@/src/api/appOpen'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   addIncome,
@@ -29,7 +30,9 @@ export function useRecurringIncomes() {
     queryFn: async () => {
       const rows = await getRecurringIncomes()
       // Loading schedules can post a pay on the server (an older account's first
-      // schedule), and budgets may have loaded just before that landed.
+      // schedule), and budgets may have loaded just before that landed. The
+      // app-open bundle read budgets alongside, so it can't answer the refetch.
+      forgetAppOpen()
       qc.invalidateQueries({ queryKey: budgetsKey })
       return rows
     },

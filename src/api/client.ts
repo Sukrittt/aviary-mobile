@@ -1,7 +1,7 @@
 // Ported from Web/src/services/api.ts's apiFetch, aimed at the deployed API
 // instead of Next.js's own relative-path routes.
 import { AppState, type AppStateStatus } from 'react-native'
-import { clearAccess, currentAccessToken, getValidToken, sessionGeneration, SessionChangedError } from './accessMode'
+import { clearAccess, currentAccessToken, currentUserId, getValidToken, sessionGeneration, SessionChangedError } from './accessMode'
 import { setOnline, markSynced } from '@/src/lib/netStatus'
 import { markAccessBlocked, SUBSCRIPTION_REQUIRED_STATUS } from '@/src/lib/accessGate'
 import { track } from '@/src/lib/analytics'
@@ -9,6 +9,7 @@ import { activeBudgetId, budgetHeaders, restoreActiveBudget } from '@/src/lib/ac
 import { emitBudgetAccess } from '@/src/lib/budgetAccess'
 import { connectionContext } from '@/src/lib/connectionTelemetry'
 import { attributionHeaders } from '@/src/lib/attribution'
+import { appOpenAnswer, appOpenPaths, forgetAppOpen, holdAppOpen, type AppOpenSlices } from './appOpen'
 
 // A dev build with no API URL set would otherwise silently point at
 // production data (see the fallback below) with no warning — fail loudly
@@ -35,6 +36,14 @@ let inFlight = 0
  */
 export async function apiFetch(path: string, init?: RequestInit & { anonymous?: boolean }, expectedGeneration = sessionGeneration()): Promise<Response> {
   if (expectedGeneration !== sessionGeneration()) throw new SessionChangedError()
+  // A plain GET may already be on its way in the app-open bundle (appOpen.ts).
+  // Anything with its own headers (another budget's) or a body asks for real.
+  if ((init?.method ?? 'GET') === 'GET') {
+    if (!init?.headers && !init?.body) {
+      const bundled = await appOpenAnswer(path)
+      if (bundled) return bundled
+    }
+  } else forgetAppOpen(path)
   const startedAt = Date.now()
   // `anonymous`: a public route. No token means no wait on a refresh, and the
   // CDN only caches requests without an Authorization header.
@@ -205,6 +214,39 @@ export function startConnectionWarmer(): () => void {
     // shade) never left the foreground, and a repeated 'active' isn't a return.
     if (state === 'active' && lastAppState === 'background') warmConnection()
     lastAppState = state
+  })
+  return () => sub.remove()
+}
+
+// An older server 404s /api/app-open. Not asked again this run, so the burst
+// never waits on that round trip twice.
+let appOpenUnsupported = false
+
+/** Sends the app-open bundle (appOpen.ts). Nothing awaits it: the reads it covers wait on it inside apiFetch. */
+export function startAppOpen(): void {
+  if (appOpenUnsupported || !currentUserId()) return
+  const query = appOpenPaths().map((p) => `p=${encodeURIComponent(p)}`).join('&')
+  // Any failure, unreadable JSON included, is null: the reads fall through to their own routes.
+  holdAppOpen(apiFetch(`/api/app-open?${query}`)
+    .then(async (resp) => {
+      if (resp.status === 404) appOpenUnsupported = true
+      return resp.ok ? ((await resp.json()) as AppOpenSlices) : null
+    })
+    .catch(() => null))
+}
+
+/** A shorter trip to the background leaves the bundled queries fresh (30s staleTime), so nothing would ask. */
+const APP_OPEN_MIN_BACKGROUND_MS = 30_000
+
+/** Call once at startup: a bundle on every return from a background long enough for the data to go stale. */
+export function startAppOpenOnForeground(): () => void {
+  let backgroundedAt: number | null = null
+  const sub = AppState.addEventListener('change', (state) => {
+    if (state === 'background') backgroundedAt = Date.now()
+    else if (state === 'active' && backgroundedAt !== null) {
+      if (Date.now() - backgroundedAt >= APP_OPEN_MIN_BACKGROUND_MS) startAppOpen()
+      backgroundedAt = null
+    }
   })
   return () => sub.remove()
 }
