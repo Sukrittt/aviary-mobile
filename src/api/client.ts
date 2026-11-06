@@ -57,6 +57,8 @@ export async function apiFetch(path: string, init?: RequestInit & { anonymous?: 
   const signal = init?.signal ?? AbortSignal.timeout(REQUEST_TIMEOUT_MS)
   let resp: Response
   inFlight += 1
+  // Sampled now, not when the response lands: the burst this request joined.
+  const inFlightAtStart = inFlight
   try {
     resp = await fetch(`${BASE_URL}${path}`, {
       ...init,
@@ -88,6 +90,7 @@ export async function apiFetch(path: string, init?: RequestInit & { anonymous?: 
     ok: resp.ok,
     duration_ms: Date.now() - startedAt,
     token_ms: tokenMs,
+    in_flight: inFlightAtStart,
   })
 
   if (expectedGeneration !== sessionGeneration()) throw new SessionChangedError()
