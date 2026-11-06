@@ -1,5 +1,6 @@
 // Ported from Web/src/services/api.ts's apiFetch, aimed at the deployed API
 // instead of Next.js's own relative-path routes.
+import { AppState, type AppStateStatus } from 'react-native'
 import { clearAccess, currentAccessToken, getValidToken, sessionGeneration, SessionChangedError } from './accessMode'
 import { setOnline, markSynced } from '@/src/lib/netStatus'
 import { markAccessBlocked, SUBSCRIPTION_REQUIRED_STATUS } from '@/src/lib/accessGate'
@@ -177,6 +178,35 @@ async function serverUnreachable(): Promise<boolean> {
     // plain Error, so its name can't tell one apart.
     return !signal.aborted
   }
+}
+
+/**
+ * A resumed app starts with no connection: Android drops idle ones on
+ * background and on resume (plugins/withOkHttpClient.js), so the ~19 requests
+ * of an app open each waited on a fresh TLS handshake over mobile data. One
+ * request fired the moment the app comes back, ahead of the token fetch and
+ * the refetches, gets that connection started. /api/system/status is public
+ * and CDN-cached, so it never wakes a function. A bare fetch, not apiFetch: it
+ * isn't awaited, its answer is thrown away, and a failure must never count as
+ * being offline. Once per launch and once per return from the background.
+ */
+export function warmConnection(): void {
+  void fetch(`${BASE_URL}/api/system/status`, { signal: AbortSignal.timeout(PROBE_TIMEOUT_MS) }).catch(() => {})
+}
+
+let lastAppState: AppStateStatus | null = null
+
+/** Call once at startup. Fires warmConnection now and on every return from the background. */
+export function startConnectionWarmer(): () => void {
+  warmConnection()
+  lastAppState = AppState.currentState
+  const sub = AppState.addEventListener('change', (state) => {
+    // From 'background' only: iOS's 'inactive' (a pulled-down notification
+    // shade) never left the foreground, and a repeated 'active' isn't a return.
+    if (state === 'active' && lastAppState === 'background') warmConnection()
+    lastAppState = state
+  })
+  return () => sub.remove()
 }
 
 /** Query string dropped and ids collapsed, so one endpoint groups as one path. An invite code gets anyone into a budget, so it never reaches analytics. */
