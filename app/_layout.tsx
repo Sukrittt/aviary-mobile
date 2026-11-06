@@ -39,6 +39,7 @@ import { QueryClient, focusManager, useIsRestoring } from '@tanstack/react-query
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client'
 import { PERSIST_MAX_AGE, persistOptions, queryPersister, removeAllQuerySnapshots } from '@/src/lib/queryPersist'
 import { clearActiveBudget, forgetActiveBudgetUnlessOwnedBy, restoreActiveBudget } from '@/src/lib/activeBudget'
+import { startConnectionWarmer } from '@/src/api/client'
 import { setAudioModeAsync } from 'expo-audio'
 import { Stack,useGlobalSearchParams,usePathname,useRouter,useSegments,type ErrorBoundaryProps,type Href } from 'expo-router'
 import * as SplashScreen from 'expo-splash-screen'
@@ -60,6 +61,8 @@ initPurchases()
 // silently muted whenever the iOS ring switch is off.
 setAudioModeAsync({ playsInSilentMode: true }).catch(() => {})
 startAutoFlush()
+// First, before any request is queued: opens the connection the app-open burst will use.
+startConnectionWarmer()
 
 function isAuthError(error: unknown): boolean {
   const message = error instanceof Error ? error.message : ''
