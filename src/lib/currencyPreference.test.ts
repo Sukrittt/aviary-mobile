@@ -31,6 +31,7 @@ it('trusts the timezone over an en-US locale', () => {
   expect(deviceCurrency('Europe/Berlin', 'USD')).toBe('EUR')
   expect(deviceCurrency('America/New_York', 'EUR')).toBe('USD')
   expect(deviceCurrency('America/Mexico_City', 'MXN')).toBe('MXN')
+  expect(deviceCurrency('America/Moncton', 'USD')).toBe('CAD')
 })
 it('falls back to the locale currency for unmapped timezones', () => {
   expect(deviceCurrency('Mars/Olympus_Mons', 'EUR')).toBe('EUR')

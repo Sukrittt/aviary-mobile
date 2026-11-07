@@ -57,7 +57,7 @@ const ZONES_BY_CURRENCY: Record<string, string> = {
   UAH: 'Europe/Kyiv Europe/Kiev',
   RUB: 'Europe/Moscow',
   USD: 'America/New_York America/Chicago America/Denver America/Los_Angeles America/Phoenix America/Anchorage America/Detroit America/Boise America/Indiana/Indianapolis America/Kentucky/Louisville Pacific/Honolulu US/Eastern US/Central US/Mountain US/Pacific US/Alaska US/Hawaii US/Arizona',
-  CAD: 'America/Toronto America/Vancouver America/Edmonton America/Winnipeg America/Halifax America/St_Johns America/Regina',
+  CAD: 'America/Toronto America/Vancouver America/Edmonton America/Winnipeg America/Halifax America/St_Johns America/Regina America/Moncton America/Glace_Bay America/Goose_Bay America/Whitehorse America/Yellowknife America/Iqaluit America/Dawson_Creek America/Montreal Canada/Eastern Canada/Central Canada/Mountain Canada/Pacific Canada/Atlantic Canada/Newfoundland',
   MXN: 'America/Mexico_City America/Monterrey America/Tijuana America/Cancun America/Merida America/Chihuahua America/Hermosillo America/Mazatlan',
   BRL: 'America/Sao_Paulo America/Bahia America/Fortaleza America/Recife America/Manaus Brazil/East',
   ARS: 'America/Argentina/Buenos_Aires America/Buenos_Aires',
