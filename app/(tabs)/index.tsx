@@ -192,28 +192,22 @@ function HomeScreen() {
   // roll to the moment it can be seen.
   // Read on render rather than via useIsFocused(), which re-rendered all of
   // Home on every tab blur and focus and held up the switch on the JS thread.
-  // The only render that needs focus is a change waiting to roll in, so focus
-  // asks for one just then.
-  const covered = !navigation.isFocused() || openSheetCount > 0
+  // A render while blurred (a refetch after a write, say) bakes `covered` in:
+  // the streak off, rolls and goal bars held. Focus asks for a render only
+  // then, so a plain tab switch still costs nothing.
+  const renderedBlurred = !navigation.isFocused()
+  const covered = renderedBlurred || openSheetCount > 0
   const heroPress = usePressSpring()
   const pillPress = usePressSpring()
   const [displayedReadyToAssign, setDisplayedReadyToAssign] = useState(envelopeState.readyToAssign)
   const [, setFocusTick] = useState(0)
-  const rtaPending = displayedReadyToAssign !== envelopeState.readyToAssign
-  // Same for a Left pill's rise (Set, Pull money): balances as last seen uncovered,
-  // so focus asks for a render only when one went up while Home was covered.
-  const seenAvailable = useRef<Map<string, number>>(new Map())
-  const risePending = envelopeState.envelopes.some((e) => e.available > (seenAvailable.current.get(e.category) ?? e.available))
-  useEffect(() => {
-    if (!covered) seenAvailable.current = new Map(envelopeState.envelopes.map((e) => [e.category, e.available]))
-  })
   // The month and days left are read off the clock on render, so a day that
   // turned over while Home sat behind another tab needs a render too.
   const renderedDay = todayLocal()
   useFocusEffect(
     useCallback(() => {
-      if (rtaPending || risePending || todayLocal() !== renderedDay) setFocusTick((n) => n + 1)
-    }, [rtaPending, risePending, renderedDay]),
+      if (renderedBlurred || todayLocal() !== renderedDay) setFocusTick((n) => n + 1)
+    }, [renderedBlurred, renderedDay]),
   )
   // Adjusting state during render (not in an effect) so the sync happens in
   // the same commit as the value that triggered it, with no extra render.
