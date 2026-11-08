@@ -1,6 +1,8 @@
+import { useState } from 'react'
 import * as reanimated from 'react-native-reanimated'
 import { act, fireEvent } from '@testing-library/react-native'
 import { availablePill, EnvelopeRow } from './EnvelopeRow'
+import { ProgressBar } from './ProgressBar'
 import { lightTokens as t } from '@/src/theme/tokens'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import type { Envelope } from '@/src/lib/envelope'
@@ -189,6 +191,30 @@ describe('a goal row', () => {
     expect(queryByText('Set')).toBeNull()
     fireEvent.press(getByLabelText('Set Trip: pull ₹2,250'))
     expect(onMoveMoney).toHaveBeenCalledWith('Trip', 2250)
+  })
+
+  it('holds a goal bar that rose while Home was covered, then fills it once Home is active', () => {
+    const queryClient = createTestQueryClient()
+    queryClient.setQueryData(['categories'], [{ name: 'Trip', group: 'Goals', goal: { amount: 12000 } }])
+    let setActive = (_: boolean) => {}
+    function Harness() {
+      const [active, set] = useState(false)
+      setActive = set
+      return (
+        <EnvelopeRow
+          envelope={{ category: 'Trip', group: 'Goals', assigned: 0, spent: 0, available: 6000, rolledOver: 6000, isOverspent: false, spentPct: 0, isCreditCardPayment: false }}
+          icon="SoccerBall" hideAmounts={false} onMoveMoney={jest.fn()} onEditAmount={jest.fn()} onViewTransactions={jest.fn()} active={active}
+        />
+      )
+    }
+    const view = renderWithProviders(<Harness />, { queryClient })
+    const barPct = () => view.UNSAFE_getByType(ProgressBar).props.pct
+    expect(barPct()).toBe(50)
+    // A lower target lifts the goal's % without any money moving.
+    act(() => queryClient.setQueryData(['categories'], [{ name: 'Trip', group: 'Goals', goal: { amount: 8000 } }]))
+    expect(barPct()).toBe(50)
+    act(() => setActive(true))
+    expect(barPct()).toBe(75)
   })
 
   it("rests a behind goal's Set as plain text while Home is covered", () => {

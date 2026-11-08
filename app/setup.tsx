@@ -198,8 +198,8 @@ function remainderColors(
 }
 
 export default function SetupScreen() {
-  // Start on the device's currency (Kolkata timezone → INR, else locale region:
-  // US → USD, MX → MXN); the profile's seeded INR is only a placeholder until
+  // Start on the device's currency (timezone first, e.g. Kuala Lumpur → MYR,
+  // else the locale's currency); the profile's seeded INR is only a placeholder until
   // this step saves a real choice.
   const [currencyCode, setCurrencyCode] = useState(() =>
     deviceCurrency(deviceTimezone(), getLocales()[0]?.currencyCode),
