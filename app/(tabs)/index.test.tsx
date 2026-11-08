@@ -10,6 +10,7 @@ import { getSystemStatus } from '@/src/api/systemStatus'
 import { lightTokens } from '@/src/theme/tokens'
 import appJson from '@/app.json'
 import HomeScreen from './index'
+import { EnvelopeGroup } from '@/src/components/envelope/EnvelopeGroup'
 
 import { paydayLabel, startingBalanceHref } from '@/src/lib/upcomingPay'
 
@@ -410,6 +411,27 @@ describe('HomeScreen · Ready to Assign', () => {
     expect(view.getByLabelText('₹15,000')).toBeTruthy()
     act(() => mockNav.emit('focus'))
     expect(view.getByLabelText('₹12,000')).toBeTruthy()
+  })
+
+  it('wakes the Ready to Assign streak and the rows when Home comes back after a render while covered', () => {
+    // A refetch while covered renders with the streak and the rows' motion off.
+    // Ready to Assign didn't move, so nothing looked pending, and Home stayed
+    // that way after focus until something else (pull to refresh) rendered it.
+    let refetched = () => {}
+    function Harness() {
+      const [tick, setTick] = useState(0)
+      refetched = () => setTick((n) => n + 1)
+      return <mockRefetched.Provider value={tick}><HomeScreen /></mockRefetched.Provider>
+    }
+    const view = renderWithProviders(<Harness />)
+    const sweep = () => view.getByTestId('rta-hero').find((n) => n.props.id === 'ready-to-assign').props.sweep
+    const rowsActive = () => view.UNSAFE_getAllByType(EnvelopeGroup).every((g) => g.props.active)
+    act(() => mockNav.emit('blur'))
+    act(() => refetched())
+    expect(sweep()).toBe(false)
+    act(() => mockNav.emit('focus'))
+    expect(sweep()).toBe(true)
+    expect(rowsActive()).toBe(true)
   })
 
   it('catches up on a new month that started while another tab was in front', () => {
