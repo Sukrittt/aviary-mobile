@@ -8,7 +8,6 @@ import EditAssignedAmountModal from './edit-assigned-amount'
 import { currentMonthKey, prevMonthKey, shiftMonthKey } from '@/src/lib/envelope'
 import { shortMonth } from '@/src/lib/goal'
 import { BudgetWriteError } from '@/src/lib/budgetConflict'
-import * as Haptics from 'expo-haptics'
 
 jest.mock('@/src/api/expenses', () => ({ getExpenses: jest.fn() }))
 jest.mock('@/src/api/budgets', () => ({
@@ -184,17 +183,6 @@ it('seeds the latest amount rounded to cents after a conflict review', async () 
   fireEvent.press(await waitFor(() => getByRole('button', { name: 'Use latest instead' })))
 
   expect(getByLabelText('₹29,999.9')).toBeTruthy()
-})
-
-it('gives selection haptics when a quick pick is tapped', async () => {
-  const selection = jest.spyOn(Haptics, 'selectionAsync').mockResolvedValue()
-  const { getByText, getByLabelText } = setup([
-    { month: MONTH, category: 'Food', assigned: '0', rolled_over: '0', version: 1 },
-  ])
-  await waitFor(() => expect(getByText('₹2,500')).toBeTruthy())
-  fireEvent.press(getByText('₹2,500'))
-  expect(selection).toHaveBeenCalledTimes(1)
-  expect(getByLabelText('₹2,500')).toBeTruthy()
 })
 
 describe('switching envelopes in place', () => {

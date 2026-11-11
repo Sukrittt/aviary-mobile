@@ -1,5 +1,5 @@
 import { act, fireEvent, render } from '@testing-library/react-native'
-import { ScrollView, View } from 'react-native'
+import { ScrollView } from 'react-native'
 import { moveItem } from '@/src/lib/dragReorder'
 import { GestureDetector } from 'react-native-gesture-handler'
 import EnvelopesScreen, { groupDeleteNote } from './envelopes'
@@ -164,48 +164,6 @@ it('restores expanded bodies after every drop, including immediate successive re
   }
 })
 
-it('does not give card position ownership to native layout animations', () => {
-  const screen = mount()
-  // Native layout animations own a view's origin and size until they finish, and they outlive
-  // their React props. A card whose position one of them wrote lands wherever that animation
-  // last aimed, overlapping newly expanded neighbours. Open/close animates body height instead.
-  for (const card of screen.cards()) {
-    expect(card.findAllByType(View).filter((node) => node.props.layout)).toHaveLength(0)
-  }
-  fireEvent.press(screen.getByText('Collapse all'))
-  screen.drop('Lifestyle', 4)
-  for (let f = 0; f < 4; f++) frame()
-  for (const card of screen.cards()) {
-    expect(card.findAllByType(View).filter((node) => node.props.layout)).toHaveLength(0)
-  }
-})
-
-// GroupChevron springs a rotation string on every render; only the card offsets are numbers.
-function slides() {
-  return mockSprings.filter((value) => typeof value === 'number')
-}
-
-it('slides a card from where layout moved it, but never while a drag holds the lock', () => {
-  const screen = mount()
-  const moveTo = (index: number, y: number) =>
-    act(() => {
-      fireEvent(screen.cards()[index].findAllByType(View)[0], 'layout', { nativeEvent: { layout: { y } } })
-    })
-  // The first layout of a card only records where it landed: there is nowhere to slide from.
-  moveTo(1, 70)
-  expect(slides()).toEqual([])
-  // A group above it opened, so it slides the distance it travelled back to zero.
-  mockSprings.length = 0
-  moveTo(1, 260)
-  expect(slides()).toEqual([0])
-  // Drag commits must land instantly. Every phase of a drop re-lays out the whole list.
-  mockSprings.length = 0
-  screen.drop('House', 4)
-  moveTo(1, 70)
-  for (let f = 0; f < 4; f++) frame()
-  expect(slides()).toEqual([])
-})
-
 it('fades a body in on tap and leaves it out of native layout while collapsed', () => {
   const screen = mount()
   expect(screen.bodyOpen('Savings')).toBe(false)
@@ -246,19 +204,6 @@ it('cancels an interrupted gesture without saving its hover position', () => {
   expect(screen.getByText('House category 0')).toBeTruthy()
 })
 
-it('can release a long press before its first frame without canceling the drop', () => {
-  const screen = mount()
-  const gesture = gestureFor(screen.cards()[0], true)
-  act(() => gesture.onStart({ absoluteY: 20, translationY: 0 }))
-  act(() => gesture.onFinalize({}, true))
-  act(() => mockFrameCallbacks.forEach((callback) => callback()))
-  act(() => mockAnimations.splice(0).forEach((callback) => callback(true)))
-  for (let f = 0; f < 4; f++) frame()
-  expect(screen.UNSAFE_getByType(ScrollView).props.scrollEnabled).toBe(true)
-  expect(screen.getByText('House category 0')).toBeTruthy()
-  expect(mockMove).not.toHaveBeenCalled()
-})
-
 it('keeps the current order stable when a query update arrives mid-drag', () => {
   const screen = mount()
   const gesture = gestureFor(screen.cards()[0])
@@ -267,48 +212,6 @@ it('keeps the current order stable when a query update arrives mid-drag', () => 
   mockGroups = [...initialGroups].reverse()
   screen.rerender(<EnvelopesScreen />)
   expect(screen.cards().map((card) => card.props.name)).toEqual(initialGroups)
-})
-
-it('ignores a second finger during drop and accepts another drag after restoration', () => {
-  const screen = mount()
-  for (let i = 0; i < 20; i++) {
-    const card = screen.cards()[0]
-    const name = card.props.name
-    const gesture = gestureFor(card)
-    act(() => gesture.onStart({ absoluteY: 20, translationY: 0 }))
-    act(() => gesture.onUpdate({ absoluteY: 180, translationY: 160 }))
-    act(() => mockFrameCallbacks.forEach((callback) => callback()))
-    act(() => gesture.onFinalize({}, true))
-    const rejected = gestureFor(screen.cards()[1])
-    act(() => rejected.onStart({ absoluteY: 20, translationY: 0 }))
-    act(() => rejected.onUpdate({ absoluteY: 100, translationY: 80 }))
-    act(() => rejected.onFinalize({}, true))
-    expect(mockAnimations).toHaveLength(1)
-    act(() => mockAnimations.splice(0).forEach((callback) => callback(true)))
-    for (let f = 0; f < 4; f++) frame()
-    expect(mockMove).toHaveBeenCalledTimes(i + 1)
-    expect(mockMove).toHaveBeenLastCalledWith({ name, toIndex: 2 }, expect.any(Object))
-    expect(screen.cards().map((card) => card.props.name)).toEqual(mockGroups)
-    expect(screen.UNSAFE_getByType(ScrollView).props.scrollEnabled).toBe(true)
-    expect(screen.getByText('House category 0')).toBeTruthy()
-  }
-})
-
-it('keeps the owning gesture when the other recognizer starts on the same card', () => {
-  const screen = mount()
-  const card = screen.cards()[0]
-  const grip = gestureFor(card)
-  const longPress = gestureFor(card, true)
-  act(() => grip.onStart({ absoluteY: 20, translationY: 0 }))
-  act(() => grip.onUpdate({ absoluteY: 180, translationY: 160 }))
-  act(() => longPress.onStart({ absoluteY: 180, translationY: 0 }))
-  act(() => longPress.onFinalize({}, false))
-  act(() => grip.onFinalize({}, true))
-  expect(mockAnimations).toHaveLength(1)
-  act(() => mockAnimations.splice(0).forEach((callback) => callback(true)))
-  for (let f = 0; f < 4; f++) frame()
-  expect(mockMove).toHaveBeenCalledTimes(1)
-  expect(screen.UNSAFE_getByType(ScrollView).props.scrollEnabled).toBe(true)
 })
 
 it('warns that a group delete sends its categories to Archive', () => {

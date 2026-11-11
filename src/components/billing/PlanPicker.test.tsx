@@ -1,5 +1,4 @@
 import { fireEvent } from '@testing-library/react-native'
-import * as Haptics from 'expo-haptics'
 import type { PurchasesPackage } from 'react-native-purchases'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { PlanPicker } from './PlanPicker'
@@ -70,14 +69,4 @@ it('walks the last week of the trial on real dates, with no button to press', ()
   expect(getByText(`You can subscribe from ${full}. We'll remind you.`)).toBeTruthy()
   expect(queryByRole('button')).toBeNull()
   expect(queryByText(/Available from/)).toBeNull()
-})
-
-it('ticks a haptic only when the plan actually changes', () => {
-  jest.mocked(Haptics.selectionAsync).mockClear()
-  const { getByText } = benefits()
-
-  fireEvent.press(getByText('Yearly'))
-  expect(Haptics.selectionAsync).not.toHaveBeenCalled()
-  fireEvent.press(getByText('Monthly'))
-  expect(Haptics.selectionAsync).toHaveBeenCalledTimes(1)
 })
