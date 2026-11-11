@@ -13,7 +13,7 @@ import { track } from '@/src/lib/analytics'
 import { formatMoney } from '@/src/lib/currencies'
 import { readCurrencyPreference } from '@/src/lib/currencyPreference'
 import { getNotifications } from '@/src/lib/notifications'
-import { findHabits, planNudges, settleNudges, type Habit, type HabitState, type ScheduledNudge } from '@/src/lib/habits'
+import { findHabits, keyOf, planNudges, settleNudges, type Habit, type HabitState, type ScheduledNudge } from '@/src/lib/habits'
 import { fetchNudgeCopy, type NudgeCopy } from '@/src/api/habitNudges'
 import { toLocalDateString } from '@/src/lib/date'
 import type { ExpenseRow } from '@/src/types'
@@ -56,6 +56,8 @@ export type NudgeData = {
   /** The budget the habit was seen in, so the quick-log lands there and not in whichever is open when it's tapped. Null is personal. */
   spaceId: string | null
   habitId: string
+  /** The day it's for. Missing on nudges scheduled before this field existed. */
+  date?: string
   item: string
   category: string
   amountInr: number
@@ -84,6 +86,29 @@ function update(uid: string, fn: (s: Store) => Store | Promise<Store>): Promise<
     await writeEncrypted(storeKey(uid), next)
     return next
   })
+}
+
+// `${date}~${habit key}` for spends logged on this device since launch. The
+// rebuild after a log takes seconds, and Android freezes an app soon after
+// it's backgrounded, so log-and-leave used to keep that day's nudge armed.
+const loggedHere = new Set<string>()
+const loggedKey = (date: string, habitId: string) => `${date}~${habitId.split('#')[0]}`
+
+/**
+ * Called the moment an expense is saved: cancels that spend's nudge for that
+ * day straight away, and keeps a rebuild already in flight from putting it back.
+ */
+export async function skipNudgeForLog(row: { item: string; category: string; date: string }): Promise<void> {
+  const key = `${row.date}~${keyOf(row)}`
+  loggedHere.add(key)
+  const Notifications = getNotifications()
+  if (!Notifications) return
+  const all = await Notifications.getAllScheduledNotificationsAsync()
+  const hits = all.filter((n) => {
+    const d = n.content.data
+    return isNudge(d) && !!d.date && loggedKey(d.date, d.habitId) === key
+  })
+  await Promise.all(hits.map((n) => Notifications.cancelScheduledNotificationAsync(n.identifier)))
 }
 
 const isNudgeRequest = (r: NotificationsType.NotificationRequest) => typeof r.content.data?.nudgeId === 'string'
@@ -156,6 +181,7 @@ export function refreshHabitNudges(rows: ExpenseRow[], now = new Date()): Promis
     await cancelScheduled(Notifications)
     const scheduled: ScheduledNudge[] = []
     for (const p of plan) {
+      if (loggedHere.has(loggedKey(p.date, p.habitId))) continue
       const habit = byId.get(p.habitId)!
       const nudgeId = Crypto.randomUUID()
       const data: NudgeData = {
@@ -163,6 +189,7 @@ export function refreshHabitNudges(rows: ExpenseRow[], now = new Date()): Promis
         uid,
         spaceId: activeBudgetId(),
         habitId: habit.id,
+        date: p.date,
         item: habit.item,
         category: habit.category,
         amountInr: habit.amountInr,

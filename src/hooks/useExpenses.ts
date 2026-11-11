@@ -28,6 +28,8 @@ import { splitEmoji } from '@/src/lib/emoji'
 import { isOnline } from '@/src/lib/netStatus'
 import { undoPendingExpense } from '@/src/sync/undoExpense'
 import { flush } from '@/src/sync/flush'
+import { skipNudgeForLog } from '@/src/lib/habitNudges'
+import { toLocalDateString } from '@/src/lib/date'
 import { activeBudgetId } from '@/src/lib/activeBudget'
 import { insertExpense, queuedRow, removeExpense, restoreExpenses, snapshotExpenses, withLastSpent, withQueued } from '@/src/lib/optimisticExpenses'
 
@@ -226,6 +228,9 @@ export function useAddExpense() {
         // says how often people skip naming. A yes/no only, never the text.
         named: row.item.trim() !== splitEmoji(row.category).text,
       })
+      // Before any refetch: the user often backgrounds the app right after saving.
+      skipNudgeForLog({ item: row.item, category: res.category ?? row.category, date: res.timestamp?.slice(0, 10) || row.date || toLocalDateString(new Date()) })
+        .catch((err) => console.warn('Habit nudge skip failed', err))
       if (!res.pending || !res.timestamp) {
         if (!row.deferRefresh) void invalidateExpenseCreateQueries(qc)
         return
