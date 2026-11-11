@@ -286,7 +286,8 @@ function HomeScreen() {
   const allGroupNames = groupedEnvelopes.map((g) => g.group)
   const allGroupsCollapsed = allGroupNames.length > 0 && allGroupNames.every((g) => collapsedGroups.has(g))
 
-  function toggleGroup(group: string) {
+  // Stable, like the handlers below, so a toggle re-renders only the group it flips (EnvelopeGroup is memo'd).
+  const toggleGroup = useCallback((group: string) => {
     tap()
     setCollapsedGroups((prev) => {
       const next = new Set(prev)
@@ -294,7 +295,7 @@ function HomeScreen() {
       else next.add(group)
       return next
     })
-  }
+  }, [setCollapsedGroups])
 
   function toggleCollapseAll() {
     // Only the groups actually changing state count toward the ripple.
@@ -377,29 +378,29 @@ function HomeScreen() {
   const rollPlay = banner === 'rollover' ? rollReplays + 1 : 0
 
 
-  function handleEditAmount(category: string) {
+  const handleEditAmount = useCallback((category: string) => {
     router.push({ pathname: '/modals/edit-assigned-amount', params: { category } })
-  }
+  }, [router])
 
-  function handleMoveMoney(category: string, amount?: number) {
+  const handleMoveMoney = useCallback((category: string, amount?: number) => {
     // A goal's Set: open on the sources for what this month is behind by.
     router.push({ pathname: '/modals/move-money', params: { fromCategory: category, ...(amount ? { amount: String(amount), quick: '1' } : {}) } })
-  }
+  }, [router])
 
-  function handleEditGoal(category: string) {
+  const handleEditGoal = useCallback((category: string) => {
     router.push({ pathname: '/modals/goal', params: { category } })
-  }
+  }, [router])
 
-  function handleViewTransactions(category: string) {
+  const handleViewTransactions = useCallback((category: string) => {
     router.push({ pathname: '/(tabs)/activity', params: { category } })
-  }
+  }, [router])
 
   const [toast, setToast] = useState({ message: '', n: 0 })
   const showToast = useCallback((message: string) => setToast((t) => ({ message, n: t.n + 1 })), [])
 
-  function handleSheetOpenChange(open: boolean) {
+  const handleSheetOpenChange = useCallback((open: boolean) => {
     setOpenSheetCount((c) => c + (open ? 1 : -1))
-  }
+  }, [])
 
   const isLoading = !FORCE_EMPTY_STATE_PREVIEW && (budgetsQ.isLoading || expensesQ.isLoading || categoriesQ.isLoading || groupsQ.isLoading || carryQ.isLoading)
   // A failed refresh keeps the last good data, so only a query with nothing to show is an error.
