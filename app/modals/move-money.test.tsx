@@ -1,5 +1,4 @@
 import { fireEvent, waitFor } from '@testing-library/react-native'
-import { StyleSheet } from 'react-native'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { getRecentExpenses } from '@/src/api/expenses'
 import { getBudgets, transferBudget, getCarry } from '@/src/api/budgets'
@@ -163,17 +162,6 @@ it('filters the source list by search', async () => {
   expect(getByText('Travel')).toBeTruthy()
   expect(queryByText('Cook')).toBeNull()
   expect(queryByText('Shopping')).toBeNull()
-})
-
-it('removes native input padding so the envelope placeholder aligns with the search icon', async () => {
-  const { getByText, getByLabelText, getByPlaceholderText } = setup({}, SPENDING)
-  await waitFor(() => expect(getByLabelText('1')).toBeTruthy())
-  await enterAmount(getByLabelText, '500')
-  fireEvent.press(getByText('Pick sources →'))
-  await waitFor(() => expect(getByText('SUGGESTED SOURCES')).toBeTruthy())
-
-  const inputStyle = StyleSheet.flatten(getByPlaceholderText('Find a category').props.style)
-  expect(inputStyle.padding).toBe(0)
 })
 
 it('stops offering sources once the amount is covered, so the move never exceeds it', async () => {

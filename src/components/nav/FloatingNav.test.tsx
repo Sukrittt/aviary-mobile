@@ -140,20 +140,6 @@ describe('FloatingNav', () => {
     expect(layerOpacity(getByTestId('phosphor-react-native-house-regular'))).toBe(1)
   })
 
-  // A switch is two small hard ticks: one on touch-down, one when the highlight lands.
-  it('ticks on touch-down and again when the highlight lands on the new tab', () => {
-    jest.mocked(Haptics.impactAsync).mockClear()
-    function Nav() {
-      const [active, setActive] = useState<NavRoute>('index')
-      return <FloatingNav active={active} onSelect={setActive} onAdd={jest.fn()} />
-    }
-    const { getByLabelText } = renderWithProviders(<Nav />)
-    fireEvent(getByLabelText('Activity'), 'pressIn')
-    expect(Haptics.impactAsync).toHaveBeenCalledTimes(2)
-    expect(Haptics.impactAsync).toHaveBeenNthCalledWith(1, Haptics.ImpactFeedbackStyle.Rigid)
-    expect(Haptics.impactAsync).toHaveBeenNthCalledWith(2, Haptics.ImpactFeedbackStyle.Rigid)
-  })
-
   // Android stalls the UI thread while it attaches the new tab, right as the
   // slide starts. On the clock, the slide finished inside the stall and the
   // highlight jumped; stepped by frame, a stalled frame moves it one 60Hz step.

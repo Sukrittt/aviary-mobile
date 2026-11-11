@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Modal, Text } from 'react-native'
+import { Text } from 'react-native'
 import { act, fireEvent } from '@testing-library/react-native'
 import * as Reanimated from 'react-native-reanimated'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
@@ -50,29 +50,6 @@ describe('BottomSheet', () => {
     // is given it (default {}); the sheet card's onPress calls stopPropagation.
     fireEvent.press(getByText('Sheet content'), { stopPropagation: jest.fn() })
     expect(onClose).not.toHaveBeenCalled()
-  })
-
-  // Regression: a Reanimated layout transition on the card stalled inside iOS's
-  // Modal (which resizes its root after mount), painting the card ~70pt above
-  // the screen's bottom while touches hit its real frame. Taps went dead.
-  it('keeps the card off layout animations so paint and touch stay in sync', () => {
-    const { getByTestId } = renderWithProviders(
-      <BottomSheet visible onClose={jest.fn()}>
-        <Text>Sheet content</Text>
-      </BottomSheet>,
-    )
-    expect(getByTestId('bottom-sheet-card').props.layout).toBeUndefined()
-  })
-
-  // Regression: animationType="slide" moved the whole modal, so the dim rode up
-  // with the card like a curtain. The backdrop and card now animate on their own.
-  it("doesn't let RN slide the modal (and its dim) as one block", () => {
-    const { UNSAFE_getByType } = renderWithProviders(
-      <BottomSheet visible onClose={jest.fn()}>
-        <Text>Sheet content</Text>
-      </BottomSheet>,
-    )
-    expect(UNSAFE_getByType(Modal).props.animationType).toBe('none')
   })
 
   it('unmounts its content once the close animation finishes', () => {

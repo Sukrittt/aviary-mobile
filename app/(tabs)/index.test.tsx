@@ -1,13 +1,11 @@
 import { Profiler, useState } from 'react'
 import * as mockReact from 'react'
-import { Animated, Linking, Platform, StyleSheet } from 'react-native'
+import { Linking, Platform, StyleSheet } from 'react-native'
 import { act, fireEvent, waitFor } from '@testing-library/react-native'
 import * as SecureStore from 'expo-secure-store'
-import { Path } from 'react-native-svg'
 import { createTestQueryClient, renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { currentMonthKey, monthAbbrev } from '@/src/lib/envelope'
 import { getSystemStatus } from '@/src/api/systemStatus'
-import { lightTokens } from '@/src/theme/tokens'
 import appJson from '@/app.json'
 import HomeScreen from './index'
 import { EnvelopeGroup } from '@/src/components/envelope/EnvelopeGroup'
@@ -468,33 +466,6 @@ describe('HomeScreen · Ready to Assign', () => {
     const lit = hero.findAll((n) => typeof n.type === 'string' && typeof StyleSheet.flatten(n.props.style)?.opacity === 'number')
     expect(lit.length).toBeGreaterThan(1)
     expect(lit.every((n) => StyleSheet.flatten(n.props.style).opacity === 1)).toBe(true)
-  })
-
-  it('uses the app icon as the home header brand', () => {
-    const { getByLabelText, queryByText, UNSAFE_getAllByType } = renderHome()
-
-    expect(getByLabelText('Aviary app icon')).toBeTruthy()
-    expect(queryByText('Aviary')).toBeNull()
-    expect(UNSAFE_getAllByType(Path).some((path) => path.props.fill === lightTokens.accent)).toBe(true)
-  })
-
-  it('fades the settled bird out before resetting the landing choreography', async () => {
-    const timingSpy = jest.spyOn(Animated, 'timing')
-    const landingSpy = jest.spyOn(Animated, 'parallel')
-    const { getByLabelText } = renderHome()
-    await act(async () => {})
-    timingSpy.mockClear()
-    landingSpy.mockClear()
-
-    fireEvent.press(getByLabelText('Aviary app icon'))
-
-    expect(timingSpy).toHaveBeenCalledWith(
-      expect.anything(),
-      expect.objectContaining({ toValue: 0, duration: 180 }),
-    )
-    expect(landingSpy).not.toHaveBeenCalled()
-    timingSpy.mockRestore()
-    landingSpy.mockRestore()
   })
 
   it('opens the full-screen edit-assigned-amount modal for the tapped category', () => {

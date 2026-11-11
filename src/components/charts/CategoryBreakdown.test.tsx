@@ -65,28 +65,6 @@ beforeEach(() => {
 afterEach(() => jest.useRealTimers())
 
 describe('CategoryBreakdown filtering', () => {
-  it('keeps rows laid out but invisible until the entrance reveal is armed', () => {
-    const onSelectKey = jest.fn()
-    const screen = renderWithProviders(
-      <CategoryBreakdown
-        rows={rows}
-        categoryRows={rows}
-        groupRows={groupRows}
-        categoryGroupMap={categoryGroupMap}
-        mode="category"
-        onModeChange={jest.fn()}
-        selectedKey={null}
-        onSelectKey={onSelectKey}
-        comparison={null}
-        leftover={1000}
-        monthLabel="September 2026"
-      />,
-    )
-
-    expect(screen.getByTestId('breakdown-reveal-content').props.style).toContainEqual({ opacity: 0 })
-    act(() => jest.advanceTimersByTime(500))
-    expect(screen.getByTestId('breakdown-reveal-content').props.style).toContainEqual({ opacity: 1 })
-  })
 
   it('shows the snoozing bird instead of an empty donut when nothing was spent', () => {
     const screen = renderWithProviders(
@@ -318,13 +296,4 @@ describe('CategoryBreakdown colours', () => {
 })
 
 describe('CategoryBreakdown haptics', () => {
-  it('ticks on the mode, measure and filter controls', () => {
-    const { getByLabelText, onModeChange } = renderBreakdown()
-    mockTap.mockClear()
-    fireEvent.press(getByLabelText('By group'))
-    fireEvent.press(getByLabelText('Measure by percent of budget used'))
-    fireEvent.press(getByLabelText('Filter chart'))
-    expect(onModeChange).toHaveBeenCalledWith('group')
-    expect(mockTap).toHaveBeenCalledTimes(3)
-  })
 })

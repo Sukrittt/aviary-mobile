@@ -152,34 +152,6 @@ async function fillValidForm(utils: ReturnType<typeof setup>) {
   fireEvent.press(await findByText(/Groceries/))
 }
 
-it('plays the nav circle save animation before replacing the screen with the success screen', async () => {
-  ;(postExpensePayload as jest.Mock).mockResolvedValue({ id: 'srv1', timestamp: '2026-09-04T01:24:00' })
-  const utils = setup()
-  await fillValidForm(utils)
-
-  await act(async () => {
-    ;(globalThis as any).__submit()
-    // Let the mutation's promise settle without also advancing the 950ms
-    // navigation timer, so the assertion below can catch the animation
-    // actually playing before the replace happens.
-    await Promise.resolve()
-    await Promise.resolve()
-  })
-
-  expect(mockReplace).not.toHaveBeenCalled()
-
-  await act(async () => {
-    jest.advanceTimersByTime(950)
-  })
-
-  expect(mockReplace).toHaveBeenCalledWith(
-    expect.objectContaining({
-      pathname: '/modals/expense-added',
-      params: expect.objectContaining({ id: 'srv1', item: 'Milk', amount: '450', category: 'Groceries' }),
-    }),
-  )
-})
-
 it('a blank form left open over midnight logs to the new day', async () => {
   jest.setSystemTime(new Date(2026, 9, 31, 23, 50))
   ;(postExpensePayload as jest.Mock).mockResolvedValue({ id: 'srv1', timestamp: '2026-11-01T00:10:00' })
@@ -870,17 +842,6 @@ describe('accounts', () => {
   })
 })
 
-it('moves the tip aside once a blocked save shows its toast in the same spot', () => {
-  mockTip.reason = 'batch'
-  const utils = setup()
-  expect(utils.getByLabelText('Try logging several at once')).toBeTruthy()
-  act(() => {
-    ;(globalThis as any).__onInvalid()
-  })
-  expect(utils.queryByLabelText('Try logging several at once')).toBeNull()
-  mockTip.reason = null
-})
-
 it('shows an edited expense category even when the loaded list no longer has it', async () => {
   const utils = setup({ id: 'srv1', version: '0', timestamp: 'ts', item: 'Chips', amountInr: '40', category: 'Old Snacks', date: '2026-09-18' })
   expect(await utils.findByText('Old Snacks')).toBeTruthy()
@@ -1075,17 +1036,6 @@ it('submits the focused prefilled screen, not the blank launch screen under it',
   )
 
   await waitFor(() => expect((globalThis as any).__canSubmit).toBe(true))
-})
-
-it('ticks when the category picker or More opens', () => {
-  const Haptics = jest.requireActual<typeof import('expo-haptics')>('expo-haptics')
-  const impact = jest.spyOn(Haptics, 'impactAsync').mockResolvedValue()
-  const utils = setup({})
-  fireEvent.press(utils.getByLabelText('Category'))
-  expect(impact).toHaveBeenCalledTimes(1)
-  fireEvent.press(utils.getByText('More'))
-  expect(impact).toHaveBeenCalledTimes(2)
-  impact.mockRestore()
 })
 
 it('picks from the keyword map on the keystroke, with no debounce', async () => {

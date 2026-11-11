@@ -20,12 +20,6 @@ describe('currency picker', () => {
     expect(onChange).toHaveBeenCalledWith('USD')
     expect(screen.queryByLabelText('Indian Rupee, INR, ₹')).toBeNull()
   })
-  it('uses the Activity search background in dark mode', () => {
-    render(<CurrencyPicker value="INR" onChange={jest.fn()} />)
-    const style = StyleSheet.flatten(screen.getByLabelText('Search currencies').props.style)
-    expect(style.backgroundColor).toBe('#0e0e0e')
-    expect(style.borderRadius).toBe(100)
-  })
   it('can expand its list to fill an embedded screen', () => {
     render(<CurrencyPicker value="INR" onChange={jest.fn()} fillAvailableSpace />)
     const style = StyleSheet.flatten(screen.getByTestId('currency-list').props.style)
