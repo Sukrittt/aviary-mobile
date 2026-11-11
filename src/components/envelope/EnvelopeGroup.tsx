@@ -1,4 +1,5 @@
 import { useCurrency } from '@/src/context/CurrencyContext'
+import { memo } from 'react'
 import { View, Text, Pressable, StyleSheet } from 'react-native'
 import { CaretRight } from '@/src/components/shared/icons'
 import Reanimated, { FadeIn, FadeOut, LinearTransition, useAnimatedStyle, withSpring } from 'react-native-reanimated'
@@ -43,8 +44,11 @@ interface Props {
   onToast?: (message: string) => void
 }
 
-/** Expandable group header + its category rows, matching the dc.html "Envelopes" panel. */
-export function EnvelopeGroup({
+/**
+ * Expandable group header + its category rows, matching the dc.html "Envelopes" panel.
+ * Memo'd: toggling one group on Home would otherwise re-render every group's rows.
+ */
+export const EnvelopeGroup = memo(function EnvelopeGroup({
   group,
   groupIcon,
   categoryIcons,
@@ -126,7 +130,7 @@ export function EnvelopeGroup({
       )}
     </Reanimated.View>
   )
-}
+})
 
 const styles = StyleSheet.create({
   wrap: { borderTopWidth: 1, paddingTop: 8, paddingBottom: 8 },

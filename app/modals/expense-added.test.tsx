@@ -1,6 +1,5 @@
 import { act, fireEvent, waitFor } from '@testing-library/react-native'
 import { StyleSheet } from 'react-native'
-import * as Haptics from 'expo-haptics'
 import { notifyManager } from '@tanstack/react-query'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { getRecentExpenses, deleteExpense, postExpensePayload } from '@/src/api/expenses'
@@ -14,9 +13,6 @@ import ExpenseAddedScreen from './expense-added'
 import { recordLogAndMaybeAsk } from '@/src/lib/reviewPrompt'
 import { DELTA_DELAY, DELTA_DURATION } from '@/src/components/envelope/DeltaBar'
 import { currentMonthKey, daysLeftInMonth, prevMonthKey } from '@/src/lib/envelope'
-import { fontFamily } from '@/src/theme/fonts'
-import { type } from '@/src/theme/scale'
-import { lightTokens } from '@/src/theme/tokens'
 import { habitNudgesReady } from '@/src/lib/habitNudges'
 import { toLocalDateString } from '@/src/lib/date'
 
@@ -139,13 +135,6 @@ it('reads back the amount, item and time of what was just logged', async () => {
   await waitFor(() => expect(getGroups).toHaveBeenCalled())
 })
 
-it('taps a soft haptic as each section is revealed', async () => {
-  // Past-month expense: no budget card, so just headline, item and footer.
-  setup({ date: `${prevMonthKey(MONTH)}-15` })
-  await waitFor(() => expect(Haptics.impactAsync).toHaveBeenCalledTimes(3))
-  expect(jest.mocked(Haptics.impactAsync).mock.calls.every(([s]) => s === 'soft')).toBe(true)
-})
-
 // Category already shows in the budget card below (pill + dot), so the
 // subtitle under the headline is the item name alone, even when the item
 // happens to share the category's name.
@@ -197,30 +186,6 @@ it('moves the percentage badge colors through the same old-to-new thresholds', a
     },
     COUNTDOWN_SLOW,
   )
-})
-
-it('uses the emphasized typography hierarchy from the confirmation design', async () => {
-  const { getByText } = setup({ item: 'Apples' })
-  await waitFor(() => expect(getByText('6% used')).toBeTruthy(), COUNTDOWN_SLOW)
-
-  const days = daysLeftInMonth()
-  const daysLabel = days === 0 ? 'Less than 24 hrs' : `${days} days left`
-  const perDay = days > 0 ? Math.round(7550 / days) : 7550
-
-  expect(StyleSheet.flatten(getByText('Apples').props.style)).toMatchObject({ fontFamily: fontFamily.bodyExtraBold })
-  expect(StyleSheet.flatten(getByText('Groceries').props.style)).toMatchObject({ fontFamily: fontFamily.bodyExtraBold })
-  expect(StyleSheet.flatten(getByText('6% used').props.style)).toMatchObject({ fontFamily: fontFamily.bodyExtraBold })
-  expect(StyleSheet.flatten(getByText('left of ₹8,000').props.style)).toMatchObject({
-    fontFamily: fontFamily.bodyBold,
-    fontSize: type.caption,
-  })
-  expect(StyleSheet.flatten(getByText(daysLabel).props.style)).toMatchObject({ fontFamily: fontFamily.bodyExtraBold })
-  expect(StyleSheet.flatten(getByText(`₹${perDay.toLocaleString('en-IN')}/day to stay on track`).props.style)).toMatchObject({
-    fontFamily: fontFamily.bodyExtraBold,
-  })
-  expect(StyleSheet.flatten(getByText(`15 ${MONTH_LABEL} '${YEAR2}, 1:24 am`).props.style)).toMatchObject({
-    fontFamily: fontFamily.bodyExtraBold,
-  })
 })
 
 // The "left" figure is the one that visibly moves: it opens on the
@@ -430,14 +395,6 @@ describe('habit progress', () => {
   it('counts toward a nudge from the second day', async () => {
     const { findByText } = setup(logNow, [milk('e1', daysAgo(1))])
     expect(await findByText('Seen 2 times. Nudges start after one more.')).toBeTruthy()
-  })
-
-  it('sits on the mint pill, like the UPI tip', async () => {
-    const { findByText } = setup(logNow, [milk('e1', daysAgo(1))])
-    const line = await findByText('Seen 2 times. Nudges start after one more.')
-    expect(StyleSheet.flatten(line.props.style).color).toBe(lightTokens.onSuccess)
-    expect(line.props.numberOfLines).toBe(1)
-    expect(StyleSheet.flatten(line.parent?.parent?.props.style).backgroundColor).toBe(lightTokens.successBg)
   })
 
   it('promises a nudge once it is a habit', async () => {

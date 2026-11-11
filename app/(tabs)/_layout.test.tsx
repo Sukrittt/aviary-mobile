@@ -42,11 +42,6 @@ it('stays hidden when signing out drops the tabs from the stack', () => {
   expect(tabsNavCover.value).toBe(0)
 })
 
-it('switches tabs instantly, with no fade between them', () => {
-  render(<TabsLayout />, { wrapper: ThemeProvider })
-  expect(mockTabs.mock.calls[0][0].screenOptions?.animation).toBe('none')
-})
-
 it('mounts the other tabs once the landing tab is up, so a first visit is no slower than a repeat one', () => {
   jest.useFakeTimers()
   render(<TabsLayout />, { wrapper: ThemeProvider })

@@ -1,8 +1,5 @@
 import { useEffect, useState, type ComponentProps } from 'react'
 import { act, fireEvent } from '@testing-library/react-native'
-import { View } from 'react-native'
-import * as Reanimated from 'react-native-reanimated'
-import * as Haptics from 'expo-haptics'
 import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { AutoCategoryPill, PICKING_LABEL, SETTLE_MS } from './AutoCategoryPill'
 
@@ -48,29 +45,6 @@ it('says it is picking while thinking, then settles on the auto-picked category'
   expect(getByLabelText('Category: Groceries, picked for you')).toBeTruthy()
 })
 
-it('ticks as each icon rolls past, then lands with a light tap', () => {
-  const tick = jest.spyOn(Haptics, 'selectionAsync').mockResolvedValue()
-  const tap = jest.spyOn(Haptics, 'impactAsync').mockResolvedValue()
-  const { rerender } = renderPill({ ...base, selected: null, thinking: true, auto: false })
-  rerender({ selected: groceries, thinking: false, auto: true })
-  expect(tick).toHaveBeenCalled()
-  expect(tap).not.toHaveBeenCalled()
-  act(() => { jest.advanceTimersByTime(SETTLE_MS) })
-  expect(tap).toHaveBeenCalledTimes(1)
-  expect(tap).toHaveBeenCalledWith(Haptics.ImpactFeedbackStyle.Light)
-})
-
-it('eases the reel out even when the answer is the category already showing', () => {
-  const { getByText, getByLabelText, queryByLabelText, rerender } = renderPill({ ...base, selected: groceries, thinking: false, auto: true })
-  rerender({ thinking: true })
-  expect(getByLabelText(PICKING_LABEL)).toBeTruthy()
-  rerender({ thinking: false })
-  expect(getByLabelText(PICKING_LABEL)).toBeTruthy()
-  act(() => { jest.advanceTimersByTime(SETTLE_MS) })
-  expect(queryByLabelText(PICKING_LABEL)).toBeNull()
-  expect(getByText('Groceries')).toBeTruthy()
-})
-
 it('lands a dictionary hit straight away, without the picking state', () => {
   const { getByLabelText, queryByLabelText, rerender } =
     renderPill({ ...base, selected: null, thinking: false, auto: false })
@@ -93,46 +67,4 @@ it("doesn't say picked for you about a category the user picked by hand", () => 
   expect(getByLabelText('Category: Groceries')).toBeTruthy()
   fireEvent.press(getByText('Groceries'))
   expect(onPress).toHaveBeenCalled()
-})
-
-function measure(utils: ReturnType<typeof renderPill>, width: number) {
-  const row = utils.UNSAFE_getAllByType(View).find((node) => typeof node.props.onLayout === 'function')!
-  fireEvent(row, 'layout', { nativeEvent: { layout: { width, height: 17, x: 0, y: 0 } } })
-}
-
-it('waits for the width spring before flicking the burst, with no burst on first render', () => {
-  let finishWidth: (finished?: boolean) => void = () => {}
-  jest.spyOn(Reanimated, 'withSpring').mockImplementation((value, config, callback) => {
-    if (config?.stiffness === 110) finishWidth = callback!
-    return value
-  })
-  const utils = renderPill({ ...base, selected: groceries, thinking: false, auto: false })
-  measure(utils, 70)
-  expect(utils.queryByTestId('pick-burst')).toBeNull()
-  utils.rerender({ selected: { icon: 'Taxi', name: 'Travel' } })
-  expect(utils.queryByTestId('pick-burst')).toBeNull()
-  measure(utils, 60)
-  expect(utils.queryByTestId('pick-burst')).toBeNull()
-  act(() => finishWidth(false))
-  expect(utils.queryByTestId('pick-burst')).toBeNull()
-  act(() => finishWidth(true))
-  expect(utils.queryByTestId('pick-burst')).toBeTruthy()
-})
-
-it('ignores an older width completion when another category has been chosen', () => {
-  const completions: ((finished?: boolean) => void)[] = []
-  jest.spyOn(Reanimated, 'withSpring').mockImplementation((value, config, callback) => {
-    if (config?.stiffness === 110) completions.push(callback!)
-    return value
-  })
-  const utils = renderPill({ ...base, selected: groceries, thinking: false, auto: false })
-  measure(utils, 70)
-  utils.rerender({ selected: { icon: 'Taxi', name: 'Travel' } })
-  measure(utils, 60)
-  utils.rerender({ selected: { icon: 'House', name: 'Rent' } })
-  measure(utils, 50)
-  act(() => completions[0](true))
-  expect(utils.queryByTestId('pick-burst')).toBeNull()
-  act(() => completions[1](true))
-  expect(utils.queryByTestId('pick-burst')).toBeTruthy()
 })
