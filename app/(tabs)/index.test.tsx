@@ -9,6 +9,7 @@ import { getSystemStatus } from '@/src/api/systemStatus'
 import appJson from '@/app.json'
 import HomeScreen from './index'
 import { EnvelopeGroup } from '@/src/components/envelope/EnvelopeGroup'
+import * as EnvelopeRowModule from '@/src/components/envelope/EnvelopeRow'
 
 import { paydayLabel, startingBalanceHref } from '@/src/lib/upcomingPay'
 
@@ -60,9 +61,11 @@ jest.mock('@/src/hooks/useBudgetSpaces', () => {
     },
   }
 })
+const mockLastSpent = { data: {} }
 jest.mock('@/src/hooks/useExpenses', () => ({
   useRecentExpenses: () => ({ data: mockExpenses, isLoading: false, error: null, refetch: jest.fn() }),
-  useLastSpent: () => ({ data: {} }),
+  // Stable like react-query's selected data, so memo'd rows can tell nothing changed.
+  useLastSpent: () => mockLastSpent,
 }))
 let mockSchedules: { id: string; frequency: string; status: string; start_date: string; next_run_date?: string }[] | undefined = []
 jest.mock('@/src/hooks/useIncomes', () => ({ useRecurringIncomes: () => ({ data: mockSchedules }) }))
@@ -73,8 +76,9 @@ jest.mock('@/src/hooks/useCategories', () => ({
   useSaveNote: () => jest.fn(),
   useUpdateCategory: () => ({ mutateAsync: jest.fn() }),
 }))
+let mockGroups = ['Everyday']
 jest.mock('@/src/hooks/useGroups', () => ({
-  useGroups: () => ({ data: ['Everyday'], isLoading: false, error: null, refetch: jest.fn() }),
+  useGroups: () => ({ data: mockGroups, isLoading: false, error: null, refetch: jest.fn() }),
   useGroupIcons: () => new Map(),
 }))
 jest.mock('@/src/hooks/useUser', () => ({
@@ -103,8 +107,10 @@ const mockNav = {
     mockNav.listeners.forEach((l) => l(type))
   },
 }
+const mockRouter = { push: mockPush, back: jest.fn(), replace: jest.fn(), navigate: mockNavigate }
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: mockPush, back: jest.fn(), replace: jest.fn(), navigate: mockNavigate }),
+  // One object, like expo-router's imperative router.
+  useRouter: () => mockRouter,
   useNavigation: () => mockNav,
   // Like React Navigation's: re-renders its caller on every blur and focus.
   useIsFocused: () => {
@@ -392,6 +398,25 @@ describe('HomeScreen · Ready to Assign', () => {
     expect(renders).toBe(before)
   })
 
+  it('collapsing one group leaves every other group\'s rows alone', () => {
+    // With lots of groups, re-rendering every row on each tap made the toggle lag.
+    mockGroups = ['Everyday', 'Bills']
+    mockCategories = [{ name: 'Food', group: 'Everyday' }, { name: 'Rent', group: 'Bills' }]
+    mockBudgets.push({ month: MONTH, category: 'Rent', assigned: '8000', rolled_over: '0' })
+    const rowRender = jest.spyOn(EnvelopeRowModule, 'EnvelopeRow')
+    try {
+      const view = renderHome()
+      rowRender.mockClear()
+      fireEvent.press(view.getByText('Everyday'))
+      const rendered = rowRender.mock.calls.map(([p]) => p.envelope.category)
+      expect(rendered).not.toContain('Rent')
+    } finally {
+      rowRender.mockRestore()
+      mockGroups = ['Everyday']
+      mockCategories = [{ name: 'Food', group: 'Everyday' }]
+    }
+  })
+
   it('holds a Ready to Assign change made while covered until Home is back in view', () => {
     let refetched = () => {}
     function Harness() {
@@ -423,7 +448,7 @@ describe('HomeScreen · Ready to Assign', () => {
     }
     const view = renderWithProviders(<Harness />)
     const sweep = () => view.getByTestId('rta-hero').find((n) => n.props.id === 'ready-to-assign').props.sweep
-    const rowsActive = () => view.UNSAFE_getAllByType(EnvelopeGroup).every((g) => g.props.active)
+    const rowsActive = () => view.UNSAFE_getAllByType(EnvelopeGroup.type).every((g) => g.props.active)
     act(() => mockNav.emit('blur'))
     act(() => refetched())
     expect(sweep()).toBe(false)
