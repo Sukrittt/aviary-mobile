@@ -1,4 +1,4 @@
-import { cancelHabitNudges, handleHabitResponse, refreshHabitNudges, setHabitNudgesEnabled, type NudgeData } from './habitNudges'
+import { cancelHabitNudges, handleHabitResponse, refreshHabitNudges, setHabitNudgesEnabled, skipNudgeForLog, type NudgeData } from './habitNudges'
 import { track } from '@/src/lib/analytics'
 import { enqueue } from '@/src/lib/pendingExpenses'
 import { flush } from '@/src/sync/flush'
@@ -202,5 +202,23 @@ describe('refreshHabitNudges', () => {
     await refreshHabitNudges(footballRows(), now)
     await cancelHabitNudges()
     expect(mockScheduled.map((n) => n.identifier)).toEqual(['other'])
+  })
+})
+
+// Last in the file: a logged spend stays skipped for the rest of the process.
+describe('skipNudgeForLog', () => {
+  it("cancels that day's nudge the moment the spend is logged, before any rebuild", async () => {
+    await refreshHabitNudges(footballRows(), new Date(2026, 9, 1, 9))
+    expect(mockScheduled).toHaveLength(1)
+    await skipNudgeForLog({ item: ' football ', category: 'Fun', date: '2026-10-04' })
+    expect(mockScheduled).toHaveLength(1)
+    await skipNudgeForLog({ item: ' football ', category: 'Fun', date: '2026-10-05' })
+    expect(mockScheduled).toHaveLength(0)
+  })
+
+  it("keeps a rebuild that hasn't seen the log yet from putting the nudge back", async () => {
+    await skipNudgeForLog({ item: 'Football', category: 'Fun', date: '2026-10-12' })
+    await refreshHabitNudges(footballRows(), new Date(2026, 9, 8, 9))
+    expect(mockScheduled).toHaveLength(0)
   })
 })

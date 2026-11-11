@@ -58,7 +58,7 @@ const MUTE_AFTER = 5
 const AUTO_SOURCES = new Set(['recurring', 'subscription'])
 
 const normalize = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ')
-const keyOf = (r: Pick<ExpenseRow, 'item' | 'category'>) => `${normalize(r.category)}|${normalize(r.item)}`
+export const keyOf = (r: Pick<ExpenseRow, 'item' | 'category'>) => `${normalize(r.category)}|${normalize(r.item)}`
 const weekdayOf = (date: string) => new Date(`${date}T00:00:00Z`).getUTCDay()
 const daysBetween = (a: string, b: string) => Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 86_400_000)
 
