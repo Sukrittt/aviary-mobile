@@ -89,3 +89,15 @@ it('suggests services for the currency and fills the name on tap', () => {
   expect(getByDisplayValue('Spotify')).toBeTruthy()
   expect(queryByText('Netflix')).toBeNull()
 })
+
+it('adds a new subscription prefilled from an expense instead of editing one', () => {
+  mockParams = { fromExpense: '1', service: 'Vercel Pro Plan', amount: '2317', category: 'Subscriptions', nextDueDate: '2026-12-16', notes: '' }
+  const { getByDisplayValue, getAllByText, queryByText } = renderWithProviders(<SubscriptionModal />)
+  expect(getByDisplayValue('Vercel Pro Plan')).toBeTruthy()
+  expect(queryByText('Delete subscription')).toBeNull()
+  fireEvent.press(getAllByText('Add subscription').at(-1)!)
+  expect(mockAdd.mutate).toHaveBeenCalledWith(
+    expect.objectContaining({ suggestion_id: undefined, service: 'Vercel Pro Plan', amount_inr: '2317', billing_cycle: 'monthly', next_due_date: '2026-12-16', category: 'Subscriptions' }),
+    expect.any(Object),
+  )
+})

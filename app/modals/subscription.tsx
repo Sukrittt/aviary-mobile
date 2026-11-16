@@ -48,7 +48,9 @@ function SubscriptionModal() {
   const params = useLocalSearchParams()
   const suggestionId = str(params.suggestionId)
   const isReviewingSuggestion = suggestionId !== ''
-  const origService = isReviewingSuggestion ? '' : str(params.service)
+  // Set up from an expense in Activity: a new subscription with its fields already filled in.
+  const fromExpense = str(params.fromExpense) === '1'
+  const origService = isReviewingSuggestion || fromExpense ? '' : str(params.service)
   const isEdit = origService !== ''
 
   const subsQ = useSubscriptions()
@@ -195,9 +197,9 @@ function SubscriptionModal() {
             placeholder="e.g. Netflix"
             placeholderTextColor={tokens.text3}
             style={[styles.input, { backgroundColor: tokens.inputBg, borderColor: tokens.border, color: tokens.text, fontFamily: fontFamily.bodyMedium }]}
-            autoFocus={!isEdit}
+            autoFocus={!isEdit && !fromExpense}
           />
-          {isEdit || isReviewingSuggestion ? null : (
+          {isEdit || isReviewingSuggestion || fromExpense ? null : (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={styles.presetRow}>
               {suggestPresets(currencyCode, service).map((name) => (
                 <Pressable
