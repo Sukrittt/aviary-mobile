@@ -765,13 +765,27 @@ describe('sync status while online', () => {
     await pending.enqueue(queued('c1'), 'u1', false, 'u1')
     await pending.enqueue(queued('c2'), 'u1', false, 'u1')
     const screen = renderWithProviders(<ActivityScreen />)
-    expect(await screen.findByText('Syncing 2…')).toBeTruthy()
+    expect(await screen.findByText('Syncing 2')).toBeTruthy()
 
     await act(async () => {
       await pending.remove('c1', 'u1')
       await pending.remove('c2', 'u1')
     })
     await waitFor(() => expect(screen.queryByText(/Syncing/)).toBeNull())
+    expect(screen.getByText('All synced')).toBeTruthy()
+    await waitFor(() => expect(screen.queryByText('All synced')).toBeNull(), { timeout: 3000 })
+  })
+
+  it('taps open the expenses still on their way, and ends on a check once they land', async () => {
+    await pending.enqueue({ client_id: 'c1', item: 'Waffle', amount_inr: '179', category: 'Food', date: '2026-06-01', timestamp: '2026-06-01T10:00:00' }, 'u1', false, 'u1')
+    const screen = renderWithProviders(<ActivityScreen />)
+    fireEvent.press(await screen.findByText('Syncing 1'))
+    expect(await screen.findByText('1 expense on its way')).toBeTruthy()
+    expect(screen.getAllByText('Waffle').length).toBeGreaterThan(0)
+
+    await act(async () => { await pending.remove('c1', 'u1') })
+    expect(await screen.findByText("Everything's safe in your budget.")).toBeTruthy()
+    await waitFor(() => expect(screen.queryByText("Everything's safe in your budget.")).toBeNull(), { timeout: 3000 })
   })
 })
 

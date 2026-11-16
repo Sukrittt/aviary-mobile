@@ -1,14 +1,16 @@
 import { useEffect, useState } from 'react'
-import { count, listFailed, onChange, type PendingExpense } from '@/src/lib/pendingExpenses'
+import { list, listFailed, onChange, type PendingExpense } from '@/src/lib/pendingExpenses'
+
+type Unsynced = { pending: number; queued: PendingExpense[]; failed: PendingExpense[] }
 
 /** What this device holds that the server doesn't have yet: still queued, and given up on. Live. */
-export function useUnsyncedExpenses(): { pending: number; failed: PendingExpense[] } {
-  const [state, setState] = useState<{ pending: number; failed: PendingExpense[] }>({ pending: 0, failed: [] })
+export function useUnsyncedExpenses(): Unsynced {
+  const [state, setState] = useState<Unsynced>({ pending: 0, queued: [], failed: [] })
   useEffect(() => {
     let alive = true
     const load = () => {
-      Promise.all([count(), listFailed()])
-        .then(([pending, failed]) => { if (alive) setState({ pending, failed }) })
+      Promise.all([list(), listFailed()])
+        .then(([queued, failed]) => { if (alive) setState({ pending: queued.length, queued, failed }) })
         .catch(() => {})
     }
     load()
