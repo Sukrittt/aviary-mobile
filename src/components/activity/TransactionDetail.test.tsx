@@ -3,7 +3,7 @@ import { renderWithProviders } from '@/src/test-utils/renderWithProviders'
 import { formatTime, nowLocal } from '@/src/lib/date'
 import { ExpenseWriteError } from '@/src/lib/expenseConflict'
 import type { AccountRow, ExpenseRow } from '@/src/types'
-import { TransactionDetail } from './TransactionDetail'
+import { nextMonthlyDue, TransactionDetail } from './TransactionDetail'
 
 const mockMutate = jest.fn()
 let mockPending = false
@@ -23,6 +23,13 @@ jest.mock('@/src/hooks/useCategories', () => ({
   useCategories: () => ({ data: [] }),
   useCategoryTint: () => () => ({ bg: '#eee', ink: '#333' }),
 }))
+
+const mockPush = jest.fn()
+jest.mock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }))
+let mockSubs: { service: string; category: string }[] = []
+jest.mock('@/src/hooks/useSubscriptions', () => ({ useSubscriptions: () => ({ data: mockSubs }) }))
+let mockHidden: string[] = []
+jest.mock('@/src/hooks/useUser', () => ({ useUser: () => ({ data: { hiddenFeatures: mockHidden } }) }))
 
 let mockReadOnly = false
 const mockBlocked = jest.fn(() => mockReadOnly)
@@ -62,6 +69,9 @@ beforeEach(() => {
   mockBlocked.mockClear()
   mockReadOnly = false
   mockPending = false
+  mockPush.mockReset()
+  mockSubs = []
+  mockHidden = []
 })
 
 it('shows the account without its emoji', () => {
@@ -205,4 +215,54 @@ it("doesn't offer changes on a row that can't take them", () => {
 it("doesn't offer changes on an expense still waiting to sync", () => {
   renderDetail(txn({ id: undefined, version: undefined }))
   expect(screen.queryByLabelText(/^Change /)).toBeNull()
+})
+
+describe('make this a subscription', () => {
+  const vercel = txn({ item: 'Vercel Pro Plan ', amount_inr: '2317', category: '📺Subscriptions', date: '2026-11-16', notes: 'team plan' })
+
+  it('opens the subscription form filled in from the expense', () => {
+    jest.useFakeTimers()
+    try {
+      renderDetail(vercel)
+      fireEvent.press(screen.getByLabelText('Make this a subscription'))
+      act(() => jest.runAllTimers())
+      expect(mockPush).toHaveBeenCalledWith({
+        pathname: '/modals/subscription',
+        params: { fromExpense: '1', service: 'Vercel Pro Plan', amount: '2317', category: '📺Subscriptions', nextDueDate: nextMonthlyDue('2026-11-16'), notes: 'team plan' },
+      })
+    } finally {
+      jest.useRealTimers()
+    }
+  })
+
+  it('counts a category an existing subscription logs into', () => {
+    mockSubs = [{ service: 'Netflix', category: 'Mini GT' }]
+    renderDetail()
+    expect(screen.getByLabelText('Make this a subscription')).toBeTruthy()
+  })
+
+  it("isn't offered once it's tracked, outside subscription categories, or with Subscriptions off", () => {
+    mockSubs = [{ service: 'vercel pro plan', category: 'Tools' }]
+    const { unmount } = renderWithProviders(<TransactionDetail txn={vercel} from={{ x: 0, y: 0, width: 300, height: 80 }} photoUri={null} onClosed={() => {}} onEdit={() => {}} onDelete={() => {}} />)
+    expect(screen.queryByLabelText('Make this a subscription')).toBeNull()
+    unmount()
+
+    mockSubs = []
+    renderDetail()
+    expect(screen.queryByLabelText('Make this a subscription')).toBeNull()
+  })
+
+  it('stays hidden when Subscriptions is switched off', () => {
+    mockHidden = ['subscriptions']
+    renderDetail(vercel)
+    expect(screen.queryByLabelText('Make this a subscription')).toBeNull()
+  })
+})
+
+it('puts the next due date a month on, past today, and keeps month ends inside the month', () => {
+  expect(nextMonthlyDue('2026-11-16', '2026-11-16')).toBe('2026-12-16')
+  expect(nextMonthlyDue('2026-08-10', '2026-11-16')).toBe('2026-12-10')
+  expect(nextMonthlyDue('2026-01-31', '2026-02-01')).toBe('2026-02-28')
+  expect(nextMonthlyDue('2026-12-05', '2026-12-05')).toBe('2027-01-05')
+  expect(nextMonthlyDue('nope')).toBe('')
 })

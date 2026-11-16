@@ -4,7 +4,8 @@ import { Image, Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowD
 import Animated, { Easing, interpolate, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import * as Haptics from 'expo-haptics'
-import { Bank, CalendarBlank, CaretRight, Clock, PencilSimple, Tag, Trash, User, X } from '@/src/components/shared/icons'
+import { useRouter } from 'expo-router'
+import { ArrowsClockwise, Bank, CalendarBlank, CaretRight, Clock, PencilSimple, Tag, Trash, User, X } from '@/src/components/shared/icons'
 import { AccountChips, accountName } from '@/src/components/shared/AccountChips'
 import { CategoryIcon } from '@/src/components/shared/CategoryIcon'
 import { CategoryPickerSheet } from '@/src/components/shared/CategoryPickerSheet'
@@ -16,6 +17,9 @@ import { useReadOnly } from '@/src/components/budgets/ReadOnlyNotice'
 import { Button } from '@/src/components/ui/Button'
 import { liveAccounts, useAccounts } from '@/src/hooks/useAccounts'
 import { useUpdateExpense } from '@/src/hooks/useExpenses'
+import { useSubscriptions } from '@/src/hooks/useSubscriptions'
+import { useUser } from '@/src/hooks/useUser'
+import { isHidden } from '@/src/lib/features'
 import { ExpenseWriteError } from '@/src/lib/expenseConflict'
 import { useCurrency } from '@/src/context/CurrencyContext'
 import { usePrivacy } from '@/src/context/PrivacyContext'
@@ -28,6 +32,18 @@ import type { PhosphorIcon } from '@/src/components/shared/icons'
 
 /** Where the tapped card sits on screen, so the page can grow out of it and shrink back. */
 export type CardRect = { x: number; y: number; width: number; height: number }
+
+/** The expense's date a month at a time until it's today or later: when it next renews, if it's monthly. */
+export function nextMonthlyDue(date: string, today: string = toLocalDateString()): string {
+  const day = parseLocalDate(date)
+  if (Number.isNaN(day.getTime())) return ''
+  for (let months = 1; ; months++) {
+    // Day 0 of the month after is the last of this one, so the 31st lands on the 30th instead of spilling over.
+    const lastOfMonth = new Date(day.getFullYear(), day.getMonth() + months + 1, 0).getDate()
+    const next = toLocalDateString(new Date(day.getFullYear(), day.getMonth() + months, Math.min(day.getDate(), lastOfMonth)))
+    if (next >= today) return next
+  }
+}
 
 const OPEN_MS = 340
 const CLOSE_MS = 260
@@ -60,6 +76,9 @@ export function TransactionDetail({ txn, from, photoUri, addedBy, onClosed, onEd
   const { data: accounts } = useAccounts()
   const { readOnly, blocked } = useReadOnly()
   const update = useUpdateExpense()
+  const router = useRouter()
+  const { data: user } = useUser()
+  const { data: subscriptions } = useSubscriptions()
   // What's on screen. `txn` is the card as it was tapped, so a change made here
   // lives in this copy, along with the version the next write has to send.
   const [row, setRow] = useState(txn)
@@ -161,6 +180,27 @@ export function TransactionDetail({ txn, from, photoUri, addedBy, onClosed, onEd
   const sameDay = !Number.isNaN(logged.getTime()) && toLocalDateString(logged) === row.date
   const time = formatTime(row.timestamp)
   const account = accountName(accounts, row.account_id)
+  // Filed under a subscription category but not tracked as one yet: offer to set it up from this expense.
+  const isSubscriptionCategory = /subscription/i.test(name) || !!subscriptions?.some((s) => s.category === row.category)
+  const tracked = subscriptions?.some((s) => s.service.trim().toLowerCase() === row.item.trim().toLowerCase())
+  const canConvert = !readOnly && !!subscriptions && !isHidden(user, 'subscriptions') && isSubscriptionCategory && !tracked
+  function convert() {
+    if (blocked()) return
+    Haptics.selectionAsync().catch(() => {})
+    close(() =>
+      router.push({
+        pathname: '/modals/subscription',
+        params: {
+          fromExpense: '1',
+          service: row.item.trim(),
+          amount: String(Number(row.amount_inr) || ''),
+          category: row.category,
+          nextDueDate: nextMonthlyDue(row.date),
+          notes: notes ?? '',
+        },
+      }),
+    )
+  }
   const rows: { icon: PhosphorIcon; label: string; value: string; onPress?: () => void }[] = [
     { icon: Tag, label: 'Category', value: name, onPress: editable ? openPicker('category') : undefined },
     {
@@ -234,6 +274,22 @@ export function TransactionDetail({ txn, from, photoUri, addedBy, onClosed, onEd
                 </View>
               ))}
             </View>
+            {canConvert ? (
+              <Pressable
+                onPress={convert}
+                disabled={update.isPending}
+                accessibilityRole="button"
+                accessibilityLabel="Make this a subscription"
+                style={({ pressed }) => [styles.group, styles.row, { backgroundColor: tokens.cardSolid, borderColor: tokens.border, borderRadius: radius.lg, gap: space.md, paddingVertical: space.md, opacity: pressed ? 0.7 : 1 }]}
+              >
+                <ArrowsClockwise size={18} color={tokens.accent} />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ color: tokens.text, fontFamily: fontFamily.bodySemiBold, fontSize: 14 }}>Make this a subscription</Text>
+                  <Text style={{ color: tokens.text3, fontFamily: fontFamily.bodyMedium, fontSize: 12, marginTop: 2 }}>We&apos;ll log it for you each time it renews.</Text>
+                </View>
+                <CaretRight size={14} color={tokens.text3} />
+              </Pressable>
+            ) : null}
             {saveError ? <Text accessibilityRole="alert" style={{ color: tokens.coral, fontFamily: fontFamily.bodySemiBold, fontSize: 14 }}>{saveError}</Text> : null}
             {notes ? (
               <View style={[styles.group, { backgroundColor: tokens.cardSolid, borderColor: tokens.border, borderRadius: radius.lg, paddingVertical: space.md }]}>
