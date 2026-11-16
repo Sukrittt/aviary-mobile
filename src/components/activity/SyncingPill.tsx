@@ -18,6 +18,8 @@ import { CheckIcon } from '@/src/components/shared/CheckIcon'
 import { CategoryIcon } from '@/src/components/shared/CategoryIcon'
 import { useCategories, useCategoryTint } from '@/src/hooks/useCategories'
 import { useCurrency } from '@/src/context/CurrencyContext'
+import { useBudgetSpaces } from '@/src/hooks/useBudgetSpaces'
+import { createCurrencyFormat } from '@/src/lib/currencies'
 import { usePrivacy } from '@/src/context/PrivacyContext'
 import { tap } from '@/src/lib/haptics'
 import { formatDayLabel } from '@/src/lib/date'
@@ -45,17 +47,18 @@ function PulseDot({ color }: { color: string }) {
  * are still on their way. When the queue drains, the pill (and the sheet, if
  * it's open) ends on a mint check, so the wait closes on a good note.
  */
-export function SyncingPill({ queued }: { queued: PendingExpense[] }) {
+export function SyncingPill({ queued, failed }: { queued: PendingExpense[]; failed: number }) {
   const { tokens } = useTheme()
   const press = usePressSpring()
   const [open, setOpen] = useState(false)
   const [done, setDone] = useState(false)
   const count = queued.length
-  const [prevCount, setPrevCount] = useState(count)
+  const [prev, setPrev] = useState({ count, failed })
   // The queue just drained: hold the check for a beat. More arriving cancels it.
-  if (count !== prevCount) {
-    setPrevCount(count)
-    setDone(count === 0 && prevCount > 0)
+  // A drain that ended by giving up on one isn't a win: the failed row says so.
+  if (count !== prev.count || failed !== prev.failed) {
+    setPrev({ count, failed })
+    setDone(count === 0 && prev.count > 0 && failed <= prev.failed)
   }
 
   useEffect(() => {
@@ -103,6 +106,7 @@ function SyncSheet({ queued, done }: { queued: PendingExpense[]; done: boolean }
   const categories = useCategories().data
   const tintOf = useCategoryTint()
   const { formatCurrency } = useCurrency()
+  const { budgets } = useBudgetSpaces()
   const { hideAmounts } = usePrivacy()
 
   if (done) {
@@ -130,9 +134,12 @@ function SyncSheet({ queued, done }: { queued: PendingExpense[]; done: boolean }
       <Text style={[styles.sub, styles.subLeft, { color: tokens.text2, fontFamily: fontFamily.bodyMedium }]}>
         {`Sending ${queued.length === 1 ? 'it' : 'them'} to your budget now. You don't need to wait here.`}
       </Text>
-      {queued.map(({ payload }, i) => {
+      {queued.map(({ payload, spaceId }, i) => {
         const category = categories?.find((c) => c.name === payload.category)
         const tint = tintOf(payload.category)
+        // In the budget it was logged in, which may not be the active one.
+        const code = (budgets.find((b) => b.id === spaceId) ?? budgets.find((b) => b.personal))?.currencyCode
+        const format = code ? createCurrencyFormat(code).formatCurrency : formatCurrency
         return (
           <Reanimated.View
             key={payload.client_id}
@@ -153,7 +160,7 @@ function SyncSheet({ queued, done }: { queued: PendingExpense[]; done: boolean }
               </Text>
             </View>
             <Text style={[styles.item, { color: tokens.text, fontFamily: fontFamily.bodySemiBold }]}>
-              {formatCurrency(Number(payload.amount_inr) || 0, hideAmounts)}
+              {format(Number(payload.amount_inr) || 0, hideAmounts)}
             </Text>
           </Reanimated.View>
         )

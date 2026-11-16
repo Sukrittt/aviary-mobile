@@ -964,7 +964,7 @@ function ActivityScreen() {
             </>
           ) : (
             <>
-              <SyncingPill queued={unsynced.queued} />
+              <SyncingPill queued={unsynced.queued} failed={unsynced.failed.length} />
               {duplicateCount > 0 && (
                 <Chip
                   selected

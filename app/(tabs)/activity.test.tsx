@@ -787,6 +787,27 @@ describe('sync status while online', () => {
     expect(await screen.findByText("Everything's safe in your budget.")).toBeTruthy()
     await waitFor(() => expect(screen.queryByText("Everything's safe in your budget.")).toBeNull(), { timeout: 3000 })
   })
+
+  it("doesn't call it synced when the last one fails instead", async () => {
+    await pending.enqueue({ client_id: 'c1', item: 'Chai', amount_inr: '20', category: 'Food', date: '2026-06-01', timestamp: '2026-06-01T10:00:00' }, 'u1', false, 'u1')
+    const screen = renderWithProviders(<ActivityScreen />)
+    expect(await screen.findByText('Syncing 1')).toBeTruthy()
+
+    await act(async () => { await pending.bumpAttempts('c1', 1, 'u1') })
+    expect(await screen.findByText("1 expense couldn't be saved")).toBeTruthy()
+    expect(screen.queryByText('All synced')).toBeNull()
+    expect(screen.queryByText(/Syncing/)).toBeNull()
+  })
+
+  it('shows each queued amount in the currency of the budget it was logged in', async () => {
+    const home = { id: 'u1', name: 'Home', personal: true, currencyCode: 'INR', members: [] }
+    const trip = { id: 'sp_trip', name: 'Trip', personal: false, currencyCode: 'USD', members: [] }
+    mockSpaces = { budgets: [home, trip], active: home, multi: true }
+    await pending.enqueue({ client_id: 'c1', item: 'Taxi', amount_inr: '12', category: 'Food', date: '2026-06-01', timestamp: '2026-06-01T10:00:00' }, 'u1', false, 'sp_trip')
+    const screen = renderWithProviders(<ActivityScreen />)
+    fireEvent.press(await screen.findByText('Syncing 1'))
+    expect(await screen.findByText('$12')).toBeTruthy()
+  })
 })
 
 it('in a read-only budget, shows the banner and says why instead of deleting', async () => {
