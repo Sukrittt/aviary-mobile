@@ -89,7 +89,8 @@ export function SyncingPill({ queued, failed }: { queued: PendingExpense[]; fail
         layout={LinearTransition}
         style={[styles.pill, { backgroundColor: done ? tokens.mintSoft : tokens.accentSoft }, press.style]}
       >
-        {done ? <CheckIcon color={tokens.mint} size={14} /> : <PulseDot color={tokens.accentInk} />}
+        {/* The open sheet's check buzzes; one success, one haptic. */}
+        {done ? <CheckIcon color={tokens.mint} size={14} haptic={!open} /> : <PulseDot color={tokens.accentInk} />}
         <Text style={[styles.pillText, { color: done ? tokens.mint : tokens.accentInk, fontFamily: fontFamily.bodySemiBold }]}>
           {done ? 'All synced' : `Syncing ${count}`}
         </Text>
