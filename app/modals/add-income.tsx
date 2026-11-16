@@ -327,6 +327,7 @@ export function IncomeForm({ existing, flood = false, defaultLabel, intro }: { e
           <Text
             accessibilityRole="alert"
             accessibilityLiveRegion="polite"
+            numberOfLines={2}
             style={{
               color: tokens.coral,
               fontFamily: fontFamily.bodySemiBold,
