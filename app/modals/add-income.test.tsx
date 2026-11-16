@@ -73,13 +73,15 @@ it('names an unnamed one-off and puts it on the picked account', async () => {
 
 it('keeps the screen open with a written error when saving fails', async () => {
   ;(addIncome as jest.Mock).mockRejectedValueOnce(new Error('503'))
-  const { getByLabelText, getByText, findByText } = renderWithProviders(<AddIncomeModal />)
+  const { getByLabelText, getByText, findByText, getByRole } = renderWithProviders(<AddIncomeModal />)
   await waitFor(() => expect(getBudgets).toHaveBeenCalled())
   typeAmount(getByLabelText, '500')
   await act(async () => {
     fireEvent.press(getByText('Add'))
   })
   expect(await findByText("Couldn't save. Check your connection and try again.")).toBeTruthy()
+  // Announced, and sits by the Add button rather than up in the scroll area.
+  expect(getByRole('alert')).toHaveTextContent("Couldn't save. Check your connection and try again.")
   expect(mockBack).not.toHaveBeenCalled()
 })
 
