@@ -303,9 +303,6 @@ export function IncomeForm({ existing, flood = false, defaultLabel, intro }: { e
           <CaretDown size={16} color={tokens.accent} />
         </Pressable>
 
-        {error !== "" && (
-          <Text style={{ color: tokens.coral, fontSize: 12 }}>{error}</Text>
-        )}
       </ScrollView>
 
       <View
@@ -325,6 +322,22 @@ export function IncomeForm({ existing, flood = false, defaultLabel, intro }: { e
           onClear={() => setAmountText("")}
           disabled={saving || success}
         />
+        {/* Sits on the button it's about, not lost up in the scroll area. */}
+        {error !== "" && (
+          <Text
+            accessibilityRole="alert"
+            accessibilityLiveRegion="polite"
+            numberOfLines={2}
+            style={{
+              color: tokens.coral,
+              fontFamily: fontFamily.bodySemiBold,
+              fontSize: type.caption,
+              textAlign: "center",
+            }}
+          >
+            {error}
+          </Text>
+        )}
         <Pressable
           style={[
             styles.confirmButton,

@@ -10,12 +10,14 @@ const CHECK_PATH_LENGTH = 19.8
 // Renders inline in place of a button's label (the button keeps its own
 // background/shape — this is just the icon, not a pill that swaps the whole
 // button out). Fades in while the checkmark draws itself via strokeDashoffset.
-export function CheckIcon({ color, size = 20 }: { color: string; size?: number }) {
+export function CheckIcon({ color, size = 20, haptic = true }: { color: string; size?: number; haptic?: boolean }) {
   const opacity = useRef(new Animated.Value(0)).current
   const checkDashoffset = useRef(new Animated.Value(CHECK_PATH_LENGTH)).current
+  // Decided on mount: the check draws once, so it buzzes at most once.
+  const buzz = useRef(haptic).current
 
   useEffect(() => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {})
+    if (buzz) Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {})
     opacity.setValue(0)
     checkDashoffset.setValue(CHECK_PATH_LENGTH)
     Animated.timing(opacity, { toValue: 1, duration: 200, easing: Easing.ease, useNativeDriver: true }).start()
@@ -26,7 +28,7 @@ export function CheckIcon({ color, size = 20 }: { color: string; size?: number }
       easing: Easing.out(Easing.ease),
       useNativeDriver: false,
     }).start()
-  }, [opacity, checkDashoffset])
+  }, [opacity, checkDashoffset, buzz])
 
   return (
     <Animated.View style={{ width: size, height: size, opacity }}>
