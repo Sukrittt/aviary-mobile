@@ -62,6 +62,7 @@ import { SheetOption, SheetTitle } from "@/src/components/shared/SheetOption";
 import { DatePicker, type DateRange } from "@/src/components/shared/DatePicker";
 import { useRefresh } from "@/src/hooks/useRefresh";
 import { SwipeableRow } from "@/src/components/activity/SwipeableRow";
+import { SyncingPill } from "@/src/components/activity/SyncingPill";
 import { SelectCheck, SelectInset, SelectTint } from "@/src/components/shared/SelectCheck";
 import { DeletingRow } from "@/src/components/activity/DeletingRow";
 import { ActivitySkeleton } from "@/src/components/shared/TabSkeleton";
@@ -963,12 +964,7 @@ function ActivityScreen() {
             </>
           ) : (
             <>
-              {/* Quiet on purpose: the queue drains itself, this only says it's on it. */}
-              {unsynced.pending > 0 && (
-                <Text style={[styles.syncing, { color: tokens.text3, fontFamily: fontFamily.bodySemiBold }]}>
-                  Syncing {unsynced.pending}…
-                </Text>
-              )}
+              <SyncingPill queued={unsynced.queued} failed={unsynced.failed.length} />
               {duplicateCount > 0 && (
                 <Chip
                   selected
@@ -1554,7 +1550,6 @@ const styles = StyleSheet.create({
   },
   rowTint: { borderRadius: 14 },
   failedRow: { borderRadius: 14, paddingHorizontal: 14 },
-  syncing: { fontSize: 12, alignSelf: "center" },
   icon: {
     width: 40,
     height: 40,
